@@ -45,6 +45,16 @@ Each sub-skill declares a `model` field in its SKILL.md frontmatter. When delega
 
 **Phase 6 (Finalize) and Phase 8 (Cleanup) are executed directly by the orchestrator** — they have no sub-skill files. The finalize logic is defined inline in this file (see Phase 6 below).
 
+## Utility Sub-skills
+
+Utility sub-skills are not tied to any phase. They can be invoked on-demand at any point in the workflow — typically when the user wants to explore an idea or decision before proceeding.
+
+To find a utility sub-skill's SKILL.md, use: `Glob("~/.claude/**/discuss/SKILL.md")` — or try `Glob("skills/discuss/SKILL.md")` in local setups.
+
+| Sub-skill | SKILL.md path | Invocation | Model | When to use |
+|-----------|---------------|------------|-------|-------------|
+| discuss | `discuss/SKILL.md` | Inline | opus | Explore a question or design decision via dialogue before committing to a direction |
+
 ## Status Banners
 
 At the start of every phase, print a banner to the conversation so the user knows where they are. Use this exact format:

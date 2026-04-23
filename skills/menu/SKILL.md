@@ -13,6 +13,7 @@ disable-model-invocation: true
 | `/bfeature:design <idea>` | Interactive Q&A → shareable system design document. Optionally seeds /bfeature:full. |
 | `/bfeature:gh` | Pick a GitHub issue → full or quick workflow |
 | `/bfeature:jira` | Pick a Jira ticket → full or quick workflow |
+| `/bfeature:discuss <question>` | Explore a question or design decision via dialogue before committing to a direction |
 | `/bfeature:session-summary` | Generate a summary of the current session |
 
 Pass an idea directly: `/bfeature:full add dark mode support`

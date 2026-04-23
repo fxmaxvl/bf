@@ -24,6 +24,7 @@ Also includes a standalone design tool (`/bfeature:design`) for producing sharea
 | `/bfeature:design <idea>` | Interactive Q&A → shareable system design document |
 | `/bfeature:gh` | Pick a GitHub issue → kick off full or quick workflow |
 | `/bfeature:jira` | Pick a Jira ticket → kick off full or quick workflow |
+| `/bfeature:discuss <question>` | Explore a question or design decision via dialogue before committing to a direction |
 | `/bfeature:session-summary` | Generate a summary of the current session |
 
 ## Installation
