@@ -1,4 +1,4 @@
-# bf (<B>uild<F>eature)
+# bf (Build Feature)
 
 ## Why bf?
 
