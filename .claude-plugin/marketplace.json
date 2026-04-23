@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "bfeature",
-  "description": "Full feature development workflow — from idea to pull request.",
+  "name": "fxmaxvl",
+  "description": "fxmaxvl's Claude Code plugins.",
   "owner": {
     "name": "fxmaxvl",
     "url": "https://github.com/fxmaxvl"
