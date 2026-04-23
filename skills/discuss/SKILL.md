@@ -6,6 +6,8 @@ argument-hint: [question or topic]
 model: opus
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 You are given a question or topic to discuss: $ARGUMENTS
 
 Before providing any solution or answer:

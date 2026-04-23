@@ -6,6 +6,8 @@ allowed-tools: Read, Grep, Glob, Bash(git *)
 model: opus
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Run the helper scripts to load state and detect changed files:
 
 ```

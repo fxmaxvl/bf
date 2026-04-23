@@ -6,6 +6,8 @@ model: sonnet
 allowed-tools: Read, Grep, Glob, Bash
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Run quality gates for this project.
 
 ## Step 1 — Load state and detect stack

@@ -5,6 +5,8 @@ disable-model-invocation: true
 model: sonnet
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Run the helper script to load state and artifact paths:
 
 ```

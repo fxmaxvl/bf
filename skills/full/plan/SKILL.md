@@ -5,6 +5,8 @@ disable-model-invocation: true
 model: opus
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Draft a detailed, step-by-step blueprint for building this project. Break it down into small, iterative chunks that build on each other. Review the chunks — identify any that span multiple concerns or would require more than one test boundary — and break those down further. Each chunk should be small enough to implement safely with strong testing, but substantial enough to move the project forward. Stop decomposing when every chunk is ready for test-driven implementation.
 
 From here you should have the foundation to provide a series of prompts for a code-generation LLM that will implement each step in a test-driven manner. Prioritize best practices, incremental progress, and early testing, ensuring no big jumps in complexity at any stage. Make sure that each prompt builds on the previous prompts, and ends with wiring things together. There should be no hanging or orphaned code that isn't integrated into a previous step.

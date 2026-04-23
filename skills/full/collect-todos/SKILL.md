@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Grep, Glob, Bash(git *)
 model: sonnet
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Scan the feature branch changes for `TODO` comments **that are related to this feature**. Ignore pre-existing TODOs that were not introduced or modified by this branch.
 
 ## Input

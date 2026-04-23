@@ -6,6 +6,8 @@ argument-hint: [slug]
 model: opus
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Generate a complete, implementation-ready feature specification from the gathered requirements.
 
 ## Input

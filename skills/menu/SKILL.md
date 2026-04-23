@@ -4,6 +4,8 @@ description: List all available bfeature commands.
 disable-model-invocation: true
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 ## bfeature — available commands
 
 | Command | Description |

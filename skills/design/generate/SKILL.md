@@ -6,6 +6,8 @@ argument-hint: [qa-file-path] [output-doc-path]
 model: opus
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Produce a complete, shareable system-design document from the gathered Q&A transcript.
 
 ## Input

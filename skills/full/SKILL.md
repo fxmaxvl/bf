@@ -6,6 +6,8 @@ argument-hint: [--quick] [idea description, Jira ticket URL, or GH-ISSUE:<number
 allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), mcp__*__jira__*
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Orchestrate the full development workflow for a feature. Manage state via `.claude/.bfeature-temp/build-state.json` and delegate to existing skills with approval gates between each phase.
 
 ## Artifacts Directory

@@ -5,6 +5,8 @@ description: Pick Jira tickets to work on or interact with them (read, transitio
 argument-hint: [optional: "pick", "pick PROJECT", or Jira ticket URL]
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Manage Jira tickets. Two modes: **pick** (browse and select a ticket to work on) and **url** (pass a specific ticket URL). Also provides utility operations used by other skills.
 
 ## Tool Discovery

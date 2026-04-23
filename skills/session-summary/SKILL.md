@@ -5,6 +5,8 @@ disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash(git *)
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Create `session_{slug}_{timestamp}.md` with a complete summary of our session. Include:
 
 - A brief recap of key actions.

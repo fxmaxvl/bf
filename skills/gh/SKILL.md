@@ -4,6 +4,8 @@ description: Create GitHub issues or pick existing ones to work on. Auto-generat
 argument-hint: [optional: "pick", "pick bug", or issue description]
 model: sonnet
 ---
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Manage GitHub issues on the current repository. Two modes: **create** (capture something to track) and **pick** (select an existing issue to work on).
 
 ## Mode Detection
