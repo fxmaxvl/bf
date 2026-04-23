@@ -1,14 +1,18 @@
 # bfeature
 
-A Claude Code skill plugin that turns a raw idea into a merged pull request through a structured, AI-guided workflow.
+## Why bfeature?
 
-Instead of jumping straight to code, bfeature walks you through the right steps: clarifying the idea, producing a spec, reviewing the design, planning the implementation, executing it, verifying quality, and finalizing the PR. Each phase is a quality gate — you stay in control, Claude does the heavy lifting.
+Most AI coding tools jump straight to writing code. That works for small tasks — but for anything non-trivial, skipping the thinking phase is where bugs, rework, and scope creep come from.
+
+bfeature enforces a structured workflow between you and Claude: clarify the idea first, produce a spec, review the design for architectural gaps, plan the implementation as a TDD blueprint, execute it, verify tests and lint pass, then open the PR. Each step is a checkpoint — Claude moves forward automatically where it can, and stops for your approval where it matters.
+
+**The result:** less rework, fewer review surprises, and a paper trail (spec, plan, todo list) that survives context resets.
 
 **Two modes:**
 - **Full** — for new features: brainstorm → spec → design review → plan → execute → verify → PR
 - **Quick** — for bugfixes and small changes: refine → plan → execute → verify → PR
 
-Also includes a standalone design tool (`/bfeature:design`) for producing shareable system design documents before any code is written.
+Also includes a standalone design tool (`/bfeature:design`) for producing shareable system design documents — useful before any code is written, or when you need to align with teammates first.
 
 ## What's inside
 
