@@ -14,6 +14,8 @@
 
 ## We practice TDD. That means:
 
+> For test types, isolation rules, and structure requirements, see `testing.md`. This section covers the red-green-refactor cycle only.
+
 - Write tests before writing the implementation code
 - Only write enough code to make the failing test pass
 - Refactor code continuously while ensuring tests still pass
