@@ -21,7 +21,7 @@ Review the implementation by comparing what was built against the plan and requi
 ## Mode-aware input
 
 - **Full mode** (`mode` = `"full"`): Compare against `paths.spec` and `paths.plan`.
-- **Quick mode** (`mode` = `"quick"`): No spec exists. Compare against `paths.qa` and `paths.plan`.
+- **Quick mode** (`mode` = `"quick"`): No spec file was generated (quick mode skips brainstorm). Compare against `paths.qa` and `paths.plan`.
 
 ## Review Criteria
 

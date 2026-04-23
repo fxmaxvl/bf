@@ -69,7 +69,7 @@ A: <answer 2>
 ...
 ```
 
-The orchestrator reads this output and writes the temp file to `/tmp/bfeature-design-qa-<timestamp>.md`. Do not attempt to write to that path yourself.
+The orchestrator reads this output and writes the temp file to `$TEMP_DIR/<timestamp>-design-qa.md`. Do not attempt to write to that path yourself.
 
 Here is the idea:
 $ARGUMENTS

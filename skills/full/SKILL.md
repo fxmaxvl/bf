@@ -14,7 +14,7 @@ All build artifacts (spec, plan, todo, backlog, build-state.json) live in `<proj
 
 ## Sub-skill Resolution
 
-Sub-skills are **not registered** with the Skill tool and cannot be invoked via `Skill(name)`. Always locate them by reading their SKILL.md directly.
+Phase sub-skills (brainstorm, plan, do-todo, etc.) are **not registered** with the Skill tool and cannot be invoked via `Skill(name)`. Always locate them by reading their SKILL.md directly. Top-level skills (`full`, `quick`) ARE registered and CAN be invoked via `Skill(name)` — see the handoff section.
 
 **Reading the sub-skill's SKILL.md is mandatory before executing that phase.** Never skip this step and proceed directly to writing code or running commands. The sub-skill files contain the authoritative instructions for each phase — ignoring them causes missed quality gates, wrong outputs, and broken flows.
 
@@ -69,6 +69,11 @@ Print the banner as plain text (not in a code block). Do this before any other w
 
 ## Phase Flow
 
+**Legend:**
+- `[auto]` — proceeds without asking
+- `[GATE]` — stops and waits for user approval
+- `⇄ fix` — per-cycle "fix these concerns?" stop inside review loops
+
 **Full mode** (default):
 ```
 init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] execute → [auto] verify → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
@@ -78,11 +83,6 @@ init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] 
 ```
 init → refine → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
 ```
-
-**Gates legend:**
-- `[auto]` — proceeds without asking
-- `[GATE]` — stops and waits for user approval
-- `⇄ fix` — per-cycle "fix these concerns?" stop inside review loops
 
 Quick mode skips **only** brainstorm and review-design. Every other phase — refine, plan, execute, verify, review-impl, verify (silent), finalize — is **mandatory** regardless of how simple or obvious the fix appears. Do not collapse, merge, or skip phases because the task looks trivial. The phases exist as quality gates that apply at all complexity levels.
 

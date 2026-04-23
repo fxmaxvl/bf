@@ -25,7 +25,7 @@ Read `./testing.md` and verify the changes comply with every rule. Key things to
 
 - Missing tests for the implemented functionality
 - Missing unit, integration, or end-to-end tests (all three are required — no exceptions)
-- Tests written after the implementation instead of before (TDD violation)
+- Tests written after the implementation instead of before (TDD violation — see `./dev.md` for the full TDD process)
 - Test output that is not pristine (unexpected logs, warnings, or errors not explicitly asserted)
 - Tests that ignore or swallow logs/error output instead of asserting on them
 

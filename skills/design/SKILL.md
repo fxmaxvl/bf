@@ -104,7 +104,7 @@ Print banner: `── design | Generate (may take 1–2 min) ──────�
    - Convert to kebab-case and ASCII characters only (strip accents and non-ASCII).
    - Remove common filler words: a, an, the, of, to, in, for, on, at, by, with, and, or, but.
    - Cap at 40 characters, truncating at the nearest **word boundary before** the 40-char limit (never cut mid-word).
-   - If the result is empty, too short (≤ 3 chars), or consists only of filler, append a `-<YYYYMMDD>` timestamp suffix for uniqueness (e.g., `design-20260420`).
+   - If the result is empty, too short (≤ 3 chars), or consists only of filler, use `design-<YYYYMMDD>` as the slug (e.g., `design-20260420`).
 
 2. **Compute the output path:**
    ```
