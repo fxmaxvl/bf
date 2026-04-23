@@ -8,28 +8,30 @@ Instead of jumping straight to code, bfeature walks you through the right steps:
 - **Full** — for new features: brainstorm → spec → design review → plan → execute → verify → PR
 - **Quick** — for bugfixes and small changes: refine → plan → execute → verify → PR
 
-Also includes a standalone design tool (`/bfeature-design`) for producing shareable system design documents before any code is written.
+Also includes a standalone design tool (`/bfeature:design`) for producing shareable system design documents before any code is written.
 
 ## What's inside
 
-| Skill | Command | Description |
-|-------|---------|-------------|
-| Menu | `/bfeature` | List all available commands |
-| Full workflow | `/bfeature-full <idea>` | brainstorm → spec → review → plan → execute → verify → finalize |
-| Quick workflow | `/bfeature-quick <idea>` | refine → plan → execute → verify → finalize |
-| Design doc | `/bfeature-design <idea>` | Interactive Q&A → shareable system design document |
-| GitHub | `/bfeature-gh` | Pick a GitHub issue → kick off full or quick workflow |
-| Jira | `/bfeature-jira` | Pick a Jira ticket → kick off full or quick workflow |
-| Session summary | `/session-summary` | Generate a summary of the current session |
+| Command | Description |
+|---------|-------------|
+| `/bfeature:menu` | List all available commands |
+| `/bfeature:full <idea>` | brainstorm → spec → review → plan → execute → verify → finalize |
+| `/bfeature:quick <idea>` | refine → plan → execute → verify → finalize |
+| `/bfeature:design <idea>` | Interactive Q&A → shareable system design document |
+| `/bfeature:gh` | Pick a GitHub issue → kick off full or quick workflow |
+| `/bfeature:jira` | Pick a Jira ticket → kick off full or quick workflow |
+| `/bfeature:session-summary` | Generate a summary of the current session |
 
 ## Installation
 
 ```bash
-git clone git@github.com:fxmaxvl/bfeature.git
-cd bfeature
-cp -r skills/* ~/.claude/skills/
-cp conventions/* ~/.claude/conventions/
-cp CLAUDE.md ~/.claude/CLAUDE.md   # or merge manually if you already have one
+claude plugin install fxmaxvl/bfeature
+```
+
+Or to test locally without installing:
+
+```bash
+claude --plugin-dir ./path/to/bfeature
 ```
 
 ## Conventions
@@ -48,6 +50,6 @@ The `conventions/` directory contains language- and action-specific guidelines C
 ## Requirements
 
 - [Claude Code](https://claude.ai/code)
-- `gh` CLI (for GitHub integration)
-- Jira MCP server configured (for `/bfeature-jira`)
-- Excalidraw MCP server (optional, for diagrams in `/bfeature-design`)
+- `gh` CLI (for `/bfeature:gh` and PR creation)
+- Jira MCP server configured (for `/bfeature:jira`)
+- Excalidraw MCP server (optional, for diagrams in `/bfeature:design`)

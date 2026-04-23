@@ -32,10 +32,10 @@ Reusable skills live in `./skills/`. Each skill has a `SKILL.md` with frontmatte
 
 ### Entry points
 
-- `/bfeature` — list all available commands
-- `/bfeature-full <idea>` — full workflow for new features
-- `/bfeature-quick <idea>` — lightweight workflow for small changes
-- `/bfeature-design <idea>` — produce a shareable system design document
-- `/bfeature-gh` — pick a GitHub issue, then kicks off bfeature
-- `/bfeature-jira` — pick a Jira ticket, then kicks off bfeature
-- `/session-summary` — generate a session summary
+- `/bfeature:menu` — list all available commands
+- `/bfeature:full <idea>` — full workflow for new features
+- `/bfeature:quick <idea>` — lightweight workflow for small changes
+- `/bfeature:design <idea>` — produce a shareable system design document
+- `/bfeature:gh` — pick a GitHub issue, then kicks off bfeature
+- `/bfeature:jira` — pick a Jira ticket, then kicks off bfeature
+- `/bfeature:session-summary` — generate a session summary
