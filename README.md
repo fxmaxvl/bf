@@ -31,7 +31,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 In Claude:
 ```bash
 /plugin marketplace add fxmaxvl/bf
-/plugin install fxmaxvl/bf
+/plugin install bf@fxmavl
 ```
 
 Or to test locally without installing:
