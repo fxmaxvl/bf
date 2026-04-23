@@ -21,11 +21,11 @@ When a step requires a temporary solution, workaround, or deferred work (e.g., w
 
 The `(<slug>)` tag ties the comment to the feature so it can be collected automatically during the collect-todos phase. Every deferred item must have a comment in the code — no silent shortcuts.
 
-Run the helper scripts to load state and detect the stack. Use Glob to find them: `~/.claude/skills/bfeature-full/scripts/`.
+Run the helper scripts to load state and detect the stack:
 
 ```
 bash "$(find ~/.claude -name state-ops.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
-bash ~/.claude/skills/bfeature-full/scripts/detect-stack.sh
+bash "$(find ~/.claude -name detect-stack.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
 ```
 
 `state-ops.sh` gives you `slug`, `build_timestamp`, `mode`, and all artifact paths including `paths.plan` and `paths.todo` where you'll write output.

@@ -10,12 +10,12 @@ Run quality gates for this project.
 
 ## Step 1 — Load state and detect stack
 
-Run the two helper scripts. Use Glob to find them: `~/.claude/skills/bfeature-full/scripts/`.
+Run the two helper scripts:
 
 ```
 bash "$(find ~/.claude -name state-ops.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
-bash ~/.claude/skills/bfeature-full/scripts/detect-stack.sh
-bash ~/.claude/skills/bfeature-full/scripts/changed-packages.sh
+bash "$(find ~/.claude -name detect-stack.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
+bash "$(find ~/.claude -name changed-packages.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
 ```
 
 `state-ops.sh` gives you `slug`, `mode`, and all artifact paths.

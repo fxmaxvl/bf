@@ -7,7 +7,7 @@ allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), mcp__*__jira__*
 
 Run the `full` workflow in quick mode.
 
-1. Locate the full skill SKILL.md: `Glob("~/.claude/**/full/SKILL.md")`. Use the first result.
+1. Locate the full skill SKILL.md: `Read("<base-dir>/../full/SKILL.md")`. `<base-dir>` is the base directory of this skill provided in the system-reminder.
 2. Read it and follow its instructions with `--quick` prepended to `$ARGUMENTS`.
 
 Here is the idea:

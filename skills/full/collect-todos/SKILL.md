@@ -10,11 +10,11 @@ Scan the feature branch changes for `TODO` comments **that are related to this f
 
 ## Input
 
-Run the helper scripts. Use Glob to find them: `~/.claude/skills/bfeature-full/scripts/`.
+Run the helper scripts:
 
 ```
 bash "$(find ~/.claude -name state-ops.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
-bash ~/.claude/skills/bfeature-full/scripts/changed-packages.sh
+bash "$(find ~/.claude -name changed-packages.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
 ```
 
 `state-ops.sh` gives you `slug`, `build_timestamp`, `mode`, and artifact paths.

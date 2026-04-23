@@ -18,7 +18,7 @@ Sub-skills are **not registered** with the Skill tool and cannot be invoked via 
 
 **Reading the sub-skill's SKILL.md is mandatory before executing that phase.** Never skip this step and proceed directly to writing code or running commands. The sub-skill files contain the authoritative instructions for each phase — ignoring them causes missed quality gates, wrong outputs, and broken flows.
 
-To find a sub-skill's SKILL.md, use: `Glob("~/.claude/**/full/**/SKILL.md")` — then match by the path column in the routing table below. If the Glob returns no results, try `Glob("skills/full/**/SKILL.md")` (some setups use a local `skills/` directory).
+To find a sub-skill's SKILL.md, use: `Glob("<base-dir>/**/SKILL.md")` — then match by the path column in the routing table below. `<base-dir>` is the base directory of this skill provided in the system-reminder.
 
 **Invocation patterns:**
 
@@ -49,7 +49,7 @@ Each sub-skill declares a `model` field in its SKILL.md frontmatter. When delega
 
 Utility sub-skills are not tied to any phase. They can be invoked on-demand at any point in the workflow — typically when the user wants to explore an idea or decision before proceeding.
 
-To find a utility sub-skill's SKILL.md, use: `Glob("~/.claude/**/discuss/SKILL.md")` — or try `Glob("skills/discuss/SKILL.md")` in local setups.
+To find a utility sub-skill's SKILL.md, use: `Read("<base-dir>/../discuss/SKILL.md")`. `<base-dir>` is the base directory of this skill provided in the system-reminder.
 
 | Sub-skill | SKILL.md path | Invocation | Model | When to use |
 |-----------|---------------|------------|-------|-------------|
@@ -337,7 +337,7 @@ Print banner: `── bfeature | Collect TODOs ───────────
 Print banner: `── bfeature | Cleanup ───────────────────────────────`
 
 ```
-bash ~/.claude/skills/full/scripts/cleanup.sh
+bash "$(find ~/.claude -name cleanup.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
 ```
 
 Deletes ephemeral handoff files (`qa.md`, `design-report.md`, `impl-report.md`) and `build-state.json`. Persistent artifacts (`spec`, `plan`, `todo`, `backlog`, `deployment`) are kept.

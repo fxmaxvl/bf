@@ -10,7 +10,7 @@ Run the helper scripts to load state and detect changed files:
 
 ```
 bash "$(find ~/.claude -name state-ops.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
-bash ~/.claude/skills/bfeature-full/scripts/changed-packages.sh
+bash "$(find ~/.claude -name changed-packages.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
 ```
 
 `state-ops.sh` gives you `slug`, `build_timestamp`, `mode`, and `paths.*`.

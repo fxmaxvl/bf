@@ -14,7 +14,7 @@ Orchestrate a 4-phase design flow: Gather → Generate → Review → Optional /
 
 ## Sub-skill Resolution
 
-Sub-skills are **not registered** with the Skill tool and cannot be invoked via `Skill(name)`. Locate them using `Glob("~/.claude/skills/design/**/SKILL.md")`.
+Sub-skills are **not registered** with the Skill tool and cannot be invoked via `Skill(name)`. The system-reminder provides `Base directory for this skill: <path>` — sub-skills are siblings of this skill at `<base-dir>/gather/SKILL.md` and `<base-dir>/generate/SKILL.md`. Read them directly by path; no Glob needed.
 
 **Reading the sub-skill's SKILL.md is mandatory before executing that phase.** Never skip this step.
 
@@ -47,23 +47,30 @@ gather (inline Q&A) → generate (opus agent) → review (inline) → handoff? (
 
 1. If `$ARGUMENTS` is empty or whitespace-only: ask the user one question — "What do you want to design?" — and use their answer as the idea.
 2. Otherwise, use `$ARGUMENTS` verbatim as the idea. Do not truncate or preprocess it, even if it is a multi-paragraph paste.
-3. Compute a session timestamp in `YYYYMMDDTHH` format (e.g., `20260420T14`). Store it for the temp Q&A file path. The temp file path will be `/tmp/design-qa-<timestamp>.md`.
+3. Compute a session timestamp in `YYYYMMDDTHH` format (e.g., `20260420T14`). Then resolve the temp directory:
+   ```
+   project_root=$(git rev-parse --show-toplevel 2>/dev/null) \
+     && TEMP_DIR="$project_root/.claude/.bfeature-temp" \
+     || TEMP_DIR="$PWD/.claude/.bfeature-temp"
+   mkdir -p "$TEMP_DIR"
+   ```
+   The temp Q&A file path is `$TEMP_DIR/<timestamp>-design-qa.md`.
 
 ## Phase 1 — Gather
 
 Print banner: `── design | Gather ───────────────────────────────`
 
-1. Read `~/.claude/skills/design/gather/SKILL.md` and follow its instructions **inline** in the current conversation. Pass the idea as `$ARGUMENTS`.
+1. Read `<base-dir>/gather/SKILL.md` and follow its instructions **inline** in the current conversation. Pass the idea as `$ARGUMENTS`.
 
 2. When gather returns:
 
    **On cancellation** (gather returns `BFEATURE_DESIGN_CANCELLED`):
-   - Delete the temp Q&A file at `/tmp/design-qa-<timestamp>.md` if it exists.
+   - Delete the temp Q&A file at `$TEMP_DIR/<timestamp>-design-qa.md` if it exists.
    - Print: "Cancelled — no design doc produced."
    - Exit. Do NOT write a design doc.
 
    **On success** (gather returns `BFEATURE_DESIGN_QA_COMPLETE` with the structured Q&A):
-   - Serialize the Q&A to `/tmp/design-qa-<timestamp>.md` using this format:
+   - Serialize the Q&A to `$TEMP_DIR/<timestamp>-design-qa.md` using this format:
 
      ```markdown
      # Bfeature-Design Q&A
@@ -82,7 +89,7 @@ Print banner: `── design | Gather ──────────────
    - If the Write fails for any reason (disk full, permission denied, sandboxing, etc.), abort immediately with a clear error:
 
      ```
-     Cannot write Q&A transcript to /tmp/design-qa-<timestamp>.md — <reason>. Cannot continue.
+     Cannot write Q&A transcript to $TEMP_DIR/<timestamp>-design-qa.md — <reason>. Cannot continue.
      ```
 
      Do NOT silently continue without the transcript.
@@ -110,10 +117,10 @@ Print banner: `── design | Generate (may take 1–2 min) ──────�
 4. **(Optional) Confirm the slug:** Before invoking the agent, show the user the derived slug and ask if they want to override it. One short question — not a full Q&A. If the user overrides, re-apply the collision check.
 
 5. **Invoke the generate agent:**
-   - Read `~/.claude/skills/design/generate/SKILL.md`.
+   - Read `<base-dir>/generate/SKILL.md`.
    - Pass its full contents as an Agent prompt with `model: opus`.
    - The agent prompt must include:
-     - The absolute path to the temp Q&A file from Phase 1 (`/tmp/design-qa-<timestamp>.md`).
+     - The absolute path to the temp Q&A file from Phase 1 (`$TEMP_DIR/<timestamp>-design-qa.md`).
      - The absolute path to the target design doc file computed above.
      - No inline Q&A text — the agent reads the Q&A file itself.
 
@@ -163,7 +170,7 @@ Track a revision counter starting at 0. Increment it on each iterate round.
       This prompt appears once per round — not repeatedly within the same round.
 
    c. Re-invoke the generate agent:
-      - Read `~/.claude/skills/design/generate/SKILL.md`.
+      - Read `<base-dir>/generate/SKILL.md`.
       - Pass its full contents as an Agent prompt with `model: opus`.
       - The agent prompt must include:
         - The same Q&A file path (from Phase 1).
@@ -187,7 +194,7 @@ Print banner: `── design | Handoff ─────────────�
 
 2. **If NO:**
 
-   a. Delete the temp Q&A file at `/tmp/design-qa-<timestamp>.md`. If deletion fails, warn but do not abort.
+   a. Delete the temp Q&A file at `$TEMP_DIR/<timestamp>-design-qa.md`. If deletion fails, warn but do not abort.
 
    b. Print:
       ```
@@ -220,7 +227,7 @@ Print banner: `── design | Handoff ─────────────�
       (Design doc: <absolute path to design doc>)
       ```
 
-   c. Delete the temp Q&A file at `/tmp/design-qa-<timestamp>.md` **before** invoking bfeature. If deletion fails, warn but proceed.
+   c. Delete the temp Q&A file at `$TEMP_DIR/<timestamp>-design-qa.md` **before** invoking bfeature. If deletion fails, warn but proceed.
 
    d. Print the sensitive-data reminder:
       ```
