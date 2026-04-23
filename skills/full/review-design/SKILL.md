@@ -8,7 +8,7 @@ model: opus
 Run the helper script to load state and artifact paths:
 
 ```
-bash "$(find ~/.claude -name state-ops.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/state-ops.sh"
 ```
 
 This gives you `slug`, `build_timestamp`, and `paths.*` — use `paths.spec`, `paths.qa`, `paths.design_report` directly.

@@ -14,7 +14,7 @@ Gather design requirements by asking the user one question at a time.
 
 Before asking questions, check whether any of the following convention files apply to the design space described in `$ARGUMENTS`. Read any that are relevant — they inform what questions are worth asking and what constraints to surface.
 
-Use `Glob("<base-dir>/../../conventions/*.md")` to find available files, where `<base-dir>` is the design skill's base directory from the system-reminder. Relevant conventions to consider:
+Use `Glob("${CLAUDE_PLUGIN_ROOT}/conventions/*.md")` to find available files. Relevant conventions to consider:
 
 - `architecture.md` — if the idea involves system boundaries, service decomposition, or data ownership
 - `dev.md` — if the idea implies implementation decisions (languages, patterns, testing)

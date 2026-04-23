@@ -8,7 +8,7 @@ model: sonnet
 Run the helper script to load state and artifact paths:
 
 ```
-bash "$(find ~/.claude -name state-ops.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/state-ops.sh"
 ```
 
 This gives you `paths.design_report` and `paths.spec`.

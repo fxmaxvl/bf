@@ -24,8 +24,8 @@ The `(<slug>)` tag ties the comment to the feature so it can be collected automa
 Run the helper scripts to load state and detect the stack:
 
 ```
-bash "$(find ~/.claude -name state-ops.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
-bash "$(find ~/.claude -name detect-stack.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/state-ops.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/detect-stack.sh"
 ```
 
 `state-ops.sh` gives you `slug`, `build_timestamp`, `mode`, and all artifact paths including `paths.plan` and `paths.todo` where you'll write output.
@@ -40,8 +40,8 @@ bash "$(find ~/.claude -name detect-stack.sh -path '*/full/scripts/*' 2>/dev/nul
 
 Use the `detect-stack.sh` output from above. Additionally:
 
-- **TypeScript/JavaScript project** → read `conventions/typescript.md` for any project-specific overrides to lint and test commands
-- **All projects** → read `conventions/testing.md` for test requirements
+- **TypeScript/JavaScript project** → read `${CLAUDE_PLUGIN_ROOT}/conventions/typescript.md` for any project-specific overrides to lint and test commands
+- **All projects** → read `${CLAUDE_PLUGIN_ROOT}/conventions/testing.md` for test requirements
 
 Apply `scope_template` with the affected package if `monorepo` is true.
 

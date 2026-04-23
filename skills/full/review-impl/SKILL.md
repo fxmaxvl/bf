@@ -9,8 +9,8 @@ model: opus
 Run the helper scripts to load state and detect changed files:
 
 ```
-bash "$(find ~/.claude -name state-ops.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
-bash "$(find ~/.claude -name changed-packages.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/state-ops.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/changed-packages.sh"
 ```
 
 `state-ops.sh` gives you `slug`, `build_timestamp`, `mode`, and `paths.*`.
@@ -31,7 +31,7 @@ Review the implementation by comparing what was built against the plan and requi
 - Flag any requirement that is missing or partially implemented
 
 ### 2. Dev conventions
-- Check against the project's `conventions/dev.md` conventions:
+- Check against the project's `${CLAUDE_PLUGIN_ROOT}/conventions/dev.md` conventions:
   - Code style matches surrounding code
   - No unrelated changes
   - No mock implementations
@@ -39,7 +39,7 @@ Review the implementation by comparing what was built against the plan and requi
   - Comments are evergreen (no temporal references)
 
 ### 3. Test coverage
-- Check against `conventions/testing.md` conventions:
+- Check against `${CLAUDE_PLUGIN_ROOT}/conventions/testing.md` conventions:
   - Unit tests exist for new functionality
   - Integration tests exist
   - End-to-end tests exist

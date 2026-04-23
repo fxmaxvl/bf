@@ -30,7 +30,7 @@ Aim for 2-5 questions. Fewer is better if the idea is straightforward. Do **not*
 Once you have enough information, run the helper script to get state and artifact paths:
 
 ```
-bash "$(find ~/.claude -name state-ops.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/state-ops.sh"
 ```
 
 Save a Q&A summary to the path at `paths.qa`. Format:

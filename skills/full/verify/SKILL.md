@@ -13,17 +13,17 @@ Run quality gates for this project.
 Run the two helper scripts:
 
 ```
-bash "$(find ~/.claude -name state-ops.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
-bash "$(find ~/.claude -name detect-stack.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
-bash "$(find ~/.claude -name changed-packages.sh -path '*/full/scripts/*' 2>/dev/null | head -1)"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/state-ops.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/detect-stack.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/changed-packages.sh"
 ```
 
 `state-ops.sh` gives you `slug`, `mode`, and all artifact paths.
 `detect-stack.sh` gives you `type`, `test_commands`, `lint_command`, `lint_fix_command`, `monorepo`, `workspaces`, and `scope_template`.
 `changed-packages.sh` gives you `changed_files` and `affected_packages`.
 
-**If the project is TypeScript/JavaScript**, also read `conventions/typescript.md` for any project-specific lint and test overrides.
-**For all projects**, read `conventions/testing.md` for test requirements.
+**If the project is TypeScript/JavaScript**, also read `${CLAUDE_PLUGIN_ROOT}/conventions/typescript.md` for any project-specific lint and test overrides.
+**For all projects**, read `${CLAUDE_PLUGIN_ROOT}/conventions/testing.md` for test requirements.
 
 If monorepo is true, scope test and lint commands to the affected package using `scope_template` — do not run commands for the whole monorepo.
 

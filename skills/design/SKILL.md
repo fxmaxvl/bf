@@ -14,7 +14,7 @@ Orchestrate a 4-phase design flow: Gather → Generate → Review → Optional /
 
 ## Sub-skill Resolution
 
-Sub-skills are **not registered** with the Skill tool and cannot be invoked via `Skill(name)`. The system-reminder provides `Base directory for this skill: <path>` — sub-skills are siblings of this skill at `<base-dir>/gather/SKILL.md` and `<base-dir>/generate/SKILL.md`. Read them directly by path; no Glob needed.
+Sub-skills are **not registered** with the Skill tool and cannot be invoked via `Skill(name)`. They are located at `${CLAUDE_SKILL_DIR}/gather/SKILL.md` and `${CLAUDE_SKILL_DIR}/generate/SKILL.md`. Read them directly by path; no Glob needed.
 
 **Reading the sub-skill's SKILL.md is mandatory before executing that phase.** Never skip this step.
 
@@ -60,7 +60,7 @@ gather (inline Q&A) → generate (opus agent) → review (inline) → handoff? (
 
 Print banner: `── design | Gather ───────────────────────────────`
 
-1. Read `<base-dir>/gather/SKILL.md` and follow its instructions **inline** in the current conversation. Pass the idea as `$ARGUMENTS`.
+1. Read `${CLAUDE_SKILL_DIR}/gather/SKILL.md` and follow its instructions **inline** in the current conversation. Pass the idea as `$ARGUMENTS`.
 
 2. When gather returns:
 
@@ -117,7 +117,7 @@ Print banner: `── design | Generate (may take 1–2 min) ──────�
 4. **(Optional) Confirm the slug:** Before invoking the agent, show the user the derived slug and ask if they want to override it. One short question — not a full Q&A. If the user overrides, re-apply the collision check.
 
 5. **Invoke the generate agent:**
-   - Read `<base-dir>/generate/SKILL.md`.
+   - Read `${CLAUDE_SKILL_DIR}/generate/SKILL.md`.
    - Pass its full contents as an Agent prompt with `model: opus`.
    - The agent prompt must include:
      - The absolute path to the temp Q&A file from Phase 1 (`$TEMP_DIR/<timestamp>-design-qa.md`).
@@ -170,7 +170,7 @@ Track a revision counter starting at 0. Increment it on each iterate round.
       This prompt appears once per round — not repeatedly within the same round.
 
    c. Re-invoke the generate agent:
-      - Read `<base-dir>/generate/SKILL.md`.
+      - Read `${CLAUDE_SKILL_DIR}/generate/SKILL.md`.
       - Pass its full contents as an Agent prompt with `model: opus`.
       - The agent prompt must include:
         - The same Q&A file path (from Phase 1).
