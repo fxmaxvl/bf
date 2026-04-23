@@ -34,6 +34,8 @@ Or to test locally without installing:
 claude --plugin-dir ./path/to/bfeature
 ```
 
+Not on the official marketplace yet? See [installing via local marketplace](docs/local-marketplace.md).
+
 ## Conventions
 
 The `conventions/` directory contains language- and action-specific guidelines Claude reads before acting:
