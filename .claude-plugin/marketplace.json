@@ -8,7 +8,7 @@
   },
   "plugins": [
     {
-      "name": "bfeature",
+      "name": "bf",
       "description": "Structured AI-guided workflow: brainstorm → spec → plan → execute → PR.",
       "author": {
         "name": "fxmaxvl",
@@ -16,10 +16,10 @@
       },
       "source": {
         "source": "url",
-        "url": "https://github.com/fxmaxvl/bfeature"
+        "url": "https://github.com/fxmaxvl/bf"
       },
       "category": "development",
-      "homepage": "https://github.com/fxmaxvl/bfeature"
+      "homepage": "https://github.com/fxmaxvl/bf"
     }
   ]
 }
