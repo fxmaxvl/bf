@@ -1,0 +1,14 @@
+{
+  "name": "bfeature",
+  "description": "Full feature development workflow — from idea to pull request.",
+  "plugins": [
+    {
+      "name": "bfeature",
+      "description": "Structured AI-guided workflow: brainstorm → spec → plan → execute → PR.",
+      "source": ".",
+      "version": "1.0.0",
+      "author": "fxmaxvl",
+      "repository": "https://github.com/fxmaxvl/bfeature"
+    }
+  ]
+}
