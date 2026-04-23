@@ -1,10 +1,10 @@
-# bfeature
+# bf (<B>uild<F>eature)
 
-## Why bfeature?
+## Why bf?
 
 Most AI coding tools jump straight to writing code. That works for small tasks — but for anything non-trivial, skipping the thinking phase is where bugs, rework, and scope creep come from.
 
-bfeature enforces a structured workflow between you and Claude: clarify the idea first, produce a spec, review the design for architectural gaps, plan the implementation as a TDD blueprint, execute it, verify tests and lint pass, then open the PR. Each step is a checkpoint — Claude moves forward automatically where it can, and stops for your approval where it matters.
+bf enforces a structured workflow between you and Claude: clarify the idea first, produce a spec, review the design for architectural gaps, plan the implementation as a TDD blueprint, execute it, verify tests and lint pass, then open the PR. Each step is a checkpoint — Claude moves forward automatically where it can, and stops for your approval where it matters.
 
 **The result:** less rework, fewer review surprises, and a paper trail (spec, plan, todo list) that survives context resets.
 
@@ -12,31 +12,31 @@ bfeature enforces a structured workflow between you and Claude: clarify the idea
 - **Full** — for new features: brainstorm → spec → design review → plan → execute → verify → PR
 - **Quick** — for bugfixes and small changes: refine → plan → execute → verify → PR
 
-Also includes a standalone design tool (`/bfeature:design`) for producing shareable system design documents — useful before any code is written, or when you need to align with teammates first.
+Also includes a standalone design tool (`/bf:design`) for producing shareable system design documents — useful before any code is written, or when you need to align with teammates first.
 
 ## What's inside
 
 | Command | Description |
 |---------|-------------|
-| `/bfeature:menu` | List all available commands |
-| `/bfeature:full <idea>` | brainstorm → spec → review → plan → execute → verify → finalize |
-| `/bfeature:quick <idea>` | refine → plan → execute → verify → finalize |
-| `/bfeature:design <idea>` | Interactive Q&A → shareable system design document |
-| `/bfeature:gh` | Pick a GitHub issue → kick off full or quick workflow |
-| `/bfeature:jira` | Pick a Jira ticket → kick off full or quick workflow |
-| `/bfeature:discuss <question>` | Explore a question or design decision via dialogue before committing to a direction |
-| `/bfeature:session-summary` | Generate a summary of the current session |
+| `/bf:menu` | List all available commands |
+| `/bf:full <idea>` | brainstorm → spec → review → plan → execute → verify → finalize |
+| `/bf:quick <idea>` | refine → plan → execute → verify → finalize |
+| `/bf:design <idea>` | Interactive Q&A → shareable system design document |
+| `/bf:gh` | Pick a GitHub issue → kick off full or quick workflow |
+| `/bf:jira` | Pick a Jira ticket → kick off full or quick workflow |
+| `/bf:discuss <question>` | Explore a question or design decision via dialogue before committing to a direction |
+| `/bf:session-summary` | Generate a summary of the current session |
 
 ## Installation
 
 ```bash
-claude plugin install fxmaxvl/bfeature
+claude plugin install fxmaxvl/bf
 ```
 
 Or to test locally without installing:
 
 ```bash
-claude --plugin-dir ./path/to/bfeature
+claude --plugin-dir ./path/to/bf
 ```
 
 Not on the official marketplace yet? See [installing via local marketplace](docs/local-marketplace.md).
@@ -57,6 +57,6 @@ The `conventions/` directory contains language- and action-specific guidelines C
 ## Requirements
 
 - [Claude Code](https://claude.ai/code)
-- `gh` CLI (for `/bfeature:gh` and PR creation)
-- Jira MCP server configured (for `/bfeature:jira`)
-- Excalidraw MCP server (optional, for diagrams in `/bfeature:design`)
+- `gh` CLI (for `/bf:gh` and PR creation)
+- Jira MCP server configured (for `/bf:jira`)
+- Excalidraw MCP server (optional, for diagrams in `/bf:design`)
