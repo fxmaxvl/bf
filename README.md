@@ -29,8 +29,10 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 
 ## Installation
 
+In Claude:
 ```bash
-claude plugin install fxmaxvl/bf
+/plugin marketplace add fxmaxvl/bf
+/plugin install fxmaxvl/bf
 ```
 
 Or to test locally without installing:
@@ -38,8 +40,6 @@ Or to test locally without installing:
 ```bash
 claude --plugin-dir ./path/to/bf
 ```
-
-Not on the official marketplace yet? See [installing via local marketplace](docs/local-marketplace.md).
 
 ## Conventions
 
