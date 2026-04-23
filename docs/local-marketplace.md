@@ -2,6 +2,16 @@
 
 If bfeature isn't yet listed on the official Anthropic marketplace, you can add it as a local marketplace source and install it directly from GitHub.
 
+## The easy way — just ask Claude
+
+Open Claude Code and type:
+
+```
+install the bfeature plugin from github.com/fxmaxvl/bfeature
+```
+
+Claude will handle the marketplace registration and installation for you.
+
 ## Step 1 — Add the marketplace source
 
 ```bash
