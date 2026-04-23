@@ -1,11 +1,11 @@
 {
-  "name": "bfeature",
+  "name": "bf",
   "description": "Full feature development workflow — from idea to pull request.",
   "version": "1.0.0",
   "author": {
     "name": "fxmaxvl",
     "url": "https://github.com/fxmaxvl"
   },
-  "repository": "https://github.com/fxmaxvl/bfeature",
+  "repository": "https://github.com/fxmaxvl/bf",
   "keywords": ["workflow", "feature", "planning", "tdd", "pull-request"]
 }
