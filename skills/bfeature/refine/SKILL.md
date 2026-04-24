@@ -1,5 +1,5 @@
 ---
-name: bfeature-refine
+name: refine
 description: Lightweight Q&A to clarify scope and approach for quick-mode features. Produces a Q&A file that feeds directly into planning.
 disable-model-invocation: true
 argument-hint: [idea description]
