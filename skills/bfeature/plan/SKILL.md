@@ -26,8 +26,8 @@ The `(<slug>)` tag ties the comment to the feature so it can be collected automa
 Run the helper scripts to load state and detect the stack:
 
 ```
-bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/state-ops.sh"
-bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/detect-stack.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/detect-stack.sh"
 ```
 
 `state-ops.sh` gives you `slug`, `build_timestamp`, `mode`, and all artifact paths including `paths.plan` and `paths.todo` where you'll write output.

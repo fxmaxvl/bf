@@ -15,8 +15,8 @@ Scan the feature branch changes for `TODO` comments **that are related to this f
 Run the helper scripts:
 
 ```
-bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/state-ops.sh"
-bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/changed-packages.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/changed-packages.sh"
 ```
 
 `state-ops.sh` gives you `slug`, `build_timestamp`, `mode`, and artifact paths.

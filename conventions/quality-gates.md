@@ -7,7 +7,7 @@ Applies to any skill that needs to detect, run, or document quality gates.
 Run the helper scripts:
 
 ```
-bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/detect-stack.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/detect-stack.sh"
 ```
 
 This gives you `type`, `test_commands`, `lint_command`, `lint_fix_command`, `monorepo`, `workspaces`, and `scope_template`. Use these values directly — do not re-detect or hardcode commands.

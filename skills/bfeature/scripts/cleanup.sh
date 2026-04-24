@@ -8,7 +8,7 @@
 # Persistent artifacts (spec, plan, todo, backlog, deployment) are kept.
 #
 # Usage:
-#   bash ~/.claude/skills/bfeature-full/scripts/cleanup.sh
+#   bash ~/.claude/skills/bfeature/scripts/cleanup.sh
 
 set -euo pipefail
 

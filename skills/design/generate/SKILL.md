@@ -1,6 +1,6 @@
 ---
-name: bfeature-design-generate
-description: Agent sub-skill that reads a Q&A transcript and produces a structured system-design document with diagrams. Invoked by the bfeature-design orchestrator.
+name: design-generate
+description: Agent sub-skill that reads a Q&A transcript and produces a structured system-design document with diagrams. Invoked by the design orchestrator.
 disable-model-invocation: true
 argument-hint: [qa-file-path] [output-doc-path]
 model: opus

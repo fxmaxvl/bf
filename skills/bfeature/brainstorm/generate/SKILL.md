@@ -15,7 +15,7 @@ Generate a complete, implementation-ready feature specification from the gathere
 Run the helper script to load state and artifact paths:
 
 ```
-bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/state-ops.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
 ```
 
 This gives you `slug`, `build_timestamp`, `mode`, and `paths.*`.

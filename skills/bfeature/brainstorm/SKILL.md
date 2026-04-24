@@ -16,7 +16,7 @@ Do **not** skip steps or ask multiple questions at once.
 Run the helper script to load state:
 
 ```
-bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/state-ops.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
 ```
 
 This gives you `slug`, `build_timestamp`, `paths.qa`, `jira` (with `enabled`, `ticket_key`), and `github_issue` (with `enabled`, `number`).

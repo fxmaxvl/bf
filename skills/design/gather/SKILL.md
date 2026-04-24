@@ -1,5 +1,5 @@
 ---
-name: bfeature-design-gather
+name: design-gather
 description: Inline Q&A sub-skill that collects design requirements through structured questions. Returns a structured Q&A list to the orchestrator — never writes files itself.
 disable-model-invocation: true
 model: opus

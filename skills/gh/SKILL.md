@@ -119,7 +119,7 @@ Ask: "Full workflow (brainstorm → spec → review → plan → execute) or qui
 
 ### 6. Kick off bfeature
 
-Invoke `bfeature-full` or `bfeature-quick` based on the user's choice. Pass a synthesized description that includes:
+Invoke `bfeature` or `quick` based on the user's choice. Pass a synthesized description that includes:
 
 - A `GH-ISSUE:<number>` marker so bfeature can detect the GitHub issue (e.g., `GH-ISSUE:12`)
 - The issue title

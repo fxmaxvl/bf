@@ -81,7 +81,7 @@ When the user picks a ticket:
 
 1. Read the full ticket details with `read-ticket(ticket_key)` (see Operations below)
 2. Transition the ticket to "In Progress": `transition-to(ticket_key, "In Progress")`
-3. Kick off the `bfeature-full` skill with the ticket context
+3. Kick off the `bfeature` skill with the ticket context
 
 ### 5. Choose mode
 
@@ -89,7 +89,7 @@ Ask: "Full workflow (brainstorm → spec → review → plan → execute) or qui
 
 ### 6. Kick off bfeature
 
-Invoke `bfeature-full` or `bfeature-quick` based on the user's choice. Pass a synthesized description that includes:
+Invoke `bfeature` or `quick` based on the user's choice. Pass a synthesized description that includes:
 
 - The Jira ticket URL so bfeature can detect it (e.g., `https://<domain>.atlassian.net/browse/PROJ-45`)
 - The ticket title/summary
@@ -114,7 +114,7 @@ When a Jira ticket URL is passed directly:
 2. Read the full ticket details with `read-ticket(ticket_key)`
 3. Transition to "In Progress": `transition-to(ticket_key, "In Progress")`
 4. Ask: "Full workflow (brainstorm → spec → review → plan → execute) or quick mode (refine → plan → execute)?"
-5. Kick off `bfeature-full` or `bfeature-quick` based on the user's choice, with the ticket context (same format as Pick Mode step 6)
+5. Kick off `bfeature` or `quick` based on the user's choice, with the ticket context (same format as Pick Mode step 6)
 
 ---
 

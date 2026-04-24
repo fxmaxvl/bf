@@ -11,8 +11,8 @@ Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains pl
 Run the helper scripts to load state and detect changed files:
 
 ```
-bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/state-ops.sh"
-bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/changed-packages.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/changed-packages.sh"
 ```
 
 `state-ops.sh` gives you `slug`, `build_timestamp`, `mode`, and `paths.*`.
