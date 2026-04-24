@@ -1,6 +1,7 @@
 ---
 name: brainstorm
 description: Ask the user clarifying questions one-at-a-time to gather requirements for an idea. Saves Q&A to the artifacts dir for the generate phase.
+model: opus
 disable-model-invocation: true
 argument-hint: [idea description]
 ---

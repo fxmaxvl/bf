@@ -1,6 +1,7 @@
 ---
 name: design
 description: Produce a shareable system-design document (with diagrams) from a high-level idea via interactive Q&A. Standalone — no git, no branches, no PR. Optionally seeds /bfeature.
+model: opus
 disable-model-invocation: false
 argument-hint: [idea description]
 allowed-tools: Read, Write, Glob, Grep, mcp__claude_ai_Excalidraw__create_view, mcp__claude_ai_Excalidraw__export_to_excalidraw, mcp__claude_ai_Excalidraw__read_checkpoint, mcp__claude_ai_Excalidraw__read_me, mcp__claude_ai_Excalidraw__save_checkpoint

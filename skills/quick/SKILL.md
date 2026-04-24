@@ -1,6 +1,7 @@
 ---
 name: quick
 description: Quick workflow (refine → plan → execute → verify → finalize) — skips brainstorm and review-design.
+model: sonnet
 argument-hint: [idea description, Jira ticket URL, or GH-ISSUE:<number>]
 allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), mcp__*__jira__*
 ---

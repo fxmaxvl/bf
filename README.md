@@ -18,7 +18,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 
 | Command | Description |
 |---------|-------------|
-| `/bf:full <idea>` | brainstorm → spec → review → plan → execute → verify → finalize |
+| `/bf:bfeature <idea>` | brainstorm → spec → review → plan → execute → verify → finalize |
 | `/bf:quick <idea>` | refine → plan → execute → verify → finalize |
 | `/bf:design <idea>` | Interactive Q&A → shareable system design document |
 | `/bf:gh` | Pick a GitHub issue → kick off full or quick workflow |

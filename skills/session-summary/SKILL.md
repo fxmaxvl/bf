@@ -1,6 +1,7 @@
 ---
 name: session-summary
 description: Create a summary of the current session with cost, efficiency insights, and observations.
+model: sonnet
 disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash(git *), Bash(gh issue create *)
 ---

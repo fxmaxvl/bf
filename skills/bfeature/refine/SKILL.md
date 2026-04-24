@@ -1,6 +1,7 @@
 ---
 name: refine
 description: Lightweight Q&A to clarify scope and approach for quick-mode features. Produces a Q&A file that feeds directly into planning.
+model: sonnet
 disable-model-invocation: true
 argument-hint: [idea description]
 ---

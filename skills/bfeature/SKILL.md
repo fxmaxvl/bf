@@ -1,6 +1,7 @@
 ---
 name: bfeature
 description: Orchestrate the full brainstorm → plan → execute workflow with review gates between phases.
+model: opus
 disable-model-invocation: false
 argument-hint: [--quick] [idea description, Jira ticket URL, or GH-ISSUE:<number>]
 allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), mcp__*__jira__*
