@@ -26,17 +26,41 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:discuss <question>` | Explore a question or design decision via dialogue before committing to a direction |
 | `/bf:session-summary` | Generate a summary of the current session |
 
-## Installation
+## Getting started
 
-In Claude:
-```bash
+### Add the marketplace
+
+Register the `bf` marketplace with Claude Code (one-time setup):
+
+```shell
 /plugin marketplace add fxmaxvl/bf
-/plugin install bf@fxmavl
 ```
 
-Or to test locally without installing:
+### Install
 
-```bash
+```shell
+/plugin install bf@fxmaxvl
+```
+
+Then run `/reload-plugins` to activate it.
+
+### Update
+
+Fetch the latest plugin listings and update installed plugins:
+
+```shell
+/plugin marketplace update fxmaxvl
+```
+
+### Uninstall
+
+```shell
+/plugin uninstall bf@fxmaxvl
+```
+
+### Test locally without installing
+
+```shell
 claude --plugin-dir ./path/to/bf
 ```
 
