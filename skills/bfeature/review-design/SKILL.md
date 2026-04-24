@@ -1,5 +1,5 @@
 ---
-name: review-design-analyze
+name: review-design
 description: Analyze a feature spec for architecture completeness, edge cases, and requirements. Produces a structured PASS/CONCERN report file.
 disable-model-invocation: true
 model: opus
