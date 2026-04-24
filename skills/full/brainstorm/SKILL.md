@@ -5,6 +5,8 @@ disable-model-invocation: true
 argument-hint: [idea description]
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Ask the user one question at a time to gather requirements for their idea.
 Each question should build on the previous response, gradually filling in gaps.
 Do **not** skip steps or ask multiple questions at once.
