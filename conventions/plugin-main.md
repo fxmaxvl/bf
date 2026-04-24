@@ -19,3 +19,4 @@ Convention files are bundled with this plugin. Skills reference them directly us
 | Designing architecture | `${CLAUDE_PLUGIN_ROOT}/conventions/architecture.md` |
 | TypeScript / JavaScript work | `${CLAUDE_PLUGIN_ROOT}/conventions/typescript.md` |
 | Reviewing code | `${CLAUDE_PLUGIN_ROOT}/conventions/code-review.md` |
+| Running or documenting quality gates | `${CLAUDE_PLUGIN_ROOT}/conventions/quality-gates.md` |

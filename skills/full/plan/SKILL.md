@@ -40,21 +40,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/detect-stack.sh"
 
 ## Quality gates — detect and document
 
-Use the `detect-stack.sh` output from above. Additionally:
-
-- **TypeScript/JavaScript project** → read `${CLAUDE_PLUGIN_ROOT}/conventions/typescript.md` for any project-specific overrides to lint and test commands
-- **All projects** → read `${CLAUDE_PLUGIN_ROOT}/conventions/testing.md` for test requirements
-
-Apply `scope_template` with the affected package if `monorepo` is true.
-
-Include a **"Quality Gates"** section in `<build_timestamp>-<slug>-plan.md` that documents these commands so the verify phase has a starting point. Example:
-
-```markdown
-## Quality Gates
-
-- **Tests:** `npm test` (scoped to `packages/foo` — monorepo)
-- **Lint:** `npm run lint` / auto-fix: `npm run lint:fix`
-```
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/quality-gates.md` and follow it to resolve test and lint commands. Include the resulting **"Quality Gates"** section in `<build_timestamp>-<slug>-plan.md` so the verify phase has a starting point.
 
 ## Deployment notes — multi-package monorepos
 

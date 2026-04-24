@@ -24,10 +24,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/full/scripts/changed-packages.sh"
 `detect-stack.sh` gives you `type`, `test_commands`, `lint_command`, `lint_fix_command`, `monorepo`, `workspaces`, and `scope_template`.
 `changed-packages.sh` gives you `changed_files` and `affected_packages`.
 
-**If the project is TypeScript/JavaScript**, also read `${CLAUDE_PLUGIN_ROOT}/conventions/typescript.md` for any project-specific lint and test overrides.
-**For all projects**, read `${CLAUDE_PLUGIN_ROOT}/conventions/testing.md` for test requirements.
-
-If monorepo is true, scope test and lint commands to the affected package using `scope_template` — do not run commands for the whole monorepo.
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/quality-gates.md` and follow it to resolve the final test and lint commands (stack-specific convention overrides + monorepo scoping).
 
 ## Step 2 — Run tests
 
