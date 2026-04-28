@@ -81,12 +81,12 @@ Print the banner as plain text (not in a code block). Do this before any other w
 
 **Full mode** (default):
 ```
-init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] execute → [auto] verify → [auto] complexity-gate ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
+init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] execute → [auto] verify → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
 ```
 
 **Quick mode** (invoked via `/bfeature --quick`):
 ```
-init → refine → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] complexity-gate ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
+init → refine → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```
 
 Quick mode skips **only** brainstorm and review-design. Every other phase — refine, plan, execute, verify, review-impl, verify (silent), finalize — is **mandatory** regardless of how simple or obvious the fix appears. Do not collapse, merge, or skip phases because the task looks trivial. The phases exist as quality gates that apply at all complexity levels.
@@ -276,11 +276,11 @@ Print banner: `── bfeature | Verify ─────────────�
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=verify phase_status=in_progress
    ```
-   Proceed immediately to Phase 4.6 (no approval gate)
+   Proceed immediately to Phase 4.75 (no approval gate)
 
-## Phase 4.6 — Complexity Gate
+## Phase 4.75 — Complexity Guard
 
-Print banner: `── bfeature | Complexity Gate ───────────────────────────────`
+Print banner: `── bfeature | Complexity Guard ───────────────────────────────`
 
 Run up to 3 scan → fix cycles:
 
