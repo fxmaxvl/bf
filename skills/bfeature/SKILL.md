@@ -86,7 +86,7 @@ init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] 
 
 **Quick mode** (invoked via `/bfeature --quick`):
 ```
-init → refine → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
+init → refine → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```
 
 Quick mode skips **only** brainstorm and review-design. Every other phase — refine, plan, execute, verify, review-impl, verify (silent), finalize — is **mandatory** regardless of how simple or obvious the fix appears. Do not collapse, merge, or skip phases because the task looks trivial. The phases exist as quality gates that apply at all complexity levels.
@@ -108,7 +108,7 @@ Quick mode skips **only** brainstorm and review-design. Every other phase — re
 
 2. If `has_state` is `true`: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"` to load state and resume:
    - If `phase_status` is `"awaiting_approval"`:
-     - If `phase` is `"finalize"`: re-ask the pre-finalization gate (both questions: ready to finalize? + collect TODOs?). If not ready: exit. If ready: set `phase_status` to `"in_progress"`, save `collect_todos` answer, update state, continue Phase 6 from step 3 (skip silent verify — it already passed).
+     - If `phase` is `"finalize"`: re-ask the pre-finalization gate per Phase 6 step 2 (one question in quick mode, two in full mode). If not ready: exit. If ready: set `phase_status` to `"in_progress"`, save `collect_todos` per Phase 6 step 2 (user's answer in full mode, `false` automatically in quick mode), update state, continue Phase 6 from step 3 (skip silent verify — it already passed).
      - Otherwise: ask "Paused before [current phase]. Ready to proceed?" — if yes, set `phase_status` to `"in_progress"`, update state, execute the current phase; if no, exit
    - Otherwise: resume the current phase from where it left off
 
@@ -332,13 +332,21 @@ Print banner: `── bfeature | Finalize ────────────�
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase_status=awaiting_approval
    ```
-   Then ask the user one question at a time:
+   Then branch on `mode`:
+
+   **If `mode != "quick"` (full mode):** Ask the user one question at a time:
    1. Ask: "Ready to finalize (commit, push, PR)?"
       - If no: **Exit** (re-invoke `/bfeature` when ready).
       - If yes: continue to next question.
    2. Ask: "Should I scan for TODO comments and collect them to the backlog after?"
       - Save the answer in state as `collect_todos: true/false` so it survives session interruptions.
    Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase_status=in_progress collect_todos=<true|false>` — continue.
+
+   **If `mode == "quick"` (quick mode):**
+   1. Ask: "Ready to finalize (commit, push, PR)?"
+      - If no: **Exit** (re-invoke `/bfeature` when ready).
+      - If yes: continue.
+   Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase_status=in_progress collect_todos=false` — continue. (TODO scanning is always skipped in quick mode.)
 3. **Compose commit message and PR content** (reasoning — model writes this):
    - **Commit message:** `feat:` prefix with a concise description. Include issue/ticket if enabled (e.g., `feat(#12): address review concerns`, `feat(PROJ-123): address review concerns`).
    - **PR title:** short, imperative (≤70 chars)
