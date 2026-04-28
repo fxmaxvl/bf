@@ -45,6 +45,7 @@ Each sub-skill declares a `model` field in its SKILL.md frontmatter. When delega
 | review-impl | `full/review-impl/SKILL.md` | Agent | opus | Implementation analysis — produces report, no user interaction |
 | review-impl/fix | `full/review-impl/fix/SKILL.md` | Agent | sonnet | Applies code fixes — execution task |
 | complexity-gate | `bfeature/complexity-gate/SKILL.md` | Agent | opus | Complexity analysis — advisory on spec and plan, blocking scan after verify |
+| quality-gate | `bfeature/quality-gate/SKILL.md` | Inline | sonnet | Resolve test and lint commands; write Quality Gates section (plan phase) or output commands (verify phase) |
 | collect-todos (Phase 7, optional) | `full/collect-todos/SKILL.md` | Agent | sonnet | Mechanical scanning task — skipped if user declines |
 
 **Phase 6 (Finalize) and Phase 8 (Cleanup) are executed directly by the orchestrator** — they have no sub-skill files. The finalize logic is defined inline in this file (see Phase 6 below).

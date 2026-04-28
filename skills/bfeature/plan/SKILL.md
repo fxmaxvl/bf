@@ -31,7 +31,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/detect-stack.sh"
 ```
 
 `state-ops.sh` gives you `slug`, `build_timestamp`, `mode`, and all artifact paths including `paths.plan` and `paths.todo` where you'll write output.
-`detect-stack.sh` gives you `type`, `test_commands`, `lint_command`, `lint_fix_command`, `monorepo`, `workspaces`, and `scope_template` — use these directly for the Quality Gates section below; no need to re-detect.
+`detect-stack.sh` gives you `type`, `test_commands`, `lint_command`, `lint_fix_command`, `monorepo`, `workspaces`, and `scope_template`.
 
 ## Mode-aware input
 
@@ -40,7 +40,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/detect-stack.sh"
 
 ## Quality gates — detect and document
 
-Resolve and read the `quality-gates` convention (using the lookup from `plugin-main.md`) and follow it to resolve test and lint commands. Include the resulting **"Quality Gates"** section in `<build_timestamp>-<slug>-plan.md` so the verify phase has a starting point.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/quality-gate/SKILL.md` and follow it — it resolves test and lint commands and appends the **"Quality Gates"** section to the plan file.
 
 ## Deployment notes — multi-package monorepos
 

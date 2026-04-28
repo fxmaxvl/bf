@@ -25,4 +25,3 @@ The available convention names and when to use each:
 | Designing architecture | `architecture` |
 | TypeScript / JavaScript work | `typescript` |
 | Reviewing code | `code-review` |
-| Running or documenting quality gates | `quality-gates` |

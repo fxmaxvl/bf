@@ -24,7 +24,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/changed-packages.sh"
 `detect-stack.sh` gives you `type`, `test_commands`, `lint_command`, `lint_fix_command`, `monorepo`, `workspaces`, and `scope_template`.
 `changed-packages.sh` gives you `changed_files` and `affected_packages`.
 
-Resolve and read the `quality-gates` convention (using the lookup from `plugin-main.md`) and follow it to resolve the final test and lint commands (stack-specific convention overrides + monorepo scoping).
+Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/quality-gate/SKILL.md` and follow it — it resolves the final test and lint commands (stack-specific convention overrides + monorepo scoping).
 
 ## Step 2 — Run tests
 
