@@ -28,8 +28,11 @@ Review the implementation by comparing what was built against the plan and requi
 ## Review Criteria
 
 ### 1. Feature completeness
-- Read the spec and list every functional requirement
-- For each requirement, verify it is implemented by checking the actual code
+- The spec's `## Functional Requirements` section is the authoritative list. Read only that section:
+  1. Grep `paths.spec` for `^## Functional Requirements` to find the start line
+  2. Grep `paths.spec` for the next `^## ` after that line to find the end
+  3. Read `paths.spec` with `offset=<start>` and `limit=<end - start>` — do not read the full file
+- For each requirement in that section, verify it is implemented by checking the actual code
 - Flag any requirement that is missing or partially implemented
 
 ### 2. Dev conventions

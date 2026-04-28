@@ -93,39 +93,46 @@ Quick mode skips **only** brainstorm and review-design. Every other phase — re
 
 ## On Invocation
 
-1. **Detect `--quick` flag:** Check if `$ARGUMENTS` starts with or contains `--quick`. If it does:
-   - Set `quick_mode` to `true`
-   - Strip `--quick` from `$ARGUMENTS` before using the remainder as the idea
-2. **Resolve `project_root`:** Run `git rev-parse --show-toplevel`. Store the result as `project_root`. All artifact paths below use this value.
-3. Check if `<project_root>/.claude/.bfeature-temp/build-state.json` exists
-4. If it does not exist: start from Phase 0 (init)
-5. If it exists: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"` to load state and resume:
+1. **Probe arguments and git state:**
+   ```
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/init-probe.sh" "$ARGUMENTS"
+   ```
+   The script outputs JSON with:
+   - `quick` — whether `--quick` was present
+   - `gh_issue` — GitHub issue number or `null`
+   - `jira_key` / `jira_url` — Jira ticket key and URL or `null`
+   - `idea` — the clean idea text (all flags and markers stripped)
+   - `current_branch`, `main_branch`, `is_main` — git branch state
+   - `has_state` — whether `build-state.json` already exists
+   - `project_root` — git repository root
+
+2. If `has_state` is `true`: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"` to load state and resume:
    - If `phase_status` is `"awaiting_approval"`:
      - If `phase` is `"finalize"`: re-ask the pre-finalization gate (both questions: ready to finalize? + collect TODOs?). If not ready: exit. If ready: set `phase_status` to `"in_progress"`, save `collect_todos` answer, update state, continue Phase 6 from step 3 (skip silent verify — it already passed).
      - Otherwise: ask "Paused before [current phase]. Ready to proceed?" — if yes, set `phase_status` to `"in_progress"`, update state, execute the current phase; if no, exit
    - Otherwise: resume the current phase from where it left off
 
+3. If `has_state` is `false`: proceed to Phase 0 (init).
+
 ## Phase 0 — Init
 
 Print banner: `── bfeature | Init ───────────────────────────────`
 
-1. **Detect GitHub issue:** Check if `$ARGUMENTS` contains a `GH-ISSUE:<number>` marker. If it does:
-   - Extract the issue number
-   - Set `github_issue.enabled` to `true` and `github_issue.number` to the extracted number in state (see below)
-   - Use the issue number as slug prefix: `gh-<number>-<short-description>` (e.g., `gh-12-token-refresh`)
-2. **Detect Jira ticket:** Check if `$ARGUMENTS` contains a Jira ticket URL (e.g., `https://<domain>.atlassian.net/browse/PROJ-123` or similar). If it does:
-   - Extract the ticket key (e.g., `PROJ-123`)
-   - Invoke the `jira` skill to verify Jira MCP tools are available. If not available, stop.
-   - Set `jira.ticket_key` in state (see below)
-   - Use the ticket key as slug prefix: `<ticket-key>-<short-description>` (e.g., `PROJ-123-dark-mode`)
-   - Invoke the `jira` skill: `transition-to(ticket_key, "In Progress")`
-3. If neither GitHub issue nor Jira ticket: derive a short kebab-case slug from the idea as before (e.g., "add dark mode" → "dark-mode")
-4. **Branch selection:**
-   - Check the current git branch
-   - If on `master` (or the repo's main branch): create and checkout `feat/<slug>` from master
-   - If on a non-master branch (e.g., `feat/something`): ask the user — "You're currently on `<branch>`. Do you want to continue working here, or create a new branch `feat/<slug>` from master?"
-     - If the user chooses to continue: stay on the current branch, use the current branch name to derive the slug (strip `feat/` prefix if present)
-     - If the user chooses a new branch: create and checkout `feat/<slug>` from master
+Use the `init-probe.sh` output from On Invocation (do **not** re-run it).
+
+1. **Determine slug:**
+   - If `gh_issue` is not null: set slug to `gh-<gh_issue>-<short-description>` (e.g., `gh-12-token-refresh`)
+   - If `jira_key` is not null:
+     - Invoke the `jira` skill to verify Jira MCP tools are available. If not available, stop.
+     - Set slug to `<jira_key>-<short-description>` (e.g., `PROJ-123-dark-mode`)
+     - Invoke the `jira` skill: `transition-to(jira_key, "In Progress")`
+   - Otherwise: derive a short kebab-case slug from `idea` (e.g., "add dark mode" → "dark-mode")
+
+2. **Branch selection** — use `current_branch`, `main_branch`, and `is_main` from `init-probe.sh`:
+   - If `is_main` is `true`: create and checkout `feat/<slug>`
+   - If `is_main` is `false`: ask the user — "You're currently on `<current_branch>`. Do you want to continue working here, or create a new branch `feat/<slug>` from `<main_branch>`?"
+     - If the user chooses to continue: stay on the current branch; derive slug from branch name (strip `feat/` prefix if present)
+     - If the user chooses a new branch: create and checkout `feat/<slug>` from `<main_branch>`
 
 5. Initialize state. Build the argument list from what was detected above:
 
@@ -212,9 +219,9 @@ Skipped entirely in quick mode.
 Run up to 3 analyze → fix cycles:
 
 1. Read `full/review-design/SKILL.md` and pass its contents as an Agent prompt (model: opus)
-2. Read `.claude/.bfeature-temp/<build_timestamp>-<slug>-design-report.md`
-3. If `STATUS: PASS`: proceed to step 5
-4. If `STATUS: CONCERN`:
+2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.design_report>"`
+3. If output is `PASS`: proceed to step 5
+4. If output is `CONCERN`:
    - Show the concerns to the user
    - Ask: "Should I fix these concerns?"
    - If yes: read `full/review-design/fix/SKILL.md` and pass its contents as an Agent prompt (model: sonnet), then go back to step 1
@@ -279,9 +286,9 @@ Run up to 3 scan → fix cycles:
 
 1. Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus)
    - Phase is `verify` — the skill auto-detects scan mode and uses `changed_files`
-2. Read `paths.complexity_report`
-3. If `STATUS: PASS` or `STATUS: ADVISORY`: show findings if any, proceed to step 5
-4. If `STATUS: BLOCK`:
+2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.complexity_report>"`
+3. If output is `PASS` or `ADVISORY`: show findings if any, proceed to step 5
+4. If output is `BLOCK`:
    - Show the blocked issues to the user
    - Ask: "Should I fix these complexity issues?"
    - If yes: spawn a fix agent (model: sonnet) with this prompt: "Read `paths.complexity_report`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
@@ -300,9 +307,9 @@ Print banner: `── bfeature | Review Implementation ────────�
 Run up to 3 analyze → fix cycles:
 
 1. Read `full/review-impl/SKILL.md` and pass its contents as an Agent prompt (model: opus)
-2. Read `paths.impl_report`
-3. If `STATUS: PASS`: proceed to step 5
-4. If `STATUS: CONCERN`:
+2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.impl_report>"`
+3. If output is `PASS`: proceed to step 5
+4. If output is `CONCERN`:
    - Show the concerns to the user
    - Ask: "Should I fix these concerns?"
    - If yes: read `full/review-impl/fix/SKILL.md` and pass its contents as an Agent prompt (model: sonnet), then go back to step 1
@@ -332,23 +339,28 @@ Print banner: `── bfeature | Finalize ────────────�
    2. Ask: "Should I scan for TODO comments and collect them to the backlog after?"
       - Save the answer in state as `collect_todos: true/false` so it survives session interruptions.
    Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase_status=in_progress collect_todos=<true|false>` — continue.
-3. Check for uncommitted changes (verify and review-impl/fix cycles may have left changes unstaged). If any exist: stage them (do **not** `git add` anything in `.claude/.bfeature-temp/`) and commit following the `git` convention (resolved via the lookup in `plugin-main.md`):
-   - Use `feat:` prefix with a concise description of the fixes/cleanup
-   - If `github_issue.enabled`, include the issue number (e.g., `feat(#12): address review concerns`)
-   - If `jira.enabled`, include the ticket key (e.g., `feat(PROJ-123): address review concerns`)
-4. Push the branch to remote
-5. Create a PR using `gh pr create`:
-   - **PR body:** Read `paths.spec` and write a short summary (2–3 sentences max) of what the feature does and why — no test descriptions, no minor change lists, no implementation details
-   - **If `github_issue.enabled` is `true`:** append `Closes #<github_issue.number>` to the PR body. This automatically closes the issue when the PR is merged.
-   - **If `jira.enabled` is `true`:** append a link to the Jira ticket (`jira.ticket_url`) in the PR body
-6. **If `jira.enabled` is `true`:**
+3. **Compose commit message and PR content** (reasoning — model writes this):
+   - **Commit message:** `feat:` prefix with a concise description. Include issue/ticket if enabled (e.g., `feat(#12): address review concerns`, `feat(PROJ-123): address review concerns`).
+   - **PR title:** short, imperative (≤70 chars)
+   - **PR body:** Read `paths.spec` and write a short summary (2–3 sentences max) of what the feature does and why — no test descriptions, no minor change lists, no implementation details. Write the body text to `<paths.artifacts_dir>/pr-body.md`.
+4. **Run git finalize:**
+   ```
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/finalize-git.sh" \
+     --commit-msg "<commit message>" \
+     --pr-title "<pr title>" \
+     --pr-body-file "<paths.artifacts_dir>/pr-body.md" \
+     [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
+     [--jira-url <jira.ticket_url>]           # only if jira.enabled
+   ```
+   The script stages (excluding `.bfeature-temp/`), commits if there are changes, pushes, creates the PR, and outputs the PR URL.
+5. **If `jira.enabled` is `true`:**
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-7. Tell the user: "PR is up at <pr_url>. Build complete!"
-8. ```
+6. Tell the user: "PR is up at <pr_url>. Build complete!"
+7. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=collect-todos phase_status=in_progress
    ```
-9. If `collect_todos` is `true` (set at the pre-finalization gate): proceed to Phase 7. Otherwise: skip Phase 7, proceed directly to Phase 8 (Cleanup)
+8. If `collect_todos` is `true` (set at the pre-finalization gate): proceed to Phase 7. Otherwise: skip Phase 7, proceed directly to Phase 8 (Cleanup)
 
 ## Phase 7 — Collect TODOs (optional)
 
