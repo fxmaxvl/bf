@@ -56,10 +56,11 @@ def artifact_paths(adir, prefix):
         'qa':            p('qa'),
         'plan':          p('plan'),
         'todo':          p('todo'),
-        'design_report': p('design-report'),
-        'impl_report':   p('impl-report'),
-        'backlog':       p('backlog'),
-        'deployment':    p('deployment'),
+        'design_report':      p('design-report'),
+        'impl_report':        p('impl-report'),
+        'complexity_report':  p('complexity-report'),
+        'backlog':            p('backlog'),
+        'deployment':         p('deployment'),
     }
 
 def read_output(root, state):

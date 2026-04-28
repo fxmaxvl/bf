@@ -44,6 +44,7 @@ Each sub-skill declares a `model` field in its SKILL.md frontmatter. When delega
 | verify | `full/verify/SKILL.md` | Agent | sonnet | Quality gates — runs tests (monorepo-aware) and lint with auto-fix |
 | review-impl | `full/review-impl/SKILL.md` | Agent | opus | Implementation analysis — produces report, no user interaction |
 | review-impl/fix | `full/review-impl/fix/SKILL.md` | Agent | sonnet | Applies code fixes — execution task |
+| complexity-gate | `bfeature/complexity-gate/SKILL.md` | Agent | opus | Complexity analysis — advisory on spec and plan, blocking scan after verify |
 | collect-todos (Phase 7, optional) | `full/collect-todos/SKILL.md` | Agent | sonnet | Mechanical scanning task — skipped if user declines |
 
 **Phase 6 (Finalize) and Phase 8 (Cleanup) are executed directly by the orchestrator** — they have no sub-skill files. The finalize logic is defined inline in this file (see Phase 6 below).
@@ -218,18 +219,23 @@ Run up to 3 analyze → fix cycles:
    - If yes: read `full/review-design/fix/SKILL.md` and pass its contents as an Agent prompt (model: sonnet), then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review the spec manually" and stop
-5. ```
+5. Run complexity-gate on the spec (phase is still `review-design` — the skill auto-detects spec advisory mode):
+   Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
+   Show findings to the user. Always proceed regardless of outcome — findings here are advisory only.
+6. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=plan phase_status=in_progress
    ```
-6. Proceed immediately to Phase 3 (no approval gate)
+7. Proceed immediately to Phase 3 (no approval gate)
 
 ## Phase 3 — Plan
 
 Print banner: `── bfeature | Plan ───────────────────────────────`
 
 1. Read `full/plan/SKILL.md` and pass its contents as an Agent prompt (model: opus) — it reads the appropriate source based on `mode` and produces `.claude/.bfeature-temp/<build_timestamp>-<slug>-plan.md` + `.claude/.bfeature-temp/<build_timestamp>-<slug>-todo.md`
-2. When both files are detected:
-   ```
+2. When both files are detected, run complexity-gate on the plan (phase is still `plan` — the skill auto-detects plan advisory mode):
+   Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
+   Show findings to the user. Always proceed regardless of outcome — findings here are advisory only.
+3. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" \
      artifacts.plan="<build_timestamp>-<slug>-plan.md" \
      artifacts.todo="<build_timestamp>-<slug>-todo.md" \
@@ -260,9 +266,31 @@ Print banner: `── bfeature | Verify ─────────────�
    - Runs linter with auto-fix where available — fixes all remaining issues manually if needed
 2. When tests and lint are green:
    ```
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=verify phase_status=in_progress
+   ```
+   Proceed immediately to Phase 4.75 (no approval gate)
+
+## Phase 4.75 — Complexity Guard
+
+Print banner: `── bfeature | Complexity Guard ───────────────────────────────`
+
+Run up to 3 scan → fix cycles:
+
+1. Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus)
+   - Phase is `verify` — the skill auto-detects scan mode and uses `changed_files`
+2. Read `paths.complexity_report`
+3. If `STATUS: PASS` or `STATUS: ADVISORY`: show findings if any, proceed to step 5
+4. If `STATUS: BLOCK`:
+   - Show the blocked issues to the user
+   - Ask: "Should I fix these complexity issues?"
+   - If yes: spawn a fix agent (model: sonnet) with this prompt: "Read `paths.complexity_report`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
+     Then go back to step 1
+   - If no (user accepts as-is): proceed to step 5
+   - If this was already the 3rd cycle: tell the user "Max complexity fix cycles reached — please review the blocked issues manually" and stop
+5. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=review-impl phase_status=in_progress
    ```
-   Proceed immediately to Phase 5 (no approval gate)
+6. Proceed immediately to Phase 5 (no approval gate)
 
 ## Phase 5 — Review Implementation
 
