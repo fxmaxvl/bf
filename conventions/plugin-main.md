@@ -7,16 +7,22 @@ These rules apply to every skill in this plugin.
 - **Always ask for clarification** rather than making assumptions.
 - **Ask ONE question at a time.** Never batch multiple questions into a single response. If you have several things to clarify, ask the first, wait for the answer, then ask the next. This is a hard rule, not a suggestion. **It applies at every point in every skill and sub-skill — including brainstorm, gather, refine, and any interactive phase. Mid-workflow does not exempt you from this rule.**
 
-## Conventions
+## Convention Lookup
 
-Convention files are bundled with this plugin. Skills reference them directly using `${CLAUDE_PLUGIN_ROOT}/conventions/`.
+When you need a convention file, resolve it using this 3-step lookup — **first match wins, fully replaces the plugin default**:
 
-| Action | Convention file |
+1. `<project_root>/.claude/bf-conventions/<name>.md` — use `git rev-parse --show-toplevel` to find project root
+2. `~/.claude/bf-conventions/<name>.md`
+3. `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`
+
+The available convention names and when to use each:
+
+| Action | Convention name |
 |--------|----------------|
-| Writing or modifying code | `${CLAUDE_PLUGIN_ROOT}/conventions/dev.md` |
-| Writing or modifying tests | `${CLAUDE_PLUGIN_ROOT}/conventions/testing.md` |
-| Committing | `${CLAUDE_PLUGIN_ROOT}/conventions/git.md` |
-| Designing architecture | `${CLAUDE_PLUGIN_ROOT}/conventions/architecture.md` |
-| TypeScript / JavaScript work | `${CLAUDE_PLUGIN_ROOT}/conventions/typescript.md` |
-| Reviewing code | `${CLAUDE_PLUGIN_ROOT}/conventions/code-review.md` |
-| Running or documenting quality gates | `${CLAUDE_PLUGIN_ROOT}/conventions/quality-gates.md` |
+| Writing or modifying code | `dev` |
+| Writing or modifying tests | `testing` |
+| Committing | `git` |
+| Designing architecture | `architecture` |
+| TypeScript / JavaScript work | `typescript` |
+| Reviewing code | `code-review` |
+| Running or documenting quality gates | `quality-gates` |

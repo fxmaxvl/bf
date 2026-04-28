@@ -14,7 +14,7 @@ Gather design requirements by asking the user one question at a time.
 
 Before asking questions, check whether any of the following convention files apply to the design space described in `$ARGUMENTS`. Read any that are relevant — they inform what questions are worth asking and what constraints to surface.
 
-Use `Glob("${CLAUDE_PLUGIN_ROOT}/conventions/*.md")` to find available files. Relevant conventions to consider:
+Resolve relevant conventions using the lookup defined in `plugin-main.md`. Relevant ones to consider:
 
 - `architecture.md` — if the idea involves system boundaries, service decomposition, or data ownership
 - `dev.md` — if the idea implies implementation decisions (languages, patterns, testing)

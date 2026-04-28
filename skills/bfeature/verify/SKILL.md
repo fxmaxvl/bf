@@ -24,7 +24,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/changed-packages.sh"
 `detect-stack.sh` gives you `type`, `test_commands`, `lint_command`, `lint_fix_command`, `monorepo`, `workspaces`, and `scope_template`.
 `changed-packages.sh` gives you `changed_files` and `affected_packages`.
 
-Read `${CLAUDE_PLUGIN_ROOT}/conventions/quality-gates.md` and follow it to resolve the final test and lint commands (stack-specific convention overrides + monorepo scoping).
+Resolve and read the `quality-gates` convention (using the lookup from `plugin-main.md`) and follow it to resolve the final test and lint commands (stack-specific convention overrides + monorepo scoping).
 
 ## Step 2 — Run tests
 
@@ -55,7 +55,7 @@ Run the linter. **If issues are found:**
 1. If `lint_fix_command` is non-null → run it **scoped to `changed_files` only** (the files changed by this feature, from `changed-packages.sh`) — do not auto-fix files outside that set. Then re-run the linter to verify.
 2. If still issues after auto-fix, or no auto-fix available → fix the issues manually (do NOT suppress or disable linter rules)
 3. Re-run the linter to confirm green
-4. **If any files were modified during lint fixing:** commit them immediately — read `conventions/git.md` for format, use `style:` prefix (e.g., `style: apply prettier auto-fixes`). Do not leave lint fixes as unstaged changes.
+4. **If any files were modified during lint fixing:** commit them immediately — resolve and read the `git` convention for format, use `style:` prefix (e.g., `style: apply prettier auto-fixes`). Do not leave lint fixes as unstaged changes.
 
 All lint checks must pass before completing.
 

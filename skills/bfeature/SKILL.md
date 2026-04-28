@@ -303,7 +303,7 @@ Print banner: `── bfeature | Finalize ────────────�
    2. Ask: "Should I scan for TODO comments and collect them to the backlog after?"
       - Save the answer in state as `collect_todos: true/false` so it survives session interruptions.
    Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase_status=in_progress collect_todos=<true|false>` — continue.
-3. Check for uncommitted changes (verify and review-impl/fix cycles may have left changes unstaged). If any exist: stage them (do **not** `git add` anything in `.claude/.bfeature-temp/`) and commit following `conventions/git.md`:
+3. Check for uncommitted changes (verify and review-impl/fix cycles may have left changes unstaged). If any exist: stage them (do **not** `git add` anything in `.claude/.bfeature-temp/`) and commit following the `git` convention (resolved via the lookup in `plugin-main.md`):
    - Use `feat:` prefix with a concise description of the fixes/cleanup
    - If `github_issue.enabled`, include the issue number (e.g., `feat(#12): address review concerns`)
    - If `jira.enabled`, include the ticket key (e.g., `feat(PROJ-123): address review concerns`)

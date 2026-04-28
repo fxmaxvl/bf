@@ -27,6 +27,6 @@ Implement fixes for every concern listed in the report. For each concern:
 - If it's a missing test: write the test
 - If it's a code style issue: refactor it
 
-After implementing all fixes, commit following `${CLAUDE_PLUGIN_ROOT}/conventions/git.md`. Use a `fix:` prefix (e.g., `fix: address implementation review concerns`). If `github_issue.enabled` is `true` in state, include the issue number (e.g., `fix(#12): address implementation review concerns`). If `jira.enabled` is `true`, include the ticket key (e.g., `fix(PROJ-123): address implementation review concerns`). Do **not** stage anything in `.claude/.bfeature-temp/`.
+After implementing all fixes, commit following the `git` convention (resolved via the lookup in `plugin-main.md`). Use a `fix:` prefix (e.g., `fix: address implementation review concerns`). If `github_issue.enabled` is `true` in state, include the issue number (e.g., `fix(#12): address implementation review concerns`). If `jira.enabled` is `true`, include the ticket key (e.g., `fix(PROJ-123): address implementation review concerns`). Do **not** stage anything in `.claude/.bfeature-temp/`.
 
 Do **not** re-run the review and do **not** ask the user questions — the orchestrator handles both.

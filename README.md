@@ -75,7 +75,13 @@ The `conventions/` directory contains language- and action-specific guidelines C
 - `code-review.md` — reviewing code
 - `typescript.md` — TypeScript/JavaScript specifics
 
-**Overriding per project:** drop a `.claude/conventions/<name>.md` in your project root — it takes precedence over the installed base conventions automatically.
+**Overriding conventions:** bf supports a 3-level lookup for each convention file (first match wins, fully replaces the plugin default):
+
+1. `<project_root>/.claude/bf-conventions/<name>.md` — project-local override
+2. `~/.claude/bf-conventions/<name>.md` — user-global override
+3. Plugin default (bundled in `conventions/`)
+
+To override a convention, create the `bf-conventions/` directory in the appropriate location and drop in files using the same names as above (e.g., `dev.md`, `git.md`). A matching file fully replaces the plugin default — there is no merging.
 
 ## Requirements
 

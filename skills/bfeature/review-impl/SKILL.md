@@ -33,7 +33,7 @@ Review the implementation by comparing what was built against the plan and requi
 - Flag any requirement that is missing or partially implemented
 
 ### 2. Dev conventions
-- Check against the project's `${CLAUDE_PLUGIN_ROOT}/conventions/dev.md` conventions:
+- Check against the `dev` convention (resolved via the lookup in `plugin-main.md`):
   - Code style matches surrounding code
   - No unrelated changes
   - No mock implementations
@@ -41,7 +41,7 @@ Review the implementation by comparing what was built against the plan and requi
   - Comments are evergreen (no temporal references)
 
 ### 3. Test coverage
-- Check against `${CLAUDE_PLUGIN_ROOT}/conventions/testing.md` conventions:
+- Check against the `testing` convention (resolved via the lookup in `plugin-main.md`):
   - Unit tests exist for new functionality
   - Integration tests exist
   - End-to-end tests exist

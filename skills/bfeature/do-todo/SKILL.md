@@ -15,10 +15,10 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
 
 This gives you `slug`, `build_timestamp`, and `paths.*` — use `paths.todo` and `paths.plan` directly.
 
-Before starting the loop, read these once:
-- `${CLAUDE_PLUGIN_ROOT}/conventions/dev.md` — code style and quality rules
-- `${CLAUDE_PLUGIN_ROOT}/conventions/testing.md` — test requirements
-- `${CLAUDE_PLUGIN_ROOT}/conventions/git.md` — commit message format
+Before starting the loop, resolve and read these once using the convention lookup from `plugin-main.md`:
+- the `dev` convention — code style and quality rules
+- the `testing` convention — test requirements
+- the `git` convention — commit message format
 
 Repeat the following loop until no unchecked items remain — do not wait for user approval between iterations:
 
@@ -28,5 +28,5 @@ Repeat the following loop until no unchecked items remain — do not wait for us
 3. Carefully plan your approach before touching any code — think through edge cases, dependencies, and impact on existing code.
 4. Implement the item — write robust, readable code, add tests, verify tests pass.
 5. Mark the item as checked (`- [x]`) in the todo file immediately after completing it.
-6. Commit your changes following `${CLAUDE_PLUGIN_ROOT}/conventions/git.md`. Use `feat:` for new functionality, `fix:` for bug corrections within the feature. Do **not** stage anything in `.claude/.bfeature-temp/`.
+6. Commit your changes following the `git` convention (resolved via the lookup in `plugin-main.md`). Use `feat:` for new functionality, `fix:` for bug corrections within the feature. Do **not** stage anything in `.claude/.bfeature-temp/`.
 7. Go back to step 1.

@@ -40,7 +40,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/detect-stack.sh"
 
 ## Quality gates — detect and document
 
-Read `${CLAUDE_PLUGIN_ROOT}/conventions/quality-gates.md` and follow it to resolve test and lint commands. Include the resulting **"Quality Gates"** section in `<build_timestamp>-<slug>-plan.md` so the verify phase has a starting point.
+Resolve and read the `quality-gates` convention (using the lookup from `plugin-main.md`) and follow it to resolve test and lint commands. Include the resulting **"Quality Gates"** section in `<build_timestamp>-<slug>-plan.md` so the verify phase has a starting point.
 
 ## Deployment notes — multi-package monorepos
 
