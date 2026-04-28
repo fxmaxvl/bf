@@ -25,8 +25,8 @@ Sub-skill SKILL.md files are bundled with the plugin. Prepend `${CLAUDE_PLUGIN_R
 
 **Invocation patterns:**
 
-- **Inline** (user interaction required): Read the SKILL.md at the listed path, then follow its instructions directly in the current conversation. Do **not** use the Skill tool or Agent tool.
-- **Agent**: Read the SKILL.md at the listed path, then pass its full contents as the agent's `prompt`. Always pass the declared model.
+- **Inline** (user interaction required): Read the SKILL.md at the listed path, then follow its instructions directly in the current conversation. Do **not** use the Skill tool or Agent tool. The sub-skill shares the current conversation context — state from prior steps is immediately visible to it, but user interaction is required to receive results.
+- **Agent**: Read the SKILL.md at the listed path, then pass its full contents as the agent's `prompt`. Always pass the declared model. The sub-skill runs in an isolated context — it cannot see the current conversation state and must re-derive anything it needs (e.g. by re-running detect scripts). Results are returned via files, not conversation context.
 
 ## Model Routing
 

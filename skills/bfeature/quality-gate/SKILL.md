@@ -19,6 +19,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/detect-stack.sh"
 
 This gives you `phase`, `paths.plan`, `type`, `test_commands`, `lint_command`, `lint_fix_command`, `monorepo`, `workspaces`, and `scope_template`. Use these values directly — do not re-detect or hardcode commands.
 
+Note: `detect-stack.sh` may re-run even if the calling skill (plan or verify) already ran it. This is a known tradeoff of inline invocation — the sub-skill shares conversation context but not shell state, so scripts must be re-executed rather than referencing prior output.
+
 ## Step 2 — Apply stack-specific convention overrides
 
 - **If `type` is `node` or `typescript`** → read `${CLAUDE_PLUGIN_ROOT}/conventions/typescript.md` for any project-specific overrides to lint and test commands.
