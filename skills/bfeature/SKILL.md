@@ -350,13 +350,13 @@ Print banner: `── bfeature | Finalize ────────────�
 3. **Compose commit message and PR content** (reasoning — model writes this):
    - **Commit message:** `feat:` prefix with a concise description. Include issue/ticket if enabled (e.g., `feat(#12): address review concerns`, `feat(PROJ-123): address review concerns`).
    - **PR title:** short, imperative (≤70 chars)
-   - **PR body:** Read `paths.spec` and write a short summary (2–3 sentences max) of what the feature does and why — no test descriptions, no minor change lists, no implementation details. Write the body text to `<paths.artifacts_dir>/pr-body.md`.
+   - **PR body:** Read `paths.spec` and compose a short summary (2–3 sentences max) of what the feature does and why — no test descriptions, no minor change lists, no implementation details. Store it in a variable for use in the next step.
 4. **Run git finalize:**
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/finalize-git.sh" \
      --commit-msg "<commit message>" \
      --pr-title "<pr title>" \
-     --pr-body-file "<paths.artifacts_dir>/pr-body.md" \
+     --pr-body "<pr body text>" \
      [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
      [--jira-url <jira.ticket_url>]           # only if jira.enabled
    ```

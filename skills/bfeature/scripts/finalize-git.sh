@@ -5,7 +5,7 @@
 #   bash finalize-git.sh \
 #     --commit-msg "<message>" \
 #     --pr-title "<title>" \
-#     --pr-body-file "<path>" \
+#     --pr-body "<body text>" \
 #     [--closes-issue <n>] \
 #     [--jira-url <url>]
 #
@@ -16,7 +16,7 @@ set -euo pipefail
 
 COMMIT_MSG=""
 PR_TITLE=""
-PR_BODY_FILE=""
+PR_BODY=""
 CLOSES_ISSUE=""
 JIRA_URL=""
 
@@ -24,14 +24,14 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --commit-msg)   COMMIT_MSG="$2";   shift 2 ;;
         --pr-title)     PR_TITLE="$2";     shift 2 ;;
-        --pr-body-file) PR_BODY_FILE="$2"; shift 2 ;;
+        --pr-body)      PR_BODY="$2";      shift 2 ;;
         --closes-issue) CLOSES_ISSUE="$2"; shift 2 ;;
         --jira-url)     JIRA_URL="$2";     shift 2 ;;
         *) echo "Unknown argument: $1" >&2; exit 1 ;;
     esac
 done
 
-for VAR in COMMIT_MSG PR_TITLE PR_BODY_FILE; do
+for VAR in COMMIT_MSG PR_TITLE PR_BODY; do
     if [[ -z "${!VAR}" ]]; then
         FLAG=$(echo "$VAR" | tr '[:upper:]_' '[:lower:]-')
         echo "Error: --${FLAG} is required" >&2
@@ -39,13 +39,8 @@ for VAR in COMMIT_MSG PR_TITLE PR_BODY_FILE; do
     fi
 done
 
-if [[ ! -f "$PR_BODY_FILE" ]]; then
-    echo "Error: PR body file not found: $PR_BODY_FILE" >&2
-    exit 1
-fi
-
 # Build final PR body
-BODY="$(cat "$PR_BODY_FILE")"
+BODY="$PR_BODY"
 if [[ -n "$CLOSES_ISSUE" ]]; then
     BODY="${BODY}"$'\n\n'"Closes #${CLOSES_ISSUE}"
 fi
