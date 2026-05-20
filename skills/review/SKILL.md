@@ -122,7 +122,7 @@ changed_files="$file_paths"
 
 Resolve each convention using the 3-step lookup from `plugin-main.md`:
 
-1. `<project_root>/.claude/bf-conventions/<name>.md`
+1. `<project_root>/.bf/conventions/<name>.md`
 2. `~/.claude/bf-conventions/<name>.md`
 3. `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`
 
