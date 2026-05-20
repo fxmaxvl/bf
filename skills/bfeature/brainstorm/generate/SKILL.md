@@ -20,7 +20,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
 
 This gives you `slug`, `build_timestamp`, `mode`, and `paths.*`.
 
-Read the file at `paths.qa` for the Q&A gathered interactively.
+Extract the `## QA` block from `paths.qa` (= `paths.scratch`) using the Block Reading Pattern from `plugin-main.md`.
 
 ## Step 0 — Explore all layers named in the Q&A
 
@@ -34,7 +34,7 @@ This step exists to prevent the spec from omitting layers that were identified i
 
 ## Output
 
-Write a thorough spec to the path at `paths.spec`. Include:
+Append a thorough spec to `paths.spec` (= `paths.session_log`) using `paths.block_spec` (`## Spec`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`. Content:
 
 - **Overview** — what this feature does and why
 - **Goals** — what success looks like

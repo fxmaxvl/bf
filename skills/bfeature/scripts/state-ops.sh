@@ -12,7 +12,7 @@
 # Update supports dot notation for nested fields:
 #   phase=execute
 #   phase_status=in_progress
-#   artifacts.plan=20260409T14-dark-mode-plan.md
+#   artifacts.plan=20260409T14-dark-mode-session-log.md
 #   collect_todos=true
 #   jira.enabled=true
 #
@@ -49,18 +49,33 @@ def parse_value(raw):
     return raw
 
 def artifact_paths(adir, prefix):
-    def p(name):
-        return os.path.join(adir, f'{prefix}-{name}.md')
+    session_log = os.path.join(adir, f'{prefix}-session-log.md')
+    scratch     = os.path.join(adir, f'{prefix}-scratch.md')
     return {
-        'spec':          p('spec'),
-        'qa':            p('qa'),
-        'plan':          p('plan'),
-        'todo':          p('todo'),
-        'design_report':      p('design-report'),
-        'impl_report':        p('impl-report'),
-        'complexity_report':  p('complexity-report'),
-        'backlog':            p('backlog'),
-        'deployment':         p('deployment'),
+        # physical files
+        'session_log': session_log,
+        'scratch':     scratch,
+        # persistent artifacts — all in session_log
+        'spec':        session_log,
+        'plan':        session_log,
+        'todo':        session_log,
+        'backlog':     session_log,
+        'deployment':  session_log,
+        # ephemeral artifacts — all in scratch
+        'qa':                scratch,
+        'design_report':     scratch,
+        'impl_report':       scratch,
+        'complexity_report': scratch,
+        # block headers (used to scope reads/appends within the merged files)
+        'block_spec':               '## Spec',
+        'block_plan':               '## Plan',
+        'block_todo':               '## Todo',
+        'block_backlog':            '## Backlog',
+        'block_deployment':         '## Deployment',
+        'block_qa':                 '## QA',
+        'block_design_report':      '## Design Report',
+        'block_impl_report':        '## Implementation Review',
+        'block_complexity_report':  '## Complexity Report',
     }
 
 def read_output(root, state):

@@ -13,15 +13,15 @@ Run the helper script to load state and artifact paths:
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
 ```
 
-This gives you `slug`, `build_timestamp`, and `paths.*` — use `paths.spec`, `paths.qa`, `paths.design_report` directly.
+This gives you `slug`, `build_timestamp`, and `paths.*`.
 
-Review the file at `paths.spec` against the criteria below.
+Extract the `## Spec` block from `paths.spec` (= `paths.session_log`) using the Block Reading Pattern from `plugin-main.md` and review it against the criteria below.
 
-If the file at `paths.qa` exists, read it as well — use it to check that the spec faithfully represents what the user said during brainstorm, and flag any requirements that were mentioned in the Q&A but are missing or misrepresented in the spec.
+If `paths.qa` (= `paths.scratch`) exists, also extract the `## QA` block and use it to check that the spec faithfully represents what the user said during brainstorm — flag any requirements mentioned in the Q&A that are missing or misrepresented in the spec.
 
 ## Review Criteria
 
-### 0. Q&A faithfulness (if `<build_timestamp>-<slug>-qa.md` exists)
+### 0. Q&A faithfulness (if `paths.scratch` exists)
 - Does the spec reflect what the user actually said during brainstorm?
 - Are there constraints or requirements from the Q&A answers that didn't make it into the spec?
 
@@ -42,28 +42,29 @@ If the file at `paths.qa` exists, read it as well — use it to check that the s
 
 ## Output
 
-Save a report to the path at `paths.design_report`.
+Append a report to `paths.design_report` (= `paths.scratch`) using `paths.block_design_report` (`## Design Report`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`.
 
 If all criteria pass:
 
 ```markdown
-# Design Review Report
+## Design Report
+
 STATUS: PASS
 ```
 
 If any criterion has concerns:
 
 ```markdown
-# Design Review Report
+## Design Report
+
 STATUS: CONCERN
 
-## Concerns
+### Concerns
 
-### <Criterion name>
-- <specific concern and suggested fix>
+#### <Criterion name>
 - <specific concern and suggested fix>
 
-### <Criterion name>
+#### <Criterion name>
 - <specific concern and suggested fix>
 ```
 

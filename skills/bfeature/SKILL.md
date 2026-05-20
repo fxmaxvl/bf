@@ -149,7 +149,11 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" --init \
 
 6. Proceed to Phase 1 (brainstorm for full mode, refine for quick mode).
 
-**Artifact naming convention:** All artifact filenames use the format `<build_timestamp>-<slug>-<artifact>.md`. The timestamp is captured once at init by `init-state.sh`, stored in state as `build_timestamp`, and reused for all artifact names. Use `paths.*` from `state-ops.sh` instead of constructing paths manually.
+**Artifact layout:** Each session produces two files (see `plugin-main.md` for the Block I/O conventions):
+- `<build_timestamp>-<slug>-session-log.md` (`paths.session_log`) — persistent blocks: Spec, Plan, Todo, Backlog, Deployment
+- `<build_timestamp>-<slug>-scratch.md` (`paths.scratch`) — ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report; deleted at cleanup
+
+Use `paths.*` from `state-ops.sh` instead of constructing paths manually.
 
 ## Phase 1 — Brainstorm (full mode only)
 
@@ -170,13 +174,13 @@ If state has `phase` = `"brainstorm"` and `phase_status` = `"waiting_answer"`:
 2. Synthesize an overall description from the ticket content
 3. Read `full/brainstorm/SKILL.md` and follow its instructions **inline** (in the current conversation) with the synthesized description
    - Runs in the main conversation — user interaction is fully available
-   - Gather saves Q&A to `.bf/sessions/<build_timestamp>-<slug>-qa.md`
+   - Gather appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-scratch.md`
 4. Read `full/brainstorm/generate/SKILL.md` and pass its contents as an Agent prompt (model: opus) to produce the spec from the Q&A
 
 ### If `jira.enabled` is `false`:
 1. Read `full/brainstorm/SKILL.md` and follow its instructions **inline** (in the current conversation) with the idea from state
    - Runs in the main conversation — user interaction is fully available
-   - Gather saves Q&A to `.bf/sessions/<build_timestamp>-<slug>-qa.md`
+   - Gather appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-scratch.md`
 2. Read `full/brainstorm/generate/SKILL.md` and pass its contents as an Agent prompt (model: opus) to produce the spec from the Q&A
 
 ### Escalating questions to Jira
@@ -187,10 +191,10 @@ If during brainstorm the user cannot answer a clarifying question and asks to po
 4. Tell the user: "Questions posted to Jira ticket. Run `/bf:feature` again later to check for answers."
 
 ### In all cases:
-When the file at `paths.spec` is detected:
+After the generate agent completes (it appends the `## Spec` block to `paths.session_log`):
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" \
-     artifacts.spec="<build_timestamp>-<slug>-spec.md" \
+     artifacts.spec="<build_timestamp>-<slug>-session-log.md" \
      phase=review-design phase_status=in_progress
    ```
    Proceed immediately to Phase 2 (no approval gate)
@@ -203,8 +207,8 @@ Skipped entirely in full mode — full mode uses Phase 1 (Brainstorm) instead.
 
 1. Read `full/refine/SKILL.md` and follow its instructions **inline** (in the current conversation) with the idea from state
    - Runs in the main conversation — user interaction is fully available
-   - Saves Q&A to `.bf/sessions/<build_timestamp>-<slug>-qa.md`
-2. When the file at `paths.qa` is detected:
+   - Appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-scratch.md`
+2. After refine completes:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=plan phase_status=in_progress
    ```
@@ -219,7 +223,7 @@ Skipped entirely in quick mode.
 Run up to 3 analyze → fix cycles:
 
 1. Read `full/review-design/SKILL.md` and pass its contents as an Agent prompt (model: opus)
-2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.design_report>"`
+2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.scratch>" --block "## Design Report"`
 3. If output is `PASS`: proceed to step 5
 4. If output is `CONCERN`:
    - Show the concerns to the user
@@ -239,14 +243,14 @@ Run up to 3 analyze → fix cycles:
 
 Print banner: `── bfeature | Plan ───────────────────────────────`
 
-1. Read `full/plan/SKILL.md` and pass its contents as an Agent prompt (model: opus) — it reads the appropriate source based on `mode` and produces `.bf/sessions/<build_timestamp>-<slug>-plan.md` + `.bf/sessions/<build_timestamp>-<slug>-todo.md`
-2. When both files are detected, run complexity-gate on the plan (phase is still `plan` — the skill auto-detects plan advisory mode):
+1. Read `full/plan/SKILL.md` and pass its contents as an Agent prompt (model: opus) — it appends `## Plan` and `## Todo` blocks to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
+2. After the plan agent completes, run complexity-gate on the plan (phase is still `plan` — the skill auto-detects plan advisory mode):
    Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
    Show findings to the user. Always proceed regardless of outcome — findings here are advisory only.
 3. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" \
-     artifacts.plan="<build_timestamp>-<slug>-plan.md" \
-     artifacts.todo="<build_timestamp>-<slug>-todo.md" \
+     artifacts.plan="<build_timestamp>-<slug>-session-log.md" \
+     artifacts.todo="<build_timestamp>-<slug>-session-log.md" \
      phase=execute phase_status=awaiting_approval
    ```
    - Ask the user: "Plan written. Ready to start execution?"
@@ -286,12 +290,12 @@ Run up to 3 scan → fix cycles:
 
 1. Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus)
    - Phase is `verify` — the skill auto-detects scan mode and uses `changed_files`
-2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.complexity_report>"`
+2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.scratch>" --block "## Complexity Report"`
 3. If output is `PASS` or `ADVISORY`: show findings if any, proceed to step 5
 4. If output is `BLOCK`:
    - Show the blocked issues to the user
    - Ask: "Should I fix these complexity issues?"
-   - If yes: spawn a fix agent (model: sonnet) with this prompt: "Read `paths.complexity_report`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
+   - If yes: spawn a fix agent (model: sonnet) with this prompt: "Extract the `## Complexity Report` block from `paths.scratch`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
      Then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: tell the user "Max complexity fix cycles reached — please review the blocked issues manually" and stop
@@ -307,7 +311,7 @@ Print banner: `── bfeature | Review Implementation ────────�
 Run up to 3 analyze → fix cycles:
 
 1. Read `full/review-impl/SKILL.md` and pass its contents as an Agent prompt (model: opus)
-2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.impl_report>"`
+2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.scratch>" --block "## Implementation Review"`
 3. If output is `PASS`: proceed to step 5
 4. If output is `CONCERN`:
    - Show the concerns to the user
@@ -350,7 +354,7 @@ Print banner: `── bfeature | Finalize ────────────�
 3. **Compose commit message and PR content** (reasoning — model writes this):
    - **Commit message:** `feat:` prefix with a concise description. Include issue/ticket if enabled (e.g., `feat(#12): address review concerns`, `feat(PROJ-123): address review concerns`).
    - **PR title:** short, imperative (≤70 chars)
-   - **PR body:** Read `paths.spec` and compose a short summary (2–3 sentences max) of what the feature does and why — no test descriptions, no minor change lists, no implementation details. Store it in a variable for use in the next step.
+   - **PR body:** Extract the `## Spec` block from `paths.session_log` and compose a short summary (2–3 sentences max) of what the feature does and why — no test descriptions, no minor change lists, no implementation details. Store it in a variable for use in the next step.
 4. **Run git finalize:**
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/finalize-git.sh" \
@@ -375,10 +379,10 @@ Print banner: `── bfeature | Finalize ────────────�
 Print banner: `── bfeature | Collect TODOs ───────────────────────────────`
 
 1. Read `full/collect-todos/SKILL.md` and pass its contents as an Agent prompt (model: sonnet)
-2. The skill scans changes introduced by the feature branch for TODO comments, classifies them, and generates `.bf/sessions/<build_timestamp>-<slug>-backlog.md`
+2. The skill scans changes introduced by the feature branch for TODO comments, classifies them, and appends a `## Backlog` block to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
 3. When complete:
    ```
-   bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" artifacts.backlog="<build_timestamp>-<slug>-backlog.md"
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" artifacts.backlog="<build_timestamp>-<slug>-session-log.md"
    # or if no items found:
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" artifacts.backlog=null
    ```
@@ -405,7 +409,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=<phase> 
 The script auto-sets `updated_at`. Use dot notation for nested fields:
 
 ```
-bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" artifacts.plan=20260409T14-dark-mode-plan.md
+bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" artifacts.plan=20260409T14-dark-mode-session-log.md
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" collect_todos=true
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=execute phase_status=awaiting_approval
 ```

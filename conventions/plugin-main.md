@@ -12,8 +12,39 @@ These rules apply to every skill in this plugin.
 When you need a convention file, resolve it using this 3-step lookup — **first match wins, fully replaces the plugin default**:
 
 1. `<project_root>/.bf/conventions/<name>.md` — use `git rev-parse --show-toplevel` to find project root
-2. `~/.claude/bf-conventions/<name>.md`
+2. `~/.bf/conventions/<name>.md`
 3. `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`
+
+The available convention names and when to use each:
+
+## Artifact Layout
+
+Each session produces two files:
+
+| File | Key | Contents |
+|------|-----|----------|
+| `<prefix>-session-log.md` | `paths.session_log` | Persistent blocks: Spec, Plan, Todo, Backlog, Deployment |
+| `<prefix>-scratch.md` | `paths.scratch` | Ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report |
+
+`paths.spec`, `paths.plan`, etc. are **aliases** — they resolve to the same physical file (`session_log` or `scratch`). Use `paths.block_<name>` for the matching block header (e.g. `paths.block_spec` = `## Spec`).
+
+### Block Reading Pattern
+
+To read a specific artifact from a merged file:
+
+1. Grep `paths.<artifact>` for `^<paths.block_<artifact>>` to find the start line
+2. Grep `paths.<artifact>` for the next `^## ` after that line to find the end (use EOF if it's the last block)
+3. Read `paths.<artifact>` with `offset=<start>` and `limit=<end - start>`
+
+### Block Writing Pattern
+
+To write an artifact block:
+
+1. If the physical file doesn't exist: create it with `<paths.block_<artifact>>\n\n<content>`
+2. If it exists but the block header is absent: append `\n\n<paths.block_<artifact>>\n\n<content>`
+3. If the block header already exists: replace the block content in place (edit from header to next `## ` or EOF)
+
+Do **not** overwrite the entire file — other blocks may already be present.
 
 The available convention names and when to use each:
 

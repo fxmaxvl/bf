@@ -22,16 +22,18 @@ Review the implementation by comparing what was built against the plan and requi
 
 ## Mode-aware input
 
-- **Full mode** (`mode` = `"full"`): Compare against `paths.spec` and `paths.plan`.
-- **Quick mode** (`mode` = `"quick"`): No spec file was generated (quick mode skips brainstorm). Compare against `paths.qa` and `paths.plan`.
+- **Full mode** (`mode` = `"full"`): Compare against the `## Spec` block in `paths.spec` (= `paths.session_log`) and the `## Plan` block in `paths.plan` (= same file).
+- **Quick mode** (`mode` = `"quick"`): No spec exists. Compare against the `## QA` block in `paths.qa` (= `paths.scratch`) and the `## Plan` block in `paths.plan`.
+
+Use the Block Reading Pattern from `plugin-main.md` to extract each block.
 
 ## Review Criteria
 
 ### 1. Feature completeness
-- The spec's `## Functional Requirements` section is the authoritative list. Read only that section:
-  1. Grep `paths.spec` for `^## Functional Requirements` to find the start line
-  2. Grep `paths.spec` for the next `^## ` after that line to find the end
-  3. Read `paths.spec` with `offset=<start>` and `limit=<end - start>` — do not read the full file
+- The spec's `## Functional Requirements` section is the authoritative list. Locate it within the `## Spec` block in `paths.session_log`:
+  1. Grep `paths.session_log` for `^## Functional Requirements` to find the start line
+  2. Grep `paths.session_log` for the next `^## ` after that line to find the end
+  3. Read `paths.session_log` with `offset=<start>` and `limit=<end - start>`
 - For each requirement in that section, verify it is implemented by checking the actual code
 - Flag any requirement that is missing or partially implemented
 
@@ -59,28 +61,29 @@ Do **not** run the test suite — `verify` already ran it before this phase. If 
 
 ## Output
 
-Save a report to the path at `paths.impl_report`.
+Append a report to `paths.impl_report` (= `paths.scratch`) using `paths.block_impl_report` (`## Implementation Review`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`.
 
 If all criteria pass:
 
 ```markdown
-# Implementation Review Report
+## Implementation Review
+
 STATUS: PASS
 ```
 
 If any criterion has concerns:
 
 ```markdown
-# Implementation Review Report
+## Implementation Review
+
 STATUS: CONCERN
 
-## Concerns
+### Concerns
 
-### <Criterion name>
-- <file path>:<line> — <specific concern and what needs to change>
+#### <Criterion name>
 - <file path>:<line> — <specific concern and what needs to change>
 
-### <Criterion name>
+#### <Criterion name>
 - <specific concern>
 ```
 

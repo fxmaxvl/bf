@@ -43,15 +43,15 @@ If the user says they don't know the answer and asks to post the question to Jir
 
 ## Output
 
-Once you have enough information, save a Q&A summary to the path at `paths.qa` (from `state-ops.sh`). Format:
+Once you have enough information, append a Q&A summary to `paths.qa` (= `paths.scratch`) using `paths.block_qa` (`## QA`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`. Content format:
 
 ```markdown
-# Brainstorm Q&A
+## QA
 
-## Original Idea
+### Original Idea
 <original idea text>
 
-## Clarifications
+### Clarifications
 **Q: <question>**
 A: <answer>
 
