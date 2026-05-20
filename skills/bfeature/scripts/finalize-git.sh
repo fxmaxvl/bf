@@ -60,5 +60,11 @@ fi
 
 git push -u origin HEAD
 
-PR_URL=$(gh pr create --title "$PR_TITLE" --body "$BODY")
+EXISTING_PR=$(gh pr view --json url -q '.url' 2>/dev/null || true)
+if [[ -n "$EXISTING_PR" ]]; then
+    gh pr edit --title "$PR_TITLE" --body "$BODY"
+    PR_URL="$EXISTING_PR"
+else
+    PR_URL=$(gh pr create --title "$PR_TITLE" --body "$BODY")
+fi
 echo "$PR_URL"

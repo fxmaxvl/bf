@@ -183,7 +183,7 @@ Print banner: `── bfeature | Finalize ────────────�
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase_status=awaiting_approval
    ```
    Ask: "Ready to finalize (commit, push, PR)?"
-   - If no: **Exit** (re-invoke `/micro` when ready).
+   - If no: **Exit** (re-invoke `/bf:micro` when ready).
    - If yes: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase_status=in_progress` — continue.
 3. Stage and commit any uncommitted changes (do **not** stage `.claude/.bfeature-temp/`) following `conventions/git.md`. Use `refactor:` prefix.
    - If `github_issue.enabled`: include issue number (e.g., `refactor(#12): split processOrder into smaller methods`).
@@ -222,7 +222,7 @@ Multiple key=value pairs can be passed in a single call.
 
 ## Error Recovery
 
-- If session ends mid-phase, the next `/micro` invocation reads `build-state.json` and resumes.
+- If session ends mid-phase, the next `/bf:micro` invocation reads `build-state.json` and resumes.
 - If branch `feat/<slug>` already exists, switch to it.
 - If state shows phase `done`, tell the user the build is already complete.
 

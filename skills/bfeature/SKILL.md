@@ -1,5 +1,5 @@
 ---
-name: bfeature
+name: feature
 description: Orchestrate the full brainstorm → plan → execute workflow with review gates between phases.
 model: opus
 disable-model-invocation: false
@@ -17,7 +17,7 @@ All build artifacts (spec, plan, todo, backlog, build-state.json) live in `<proj
 
 ## Sub-skill Resolution
 
-Phase sub-skills (brainstorm, plan, do-todo, etc.) are **not registered** with the Skill tool and cannot be invoked via `Skill(name)`. Always locate them by reading their SKILL.md directly. Top-level skills (`full`, `quick`) ARE registered and CAN be invoked via `Skill(name)` — see the handoff section.
+Phase sub-skills (brainstorm, plan, do-todo, etc.) are **not registered** with the Skill tool and cannot be invoked via `Skill(name)`. Always locate them by reading their SKILL.md directly. Top-level skills (`bf:feature`, `bf:quick`) ARE registered and CAN be invoked via `Skill(name)` — see the handoff section.
 
 **Reading the sub-skill's SKILL.md is mandatory before executing that phase.** Never skip this step and proceed directly to writing code or running commands. The sub-skill files contain the authoritative instructions for each phase — ignoring them causes missed quality gates, wrong outputs, and broken flows.
 
@@ -84,7 +84,7 @@ Print the banner as plain text (not in a code block). Do this before any other w
 init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] execute → [auto] verify → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
 ```
 
-**Quick mode** (invoked via `/bfeature --quick`):
+**Quick mode** (invoked via `/bf:feature --quick`):
 ```
 init → refine → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```
@@ -184,7 +184,7 @@ If during brainstorm the user cannot answer a clarifying question and asks to po
 1. Invoke the `jira` skill: `ask-author(jira.ticket_key, questions)` — this tags the ticket author and posts the questions as a comment
 2. Save the questions to `jira.pending_questions` in state
 3. Set `phase_status` to `"waiting_answer"`
-4. Tell the user: "Questions posted to Jira ticket. Run `/bfeature` again later to check for answers."
+4. Tell the user: "Questions posted to Jira ticket. Run `/bf:feature` again later to check for answers."
 
 ### In all cases:
 When the file at `paths.spec` is detected:
@@ -251,7 +251,7 @@ Print banner: `── bfeature | Plan ──────────────
    ```
    - Ask the user: "Plan written. Ready to start execution?"
    - If yes: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase_status=in_progress` — proceed to Phase 4
-   - If no: **Exit** (re-invoke `/bfeature` when ready)
+   - If no: **Exit** (re-invoke `/bf:feature` when ready)
 
 ## Phase 4 — Execute
 
@@ -336,7 +336,7 @@ Print banner: `── bfeature | Finalize ────────────�
 
    **If `mode != "quick"` (full mode):** Ask the user one question at a time:
    1. Ask: "Ready to finalize (commit, push, PR)?"
-      - If no: **Exit** (re-invoke `/bfeature` when ready).
+      - If no: **Exit** (re-invoke `/bf:feature` when ready).
       - If yes: continue to next question.
    2. Ask: "Should I scan for TODO comments and collect them to the backlog after?"
       - Save the answer in state as `collect_todos: true/false` so it survives session interruptions.
@@ -344,7 +344,7 @@ Print banner: `── bfeature | Finalize ────────────�
 
    **If `mode == "quick"` (quick mode):**
    1. Ask: "Ready to finalize (commit, push, PR)?"
-      - If no: **Exit** (re-invoke `/bfeature` when ready).
+      - If no: **Exit** (re-invoke `/bf:feature` when ready).
       - If yes: continue.
    Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase_status=in_progress collect_todos=false` — continue. (TODO scanning is always skipped in quick mode.)
 3. **Compose commit message and PR content** (reasoning — model writes this):
@@ -414,7 +414,7 @@ Multiple key=value pairs can be passed in a single call. Boolean values (`true`/
 
 ## Error Recovery
 
-- If the session ends mid-phase, the next `/bfeature` invocation reads `.claude/.bfeature-temp/build-state.json` and resumes
+- If the session ends mid-phase, the next `/bf:feature` invocation reads `.claude/.bfeature-temp/build-state.json` and resumes
 - If the branch `feat/<slug>` already exists, switch to it instead of creating a new one
 - If state shows phase `done`, tell the user the build is already complete
 

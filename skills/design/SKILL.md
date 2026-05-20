@@ -1,6 +1,6 @@
 ---
 name: design
-description: Produce a shareable system-design document (with diagrams) from a high-level idea via interactive Q&A. Standalone — no git, no branches, no PR. Optionally seeds /bfeature.
+description: Produce a shareable system-design document (with diagrams) from a high-level idea via interactive Q&A. Standalone — no git, no branches, no PR. Optionally seeds /bf:feature.
 model: opus
 disable-model-invocation: false
 argument-hint: [idea description]
@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Glob, Grep, mcp__claude_ai_Excalidraw__create_view, 
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
-Orchestrate a 4-phase design flow: Gather → Generate → Review → Optional /bfeature handoff. This skill is standalone — no git work, no build-state.json, no branches, no PR. Re-invoking the skill does NOT resume a previous session — there is no state file.
+Orchestrate a 4-phase design flow: Gather → Generate → Review → Optional /bf:feature handoff. This skill is standalone — no git work, no build-state.json, no branches, no PR. Re-invoking the skill does NOT resume a previous session — there is no state file.
 
 **Hard rule — one question per turn:** In every interactive phase (Gather, Review, Handoff), ask exactly one question, then stop and wait for the answer. Never batch two or more questions in a single response, even when transitioning between steps.
 
@@ -186,13 +186,13 @@ Track a revision counter starting at 0. Increment it on each iterate round.
 
 Do NOT delete the temp Q&A file in this phase — it must stay alive for potential further revisions. Phase 4 handles cleanup.
 
-## Phase 4 — Optional /bfeature handoff
+## Phase 4 — Optional /bf:feature handoff
 
 Print banner: `── design | Handoff ───────────────────────────────`
 
 1. **Ask one question** (inline, wait for response):
    ```
-   Do you want to kick off /bfeature with this design as the starting spec?
+   Do you want to kick off /bf:feature with this design as the starting spec?
    ```
 
 2. **If NO:**
@@ -239,12 +239,12 @@ Print banner: `── design | Handoff ─────────────�
       ```
 
    e. Invoke bfeature via the Skill tool:
-      - Full mode: `Skill("full", args="<constructed args>")`
-      - Quick mode: `Skill("quick", args="<constructed args>")`
+      - Full mode: `Skill("bf:feature", args="<constructed args>")`
+      - Quick mode: `Skill("bf:quick", args="<constructed args>")`
 
       Do NOT ask the user to paste a command manually. Do NOT read the bfeature SKILL.md directly — the Skill tool handles that.
 
-4. Hand control to /bfeature (if YES) or end the session (if NO).
+4. Hand control to /bf:feature (if YES) or end the session (if NO).
 
 Here is the idea:
 $ARGUMENTS
