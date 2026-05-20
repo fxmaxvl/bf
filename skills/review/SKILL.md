@@ -123,7 +123,7 @@ changed_files="$file_paths"
 Resolve each convention using the 3-step lookup from `plugin-main.md`:
 
 1. `<project_root>/.bf/conventions/<name>.md`
-2. `~/.claude/bf-conventions/<name>.md`
+2. `~/.bf/conventions/<name>.md`
 3. `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`
 
 Resolve: `code-review`, `dev`, `testing`, `architecture`.
@@ -250,7 +250,7 @@ Write the following JSON to `$temp_state` (all required fields for `state-ops.sh
 
 Where `<timestamp>` is from "On Invocation" and `<build_ts>` is the truncated-to-hour form (e.g. `20260520T10`).
 
-**Note**: `state-ops.sh` computes `paths.complexity_report` as `<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-complexity-report.md`. After the Agent returns, read the complexity report from that path. Set `complexity_report_path` to `<adir>/<build_ts>-review-<timestamp>-complexity-report.md`.
+**Note**: `state-ops.sh` computes `paths.complexity_report` as an alias for `paths.scratch` (`<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-scratch.md`). The complexity gate appends a `## Complexity Report` block to that file. Set `complexity_report_path` to `<adir>/<build_ts>-review-<timestamp>-scratch.md`.
 
 ### Invoke complexity-gate Agent (model: opus)
 
@@ -288,7 +288,7 @@ rm -f "$temp_state"
 
 ### Merge complexity findings into report
 
-Read `$complexity_report_path`. If the file does not exist or the Agent failed, continue with a note: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
+Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist, the block is absent, or the Agent failed, continue with a note: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
 
 Renumber all complexity findings as X1, X2, ... sequentially.
 

@@ -379,10 +379,10 @@ Print banner: `── bfeature | Finalize ────────────�
 Print banner: `── bfeature | Collect TODOs ───────────────────────────────`
 
 1. Read `full/collect-todos/SKILL.md` and pass its contents as an Agent prompt (model: sonnet)
-2. The skill scans changes introduced by the feature branch for TODO comments, classifies them, and generates `.bf/sessions/<build_timestamp>-<slug>-backlog.md`
+2. The skill scans changes introduced by the feature branch for TODO comments, classifies them, and appends a `## Backlog` block to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
 3. When complete:
    ```
-   bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" artifacts.backlog="<build_timestamp>-<slug>-backlog.md"
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" artifacts.backlog="<build_timestamp>-<slug>-session-log.md"
    # or if no items found:
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" artifacts.backlog=null
    ```
@@ -409,7 +409,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=<phase> 
 The script auto-sets `updated_at`. Use dot notation for nested fields:
 
 ```
-bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" artifacts.plan=20260409T14-dark-mode-plan.md
+bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" artifacts.plan=20260409T14-dark-mode-session-log.md
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" collect_todos=true
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=execute phase_status=awaiting_approval
 ```

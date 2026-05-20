@@ -12,7 +12,7 @@
 # Update supports dot notation for nested fields:
 #   phase=execute
 #   phase_status=in_progress
-#   artifacts.plan=20260409T14-dark-mode-plan.md
+#   artifacts.plan=20260409T14-dark-mode-session-log.md
 #   collect_todos=true
 #   jira.enabled=true
 #
