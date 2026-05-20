@@ -393,3 +393,41 @@ Remaining: <M> concerns still present
 ```
 
 If remaining concerns exist, list them by ID and label (same one-line format as Phase 4 Step 1) so the user knows what was not resolved.
+
+## Edge Cases & Errors
+
+### Startup
+
+| Condition | Handling |
+|-----------|----------|
+| Not a git repository | Print "Not a git repository. Exiting." and stop. |
+| `~/.vs` not writable | Fall back to `<project_root>/.claude/.bfeature-temp/reviews/` for `reports_dir`. Warn: "~/.vs not writable — saving reports to <fallback_path>." |
+| Convention file missing (all 3 lookup paths absent) | Print "Convention file not found: <last-looked-up path>. This may be a plugin install issue." and stop. |
+
+### Phase 1 — Collect
+
+| Condition | Handling |
+|-----------|----------|
+| Branch scope, empty diff | Print "Branch has no changes vs base. Nothing to review." and exit cleanly. |
+| `gh` not installed (PR scope) | Print "gh CLI is not installed. Install it from https://cli.github.com and run `gh auth login`." and exit. |
+| gh not authenticated (PR scope) | Print "gh is not authenticated. Run `gh auth login` and retry." and exit. |
+| PR not found | Surface the gh error message verbatim and exit. |
+| Files scope — one or more paths not tracked | List the untracked paths: "The following paths are not tracked by git: <list>. Verify paths and retry." and exit. |
+
+### Phase 3 — Complexity Gate
+
+| Condition | Handling |
+|-----------|----------|
+| Complexity Agent fails or errors | Continue with review report. Append `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)` to the report. Do not block the review. |
+| Temp `build-state.json` already exists (another bfeature run in progress) | Print "Warning: .bfeature-temp/build-state.json already exists — a bfeature workflow may be in progress. Overwriting for complexity scan; it will be restored on cleanup." Then proceed normally and restore the original file after the Agent returns. |
+
+### Fix phase
+
+| Condition | Handling |
+|-----------|----------|
+| Fix Agent fails | Inform the user, skip the re-review, and print the original report path only. |
+| Re-review returns a report with new concerns not in the original | Include them in the "remaining" count but label them `[new]` so the user can distinguish. |
+
+### Re-invocation
+
+This skill is stateless — each invocation produces a fresh timestamped report. `latest.md` always points to the most recent report from the current session. Previous reports are preserved.
