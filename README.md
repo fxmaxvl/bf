@@ -16,16 +16,16 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 
 ## What's inside
 
-| Command                   | Description                                                                        |
-|---------------------------|------------------------------------------------------------------------------------|
-| `/bf:feature <idea>`         | brainstorm → spec → review → plan → execute → verify → finalize                   |
-| `/bf:quick <idea>`        | refine → plan → execute → verify → finalize                                        |
-| `/bf:micro <idea>`        | Focused refactor workflow — clarify → execute → verify → finalize                  |
-| `/bf:design <idea>`       | Interactive Q&A → shareable system design document                                 |
-| `/bf:gh`                  | Pick a GitHub issue → kick off full or quick workflow                              |
-| `/bf:jira`                | Pick a Jira ticket → kick off full or quick workflow                               |
-| `/bf:discuss <question>`  | Explore a question or design decision via dialogue before committing to a direction |
-| `/bf:session-summary`     | Generate a summary of the current session                                          |
+| Skill | Kind | What it does |
+|---|---|---|
+| `/bf:feature <idea>` | Workflow | Take a rough idea through brainstorm, spec, design review, plan, execute, verify, and finalize — with checkpoints between phases |
+| `/bf:quick <idea>` | Workflow | Plan-to-code for small changes and bugfixes — refine, plan, execute, verify, finalize |
+| `/bf:micro <idea>` | Workflow | Focused refactor workflow with complexity and quality guards — clarify only if needed, then execute |
+| `/bf:design <idea>` | Utility | Turn an idea into a shareable system-design document via interactive Q&A — standalone, no git/PR |
+| `/bf:gh` | Utility | Pick or create a GitHub issue and kick off a full or quick workflow |
+| `/bf:jira` | Utility | Pick a Jira ticket and kick off a full or quick workflow |
+| `/bf:discuss <question>` | Utility | Explore a question or design decision via dialogue before committing to a direction |
+| `/bf:session-summary` | Utility | Generate a summary of the current session |
 
 ## Getting started
 
