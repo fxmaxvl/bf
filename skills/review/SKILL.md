@@ -333,3 +333,63 @@ Wait for reply.
 
 - `yes` (or `y`) → proceed to Phase 5.
 - anything else → return to Step 1 (re-ask the selection question).
+
+## Phase 5 — Fix
+
+### Spawn fix Agent (model: sonnet)
+
+Collect the selected concerns from the report: extract the full description blocks for each selected ID (including `file:line`, problem, and suggested fix).
+
+Pass the following prompt to an Agent with model: sonnet:
+
+```
+You are applying code fixes identified by a code review.
+
+## Dev Convention
+<contents of resolved dev.md>
+
+## Selected Concerns
+<concern block for each selected ID, preserving full text>
+
+## Diff Context
+<diff_text from Phase 1>
+
+## Changed Files
+<one path per line>
+
+## Instructions
+
+- Apply each fix in place, editing the actual source files.
+- Do not modify any file outside the changed_files list.
+- Do not commit or push anything.
+- For PR scope: fixes apply to the local working tree.
+- If a fix cannot be applied cleanly (e.g. the code has moved), add a TODO comment at the relevant location:
+  `// TODO(bf:review): <concern ID> — <brief description of what needs manual fixing>`
+- Do not add explanatory text to the source files; only the necessary code changes and TODO markers.
+- Return a brief summary: which concerns were applied, which were deferred with a TODO.
+```
+
+### Re-review cycle
+
+After the fix Agent returns, run Phase 2 again (review Agent, same scope) scoped to `changed_files`. This is re-review cycle 1.
+
+**Cap at 2 re-review cycles.** Do not run a third fix→review round regardless of remaining concerns.
+
+Set `after_fix_report_path` to `${report_path%.md}-after-fix.md` (or `-after-fix-2.md` for cycle 2).
+
+Save the new review report to `after_fix_report_path`. Update `latest.md` symlink.
+
+**Do not overwrite the original `$report_path`.** Preserve it as the baseline.
+
+### Tell the user
+
+After the final re-review, print:
+
+```
+Original report:  <report_path>
+After-fix report: <after_fix_report_path>
+Resolved:  <N> concerns addressed
+Remaining: <M> concerns still present
+```
+
+If remaining concerns exist, list them by ID and label (same one-line format as Phase 4 Step 1) so the user knows what was not resolved.
