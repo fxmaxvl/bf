@@ -116,3 +116,92 @@ changed_files="$file_paths"
 ### After collection
 
 `diff_text` and `changed_files` are now available for the review and complexity agents.
+
+## Phase 2 — Review
+
+### Resolve conventions
+
+Resolve each convention using the 3-step lookup from `plugin-main.md`:
+
+1. `<project_root>/.claude/bf-conventions/<name>.md`
+2. `~/.claude/bf-conventions/<name>.md`
+3. `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`
+
+Resolve: `code-review`, `dev`, `testing`, `architecture`.
+
+Read each resolved convention file in full.
+
+### Spawn review Agent (model: opus)
+
+Read the resolved convention files and pass their full contents to an Agent with the following prompt:
+
+```
+You are a code reviewer. Apply the following conventions strictly.
+
+## Dev Convention
+<contents of resolved dev.md>
+
+## Testing Convention
+<contents of resolved testing.md>
+
+## Architecture Convention
+<contents of resolved architecture.md>
+
+## Code Review Convention
+<contents of resolved code-review.md>
+
+## Scope
+<scope label — branch / PR #N / files>
+<pr_meta JSON if PR scope, omit otherwise>
+
+## Changed Files
+<one path per line from changed_files>
+
+## Diff
+<diff_text>
+
+## Instructions
+
+1. Read the full content of each changed file (not just diff hunks) using the Read tool before forming conclusions.
+2. Apply every check in the Code Review Convention across all five categories.
+3. Produce the report in this exact format:
+
+# Code Review Report
+- Scope: <branch | PR #N | files: <list>>
+- Timestamp: <ISO 8601>
+- Files reviewed: <count>
+
+STATUS: PASS | CONCERN
+
+## Summary
+<2–4 sentence summary of what changed and overall quality>
+
+## Concerns
+
+### Dev Conventions
+- **C1** [must-fix] `file:line` — <problem> — Suggested: <fix>
+
+### Testing
+- **C2** [must-fix] `file:line` — <problem> — Suggested: <fix>
+
+### Security
+- **C3** [must-fix] `file:line` — <problem> — Suggested: <fix>
+
+### Code Structure & Fit
+- **C4** [should-consider] `file:line` — <problem> — Suggested: <fix>
+
+### Readability & Quality
+- **C5** [should-consider] `file:line` — <problem> — Suggested: <fix>
+
+Numbering: C1, C2, C3, ... sequentially across all sections.
+Label each concern [must-fix] or [should-consider].
+Omit sections that have no concerns.
+If STATUS is PASS, omit the Concerns block entirely.
+Return only the report — no preamble or commentary.
+```
+
+### Save initial report
+
+Write the Agent's output to `$report_path`.
+
+Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
