@@ -16,15 +16,16 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 
 ## What's inside
 
-| Command | Description |
-|---------|-------------|
-| `/bf:bfeature <idea>` | brainstorm → spec → review → plan → execute → verify → finalize |
-| `/bf:quick <idea>` | refine → plan → execute → verify → finalize |
-| `/bf:design <idea>` | Interactive Q&A → shareable system design document |
-| `/bf:gh` | Pick a GitHub issue → kick off full or quick workflow |
-| `/bf:jira` | Pick a Jira ticket → kick off full or quick workflow |
-| `/bf:discuss <question>` | Explore a question or design decision via dialogue before committing to a direction |
-| `/bf:session-summary` | Generate a summary of the current session |
+| Command                   | Description                                                                        |
+|---------------------------|------------------------------------------------------------------------------------|
+| `/bf:feature <idea>`         | brainstorm → spec → review → plan → execute → verify → finalize                   |
+| `/bf:quick <idea>`        | refine → plan → execute → verify → finalize                                        |
+| `/bf:micro <idea>`        | Focused refactor workflow — clarify → execute → verify → finalize                  |
+| `/bf:design <idea>`       | Interactive Q&A → shareable system design document                                 |
+| `/bf:gh`                  | Pick a GitHub issue → kick off full or quick workflow                              |
+| `/bf:jira`                | Pick a Jira ticket → kick off full or quick workflow                               |
+| `/bf:discuss <question>`  | Explore a question or design decision via dialogue before committing to a direction |
+| `/bf:session-summary`     | Generate a summary of the current session                                          |
 
 ## Getting started
 
