@@ -2,7 +2,7 @@
 # cleanup.sh — Remove ephemeral bfeature artifacts and build-state.json.
 #
 # Reads state via state-ops.sh to resolve paths, then deletes:
-#   - <prefix>-scratch.md  (ephemeral blocks: qa, design-report, impl-report, complexity-report)
+#   - <prefix>-temp.md  (ephemeral blocks: qa, design-report, impl-report, complexity-report)
 #   - build-state.json     (last, so state survives partial failures)
 #
 # Persistent artifacts in <prefix>-session-log.md (spec, plan, todo, backlog, deployment) are kept.
@@ -22,14 +22,14 @@ if [ $? -ne 0 ]; then
 fi
 
 artifacts_dir=$(echo "$state_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['artifacts_dir'])")
-scratch=$(echo "$state_json"       | python3 -c "import json,sys; print(json.load(sys.stdin)['paths']['scratch'])")
+temp=$(echo "$state_json"          | python3 -c "import json,sys; print(json.load(sys.stdin)['paths']['temp'])")
 state_file="$artifacts_dir/build-state.json"
 
 deleted=()
 
-if [ -f "$scratch" ]; then
-  rm "$scratch"
-  deleted+=("$(basename "$scratch")")
+if [ -f "$temp" ]; then
+  rm "$temp"
+  deleted+=("$(basename "$temp")")
 fi
 
 # Delete state last so partial failures leave state intact

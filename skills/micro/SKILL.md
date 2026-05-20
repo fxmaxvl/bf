@@ -135,13 +135,13 @@ Run up to 3 scan → fix cycles:
 
 1. Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
    Phase is `verify` — the skill auto-detects scan mode and scans `changed_files`.
-2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.scratch>" --block "## Complexity Report"`
+2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
 3. If output is `PASS` or `ADVISORY`: show findings if any, proceed to step 5.
 4. If output is `BLOCK`:
    - Show the blocked issues to the user.
    - Ask: "Should I fix these complexity issues?"
    - If yes: spawn a fix agent (model: sonnet) with this prompt:
-     "Extract the `## Complexity Report` block from `paths.scratch`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
+     "Extract the `## Complexity Report` block from `paths.temp`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
      Then go back to step 1.
    - If no (user accepts as-is): proceed to step 5.
    - If this was already the 3rd cycle: tell the user "Max complexity fix cycles reached — please review the blocked issues manually" and stop.
@@ -157,7 +157,7 @@ Print banner: `── bfeature | Review Implementation ────────�
 Run up to 3 analyze → fix cycles:
 
 1. Read `bfeature/review-impl/SKILL.md` and pass its contents as an Agent prompt (model: opus).
-2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.scratch>" --block "## Implementation Review"`
+2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.temp>" --block "## Implementation Review"`
 3. If output is `PASS`: proceed to step 5.
 4. If output is `CONCERN`:
    - Show the concerns to the user.
@@ -190,7 +190,7 @@ Print banner: `── bfeature | Finalize ────────────�
    - If `jira.enabled`: include ticket key.
 4. Push the branch to remote.
 5. Create a PR using `gh pr create`:
-   - **PR body**: Micro mode produces no spec — extract the `## QA` block from `paths.scratch` and derive a 2–3 sentence summary describing what was refactored and why.
+   - **PR body**: Micro mode produces no spec — extract the `## QA` block from `paths.temp` and derive a 2–3 sentence summary describing what was refactored and why.
    - If `github_issue.enabled`: append `Closes #<github_issue.number>`.
    - If `jira.enabled`: append a link to the Jira ticket.
 6. If `jira.enabled`:

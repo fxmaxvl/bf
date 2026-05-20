@@ -23,7 +23,7 @@ Review the implementation by comparing what was built against the plan and requi
 ## Mode-aware input
 
 - **Full mode** (`mode` = `"full"`): Compare against the `## Spec` block in `paths.spec` (= `paths.session_log`) and the `## Plan` block in `paths.plan` (= same file).
-- **Quick mode** (`mode` = `"quick"`): No spec exists. Compare against the `## QA` block in `paths.qa` (= `paths.scratch`) and the `## Plan` block in `paths.plan`.
+- **Quick mode** (`mode` = `"quick"`): No spec exists. Compare against the `## QA` block in `paths.qa` (= `paths.temp`) and the `## Plan` block in `paths.plan`.
 
 Use the Block Reading Pattern from `plugin-main.md` to extract each block.
 
@@ -61,7 +61,7 @@ Do **not** run the test suite — `verify` already ran it before this phase. If 
 
 ## Output
 
-Append a report to `paths.impl_report` (= `paths.scratch`) using `paths.block_impl_report` (`## Implementation Review`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`.
+Append a report to `paths.impl_report` (= `paths.temp`) using `paths.block_impl_report` (`## Implementation Review`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`.
 
 If all criteria pass:
 

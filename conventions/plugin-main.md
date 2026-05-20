@@ -24,9 +24,9 @@ Each session produces two files:
 | File | Key | Contents |
 |------|-----|----------|
 | `<prefix>-session-log.md` | `paths.session_log` | Persistent blocks: Spec, Plan, Todo, Backlog, Deployment |
-| `<prefix>-scratch.md` | `paths.scratch` | Ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report |
+| `<prefix>-temp.md` | `paths.temp` | Ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report |
 
-`paths.spec`, `paths.plan`, etc. are **aliases** — they resolve to the same physical file (`session_log` or `scratch`). Use `paths.block_<name>` for the matching block header (e.g. `paths.block_spec` = `## Spec`).
+`paths.spec`, `paths.plan`, etc. are **aliases** — they resolve to the same physical file (`session_log` or `temp`). Use `paths.block_<name>` for the matching block header (e.g. `paths.block_spec` = `## Spec`).
 
 ### Block Reading Pattern
 

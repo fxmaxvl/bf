@@ -151,7 +151,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" --init \
 
 **Artifact layout:** Each session produces two files (see `plugin-main.md` for the Block I/O conventions):
 - `<build_timestamp>-<slug>-session-log.md` (`paths.session_log`) — persistent blocks: Spec, Plan, Todo, Backlog, Deployment
-- `<build_timestamp>-<slug>-scratch.md` (`paths.scratch`) — ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report; deleted at cleanup
+- `<build_timestamp>-<slug>-temp.md` (`paths.temp`) — ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report; deleted at cleanup
 
 Use `paths.*` from `state-ops.sh` instead of constructing paths manually.
 
@@ -174,13 +174,13 @@ If state has `phase` = `"brainstorm"` and `phase_status` = `"waiting_answer"`:
 2. Synthesize an overall description from the ticket content
 3. Read `full/brainstorm/SKILL.md` and follow its instructions **inline** (in the current conversation) with the synthesized description
    - Runs in the main conversation — user interaction is fully available
-   - Gather appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-scratch.md`
+   - Gather appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-temp.md`
 4. Read `full/brainstorm/generate/SKILL.md` and pass its contents as an Agent prompt (model: opus) to produce the spec from the Q&A
 
 ### If `jira.enabled` is `false`:
 1. Read `full/brainstorm/SKILL.md` and follow its instructions **inline** (in the current conversation) with the idea from state
    - Runs in the main conversation — user interaction is fully available
-   - Gather appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-scratch.md`
+   - Gather appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-temp.md`
 2. Read `full/brainstorm/generate/SKILL.md` and pass its contents as an Agent prompt (model: opus) to produce the spec from the Q&A
 
 ### Escalating questions to Jira
@@ -207,7 +207,7 @@ Skipped entirely in full mode — full mode uses Phase 1 (Brainstorm) instead.
 
 1. Read `full/refine/SKILL.md` and follow its instructions **inline** (in the current conversation) with the idea from state
    - Runs in the main conversation — user interaction is fully available
-   - Appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-scratch.md`
+   - Appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-temp.md`
 2. After refine completes:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=plan phase_status=in_progress
@@ -223,7 +223,7 @@ Skipped entirely in quick mode.
 Run up to 3 analyze → fix cycles:
 
 1. Read `full/review-design/SKILL.md` and pass its contents as an Agent prompt (model: opus)
-2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.scratch>" --block "## Design Report"`
+2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.temp>" --block "## Design Report"`
 3. If output is `PASS`: proceed to step 5
 4. If output is `CONCERN`:
    - Show the concerns to the user
@@ -290,12 +290,12 @@ Run up to 3 scan → fix cycles:
 
 1. Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus)
    - Phase is `verify` — the skill auto-detects scan mode and uses `changed_files`
-2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.scratch>" --block "## Complexity Report"`
+2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
 3. If output is `PASS` or `ADVISORY`: show findings if any, proceed to step 5
 4. If output is `BLOCK`:
    - Show the blocked issues to the user
    - Ask: "Should I fix these complexity issues?"
-   - If yes: spawn a fix agent (model: sonnet) with this prompt: "Extract the `## Complexity Report` block from `paths.scratch`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
+   - If yes: spawn a fix agent (model: sonnet) with this prompt: "Extract the `## Complexity Report` block from `paths.temp`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
      Then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: tell the user "Max complexity fix cycles reached — please review the blocked issues manually" and stop
@@ -311,7 +311,7 @@ Print banner: `── bfeature | Review Implementation ────────�
 Run up to 3 analyze → fix cycles:
 
 1. Read `full/review-impl/SKILL.md` and pass its contents as an Agent prompt (model: opus)
-2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.scratch>" --block "## Implementation Review"`
+2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.temp>" --block "## Implementation Review"`
 3. If output is `PASS`: proceed to step 5
 4. If output is `CONCERN`:
    - Show the concerns to the user

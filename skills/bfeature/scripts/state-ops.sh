@@ -50,22 +50,22 @@ def parse_value(raw):
 
 def artifact_paths(adir, prefix):
     session_log = os.path.join(adir, f'{prefix}-session-log.md')
-    scratch     = os.path.join(adir, f'{prefix}-scratch.md')
+    temp        = os.path.join(adir, f'{prefix}-temp.md')
     return {
         # physical files
         'session_log': session_log,
-        'scratch':     scratch,
+        'temp':        temp,
         # persistent artifacts — all in session_log
         'spec':        session_log,
         'plan':        session_log,
         'todo':        session_log,
         'backlog':     session_log,
         'deployment':  session_log,
-        # ephemeral artifacts — all in scratch
-        'qa':                scratch,
-        'design_report':     scratch,
-        'impl_report':       scratch,
-        'complexity_report': scratch,
+        # ephemeral artifacts — all in temp
+        'qa':                temp,
+        'design_report':     temp,
+        'impl_report':       temp,
+        'complexity_report': temp,
         # block headers (used to scope reads/appends within the merged files)
         'block_spec':               '## Spec',
         'block_plan':               '## Plan',

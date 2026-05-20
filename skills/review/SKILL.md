@@ -250,7 +250,7 @@ Write the following JSON to `$temp_state` (all required fields for `state-ops.sh
 
 Where `<timestamp>` is from "On Invocation" and `<build_ts>` is the truncated-to-hour form (e.g. `20260520T10`).
 
-**Note**: `state-ops.sh` computes `paths.complexity_report` as an alias for `paths.scratch` (`<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-scratch.md`). The complexity gate appends a `## Complexity Report` block to that file. Set `complexity_report_path` to `<adir>/<build_ts>-review-<timestamp>-scratch.md`.
+**Note**: `state-ops.sh` computes `paths.complexity_report` as an alias for `paths.temp` (`<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-temp.md`). The complexity gate appends a `## Complexity Report` block to that file. Set `complexity_report_path` to `<adir>/<build_ts>-review-<timestamp>-temp.md`.
 
 ### Invoke complexity-gate Agent (model: opus)
 

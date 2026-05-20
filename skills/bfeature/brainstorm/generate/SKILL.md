@@ -20,7 +20,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
 
 This gives you `slug`, `build_timestamp`, `mode`, and `paths.*`.
 
-Extract the `## QA` block from `paths.qa` (= `paths.scratch`) using the Block Reading Pattern from `plugin-main.md`.
+Extract the `## QA` block from `paths.qa` (= `paths.temp`) using the Block Reading Pattern from `plugin-main.md`.
 
 ## Step 0 — Explore all layers named in the Q&A
 
