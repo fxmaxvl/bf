@@ -4,7 +4,7 @@ description: Review code (current branch diff, a PR by number, or specific files
 model: opus
 disable-model-invocation: false
 argument-hint: "[empty | PR number | file paths]"
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *)
+allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill, including the **one-question-per-turn** rule that applies at every interactive point in this skill.
@@ -50,7 +50,6 @@ timestamp=$(date -u +%Y%m%dT%H%M%S)
 reports_dir="$HOME/.vs/$PROJECT_ID/reviews"
 scope_label=<branch | pr-<pr_number> | files>
 report_path="$reports_dir/${timestamp}-${scope_label}-review.md"
-complexity_report_path="$reports_dir/${timestamp}-${scope_label}-complexity.md"
 ```
 
 Create the reports directory: `mkdir -p "$reports_dir"`
@@ -219,6 +218,15 @@ build_ts=$(date -u +%Y%m%dT%H)
 slug="review-${timestamp}"
 ```
 
+**If `$temp_state` already exists** (a bfeature workflow is in progress), back it up first:
+
+```bash
+# If build-state.json exists, save it and restore it after the complexity scan
+temp_state_backup="$temp_state.bfreview-backup"
+[ -f "$temp_state" ] && cp "$temp_state" "$temp_state_backup" && \
+  echo "Warning: .bfeature-temp/build-state.json already exists — a bfeature workflow may be in progress. Backing it up; it will be restored after the complexity scan."
+```
+
 Write the following JSON to `$temp_state` (all required fields for `state-ops.sh`):
 
 ```json
@@ -244,16 +252,34 @@ Where `<timestamp>` is from "On Invocation" and `<build_ts>` is the truncated-to
 
 ### Invoke complexity-gate Agent (model: opus)
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/complexity-gate/SKILL.md` in full and pass its contents as the Agent prompt with model: opus.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/complexity-gate/SKILL.md` in full.
 
-The sub-skill will run `state-ops.sh` to load state, run `changed-packages.sh` (which calls `git diff` to detect changed files), scan for complexity red flags, and write its report to `paths.complexity_report`.
+**For branch scope**: pass the SKILL.md contents as-is as the Agent prompt. `changed-packages.sh` will derive the correct changed files from `git diff`.
+
+**For PR scope or files scope**: `changed-packages.sh` compares `master...HEAD` and will not detect the correct files. Prepend the following override block to the SKILL.md contents before passing as the Agent prompt:
+
+```
+## OVERRIDE — changed_files
+
+Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` instead:
+
+<one path per line from changed_files>
+
+Proceed with scan mode using these paths.
+```
+
+Then pass the full prompt (override block + SKILL.md contents) to an Agent with model: opus.
+
+The sub-skill will run `state-ops.sh` to load state, scan for complexity red flags using the provided or script-derived changed files, and write its report to `paths.complexity_report`.
 
 ### Clean up temp state
 
-After the complexity Agent returns (whether it succeeds or fails), delete the temp state:
+After the complexity Agent returns (whether it succeeds or fails), clean up the temp state:
 
 ```bash
 rm -f "$temp_state"
+# Restore backup if it existed
+[ -f "$temp_state_backup" ] && mv "$temp_state_backup" "$temp_state"
 ```
 
 **This cleanup must happen on every exit path — do not skip it.**
@@ -343,6 +369,20 @@ Wait for reply.
 
 ## Phase 5 — Fix
 
+### PR scope: check out the PR branch
+
+For PR scope, fixes must land on the PR's branch, not the current local branch.
+
+```bash
+pr_head_branch=$(echo "$pr_meta" | jq -r '.headRefName')
+git fetch origin "$pr_head_branch"
+git checkout "$pr_head_branch"
+```
+
+If checkout fails, tell the user: "Could not check out PR branch `<pr_head_branch>`. Fixes cannot be applied automatically — address the concerns manually." and exit Phase 5.
+
+For branch and files scope, no checkout is needed — fixes apply to the current working tree.
+
 ### Spawn fix Agent (model: sonnet)
 
 Collect the selected concerns from the report: extract the full description blocks for each selected ID (including `file:line`, problem, and suggested fix).
@@ -426,7 +466,7 @@ If remaining concerns exist, list them by ID and label (same one-line format as 
 | Condition | Handling |
 |-----------|----------|
 | Complexity Agent fails or errors | Continue with review report. Append `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)` to the report. Do not block the review. |
-| Temp `build-state.json` already exists (another bfeature run in progress) | Print "Warning: .bfeature-temp/build-state.json already exists — a bfeature workflow may be in progress. Overwriting for complexity scan; it will be restored on cleanup." Then proceed normally and restore the original file after the Agent returns. |
+| Temp `build-state.json` already exists (another bfeature run in progress) | Back it up to `build-state.json.bfreview-backup`, warn the user, overwrite for the complexity scan, then restore the backup on cleanup. |
 
 ### Fix phase
 
