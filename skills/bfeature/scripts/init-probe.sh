@@ -69,7 +69,7 @@ root = git_root()
 cur  = current_branch()
 main = main_branch(root)
 
-state_path = os.path.join(root, '.claude', '.bfeature-temp', 'build-state.json')
+state_path = os.path.join(root, '.bf', 'sessions', 'build-state.json')
 
 print(json.dumps({
     'quick':          quick,

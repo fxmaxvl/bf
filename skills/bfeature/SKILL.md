@@ -9,11 +9,11 @@ allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), mcp__*__jira__*
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
-Orchestrate the full development workflow for a feature. Manage state via `.claude/.bfeature-temp/build-state.json` and delegate to existing skills with approval gates between each phase.
+Orchestrate the full development workflow for a feature. Manage state via `.bf/sessions/build-state.json` and delegate to existing skills with approval gates between each phase.
 
 ## Artifacts Directory
 
-All build artifacts (spec, plan, todo, backlog, build-state.json) live in `<project_root>/.claude/.bfeature-temp/`. `project_root` is always the **git repository root** — resolved via `git rev-parse --show-toplevel` (NOT the current working directory, NOT a package subdirectory, NOT `~/.claude/`). The directory is created via `mkdir -p` during init and the state file is removed at the end of finalization.
+All build artifacts (spec, plan, todo, backlog, build-state.json) live in `<project_root>/.bf/sessions/`. `project_root` is always the **git repository root** — resolved via `git rev-parse --show-toplevel` (NOT the current working directory, NOT a package subdirectory, NOT `~/.claude/`). The directory is created via `mkdir -p` during init and the state file is removed at the end of finalization.
 
 ## Sub-skill Resolution
 
@@ -145,7 +145,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" --init \
   [--gh-issue 42]                          # only if GitHub issue detected
 ```
 
-   The script creates `.claude/.bfeature-temp/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state.
+   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state.
 
 6. Proceed to Phase 1 (brainstorm for full mode, refine for quick mode).
 
@@ -170,13 +170,13 @@ If state has `phase` = `"brainstorm"` and `phase_status` = `"waiting_answer"`:
 2. Synthesize an overall description from the ticket content
 3. Read `full/brainstorm/SKILL.md` and follow its instructions **inline** (in the current conversation) with the synthesized description
    - Runs in the main conversation — user interaction is fully available
-   - Gather saves Q&A to `.claude/.bfeature-temp/<build_timestamp>-<slug>-qa.md`
+   - Gather saves Q&A to `.bf/sessions/<build_timestamp>-<slug>-qa.md`
 4. Read `full/brainstorm/generate/SKILL.md` and pass its contents as an Agent prompt (model: opus) to produce the spec from the Q&A
 
 ### If `jira.enabled` is `false`:
 1. Read `full/brainstorm/SKILL.md` and follow its instructions **inline** (in the current conversation) with the idea from state
    - Runs in the main conversation — user interaction is fully available
-   - Gather saves Q&A to `.claude/.bfeature-temp/<build_timestamp>-<slug>-qa.md`
+   - Gather saves Q&A to `.bf/sessions/<build_timestamp>-<slug>-qa.md`
 2. Read `full/brainstorm/generate/SKILL.md` and pass its contents as an Agent prompt (model: opus) to produce the spec from the Q&A
 
 ### Escalating questions to Jira
@@ -203,7 +203,7 @@ Skipped entirely in full mode — full mode uses Phase 1 (Brainstorm) instead.
 
 1. Read `full/refine/SKILL.md` and follow its instructions **inline** (in the current conversation) with the idea from state
    - Runs in the main conversation — user interaction is fully available
-   - Saves Q&A to `.claude/.bfeature-temp/<build_timestamp>-<slug>-qa.md`
+   - Saves Q&A to `.bf/sessions/<build_timestamp>-<slug>-qa.md`
 2. When the file at `paths.qa` is detected:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=plan phase_status=in_progress
@@ -239,7 +239,7 @@ Run up to 3 analyze → fix cycles:
 
 Print banner: `── bfeature | Plan ───────────────────────────────`
 
-1. Read `full/plan/SKILL.md` and pass its contents as an Agent prompt (model: opus) — it reads the appropriate source based on `mode` and produces `.claude/.bfeature-temp/<build_timestamp>-<slug>-plan.md` + `.claude/.bfeature-temp/<build_timestamp>-<slug>-todo.md`
+1. Read `full/plan/SKILL.md` and pass its contents as an Agent prompt (model: opus) — it reads the appropriate source based on `mode` and produces `.bf/sessions/<build_timestamp>-<slug>-plan.md` + `.bf/sessions/<build_timestamp>-<slug>-todo.md`
 2. When both files are detected, run complexity-gate on the plan (phase is still `plan` — the skill auto-detects plan advisory mode):
    Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
    Show findings to the user. Always proceed regardless of outcome — findings here are advisory only.
@@ -360,7 +360,7 @@ Print banner: `── bfeature | Finalize ────────────�
      [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
      [--jira-url <jira.ticket_url>]           # only if jira.enabled
    ```
-   The script stages (excluding `.bfeature-temp/`), commits if there are changes, pushes, creates the PR, and outputs the PR URL.
+   The script stages (excluding `.bf/sessions/`), commits if there are changes, pushes, creates the PR, and outputs the PR URL.
 5. **If `jira.enabled` is `true`:**
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
@@ -375,7 +375,7 @@ Print banner: `── bfeature | Finalize ────────────�
 Print banner: `── bfeature | Collect TODOs ───────────────────────────────`
 
 1. Read `full/collect-todos/SKILL.md` and pass its contents as an Agent prompt (model: sonnet)
-2. The skill scans changes introduced by the feature branch for TODO comments, classifies them, and generates `.claude/.bfeature-temp/<build_timestamp>-<slug>-backlog.md`
+2. The skill scans changes introduced by the feature branch for TODO comments, classifies them, and generates `.bf/sessions/<build_timestamp>-<slug>-backlog.md`
 3. When complete:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" artifacts.backlog="<build_timestamp>-<slug>-backlog.md"
@@ -414,7 +414,7 @@ Multiple key=value pairs can be passed in a single call. Boolean values (`true`/
 
 ## Error Recovery
 
-- If the session ends mid-phase, the next `/bf:feature` invocation reads `.claude/.bfeature-temp/build-state.json` and resumes
+- If the session ends mid-phase, the next `/bf:feature` invocation reads `.bf/sessions/build-state.json` and resumes
 - If the branch `feat/<slug>` already exists, switch to it instead of creating a new one
 - If state shows phase `done`, tell the user the build is already complete
 

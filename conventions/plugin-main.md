@@ -11,7 +11,7 @@ These rules apply to every skill in this plugin.
 
 When you need a convention file, resolve it using this 3-step lookup — **first match wins, fully replaces the plugin default**:
 
-1. `<project_root>/.claude/bf-conventions/<name>.md` — use `git rev-parse --show-toplevel` to find project root
+1. `<project_root>/.bf/conventions/<name>.md` — use `git rev-parse --show-toplevel` to find project root
 2. `~/.claude/bf-conventions/<name>.md`
 3. `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`
 

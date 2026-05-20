@@ -48,10 +48,10 @@ if [[ -n "$JIRA_URL" ]]; then
     BODY="${BODY}"$'\n\n'"Jira: ${JIRA_URL}"
 fi
 
-# Stage everything except .bfeature-temp, commit if anything is staged
+# Stage everything except .bf/sessions, commit if anything is staged
 DIRTY=$(git status --porcelain | grep -v '^??' || true)
 if [[ -n "$DIRTY" ]]; then
-    git add -A -- ':!.claude/.bfeature-temp'
+    git add -A -- ':!.bf/sessions'
     STAGED=$(git diff --cached --name-only)
     if [[ -n "$STAGED" ]]; then
         git commit -m "$COMMIT_MSG"

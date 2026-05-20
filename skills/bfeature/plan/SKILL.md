@@ -35,8 +35,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/detect-stack.sh"
 
 ## Mode-aware input
 
-- **Full mode** (`mode` = `"full"`): Read the spec from `.claude/.bfeature-temp/<build_timestamp>-<slug>-spec.md` — this is the primary input for planning.
-- **Quick mode** (`mode` = `"quick"`): No spec exists. Read `.claude/.bfeature-temp/<build_timestamp>-<slug>-qa.md` directly — the Q&A is the primary input. Produce a lighter plan (3-8 todo items) since quick mode targets smaller, well-scoped changes.
+- **Full mode** (`mode` = `"full"`): Read the spec from `.bf/sessions/<build_timestamp>-<slug>-spec.md` — this is the primary input for planning.
+- **Quick mode** (`mode` = `"quick"`): No spec exists. Read `.bf/sessions/<build_timestamp>-<slug>-qa.md` directly — the Q&A is the primary input. Produce a lighter plan (3-8 todo items) since quick mode targets smaller, well-scoped changes.
 
 ## Quality gates — detect and document
 
@@ -44,7 +44,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/quality-gate/SKILL.md` and follow it
 
 ## Deployment notes — multi-package monorepos
 
-If a monorepo is detected **and** the feature touches more than one package, generate `.claude/.bfeature-temp/<build_timestamp>-<slug>-deployment.md` covering:
+If a monorepo is detected **and** the feature touches more than one package, generate `.bf/sessions/<build_timestamp>-<slug>-deployment.md` covering:
 
 - **Affected packages** — list each package with a one-line description of what changes
 - **Deploy order** — if packages depend on each other (e.g., proto/API package must deploy before consumers), document the required sequence
