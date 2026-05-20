@@ -8,9 +8,10 @@ bf enforces a structured workflow between you and Claude: clarify the idea first
 
 **The result:** less rework, fewer review surprises, and a paper trail (spec, plan, todo list) that survives context resets.
 
-**Two modes:**
+**Three modes:**
 - **Full** — for new features: brainstorm → spec → design review → plan → execute → verify → PR
 - **Quick** — for bugfixes and small changes: refine → plan → execute → verify → PR
+- **Micro** — for focused refactors: clarify only if needed, execute with complexity and quality guards
 
 Also includes a standalone design tool (`/bf:design`) for producing shareable system design documents — useful before any code is written, or when you need to align with teammates first.
 
@@ -24,6 +25,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:design <idea>` | Utility | Turn an idea into a shareable system-design document via interactive Q&A — standalone, no git/PR |
 | `/bf:gh` | Utility | Pick or create a GitHub issue and kick off a full or quick workflow |
 | `/bf:jira` | Utility | Pick a Jira ticket and kick off a full or quick workflow |
+| `/bf:review [PR# \| files]` | Utility | Review code (current branch diff, a PR by number, or specific files) against conventions and the complexity gate |
 | `/bf:discuss <question>` | Utility | Explore a question or design decision via dialogue before committing to a direction |
 | `/bf:session-summary` | Utility | Generate a summary of the current session |
 
