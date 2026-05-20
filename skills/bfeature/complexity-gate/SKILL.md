@@ -36,7 +36,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/changed-packages.sh"
 
 ## Spec Advisory Mode (`phase = review-design`)
 
-Read `paths.spec`. Apply the complexity taxonomy as a design lens — evaluating proposed design decisions before any code is written.
+Extract the `## Spec` block from `paths.spec` (= `paths.session_log`) using the Block Reading Pattern from `plugin-main.md`. Apply the complexity taxonomy as a design lens — evaluating proposed design decisions before any code is written.
 
 Look for:
 - Module boundaries that will cause **information leakage** (two modules share knowledge of a data format or storage structure)
@@ -49,13 +49,13 @@ For each finding, cite the spec section and explain the complexity risk it intro
 
 All findings in this mode are `ADVISORY`. STATUS is `ADVISORY` or `PASS`.
 
-Save the report to `paths.complexity_report`. Display it in the conversation.
+Append the report to `paths.complexity_report` (= `paths.scratch`) using `paths.block_complexity_report` (`## Complexity Report`) as the block header (Block Writing Pattern from `plugin-main.md`). Display the report in the conversation.
 
 ---
 
 ## Plan Advisory Mode (`phase = plan`)
 
-Read `paths.plan`. Apply the complexity taxonomy as an implementation lens — evaluating planned structure before any code is written.
+Extract the `## Plan` block from `paths.plan` (= `paths.session_log`) using the Block Reading Pattern from `plugin-main.md`. Apply the complexity taxonomy as an implementation lens — evaluating planned structure before any code is written.
 
 Look for:
 - Implementation steps that both touch the same data structure or format (information leakage risk)
@@ -68,7 +68,7 @@ For each finding, cite the step or plan section and explain the complexity risk.
 
 All findings in this mode are `ADVISORY`. STATUS is `ADVISORY` or `PASS`.
 
-Save the report to `paths.complexity_report`. Display it in the conversation.
+Append the report to `paths.complexity_report` (= `paths.scratch`) using `paths.block_complexity_report` (`## Complexity Report`) as the block header (Block Writing Pattern from `plugin-main.md`). Display the report in the conversation.
 
 ---
 
@@ -103,7 +103,7 @@ Focus on structural signals, not style preferences:
 
 Overall STATUS escalates: `PASS` → `ADVISORY` → `BLOCK`.
 
-Save the report to `paths.complexity_report`. Display it in the conversation.
+Append the report to `paths.complexity_report` (= `paths.scratch`) using `paths.block_complexity_report` (`## Complexity Report`) as the block header (Block Writing Pattern from `plugin-main.md`). Display the report in the conversation.
 
 ---
 
@@ -112,14 +112,16 @@ Save the report to `paths.complexity_report`. Display it in the conversation.
 No findings:
 
 ```markdown
-# Complexity Guard Report
+## Complexity Report
+
 STATUS: PASS
 ```
 
 Findings present:
 
 ```markdown
-# Complexity Guard Report
+## Complexity Report
+
 STATUS: BLOCK | ADVISORY
 
 ## Blocked Issues (introduced this session — must resolve before proceeding)

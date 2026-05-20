@@ -23,8 +23,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/changed-packages.sh"
 `changed-packages.sh` gives you `changed_files` — use this list to scope TODO detection.
 
 Read the appropriate feature context for filtering relevant TODOs:
-- **Full mode** (`mode` = `"full"`): Read the path at `paths.spec` from `state-ops.sh` output.
-- **Quick mode** (`mode` = `"quick"`): Read the path at `paths.qa` from `state-ops.sh` output.
+- **Full mode** (`mode` = `"full"`): Extract the `## Spec` block from `paths.spec` (= `paths.session_log`) using the Block Reading Pattern from `plugin-main.md`.
+- **Quick mode** (`mode` = `"quick"`): Extract the `## QA` block from `paths.qa` (= `paths.scratch`) using the Block Reading Pattern.
 
 ## Steps
 
@@ -56,7 +56,7 @@ For each found comment, classify the reason:
 
 ### 4. Generate backlog document
 
-Write to `.bf/sessions/<build_timestamp>-<slug>-backlog.md`. The file contains **only** a markdown table — no title, no header, no prose. See `example-dark-mode-backlog.md` in this skill's directory for the exact format.
+Append a `## Backlog` block to `paths.backlog` (= `paths.session_log`) using the Block Writing Pattern from `plugin-main.md`. The block body contains **only** a markdown table — no prose. See `example-dark-mode-backlog.md` in this skill's directory for the exact table format.
 
 Key rules:
 - The `Feature` column contains the slug. Prefix with `[?]` when relevance to the feature is unclear.
@@ -70,5 +70,5 @@ Key rules:
 
 ## Output
 
-- Backlog document: write to the path at `paths.backlog` from `state-ops.sh` output.
-- Update `.bf/sessions/build-state.json`: set `artifacts.backlog` to `"<build_timestamp>-<slug>-backlog.md"`
+- Backlog block: appended to `paths.backlog` (= `paths.session_log`) per the Block Writing Pattern.
+- Update `.bf/sessions/build-state.json`: set `artifacts.backlog` to `"<build_timestamp>-<slug>-session-log.md"`

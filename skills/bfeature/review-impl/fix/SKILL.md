@@ -15,11 +15,11 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
 
 This gives you `slug`, `build_timestamp`, `mode`, and `paths.*`.
 
-Read the file at `paths.impl_report` for the list of concerns.
+Extract the `## Implementation Review` block from `paths.impl_report` (= `paths.scratch`) for the list of concerns (Block Reading Pattern from `plugin-main.md`).
 
 **Mode-aware context:**
-- **Full mode** (`mode` = `"full"`): Read `paths.spec` and `paths.plan` for context.
-- **Quick mode** (`mode` = `"quick"`): No spec exists. Read `paths.qa` and `paths.plan` for context.
+- **Full mode** (`mode` = `"full"`): Extract the `## Spec` block from `paths.spec` (= `paths.session_log`) and the `## Plan` block from `paths.plan` (= same file).
+- **Quick mode** (`mode` = `"quick"`): No spec exists. Extract the `## QA` block from `paths.qa` (= `paths.scratch`) and the `## Plan` block from `paths.plan` (= `paths.session_log`).
 
 Implement fixes for every concern listed in the report. For each concern:
 - If it's a missing feature: implement it

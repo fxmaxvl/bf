@@ -30,13 +30,13 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/detect-stack.sh"
 ```
 
-`state-ops.sh` gives you `slug`, `build_timestamp`, `mode`, and all artifact paths including `paths.plan` and `paths.todo` where you'll write output.
+`state-ops.sh` gives you `slug`, `build_timestamp`, `mode`, and all artifact paths. Both `paths.plan` and `paths.todo` resolve to `paths.session_log` — append a `## Plan` block and a `## Todo` block to that file (Block Writing Pattern from `plugin-main.md`).
 `detect-stack.sh` gives you `type`, `test_commands`, `lint_command`, `lint_fix_command`, `monorepo`, `workspaces`, and `scope_template`.
 
 ## Mode-aware input
 
-- **Full mode** (`mode` = `"full"`): Read the spec from `.bf/sessions/<build_timestamp>-<slug>-spec.md` — this is the primary input for planning.
-- **Quick mode** (`mode` = `"quick"`): No spec exists. Read `.bf/sessions/<build_timestamp>-<slug>-qa.md` directly — the Q&A is the primary input. Produce a lighter plan (3-8 todo items) since quick mode targets smaller, well-scoped changes.
+- **Full mode** (`mode` = `"full"`): Extract the `## Spec` block from `paths.spec` (= `paths.session_log`) using the Block Reading Pattern from `plugin-main.md` — this is the primary input for planning.
+- **Quick mode** (`mode` = `"quick"`): No spec exists. Extract the `## QA` block from `paths.qa` (= `paths.scratch`) — the Q&A is the primary input. Produce a lighter plan (3-8 todo items) since quick mode targets smaller, well-scoped changes.
 
 ## Quality gates — detect and document
 
@@ -44,7 +44,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/quality-gate/SKILL.md` and follow it
 
 ## Deployment notes — multi-package monorepos
 
-If a monorepo is detected **and** the feature touches more than one package, generate `.bf/sessions/<build_timestamp>-<slug>-deployment.md` covering:
+If a monorepo is detected **and** the feature touches more than one package, append a `## Deployment` block to `paths.deployment` (= `paths.session_log`) covering:
 
 - **Affected packages** — list each package with a one-line description of what changes
 - **Deploy order** — if packages depend on each other (e.g., proto/API package must deploy before consumers), document the required sequence
