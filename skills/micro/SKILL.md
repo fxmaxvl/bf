@@ -51,7 +51,7 @@ Check for existing state:
 git rev-parse --show-toplevel
 ```
 
-If `.claude/.bfeature-temp/build-state.json` exists at the git root:
+If `.bf/sessions/build-state.json` exists at the git root:
 - Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"` to load state
 - If `phase_status` is `"awaiting_approval"`: ask "Paused before [current phase]. Ready to proceed?" — if yes, set `phase_status=in_progress`, continue; if no, exit
 - Otherwise: resume the current phase
@@ -185,7 +185,7 @@ Print banner: `── bfeature | Finalize ────────────�
    Ask: "Ready to finalize (commit, push, PR)?"
    - If no: **Exit** (re-invoke `/bf:micro` when ready).
    - If yes: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase_status=in_progress` — continue.
-3. Stage and commit any uncommitted changes (do **not** stage `.claude/.bfeature-temp/`) following `conventions/git.md`. Use `refactor:` prefix.
+3. Stage and commit any uncommitted changes (do **not** stage `.bf/sessions/`) following `conventions/git.md`. Use `refactor:` prefix.
    - If `github_issue.enabled`: include issue number (e.g., `refactor(#12): split processOrder into smaller methods`).
    - If `jira.enabled`: include ticket key.
 4. Push the branch to remote.

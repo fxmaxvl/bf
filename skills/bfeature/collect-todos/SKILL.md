@@ -56,7 +56,7 @@ For each found comment, classify the reason:
 
 ### 4. Generate backlog document
 
-Write to `.claude/.bfeature-temp/<build_timestamp>-<slug>-backlog.md`. The file contains **only** a markdown table — no title, no header, no prose. See `example-dark-mode-backlog.md` in this skill's directory for the exact format.
+Write to `.bf/sessions/<build_timestamp>-<slug>-backlog.md`. The file contains **only** a markdown table — no title, no header, no prose. See `example-dark-mode-backlog.md` in this skill's directory for the exact format.
 
 Key rules:
 - The `Feature` column contains the slug. Prefix with `[?]` when relevance to the feature is unclear.
@@ -71,4 +71,4 @@ Key rules:
 ## Output
 
 - Backlog document: write to the path at `paths.backlog` from `state-ops.sh` output.
-- Update `.claude/.bfeature-temp/build-state.json`: set `artifacts.backlog` to `"<build_timestamp>-<slug>-backlog.md"`
+- Update `.bf/sessions/build-state.json`: set `artifacts.backlog` to `"<build_timestamp>-<slug>-backlog.md"`
