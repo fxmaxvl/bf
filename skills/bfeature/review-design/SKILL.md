@@ -17,11 +17,11 @@ This gives you `slug`, `build_timestamp`, and `paths.*`.
 
 Extract the `## Spec` block from `paths.spec` (= `paths.session_log`) using the Block Reading Pattern from `plugin-main.md` and review it against the criteria below.
 
-If `paths.qa` (= `paths.scratch`) exists, also extract the `## QA` block and use it to check that the spec faithfully represents what the user said during brainstorm — flag any requirements mentioned in the Q&A that are missing or misrepresented in the spec.
+If `paths.qa` (= `paths.temp`) exists, also extract the `## QA` block and use it to check that the spec faithfully represents what the user said during brainstorm — flag any requirements mentioned in the Q&A that are missing or misrepresented in the spec.
 
 ## Review Criteria
 
-### 0. Q&A faithfulness (if `paths.scratch` exists)
+### 0. Q&A faithfulness (if `paths.temp` exists)
 - Does the spec reflect what the user actually said during brainstorm?
 - Are there constraints or requirements from the Q&A answers that didn't make it into the spec?
 
@@ -42,7 +42,7 @@ If `paths.qa` (= `paths.scratch`) exists, also extract the `## QA` block and use
 
 ## Output
 
-Append a report to `paths.design_report` (= `paths.scratch`) using `paths.block_design_report` (`## Design Report`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`.
+Append a report to `paths.design_report` (= `paths.temp`) using `paths.block_design_report` (`## Design Report`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`.
 
 If all criteria pass:
 

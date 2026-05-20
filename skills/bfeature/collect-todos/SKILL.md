@@ -24,7 +24,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/changed-packages.sh"
 
 Read the appropriate feature context for filtering relevant TODOs:
 - **Full mode** (`mode` = `"full"`): Extract the `## Spec` block from `paths.spec` (= `paths.session_log`) using the Block Reading Pattern from `plugin-main.md`.
-- **Quick mode** (`mode` = `"quick"`): Extract the `## QA` block from `paths.qa` (= `paths.scratch`) using the Block Reading Pattern.
+- **Quick mode** (`mode` = `"quick"`): Extract the `## QA` block from `paths.qa` (= `paths.temp`) using the Block Reading Pattern.
 
 ## Steps
 

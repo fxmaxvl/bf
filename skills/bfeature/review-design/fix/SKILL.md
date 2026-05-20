@@ -15,7 +15,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
 
 This gives you `paths.design_report`, `paths.spec`, and the relevant block headers.
 
-Extract the `## Design Report` block from `paths.design_report` (= `paths.scratch`) for the list of concerns (Block Reading Pattern from `plugin-main.md`).
+Extract the `## Design Report` block from `paths.design_report` (= `paths.temp`) for the list of concerns (Block Reading Pattern from `plugin-main.md`).
 Extract the `## Spec` block from `paths.spec` (= `paths.session_log`) for the current spec.
 
 Update the `## Spec` block in `paths.spec` in place to address every concern — edit only the content between `## Spec` and the next `## ` header (or EOF).

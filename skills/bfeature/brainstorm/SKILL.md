@@ -43,7 +43,7 @@ If the user says they don't know the answer and asks to post the question to Jir
 
 ## Output
 
-Once you have enough information, append a Q&A summary to `paths.qa` (= `paths.scratch`) using `paths.block_qa` (`## QA`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`. Content format:
+Once you have enough information, append a Q&A summary to `paths.qa` (= `paths.temp`) using `paths.block_qa` (`## QA`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`. Content format:
 
 ```markdown
 ## QA

@@ -5,7 +5,7 @@
 # Outputs: PASS | CONCERN | BLOCK | ADVISORY | NOT_FOUND
 #
 # --block <header>  Extract only that block (e.g. "## Implementation Review") before checking.
-#                   Required when multiple reports share a single scratch file.
+#                   Required when multiple reports share a single temp file.
 
 set -euo pipefail
 
