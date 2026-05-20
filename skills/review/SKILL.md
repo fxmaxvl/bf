@@ -64,3 +64,55 @@ Create the reports directory: `mkdir -p "$reports_dir"`
 Where `<Scope>` is one of: `Branch`, `PR #<n>`, or `Files: <list>`.
 
 Print as plain text, not in a code block.
+
+## Phase 1 — Collect
+
+### Branch scope
+
+```bash
+default_remote_branch=$(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main)
+base=$(git merge-base HEAD "$default_remote_branch")
+diff_text=$(git diff "$base"...HEAD)
+changed_files=$(git diff --name-only "$base"...HEAD)
+```
+
+If `diff_text` is empty: print "Branch has no changes vs base. Nothing to review." and exit.
+
+### PR scope
+
+1. Verify `gh` is installed: `gh --version`. If it fails, print "gh is not installed. Install it from https://cli.github.com and run `gh auth login`." and exit.
+2. Verify auth: `gh auth status`. If it fails, print "gh is not authenticated. Run `gh auth login` and retry." and exit.
+3. Collect:
+
+```bash
+diff_text=$(gh pr diff "$pr_number")
+changed_files=$(gh pr view "$pr_number" --json files --jq '.files[].path')
+pr_meta=$(gh pr view "$pr_number" --json title,headRefName,baseRefName,author)
+```
+
+If `gh pr diff` fails (e.g. PR not found), surface the gh error message and exit.
+
+### Files scope
+
+1. Validate each path exists and is tracked:
+
+```bash
+git ls-files --error-unmatch $file_paths
+```
+
+If any path is not tracked, list the missing paths and exit.
+
+2. Collect:
+
+```bash
+diff_text=$(git diff -- $file_paths)
+# If diff is empty (clean working tree), use full file content instead
+if [ -z "$diff_text" ]; then
+  # Read each file in full — use the Read tool for each path
+fi
+changed_files="$file_paths"
+```
+
+### After collection
+
+`diff_text` and `changed_files` are now available for the review and complexity agents.
