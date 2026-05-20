@@ -205,3 +205,86 @@ Return only the report — no preamble or commentary.
 Write the Agent's output to `$report_path`.
 
 Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
+
+## Phase 3 — Complexity Gate
+
+### Write temporary build-state.json
+
+Create the temp state so `state-ops.sh` works when invoked by the complexity-gate sub-skill:
+
+```bash
+temp_state="$project_root/.claude/.bfeature-temp/build-state.json"
+mkdir -p "$project_root/.claude/.bfeature-temp"
+```
+
+Write the following JSON to `$temp_state`:
+
+```json
+{
+  "slug": "review-<timestamp>",
+  "mode": "review",
+  "phase": "verify",
+  "paths": {
+    "complexity_report": "<complexity_report_path>"
+  }
+}
+```
+
+Where `<timestamp>` and `<complexity_report_path>` use the values computed in "On Invocation".
+
+Also write a newline-separated list of changed files to `$project_root/.claude/.bfeature-temp/changed-files.txt` (one path per line). This is used by `changed-packages.sh`.
+
+### Invoke complexity-gate Agent (model: opus)
+
+Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/complexity-gate/SKILL.md` in full and pass its contents as the Agent prompt with model: opus.
+
+The sub-skill will re-run `state-ops.sh` and `changed-packages.sh` internally, discover the changed files, scan for complexity red flags, and write its report to `paths.complexity_report`.
+
+### Clean up temp state
+
+After the complexity Agent returns (whether it succeeds or fails), delete the temp files:
+
+```bash
+rm -f "$temp_state"
+rm -f "$project_root/.claude/.bfeature-temp/changed-files.txt"
+```
+
+**This cleanup must happen on every exit path — do not skip it.**
+
+### Merge complexity findings into report
+
+Read `$complexity_report_path`. If the file does not exist or the Agent failed, continue with a note: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
+
+Renumber all complexity findings as X1, X2, ... sequentially.
+
+Map severity:
+- BLOCK finding → `[must-fix]`
+- ADVISORY finding → `[should-consider]`
+
+Append to the report at `$report_path`:
+
+```
+## Complexity
+STATUS: <PASS | ADVISORY | BLOCK>
+
+### <Root Cause / Red Flag>
+- **X1** [must-fix | should-consider] `file:line` — <observation> — Suggested: <fix>
+```
+
+Omit the section body if STATUS is PASS.
+
+### Escalate overall STATUS
+
+If any C* or X* concern exists (regardless of label), set overall STATUS to CONCERN.
+
+Rewrite `$report_path` with the merged content (replace the STATUS line at the top).
+
+### Show summary in conversation
+
+Print:
+
+```
+STATUS: <PASS | CONCERN>
+Concerns: <N> code (<M> must-fix), <X> complexity
+Report: <report_path>
+```
