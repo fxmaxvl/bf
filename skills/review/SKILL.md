@@ -288,3 +288,48 @@ STATUS: <PASS | CONCERN>
 Concerns: <N> code (<M> must-fix), <X> complexity
 Report: <report_path>
 ```
+
+## Phase 4 — Fix Selection
+
+**One-question-per-turn rule applies in this phase.** Ask step 1 and wait for the answer before asking step 2. Never batch both into one message.
+
+### If STATUS is PASS
+
+Print: "No concerns found. Report saved at `<report_path>`." and exit.
+
+### If STATUS is CONCERN
+
+**Step 1 — Selection question**
+
+Print a one-line summary of each concern:
+
+```
+C1 [must-fix]       src/foo.ts:42 — <problem description>
+C2 [should-consider] src/bar.ts:8 — <problem description>
+X1 [must-fix]       src/baz.ts:15 — <complexity finding>
+```
+
+Then ask (one question only):
+
+> Which concerns would you like to fix? Reply with IDs (e.g. `C1 C3 X1`), `all`, `must-fix`, or `none`.
+
+Wait for the user's reply before proceeding.
+
+**Parse the answer:**
+
+- `none` or empty → print "No fixes requested. Report saved at `<report_path>`." and exit.
+- `all` → select all C* and X* concerns.
+- `must-fix` → select all concerns labelled `[must-fix]`.
+- Space-separated IDs (e.g. `C1 C3 X1`) → validate each ID exists in the report.
+  - If any ID is unknown, ask once: "Unknown ID(s): <list>. Please re-enter valid IDs from the list above." Then re-parse the new answer; if still invalid, treat as `none`.
+
+Set `selected_concerns` to the validated list.
+
+**Step 2 — Confirmation question**
+
+Print: "Will fix: <selected IDs>. Proceed? (yes/no)"
+
+Wait for reply.
+
+- `yes` (or `y`) → proceed to Phase 5.
+- anything else → return to Step 1 (re-ask the selection question).
