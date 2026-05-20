@@ -34,19 +34,19 @@ Each sub-skill declares a `model` field in its SKILL.md frontmatter. When delega
 
 | Sub-skill | SKILL.md path | Invocation | Model | Rationale |
 |-----------|---------------|------------|-------|-----------|
-| brainstorm (gather) | `full/brainstorm/SKILL.md` | Inline | — | Interactive Q&A — must stay in main conversation |
-| brainstorm/generate | `full/brainstorm/generate/SKILL.md` | Agent | opus | Spec synthesis from Q&A — reasoning-heavy, no interaction needed |
-| refine | `full/refine/SKILL.md` | Inline | — | Interactive Q&A — must stay in main conversation (quick mode only) |
-| review-design | `full/review-design/SKILL.md` | Agent | opus | Architectural analysis — produces report, no user interaction |
-| review-design/fix | `full/review-design/fix/SKILL.md` | Agent | sonnet | Applies spec fixes — execution task |
-| plan | `full/plan/SKILL.md` | Agent | opus | Deep reasoning for TDD blueprints |
-| do-todo | `full/do-todo/SKILL.md` | Agent | sonnet | Fast, execution-focused coding |
-| verify | `full/verify/SKILL.md` | Agent | sonnet | Quality gates — runs tests (monorepo-aware) and lint with auto-fix |
-| review-impl | `full/review-impl/SKILL.md` | Agent | opus | Implementation analysis — produces report, no user interaction |
-| review-impl/fix | `full/review-impl/fix/SKILL.md` | Agent | sonnet | Applies code fixes — execution task |
+| brainstorm (gather) | `bfeature/brainstorm/SKILL.md` | Inline | — | Interactive Q&A — must stay in main conversation |
+| brainstorm/generate | `bfeature/brainstorm/generate/SKILL.md` | Agent | opus | Spec synthesis from Q&A — reasoning-heavy, no interaction needed |
+| refine | `bfeature/refine/SKILL.md` | Inline | — | Interactive Q&A — must stay in main conversation (quick mode only) |
+| review-design | `bfeature/review-design/SKILL.md` | Agent | opus | Architectural analysis — produces report, no user interaction |
+| review-design/fix | `bfeature/review-design/fix/SKILL.md` | Agent | sonnet | Applies spec fixes — execution task |
+| plan | `bfeature/plan/SKILL.md` | Agent | opus | Deep reasoning for TDD blueprints |
+| do-todo | `bfeature/do-todo/SKILL.md` | Agent | sonnet | Fast, execution-focused coding |
+| verify | `bfeature/verify/SKILL.md` | Agent | sonnet | Quality gates — runs tests (monorepo-aware) and lint with auto-fix |
+| review-impl | `bfeature/review-impl/SKILL.md` | Agent | opus | Implementation analysis — produces report, no user interaction |
+| review-impl/fix | `bfeature/review-impl/fix/SKILL.md` | Agent | sonnet | Applies code fixes — execution task |
 | complexity-gate | `bfeature/complexity-gate/SKILL.md` | Agent | opus | Complexity analysis — advisory on spec and plan, blocking scan after verify |
 | quality-gate | `bfeature/quality-gate/SKILL.md` | Inline | sonnet | Resolve test and lint commands; write Quality Gates section (plan phase) or output commands (verify phase) |
-| collect-todos (Phase 7, optional) | `full/collect-todos/SKILL.md` | Agent | sonnet | Mechanical scanning task — skipped if user declines |
+| collect-todos (Phase 7, optional) | `bfeature/collect-todos/SKILL.md` | Agent | sonnet | Mechanical scanning task — skipped if user declines |
 
 **Phase 6 (Finalize) and Phase 8 (Cleanup) are executed directly by the orchestrator** — they have no sub-skill files. The finalize logic is defined inline in this file (see Phase 6 below).
 
@@ -172,16 +172,16 @@ If state has `phase` = `"brainstorm"` and `phase_status` = `"waiting_answer"`:
 ### If `jira.enabled` is `true`:
 1. Invoke the `jira` skill: `read-ticket(jira.ticket_key)` to fetch the ticket's description, comments, and context
 2. Synthesize an overall description from the ticket content
-3. Read `full/brainstorm/SKILL.md` and follow its instructions **inline** (in the current conversation) with the synthesized description
+3. Read `bfeature/brainstorm/SKILL.md` and follow its instructions **inline** (in the current conversation) with the synthesized description
    - Runs in the main conversation — user interaction is fully available
    - Gather appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-temp.md`
-4. Read `full/brainstorm/generate/SKILL.md` and pass its contents as an Agent prompt (model: opus) to produce the spec from the Q&A
+4. Read `bfeature/brainstorm/generate/SKILL.md` and pass its contents as an Agent prompt (model: opus) to produce the spec from the Q&A
 
 ### If `jira.enabled` is `false`:
-1. Read `full/brainstorm/SKILL.md` and follow its instructions **inline** (in the current conversation) with the idea from state
+1. Read `bfeature/brainstorm/SKILL.md` and follow its instructions **inline** (in the current conversation) with the idea from state
    - Runs in the main conversation — user interaction is fully available
    - Gather appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-temp.md`
-2. Read `full/brainstorm/generate/SKILL.md` and pass its contents as an Agent prompt (model: opus) to produce the spec from the Q&A
+2. Read `bfeature/brainstorm/generate/SKILL.md` and pass its contents as an Agent prompt (model: opus) to produce the spec from the Q&A
 
 ### Escalating questions to Jira
 If during brainstorm the user cannot answer a clarifying question and asks to post it to Jira (`jira.enabled` must be `true`):
@@ -205,7 +205,7 @@ Print banner: `── bfeature | Refine ─────────────�
 
 Skipped entirely in full mode — full mode uses Phase 1 (Brainstorm) instead.
 
-1. Read `full/refine/SKILL.md` and follow its instructions **inline** (in the current conversation) with the idea from state
+1. Read `bfeature/refine/SKILL.md` and follow its instructions **inline** (in the current conversation) with the idea from state
    - Runs in the main conversation — user interaction is fully available
    - Appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-temp.md`
 2. After refine completes:
@@ -222,13 +222,13 @@ Skipped entirely in quick mode.
 
 Run up to 3 analyze → fix cycles:
 
-1. Read `full/review-design/SKILL.md` and pass its contents as an Agent prompt (model: opus)
+1. Read `bfeature/review-design/SKILL.md` and pass its contents as an Agent prompt (model: opus)
 2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.temp>" --block "## Design Report"`
 3. If output is `PASS`: proceed to step 5
 4. If output is `CONCERN`:
    - Show the concerns to the user
    - Ask: "Should I fix these concerns?"
-   - If yes: read `full/review-design/fix/SKILL.md` and pass its contents as an Agent prompt (model: sonnet), then go back to step 1
+   - If yes: read `bfeature/review-design/fix/SKILL.md` and pass its contents as an Agent prompt (model: sonnet), then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review the spec manually" and stop
 5. Run complexity-gate on the spec (phase is still `review-design` — the skill auto-detects spec advisory mode):
@@ -243,7 +243,7 @@ Run up to 3 analyze → fix cycles:
 
 Print banner: `── bfeature | Plan ───────────────────────────────`
 
-1. Read `full/plan/SKILL.md` and pass its contents as an Agent prompt (model: opus) — it appends `## Plan` and `## Todo` blocks to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
+1. Read `bfeature/plan/SKILL.md` and pass its contents as an Agent prompt (model: opus) — it appends `## Plan` and `## Todo` blocks to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
 2. After the plan agent completes, run complexity-gate on the plan (phase is still `plan` — the skill auto-detects plan advisory mode):
    Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
    Show findings to the user. Always proceed regardless of outcome — findings here are advisory only.
@@ -261,7 +261,7 @@ Print banner: `── bfeature | Plan ──────────────
 
 Print banner: `── bfeature | Execute ───────────────────────────────`
 
-1. Read `full/do-todo/SKILL.md` and pass its contents as an Agent prompt (model: sonnet) — it loops internally until all items are checked
+1. Read `bfeature/do-todo/SKILL.md` and pass its contents as an Agent prompt (model: sonnet) — it loops internally until all items are checked
 2. When it completes:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=verify phase_status=in_progress
@@ -272,7 +272,7 @@ Print banner: `── bfeature | Execute ─────────────
 
 Print banner: `── bfeature | Verify ───────────────────────────────`
 
-1. Read `full/verify/SKILL.md` and pass its contents as an Agent prompt (model: sonnet)
+1. Read `bfeature/verify/SKILL.md` and pass its contents as an Agent prompt (model: sonnet)
    - Detects project type, consults conventions, determines test and lint commands
    - Runs full test suite (monorepo-scoped if applicable) — fixes failures caused by our changes; surfaces unrelated failures to the user
    - Runs linter with auto-fix where available — fixes all remaining issues manually if needed
@@ -310,13 +310,13 @@ Print banner: `── bfeature | Review Implementation ────────�
 
 Run up to 3 analyze → fix cycles:
 
-1. Read `full/review-impl/SKILL.md` and pass its contents as an Agent prompt (model: opus)
+1. Read `bfeature/review-impl/SKILL.md` and pass its contents as an Agent prompt (model: opus)
 2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.temp>" --block "## Implementation Review"`
 3. If output is `PASS`: proceed to step 5
 4. If output is `CONCERN`:
    - Show the concerns to the user
    - Ask: "Should I fix these concerns?"
-   - If yes: read `full/review-impl/fix/SKILL.md` and pass its contents as an Agent prompt (model: sonnet), then go back to step 1
+   - If yes: read `bfeature/review-impl/fix/SKILL.md` and pass its contents as an Agent prompt (model: sonnet), then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review the implementation manually" and stop
 5. ```
@@ -328,7 +328,7 @@ Run up to 3 analyze → fix cycles:
 
 Print banner: `── bfeature | Finalize ───────────────────────────────`
 
-1. **Silent quality gate:** Before touching git, read `full/verify/SKILL.md` and pass its contents as an Agent prompt (model: sonnet) one final time.
+1. **Silent quality gate:** Before touching git, read `bfeature/verify/SKILL.md` and pass its contents as an Agent prompt (model: sonnet) one final time.
    - This catches any regressions introduced by review-impl fix cycles
    - If tests or lint fail: stop, tell the user which checks failed, and ask how to proceed — do **not** commit broken code
    - If all green: continue
@@ -378,7 +378,7 @@ Print banner: `── bfeature | Finalize ────────────�
 
 Print banner: `── bfeature | Collect TODOs ───────────────────────────────`
 
-1. Read `full/collect-todos/SKILL.md` and pass its contents as an Agent prompt (model: sonnet)
+1. Read `bfeature/collect-todos/SKILL.md` and pass its contents as an Agent prompt (model: sonnet)
 2. The skill scans changes introduced by the feature branch for TODO comments, classifies them, and appends a `## Backlog` block to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
 3. When complete:
    ```
@@ -396,7 +396,7 @@ Print banner: `── bfeature | Cleanup ─────────────
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/cleanup.sh"
 ```
 
-Deletes ephemeral handoff files (`qa.md`, `design-report.md`, `impl-report.md`) and `build-state.json`. Persistent artifacts (`spec`, `plan`, `todo`, `backlog`, `deployment`) are kept.
+Deletes the ephemeral temp file (`paths.temp`) and `build-state.json`. Persistent artifacts in `paths.session_log` (`spec`, `plan`, `todo`, `backlog`, `deployment`) are kept.
 
 ## State Updates
 
