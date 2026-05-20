@@ -132,6 +132,8 @@ Read each resolved convention file in full.
 
 ### Spawn review Agent (model: opus)
 
+Print (plain text, not in a code block): `→ Reviewing <N> file(s) with opus… (this usually takes a few minutes)` — substitute the count of `changed_files`.
+
 Read the resolved convention files and pass their full contents to an Agent with the following prompt:
 
 ```
@@ -251,6 +253,8 @@ Where `<timestamp>` is from "On Invocation" and `<build_ts>` is the truncated-to
 **Note**: `state-ops.sh` computes `paths.complexity_report` as an alias for `paths.temp` (`<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-temp.md`). The complexity gate appends a `## Complexity Report` block to that file. Set `complexity_report_path` to `<adir>/<build_ts>-review-<timestamp>-temp.md`.
 
 ### Invoke complexity-gate Agent (model: opus)
+
+Print (plain text): `→ Running complexity gate with opus…`
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/complexity-gate/SKILL.md` in full.
 
@@ -385,6 +389,8 @@ For branch and files scope, no checkout is needed — fixes apply to the current
 
 ### Spawn fix Agent (model: sonnet)
 
+Print (plain text): `→ Applying <N> fix(es) with sonnet…` — substitute the count of selected concerns.
+
 Collect the selected concerns from the report: extract the full description blocks for each selected ID (including `file:line`, problem, and suggested fix).
 
 Pass the following prompt to an Agent with model: sonnet:
@@ -417,6 +423,8 @@ You are applying code fixes identified by a code review.
 ```
 
 ### Re-review cycle
+
+Print (plain text): `→ Re-reviewing post-fix (cycle <N>) with opus…` — `<N>` is 1 or 2.
 
 After the fix Agent returns, run Phase 2 again (review Agent, same scope) scoped to `changed_files`. This is re-review cycle 1.
 
