@@ -4,7 +4,7 @@ description: Review code (current branch diff, a PR by number, or specific files
 model: opus
 disable-model-invocation: false
 argument-hint: "[empty | PR number | file paths]"
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(sha1sum *)
+allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill, including the **one-question-per-turn** rule that applies at every interactive point in this skill.
@@ -210,43 +210,50 @@ Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 
 ### Write temporary build-state.json
 
-Create the temp state so `state-ops.sh` works when invoked by the complexity-gate sub-skill:
+`state-ops.sh` requires a `build-state.json` file with specific fields. Create it so the complexity-gate sub-skill can run.
 
 ```bash
 temp_state="$project_root/.claude/.bfeature-temp/build-state.json"
 mkdir -p "$project_root/.claude/.bfeature-temp"
+build_ts=$(date -u +%Y%m%dT%H)
+slug="review-${timestamp}"
 ```
 
-Write the following JSON to `$temp_state`:
+Write the following JSON to `$temp_state` (all required fields for `state-ops.sh`):
 
 ```json
 {
+  "idea": "bf:review complexity scan",
   "slug": "review-<timestamp>",
+  "build_timestamp": "<build_ts>",
   "mode": "review",
   "phase": "verify",
-  "paths": {
-    "complexity_report": "<complexity_report_path>"
-  }
+  "phase_status": "in_progress",
+  "github_issue": {"enabled": false, "number": null},
+  "jira": {"enabled": false, "ticket_key": null, "ticket_url": null, "pending_questions": null},
+  "collect_todos": null,
+  "artifacts": {"spec": null, "plan": null, "todo": null, "backlog": null},
+  "created_at": "<iso_now>",
+  "updated_at": "<iso_now>"
 }
 ```
 
-Where `<timestamp>` and `<complexity_report_path>` use the values computed in "On Invocation".
+Where `<timestamp>` is from "On Invocation" and `<build_ts>` is the truncated-to-hour form (e.g. `20260520T10`).
 
-Also write a newline-separated list of changed files to `$project_root/.claude/.bfeature-temp/changed-files.txt` (one path per line). This is used by `changed-packages.sh`.
+**Note**: `state-ops.sh` computes `paths.complexity_report` as `<project_root>/.claude/.bfeature-temp/<build_ts>-review-<timestamp>-complexity-report.md`. After the Agent returns, read the complexity report from that path. Set `complexity_report_path` to `<adir>/<build_ts>-review-<timestamp>-complexity-report.md`.
 
 ### Invoke complexity-gate Agent (model: opus)
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/complexity-gate/SKILL.md` in full and pass its contents as the Agent prompt with model: opus.
 
-The sub-skill will re-run `state-ops.sh` and `changed-packages.sh` internally, discover the changed files, scan for complexity red flags, and write its report to `paths.complexity_report`.
+The sub-skill will run `state-ops.sh` to load state, run `changed-packages.sh` (which calls `git diff` to detect changed files), scan for complexity red flags, and write its report to `paths.complexity_report`.
 
 ### Clean up temp state
 
-After the complexity Agent returns (whether it succeeds or fails), delete the temp files:
+After the complexity Agent returns (whether it succeeds or fails), delete the temp state:
 
 ```bash
 rm -f "$temp_state"
-rm -f "$project_root/.claude/.bfeature-temp/changed-files.txt"
 ```
 
 **This cleanup must happen on every exit path — do not skip it.**
