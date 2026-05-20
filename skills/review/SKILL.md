@@ -209,11 +209,13 @@ Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 
 ### Write temporary build-state.json
 
+<!-- TODO(bf-artifact-dirs): the inline state-path construction here duplicates skills/bfeature/scripts/state-ops.sh — consider calling state-ops.sh --init-review or extracting a shared helper so paths only have to change in one place. -->
+
 `state-ops.sh` requires a `build-state.json` file with specific fields. Create it so the complexity-gate sub-skill can run.
 
 ```bash
-temp_state="$project_root/.claude/.bfeature-temp/build-state.json"
-mkdir -p "$project_root/.claude/.bfeature-temp"
+temp_state="$project_root/.bf/sessions/build-state.json"
+mkdir -p "$project_root/.bf/sessions"
 build_ts=$(date -u +%Y%m%dT%H)
 slug="review-${timestamp}"
 ```
@@ -224,7 +226,7 @@ slug="review-${timestamp}"
 # If build-state.json exists, save it and restore it after the complexity scan
 temp_state_backup="$temp_state.bfreview-backup"
 [ -f "$temp_state" ] && cp "$temp_state" "$temp_state_backup" && \
-  echo "Warning: .bfeature-temp/build-state.json already exists — a bfeature workflow may be in progress. Backing it up; it will be restored after the complexity scan."
+  echo "Warning: .bf/sessions/build-state.json already exists — a bfeature workflow may be in progress. Backing it up; it will be restored after the complexity scan."
 ```
 
 Write the following JSON to `$temp_state` (all required fields for `state-ops.sh`):
@@ -248,7 +250,7 @@ Write the following JSON to `$temp_state` (all required fields for `state-ops.sh
 
 Where `<timestamp>` is from "On Invocation" and `<build_ts>` is the truncated-to-hour form (e.g. `20260520T10`).
 
-**Note**: `state-ops.sh` computes `paths.complexity_report` as `<project_root>/.claude/.bfeature-temp/<build_ts>-review-<timestamp>-complexity-report.md`. After the Agent returns, read the complexity report from that path. Set `complexity_report_path` to `<adir>/<build_ts>-review-<timestamp>-complexity-report.md`.
+**Note**: `state-ops.sh` computes `paths.complexity_report` as `<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-complexity-report.md`. After the Agent returns, read the complexity report from that path. Set `complexity_report_path` to `<adir>/<build_ts>-review-<timestamp>-complexity-report.md`.
 
 ### Invoke complexity-gate Agent (model: opus)
 
@@ -448,7 +450,7 @@ If remaining concerns exist, list them by ID and label (same one-line format as 
 | Condition | Handling |
 |-----------|----------|
 | Not a git repository | Print "Not a git repository. Exiting." and stop. |
-| `~/.vs` not writable | Fall back to `<project_root>/.claude/.bfeature-temp/reviews/` for `reports_dir`. Warn: "~/.vs not writable — saving reports to <fallback_path>." |
+| `~/.vs` not writable | Fall back to `<project_root>/.bf/sessions/reviews/` for `reports_dir`. Warn: "~/.vs not writable — saving reports to <fallback_path>." |
 | Convention file missing (all 3 lookup paths absent) | Print "Convention file not found: <last-looked-up path>. This may be a plugin install issue." and stop. |
 
 ### Phase 1 — Collect
