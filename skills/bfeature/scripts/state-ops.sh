@@ -66,7 +66,7 @@ def artifact_paths(adir, prefix):
 def read_output(root, state):
     slug  = state['slug']
     ts    = state['build_timestamp']
-    adir  = os.path.join(root, '.claude', '.bfeature-temp')
+    adir  = os.path.join(root, '.bf', 'sessions')
     prefix = f'{ts}-{slug}'
     print(json.dumps({
         'slug':            slug,
@@ -82,7 +82,7 @@ def read_output(root, state):
     }, indent=2))
 
 root = git_root()
-state_path = os.path.join(root, '.claude', '.bfeature-temp', 'build-state.json')
+state_path = os.path.join(root, '.bf', 'sessions', 'build-state.json')
 args = sys.argv[1:]
 
 # ── Init mode ──────────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ if args and args[0] == '--init':
     jira_url = params.get('jira_url')
     gh_issue = params.get('gh_issue')
 
-    adir = os.path.join(root, '.claude', '.bfeature-temp')
+    adir = os.path.join(root, '.bf', 'sessions')
     os.makedirs(adir, exist_ok=True)
 
     state = {
