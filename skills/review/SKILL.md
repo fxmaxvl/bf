@@ -209,8 +209,6 @@ Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 
 ### Write temporary build-state.json
 
-<!-- TODO(bf-artifact-dirs): the inline state-path construction here duplicates skills/bfeature/scripts/state-ops.sh — consider calling state-ops.sh --init-review or extracting a shared helper so paths only have to change in one place. -->
-
 `state-ops.sh` requires a `build-state.json` file with specific fields. Create it so the complexity-gate sub-skill can run.
 
 ```bash
