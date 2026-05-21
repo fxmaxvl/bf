@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review code against bfeature conventions and the complexity gate. Pass a free-form description of what to review (e.g. a PR number, file paths, a commit range, or a natural-language description) or omit to review the current branch.
+description: Review code against feature conventions and the complexity gate. Pass a free-form description of what to review (e.g. a PR number, file paths, a commit range, or a natural-language description) or omit to review the current branch.
 model: opus
 disable-model-invocation: false
 argument-hint: "[free-form: 'PR 42', 'src/auth/', 'last 3 commits', or empty for current branch]"
@@ -163,7 +163,7 @@ slug="review-${timestamp}"
 ```bash
 temp_state_backup="$temp_state.bfreview-backup"
 [ -f "$temp_state" ] && cp "$temp_state" "$temp_state_backup" && \
-  echo "Warning: .bf/sessions/build-state.json already exists — a bfeature workflow may be in progress. Backing it up; it will be restored after the complexity scan."
+  echo "Warning: .bf/sessions/build-state.json already exists — a feature workflow may be in progress. Backing it up; it will be restored after the complexity scan."
 ```
 
 Write the following JSON to `$temp_state`:
@@ -191,8 +191,8 @@ Write the following JSON to `$temp_state`:
 
 Print (plain text): `→ Running complexity + consistency gates with opus…`
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/complexity-gate/SKILL.md` in full.
-Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/consistency-gate/SKILL.md` in full.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/complexity-gate/SKILL.md` in full.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/consistency-gate/SKILL.md` in full.
 
 Always prepend the following override block to each gate's prompt (the review agent may have reviewed a scope that differs from `master...HEAD`):
 
@@ -221,7 +221,7 @@ rm -f "$temp_state"
 
 ### Merge complexity and consistency findings into report
 
-**Complexity:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
+**Complexity:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
 
 Renumber all complexity findings as X1, X2, ... sequentially.
 
@@ -241,7 +241,7 @@ STATUS: <PASS | ADVISORY | BLOCK>
 
 Omit the section body if STATUS is PASS.
 
-**Consistency:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Consistency Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Consistency\nSTATUS: UNKNOWN (consistency gate failed — see conversation)`.
+**Consistency:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Consistency Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Consistency\nSTATUS: UNKNOWN (consistency gate failed — see conversation)`.
 
 Renumber all consistency findings as Y1, Y2, ... sequentially.
 

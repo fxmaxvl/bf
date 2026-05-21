@@ -223,14 +223,14 @@ Print banner: `── design | Handoff ─────────────�
       ```
       Accept "full" or "quick" (case-insensitive).
 
-   b. Construct the bfeature args string:
+   b. Construct the feature args string:
       ```
       <original idea text>
 
       (Design doc: <absolute path to design doc>)
       ```
 
-   c. Delete the temp Q&A file at `$TEMP_DIR/<timestamp>-design-qa.md` **before** invoking bfeature. If deletion fails, warn but proceed.
+   c. Delete the temp Q&A file at `$TEMP_DIR/<timestamp>-design-qa.md` **before** invoking feature. If deletion fails, warn but proceed.
 
    d. Print the sensitive-data reminder:
       ```
@@ -238,11 +238,11 @@ Print banner: `── design | Handoff ─────────────�
       names, auth schemes, API keys) before sharing externally.
       ```
 
-   e. Invoke bfeature via the Skill tool:
+   e. Invoke feature via the Skill tool:
       - Full mode: `Skill("bf:feature", args="<constructed args>")`
       - Quick mode: `Skill("bf:quick", args="<constructed args>")`
 
-      Do NOT ask the user to paste a command manually. Do NOT read the bfeature SKILL.md directly — the Skill tool handles that.
+      Do NOT ask the user to paste a command manually. Do NOT read the feature SKILL.md directly — the Skill tool handles that.
 
 4. Hand control to /bf:feature (if YES) or end the session (if NO).
 
