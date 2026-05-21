@@ -29,6 +29,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:discuss <question>` | Utility | Explore a question or design decision via dialogue before committing to a direction |
 | `/bf:write-skill [name]` | Utility | Author a new bf-style skill — gather requirements, draft SKILL.md from a bf-targeted template, review against checklist |
 | `/bf:bug-fix <symptoms>` | Workflow | Autonomous bug-fix flow — parallel root-cause hunt, critic-gated diagnose → design → plan → execute, no user prompts |
+| `consistency-gate` | Gate | Sub-skill: checks naming, style, comments, references, effectiveness, and goal alignment across a diff, spec, or plan — used as a gate inside bf flows |
 | `/bf:session-summary` | Utility | Generate a summary of the current session |
 
 ## Getting started
