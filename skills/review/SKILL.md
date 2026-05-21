@@ -26,7 +26,7 @@ PROJECT_ID=$(git config --get remote.origin.url 2>/dev/null \
   | sed -E 's#\.git$##; s#.*[:/]([^/]+/[^/]+)$#\1#; s#/#-#g')
 [ -z "$PROJECT_ID" ] && PROJECT_ID=$(basename "$project_root")
 timestamp=$(date -u +%Y%m%dT%H%M%S)
-reports_dir="$HOME/.vs/$PROJECT_ID/reviews"
+reports_dir="$HOME/.bf/$PROJECT_ID/reviews"
 report_path="$reports_dir/${timestamp}-review.md"
 ```
 
@@ -391,7 +391,7 @@ List remaining concerns by ID and label if any exist.
 | Condition | Handling |
 |-----------|----------|
 | Not a git repository | Print "Not a git repository. Exiting." and stop. |
-| `~/.vs` not writable | Fall back to `<project_root>/.bf/sessions/reviews/` for `reports_dir`. Warn the user. |
+| `~/.bf` not writable | Fall back to `<project_root>/.bf/sessions/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (all 3 lookup paths absent) | Print "Convention file not found: <last-looked-up path>. This may be a plugin install issue." and stop. |
 
 ### Phase 1 — Review
