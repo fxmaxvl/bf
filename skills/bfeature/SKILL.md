@@ -233,7 +233,7 @@ Run up to 3 analyze → fix cycles:
    - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review the spec manually" and stop
 5. Run complexity-gate and consistency-gate on the spec in parallel (phase is still `review-design` — both skills auto-detect spec advisory mode):
    - Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
-   - Read `consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus).
+   - Read `bfeature/consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus).
    Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
 6. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=plan phase_status=in_progress
@@ -247,7 +247,7 @@ Print banner: `── bfeature | Plan ──────────────
 1. Read `bfeature/plan/SKILL.md` and pass its contents as an Agent prompt (model: opus) — it appends `## Plan` and `## Todo` blocks to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
 2. After the plan agent completes, run complexity-gate and consistency-gate on the plan in parallel (phase is still `plan` — both skills auto-detect plan advisory mode):
    - Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
-   - Read `consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus).
+   - Read `bfeature/consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus).
    Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
 3. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" \

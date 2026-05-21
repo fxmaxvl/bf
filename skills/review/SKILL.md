@@ -192,7 +192,7 @@ Write the following JSON to `$temp_state`:
 Print (plain text): `→ Running complexity + consistency gates with opus…`
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/complexity-gate/SKILL.md` in full.
-Read `${CLAUDE_PLUGIN_ROOT}/skills/consistency-gate/SKILL.md` in full.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/consistency-gate/SKILL.md` in full.
 
 Always prepend the following override block to each gate's prompt (the review agent may have reviewed a scope that differs from `master...HEAD`):
 
