@@ -1,29 +1,15 @@
 ---
 name: review
-description: Review code (current branch diff, a PR by number, or specific files) against bfeature code-review conventions and the complexity gate.
+description: Review code against bfeature conventions and the complexity gate. Pass a free-form description of what to review (e.g. a PR number, file paths, a commit range, or a natural-language description) or omit to review the current branch.
 model: opus
 disable-model-invocation: false
-argument-hint: "[empty | PR number | file paths]"
+argument-hint: "[free-form: 'PR 42', 'src/auth/', 'last 3 commits', or empty for current branch]"
 allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill, including the **one-question-per-turn** rule that applies at every interactive point in this skill.
 
 ## On Invocation
-
-### Detect scope from `$ARGUMENTS`
-
-```
-if [ -z "$ARGUMENTS" ]; then
-  scope=branch
-elif echo "$ARGUMENTS" | grep -qE '^\s*[0-9]+\s*$'; then
-  scope=pr
-  pr_number=$(echo "$ARGUMENTS" | tr -d ' ')
-else
-  scope=files
-  file_paths="$ARGUMENTS"
-fi
-```
 
 ### Verify git repo
 
@@ -35,21 +21,13 @@ Set `project_root` to the output.
 
 ### Compute project_id and report paths
 
-Derive project_id from the git remote URL (same derivation used in `~/.vs/` artifacts elsewhere):
-
 ```bash
 PROJECT_ID=$(git config --get remote.origin.url 2>/dev/null \
   | sed -E 's#\.git$##; s#.*[:/]([^/]+/[^/]+)$#\1#; s#/#-#g')
 [ -z "$PROJECT_ID" ] && PROJECT_ID=$(basename "$project_root")
-```
-
-Set paths:
-
-```bash
 timestamp=$(date -u +%Y%m%dT%H%M%S)
 reports_dir="$HOME/.vs/$PROJECT_ID/reviews"
-scope_label=<branch | pr-<pr_number> | files>
-report_path="$reports_dir/${timestamp}-${scope_label}-review.md"
+report_path="$reports_dir/${timestamp}-review.md"
 ```
 
 Create the reports directory: `mkdir -p "$reports_dir"`
@@ -57,66 +35,12 @@ Create the reports directory: `mkdir -p "$reports_dir"`
 ### Print banner
 
 ```
-── bf:review | <Scope> ───────────────────────────────
+── bf:review ───────────────────────────────────────────
 ```
-
-Where `<Scope>` is one of: `Branch`, `PR #<n>`, or `Files: <list>`.
 
 Print as plain text, not in a code block.
 
-## Phase 1 — Collect
-
-### Branch scope
-
-```bash
-default_remote_branch=$(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main)
-base=$(git merge-base HEAD "$default_remote_branch")
-diff_text=$(git diff "$base"...HEAD)
-changed_files=$(git diff --name-only "$base"...HEAD)
-```
-
-If `diff_text` is empty: print "Branch has no changes vs base. Nothing to review." and exit.
-
-### PR scope
-
-1. Verify `gh` is installed: `gh --version`. If it fails, print "gh is not installed. Install it from https://cli.github.com and run `gh auth login`." and exit.
-2. Verify auth: `gh auth status`. If it fails, print "gh is not authenticated. Run `gh auth login` and retry." and exit.
-3. Collect:
-
-```bash
-diff_text=$(gh pr diff "$pr_number")
-changed_files=$(gh pr view "$pr_number" --json files --jq '.files[].path')
-pr_meta=$(gh pr view "$pr_number" --json title,headRefName,baseRefName,author)
-```
-
-If `gh pr diff` fails (e.g. PR not found), surface the gh error message and exit.
-
-### Files scope
-
-1. Validate each path exists and is tracked:
-
-```bash
-git ls-files --error-unmatch $file_paths
-```
-
-If any path is not tracked, list the missing paths and exit.
-
-2. Collect:
-
-```bash
-diff_text=$(git diff -- $file_paths)
-# If diff is empty (clean working tree), use full file content instead
-if [ -z "$diff_text" ]; then
-  # Read each file in full — use the Read tool for each path
-fi
-changed_files="$file_paths"
-```
-
-### After collection
-
-`diff_text` and `changed_files` are now available for the review and complexity agents.
-
-## Phase 2 — Review
+## Phase 1 — Review
 
 ### Resolve conventions
 
@@ -132,9 +56,9 @@ Read each resolved convention file in full.
 
 ### Spawn review Agent (model: opus)
 
-Print (plain text, not in a code block): `→ Reviewing <N> file(s) with opus… (this usually takes a few minutes)` — substitute the count of `changed_files`.
+Print (plain text): `→ Reviewing with opus… (this usually takes a few minutes)`
 
-Read the resolved convention files and pass their full contents to an Agent with the following prompt:
+Pass the following prompt to an Agent with model: opus:
 
 ```
 You are a code reviewer. Apply the following conventions strictly.
@@ -151,24 +75,24 @@ You are a code reviewer. Apply the following conventions strictly.
 ## Code Review Convention
 <contents of resolved code-review.md>
 
-## Scope
-<scope label — branch / PR #N / files>
-<pr_meta JSON if PR scope, omit otherwise>
-
-## Changed Files
-<one path per line from changed_files>
-
-## Diff
-<diff_text>
+## Review Request
+<$ARGUMENTS if non-empty, otherwise: "Review the current branch diff vs origin/HEAD">
 
 ## Instructions
 
-1. Read the full content of each changed file (not just diff hunks) using the Read tool before forming conclusions.
-2. Apply every check in the Code Review Convention across all five categories.
-3. Produce the report in this exact format:
+1. Interpret the Review Request to determine what to review. Use git, gh, or Read as needed:
+   - No request or "current branch": run `git diff $(git merge-base HEAD $(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main))...HEAD`
+   - A PR number: run `gh pr diff <number>` and `gh pr view <number> --json title,headRefName,baseRefName,author`
+   - File paths or globs: read those files in full; also run `git diff -- <paths>` for the diff context
+   - A commit range or other description: use git to produce the appropriate diff
+2. If nothing to review (empty diff, no matching files), output only:
+   `STATUS: NOTHING_TO_REVIEW — <reason>` and stop.
+3. Read the full content of each changed file using the Read tool before forming conclusions.
+4. Apply every check in the Code Review Convention across all five categories.
+5. Produce the report in this exact format — including the Review Metadata block at the end:
 
 # Code Review Report
-- Scope: <branch | PR #N | files: <list>>
+- Scope: <human-readable description of what was reviewed>
 - Timestamp: <ISO 8601>
 - Files reviewed: <count>
 
@@ -198,20 +122,34 @@ Numbering: C1, C2, C3, ... sequentially across all sections.
 Label each concern [must-fix] or [should-consider].
 Omit sections that have no concerns.
 If STATUS is PASS, omit the Concerns block entirely.
+
+## Review Metadata
+changed_files:
+<one path per line — every file reviewed>
+pr_head_branch: <branch name if this was a PR review, else omit this line>
+
 Return only the report — no preamble or commentary.
 ```
 
-### Save initial report
+### Handle NOTHING_TO_REVIEW
+
+If the Agent output starts with `STATUS: NOTHING_TO_REVIEW`, print it and exit.
+
+### Save report and extract metadata
 
 Write the Agent's output to `$report_path`.
 
 Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 
-## Phase 3 — Complexity Gate
+Extract `changed_files` from the `## Review Metadata` block: read the lines listed under `changed_files:` (one path per line, until the next key or end of file).
+
+Extract `pr_head_branch`: read the `pr_head_branch:` line value. Leave empty if absent.
+
+## Phase 2 — Complexity Gate
 
 ### Write temporary build-state.json
 
-`state-ops.sh` requires a `build-state.json` file with specific fields. Create it so the complexity-gate sub-skill can run.
+`state-ops.sh` requires a `build-state.json` file. Create it so the complexity-gate sub-skill can run.
 
 ```bash
 temp_state="$project_root/.bf/sessions/build-state.json"
@@ -220,16 +158,15 @@ build_ts=$(date -u +%Y%m%dT%H)
 slug="review-${timestamp}"
 ```
 
-**If `$temp_state` already exists** (a bfeature workflow is in progress), back it up first:
+**If `$temp_state` already exists**, back it up first:
 
 ```bash
-# If build-state.json exists, save it and restore it after the complexity scan
 temp_state_backup="$temp_state.bfreview-backup"
 [ -f "$temp_state" ] && cp "$temp_state" "$temp_state_backup" && \
   echo "Warning: .bf/sessions/build-state.json already exists — a bfeature workflow may be in progress. Backing it up; it will be restored after the complexity scan."
 ```
 
-Write the following JSON to `$temp_state` (all required fields for `state-ops.sh`):
+Write the following JSON to `$temp_state`:
 
 ```json
 {
@@ -248,9 +185,7 @@ Write the following JSON to `$temp_state` (all required fields for `state-ops.sh
 }
 ```
 
-Where `<timestamp>` is from "On Invocation" and `<build_ts>` is the truncated-to-hour form (e.g. `20260520T10`).
-
-**Note**: `state-ops.sh` computes `paths.complexity_report` as an alias for `paths.temp` (`<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-temp.md`). The complexity gate appends a `## Complexity Report` block to that file. Set `complexity_report_path` to `<adir>/<build_ts>-review-<timestamp>-temp.md`.
+**Note**: `state-ops.sh` computes `paths.complexity_report` as `<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-temp.md`. Set `complexity_report_path` to that path.
 
 ### Invoke complexity-gate Agent (model: opus)
 
@@ -258,9 +193,7 @@ Print (plain text): `→ Running complexity gate with opus…`
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/complexity-gate/SKILL.md` in full.
 
-**For branch scope**: pass the SKILL.md contents as-is as the Agent prompt. `changed-packages.sh` will derive the correct changed files from `git diff`.
-
-**For PR scope or files scope**: `changed-packages.sh` compares `master...HEAD` and will not detect the correct files. Prepend the following override block to the SKILL.md contents before passing as the Agent prompt:
+Always prepend the following override block (the review agent may have reviewed a scope that differs from `master...HEAD`):
 
 ```
 ## OVERRIDE — changed_files
@@ -272,17 +205,14 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 Proceed with scan mode using these paths.
 ```
 
-Then pass the full prompt (override block + SKILL.md contents) to an Agent with model: opus.
-
-The sub-skill will run `state-ops.sh` to load state, scan for complexity red flags using the provided or script-derived changed files, and write its report to `paths.complexity_report`.
+Pass the full prompt (override block + SKILL.md contents) to an Agent with model: opus.
 
 ### Clean up temp state
 
-After the complexity Agent returns (whether it succeeds or fails), clean up the temp state:
+After the complexity Agent returns (whether it succeeds or fails):
 
 ```bash
 rm -f "$temp_state"
-# Restore backup if it existed
 [ -f "$temp_state_backup" ] && mv "$temp_state_backup" "$temp_state"
 ```
 
@@ -290,7 +220,7 @@ rm -f "$temp_state"
 
 ### Merge complexity findings into report
 
-Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist, the block is absent, or the Agent failed, continue with a note: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
+Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
 
 Renumber all complexity findings as X1, X2, ... sequentially.
 
@@ -312,7 +242,7 @@ Omit the section body if STATUS is PASS.
 
 ### Escalate overall STATUS
 
-If any C* or X* concern exists (regardless of label), set overall STATUS to CONCERN.
+If any C* or X* concern exists, set overall STATUS to CONCERN.
 
 Rewrite `$report_path` with the merged content (replace the STATUS line at the top).
 
@@ -326,7 +256,7 @@ Concerns: <N> code (<M> must-fix), <X> complexity
 Report: <report_path>
 ```
 
-## Phase 4 — Fix Selection
+## Phase 3 — Fix Selection
 
 **One-question-per-turn rule applies in this phase.** Ask step 1 and wait for the answer before asking step 2. Never batch both into one message.
 
@@ -341,9 +271,9 @@ Print: "No concerns found. Report saved at `<report_path>`." and exit.
 Print a one-line summary of each concern:
 
 ```
-C1 [must-fix]       src/foo.ts:42 — <problem description>
+C1 [must-fix]        src/foo.ts:42 — <problem description>
 C2 [should-consider] src/bar.ts:8 — <problem description>
-X1 [must-fix]       src/baz.ts:15 — <complexity finding>
+X1 [must-fix]        src/baz.ts:15 — <complexity finding>
 ```
 
 Then ask (one question only):
@@ -357,8 +287,8 @@ Wait for the user's reply before proceeding.
 - `none` or empty → print "No fixes requested. Report saved at `<report_path>`." and exit.
 - `all` → select all C* and X* concerns.
 - `must-fix` → select all concerns labelled `[must-fix]`.
-- Space-separated IDs (e.g. `C1 C3 X1`) → validate each ID exists in the report.
-  - If any ID is unknown, ask once: "Unknown ID(s): <list>. Please re-enter valid IDs from the list above." Then re-parse the new answer; if still invalid, treat as `none`.
+- Space-separated IDs → validate each ID exists in the report.
+  - If any ID is unknown, ask once: "Unknown ID(s): <list>. Please re-enter valid IDs from the list above." Re-parse the new answer; if still invalid, treat as `none`.
 
 Set `selected_concerns` to the validated list.
 
@@ -368,30 +298,27 @@ Print: "Will fix: <selected IDs>. Proceed? (yes/no)"
 
 Wait for reply.
 
-- `yes` (or `y`) → proceed to Phase 5.
-- anything else → return to Step 1 (re-ask the selection question).
+- `yes` (or `y`) → proceed to Phase 4.
+- anything else → return to Step 1.
 
-## Phase 5 — Fix
+## Phase 4 — Fix
 
-### PR scope: check out the PR branch
+### PR review: check out the PR branch
 
-For PR scope, fixes must land on the PR's branch, not the current local branch.
+If `pr_head_branch` is non-empty:
 
 ```bash
-pr_head_branch=$(echo "$pr_meta" | jq -r '.headRefName')
 git fetch origin "$pr_head_branch"
 git checkout "$pr_head_branch"
 ```
 
-If checkout fails, tell the user: "Could not check out PR branch `<pr_head_branch>`. Fixes cannot be applied automatically — address the concerns manually." and exit Phase 5.
-
-For branch and files scope, no checkout is needed — fixes apply to the current working tree.
+If checkout fails, tell the user: "Could not check out PR branch `<pr_head_branch>`. Fixes cannot be applied automatically — address the concerns manually." and exit Phase 4.
 
 ### Spawn fix Agent (model: sonnet)
 
-Print (plain text): `→ Applying <N> fix(es) with sonnet…` — substitute the count of selected concerns.
+Print (plain text): `→ Applying <N> fix(es) with sonnet…`
 
-Collect the selected concerns from the report: extract the full description blocks for each selected ID (including `file:line`, problem, and suggested fix).
+Collect the selected concerns from the report: extract the full description blocks for each selected ID.
 
 Pass the following prompt to an Agent with model: sonnet:
 
@@ -404,41 +331,49 @@ You are applying code fixes identified by a code review.
 ## Selected Concerns
 <concern block for each selected ID, preserving full text>
 
-## Diff Context
-<diff_text from Phase 1>
-
 ## Changed Files
-<one path per line>
+<one path per line from changed_files>
 
 ## Instructions
 
 - Apply each fix in place, editing the actual source files.
 - Do not modify any file outside the changed_files list.
 - Do not commit or push anything.
-- For PR scope: fixes apply to the local working tree.
-- If a fix cannot be applied cleanly (e.g. the code has moved), add a TODO comment at the relevant location:
+- If a fix cannot be applied cleanly (e.g. the code has moved), add a TODO comment:
   `// TODO(bf:review): <concern ID> — <brief description of what needs manual fixing>`
-- Do not add explanatory text to the source files; only the necessary code changes and TODO markers.
 - Return a brief summary: which concerns were applied, which were deferred with a TODO.
 ```
 
 ### Re-review cycle
 
-Print (plain text): `→ Re-reviewing post-fix (cycle <N>) with opus…` — `<N>` is 1 or 2.
+Print (plain text): `→ Re-reviewing post-fix (cycle <N>) with opus…`
 
-After the fix Agent returns, run Phase 2 again (review Agent, same scope) scoped to `changed_files`. This is re-review cycle 1.
+After the fix Agent returns, spawn a new review Agent (same conventions, model: opus) with the following prompt:
 
-**Cap at 2 re-review cycles.** Do not run a third fix→review round regardless of remaining concerns.
+```
+You are a code reviewer performing a re-review after fixes were applied.
+
+## Dev Convention / Testing Convention / Architecture Convention / Code Review Convention
+<same convention contents as Phase 1>
+
+## Files to Re-review
+<one path per line from changed_files>
+
+## Instructions
+
+1. Read the full current content of each file using the Read tool.
+2. Apply every check in the Code Review Convention.
+3. Produce the same report format as before (# Code Review Report … ## Review Metadata).
+   For changed_files in Review Metadata, repeat the same file list.
+```
+
+Cap at 2 re-review cycles. Do not run a third fix→review round.
 
 Set `after_fix_report_path` to `${report_path%.md}-after-fix.md` (or `-after-fix-2.md` for cycle 2).
 
-Save the new review report to `after_fix_report_path`. Update `latest.md` symlink.
-
-**Do not overwrite the original `$report_path`.** Preserve it as the baseline.
+Save the new report to `after_fix_report_path`. Update `latest.md` symlink. Do not overwrite the original `$report_path`.
 
 ### Tell the user
-
-After the final re-review, print:
 
 ```
 Original report:  <report_path>
@@ -447,7 +382,7 @@ Resolved:  <N> concerns addressed
 Remaining: <M> concerns still present
 ```
 
-If remaining concerns exist, list them by ID and label (same one-line format as Phase 4 Step 1) so the user knows what was not resolved.
+List remaining concerns by ID and label if any exist.
 
 ## Edge Cases & Errors
 
@@ -456,33 +391,30 @@ If remaining concerns exist, list them by ID and label (same one-line format as 
 | Condition | Handling |
 |-----------|----------|
 | Not a git repository | Print "Not a git repository. Exiting." and stop. |
-| `~/.vs` not writable | Fall back to `<project_root>/.bf/sessions/reviews/` for `reports_dir`. Warn: "~/.vs not writable — saving reports to <fallback_path>." |
+| `~/.vs` not writable | Fall back to `<project_root>/.bf/sessions/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (all 3 lookup paths absent) | Print "Convention file not found: <last-looked-up path>. This may be a plugin install issue." and stop. |
 
-### Phase 1 — Collect
+### Phase 1 — Review
 
 | Condition | Handling |
 |-----------|----------|
-| Branch scope, empty diff | Print "Branch has no changes vs base. Nothing to review." and exit cleanly. |
-| `gh` not installed (PR scope) | Print "gh CLI is not installed. Install it from https://cli.github.com and run `gh auth login`." and exit. |
-| gh not authenticated (PR scope) | Print "gh is not authenticated. Run `gh auth login` and retry." and exit. |
-| PR not found | Surface the gh error message verbatim and exit. |
-| Files scope — one or more paths not tracked | List the untracked paths: "The following paths are not tracked by git: <list>. Verify paths and retry." and exit. |
+| Nothing to review (empty diff, no files match) | Agent returns `STATUS: NOTHING_TO_REVIEW` — print it and exit. |
+| `gh` error (not installed, not authenticated, PR not found) | Agent surfaces the error — print it and exit. |
 
-### Phase 3 — Complexity Gate
+### Phase 2 — Complexity Gate
 
 | Condition | Handling |
 |-----------|----------|
-| Complexity Agent fails or errors | Continue with review report. Append `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)` to the report. Do not block the review. |
-| Temp `build-state.json` already exists (another bfeature run in progress) | Back it up to `build-state.json.bfreview-backup`, warn the user, overwrite for the complexity scan, then restore the backup on cleanup. |
+| Complexity Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
+| `build-state.json` already exists | Back it up, warn the user, restore after scan. |
 
 ### Fix phase
 
 | Condition | Handling |
 |-----------|----------|
-| Fix Agent fails | Inform the user, skip the re-review, and print the original report path only. |
-| Re-review returns a report with new concerns not in the original | Include them in the "remaining" count but label them `[new]` so the user can distinguish. |
+| Fix Agent fails | Inform the user, skip re-review, print original report path only. |
+| Re-review finds new concerns not in the original | Include in "remaining" count, label `[new]`. |
 
 ### Re-invocation
 
-This skill is stateless — each invocation produces a fresh timestamped report. `latest.md` always points to the most recent report from the current session. Previous reports are preserved.
+This skill is stateless — each invocation produces a fresh timestamped report. `latest.md` always points to the most recent report. Previous reports are preserved.
