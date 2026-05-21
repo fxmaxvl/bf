@@ -76,6 +76,7 @@ def artifact_paths(adir, prefix):
         'block_design_report':      '## Design Report',
         'block_impl_report':        '## Implementation Review',
         'block_complexity_report':  '## Complexity Report',
+        'block_decisions':          '## Decisions',
     }
 
 def read_output(root, state):

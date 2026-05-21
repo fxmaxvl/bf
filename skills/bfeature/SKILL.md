@@ -150,7 +150,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" --init \
 6. Proceed to Phase 1 (brainstorm for full mode, refine for quick mode).
 
 **Artifact layout:** Each session produces two files (see `plugin-main.md` for the Block I/O conventions):
-- `<build_timestamp>-<slug>-session-log.md` (`paths.session_log`) — persistent blocks: Spec, Plan, Todo, Backlog, Deployment
+- `<build_timestamp>-<slug>-session-log.md` (`paths.session_log`) — persistent blocks: Spec, Plan, Todo, Backlog, Deployment, Decisions
 - `<build_timestamp>-<slug>-temp.md` (`paths.temp`) — ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report; deleted at cleanup
 
 Use `paths.*` from `state-ops.sh` instead of constructing paths manually.
