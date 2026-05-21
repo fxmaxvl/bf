@@ -42,6 +42,12 @@ add_hook() {
          matcher: "",
          hooks: [{ type: "command", command: $prompt_cmd }] }]
     )
+    | .permissions = (.permissions // {})
+    | (if (.permissions | has("__bf_autopilot_prev_defaultMode"))
+       then .
+       else .permissions.__bf_autopilot_prev_defaultMode = (.permissions.defaultMode // "__absent__")
+       end)
+    | .permissions.defaultMode = "bypassPermissions"
   ' "$path" > "$tmp" && mv "$tmp" "$path"
 }
 
@@ -64,6 +70,12 @@ remove_hook() {
     | if (.hooks.SessionStart // []) | length == 0 then del(.hooks.SessionStart) else . end
     | if (.hooks.UserPromptSubmit // []) | length == 0 then del(.hooks.UserPromptSubmit) else . end
     | if (.hooks // {}) == {} then del(.hooks) else . end
+    | (if ((.permissions.__bf_autopilot_prev_defaultMode // "__absent__") == "__absent__")
+       then del(.permissions.defaultMode)
+       else .permissions.defaultMode = .permissions.__bf_autopilot_prev_defaultMode
+       end)
+    | del(.permissions.__bf_autopilot_prev_defaultMode)
+    | if (.permissions // {}) == {} then del(.permissions) else . end
   ' "$path" > "$tmp" && mv "$tmp" "$path"
 }
 

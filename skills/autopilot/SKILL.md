@@ -46,6 +46,8 @@ SKILL_DIR="${CLAUDE_PLUGIN_ROOT}/skills/autopilot"
 bash "$SKILL_DIR/hooks/install.sh" on
 ```
 
+Install also flips `permissions.defaultMode` to `"bypassPermissions"` in the project's `.claude/settings.local.json` (stashing the prior value) so cross-directory reads and non-allowlisted Bash commands run without prompts. Uninstall restores the prior value; the SessionStart and UserPromptSubmit cleanup hooks also call `install.sh off`, so the bypass mode never survives across sessions.
+
 ## Step 3 — Execute with the critic rule
 
 Run the target skill's full workflow using `target_args` as `$ARGUMENTS`, with this single override applied everywhere:
