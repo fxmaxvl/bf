@@ -4,7 +4,7 @@ description: "General autonomous wrapper — runs any bf skill without user inpu
 model: opus
 disable-model-invocation: false
 argument-hint: "[skill-name] <idea or args>"
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(bash *), mcp__*__jira__*
+allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(git add *), Bash(git commit *), Bash(git status *), Bash(git diff *), Bash(git log *), Bash(git fetch *), Bash(git checkout *), Bash(git merge-base *), Bash(git rev-parse *), Bash(git config *), Bash(git ls-files *), Bash(git stash *), Bash(git branch *), Bash(git show *), Bash(git tag *), Bash(git reset *), Bash(gh *), Bash(bash *), mcp__*__jira__*
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
@@ -91,6 +91,19 @@ Skill: <target_skill>
 Decisions made: <N> (critic verdicts logged in session log or conversation)
 Low-confidence flags: <list, or "none">
 ```
+
+## Running in background
+
+To run autopilot without blocking your main conversation, open a new Claude Code pane or terminal and invoke the skill there:
+
+```bash
+claude
+/bf:autopilot feature my-idea
+```
+
+The session log at `$project_root/.bf/sessions/` is the shared artifact — readable from either pane while autopilot runs.
+
+Note: spawning autopilot as a background Agent from within a conversation does not work — Claude Code subagents cannot spawn further subagents, which breaks the internal agent delegation that target skills (bf:feature, bf:review, etc.) depend on.
 
 ## Error recovery
 
