@@ -8,7 +8,7 @@ if [[ "$STOP_HOOK_ACTIVE" == "true" ]]; then
   exit 0
 fi
 
-STATE_FILE="$HOME/.vs/bf-autopilot/state.json"
+STATE_FILE="$HOME/.bf/autopilot/state.json"
 
 [[ -f "$STATE_FILE" ]] || exit 0
 

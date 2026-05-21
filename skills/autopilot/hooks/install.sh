@@ -11,7 +11,7 @@ PROMPT_CLEANUP_PATH="$SKILL_DIR/hooks/user-prompt-cleanup.sh"
 chmod +x "$HOOK_PATH" "$CLEANUP_PATH" "$PROMPT_CLEANUP_PATH"
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-STATE_DIR="$HOME/.vs/bf-autopilot"
+STATE_DIR="$HOME/.bf/autopilot"
 STATE_FILE="$STATE_DIR/state.json"
 
 CLAUDE_SETTINGS="$REPO_ROOT/.claude/settings.local.json"

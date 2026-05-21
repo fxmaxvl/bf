@@ -1,218 +1,102 @@
 ---
 name: autopilot
-description: "Run the full bfeature workflow autonomously — critic oracle makes every decision. No user input required mid-run. Invoke with /bf:autopilot <idea>."
+description: "General autonomous wrapper — runs any bf skill without user input. Critic oracle resolves every decision. Usage: /bf:autopilot [skill] <args> (e.g. /bf:autopilot quick fix login bug)"
 model: opus
 disable-model-invocation: false
-argument-hint: "<idea description, Jira ticket URL, or GH-ISSUE:<number>>"
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), mcp__*__jira__*
+argument-hint: "[skill-name] <idea or args>"
+allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(bash *), mcp__*__jira__*
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
 
-Orchestrate the full bfeature workflow autonomously. Every gate, approval, and clarifying question is resolved by the **critic oracle** instead of user input. The phases, sub-skills, quality gates, and state machine are identical to `bf:bfeature` — this file overrides only the user-interaction points.
+Autonomous wrapper that executes any bf skill without user input. Every point where the target skill would ask the user a question, wait for approval, or stop for input is replaced by a **critic oracle** call. Everything else follows the target skill exactly.
 
-## Setup
+## Step 1 — Parse arguments
 
-Before any phase work, install the stop hook so the session survives unexpected stops between phases:
+`$ARGUMENTS` has the form: `[skill-name] <forwarded-args>`
+
+Split as follows:
+
+```
+first_word=$(echo "$ARGUMENTS" | awk '{print $1}')
+rest=$(echo "$ARGUMENTS" | cut -d' ' -f2-)
+```
+
+If `first_word` matches a known bf skill name (see routing table below): `target_skill=$first_word`, `target_args=$rest`.
+Otherwise: `target_skill=feature`, `target_args=$ARGUMENTS` (treat the whole input as the forwarded args).
+
+**Skill routing table:**
+
+| Argument | SKILL.md path |
+|----------|---------------|
+| `feature` (default) | `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/SKILL.md` |
+| `quick`   | `${CLAUDE_PLUGIN_ROOT}/skills/quick/SKILL.md` |
+| `micro`   | `${CLAUDE_PLUGIN_ROOT}/skills/micro/SKILL.md` |
+| `review`  | `${CLAUDE_PLUGIN_ROOT}/skills/review/SKILL.md` |
+| `design`  | `${CLAUDE_PLUGIN_ROOT}/skills/design/SKILL.md` |
+
+Read the resolved SKILL.md in full before proceeding.
+
+Print: `── bf:autopilot | <target_skill> ───────────────────────────────`
+
+## Step 2 — Install stop hook
 
 ```bash
 SKILL_DIR="${CLAUDE_PLUGIN_ROOT}/skills/autopilot"
 bash "$SKILL_DIR/hooks/install.sh" on
 ```
 
-## Calling the Critic
+## Step 3 — Execute with the critic rule
 
-At every decision point, read `${CLAUDE_PLUGIN_ROOT}/skills/critic/SKILL.md` and invoke it **inline** with this labeled-block payload:
+Run the target skill's full workflow using `target_args` as `$ARGUMENTS`, with this single override applied everywhere:
+
+**The critic rule:** Whenever the target skill would ask the user a question, wait for a yes/no approval, present options and wait for a choice, or stop with "re-invoke when ready" — call critic instead.
+
+Do not stop. Do not wait. Resolve every decision via critic and continue.
+
+## Step 4 — Calling the critic
+
+At each decision point, read `${CLAUDE_PLUGIN_ROOT}/skills/critic/SKILL.md` and invoke it **inline** with this payload:
 
 ```
-QUESTION: <the decision being made>
-PHASE: <current workflow phase>
-SESSION_LOG: <absolute path to paths.session_log>
-OPTIONS: A) <option> | B) <option> [| C) <option>]
+QUESTION: <the exact decision or question the target skill would have asked>
+PHASE: <current phase or step name from the target skill>
+SESSION_LOG: <absolute path to the session log, if the target skill maintains one — omit if not>
+OPTIONS: A) <option extracted or inferred from the skill's instruction> | B) <alternative> [| C) <third if applicable>]
 CONTEXT:
-<tight excerpt from spec, plan, or report — enough for the critic to decide>
+<tight excerpt relevant to the decision — spec section, plan block, report finding, or idea text>
 ```
 
-- Critic logs each verdict to `## Decisions` in the session log (embedded mode).
-- Omit `SESSION_LOG` only in Phase 0 before init has run — critic won't attempt a file write without it.
-- Use the verdict letter (A/B/C) to determine next action. If confidence is `low`, log the flag and proceed with the verdict anyway — do not stop to ask the user.
+Rules:
+- Extract `OPTIONS` from the skill's instructions where given (e.g., "if yes … if no …" → A) yes / B) no). Enumerate them yourself when the skill doesn't list them explicitly.
+- Omit `SESSION_LOG` if the target skill has no session log at that point.
+- If critic returns confidence `low`, log the flag in the session log (or conversation) and proceed with the verdict — do not stop to ask the user. Collect all low-confidence flags and surface them in the final summary.
+- If critic returns verdict B (stop/block): log the reason, uninstall the hook (`install.sh off`), and stop with a clear summary of what needs manual attention.
 
-## Sub-skill Resolution
+## Step 5 — Teardown
 
-Same as `bf:bfeature`. Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/SKILL.md` for the full routing table, invocation patterns, artifact layout, and state update commands. Everything below overrides only gate behavior.
-
-## Phase Flow
-
-```
-init → brainstorm [critic answers Q&A] → review-design [critic: fix?] → plan → [critic: proceed?] execute → verify → complexity-guard [critic: fix?] → review-impl [critic: fix?] → verify (silent) → [critic: finalize? todos?] finalize → collect-todos → cleanup → uninstall hook
-```
-
----
-
-## Phase 0 — Init
-
-Follow `bf:bfeature` Phase 0 exactly, with one override:
-
-**Branch selection (when `is_main` is `false`):** Call critic instead of asking the user:
-```
-QUESTION: Currently on <current_branch>. Continue here or create feat/<slug>?
-PHASE: init
-OPTIONS: A) Continue on <current_branch> | B) Create feat/<slug> from <main_branch>
-CONTEXT:
-Branch: <current_branch>. Main: <main_branch>. Idea: <idea>
-```
-*(Omit `SESSION_LOG` — init hasn't run yet. Critic prints verdict only.)*
-
-Apply the verdict and proceed with `state-ops.sh --init`.
-
----
-
-## Phase 1 — Brainstorm
-
-Print banner. Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/brainstorm/SKILL.md` and run the gather phase **inline**.
-
-**Answering gather's clarifying questions:** Gather asks one question at a time. For each question, call critic instead of waiting for user input:
-
-```
-QUESTION: <gather's clarifying question verbatim>
-PHASE: brainstorm
-SESSION_LOG: <path>
-OPTIONS: A) <most likely answer given the idea and codebase> | B) <alternative> [| C) <third if applicable>]
-CONTEXT:
-Idea: <idea>
-<relevant codebase pattern or constraint, if any — read before calling>
-```
-
-Use the verdict as the answer, feed it back into gather's flow, and continue. After gather completes, run `brainstorm/generate` as an Agent (model: opus) per `bf:bfeature` Phase 1.
-
----
-
-## Phase 2 — Review Design
-
-Follow `bf:bfeature` Phase 2 exactly, with one override:
-
-**Fix cycle decision:** Instead of asking "Should I fix these concerns?", call critic:
-```
-QUESTION: Fix the design concerns flagged in this review cycle?
-PHASE: review-design
-SESSION_LOG: <path>
-OPTIONS: A) Yes, apply fixes | B) No, accept as-is
-CONTEXT:
-<concern list extracted from ## Design Report>
-```
-
----
-
-## Phase 3 — Plan
-
-Follow `bf:bfeature` Phase 3 exactly, with one override:
-
-**Execution gate:** Instead of asking "Ready to start execution?", call critic:
-```
-QUESTION: Plan complete. Proceed to execution?
-PHASE: plan
-SESSION_LOG: <path>
-OPTIONS: A) Yes, proceed | B) No, stop — plan needs revision
-CONTEXT:
-<first 20 lines of ## Plan block>
-```
-
-If verdict is A: update state to `phase_status=in_progress`, proceed to Phase 4.
-If verdict is B: log the flag from critic, uninstall the hook, and stop with a summary of what needs revision.
-
----
-
-## Phase 4 — Execute
-
-Follow `bf:bfeature` Phase 4 exactly. No user gates.
-
----
-
-## Phase 4.5 — Verify
-
-Follow `bf:bfeature` Phase 4.5 exactly. No user gates.
-
----
-
-## Phase 4.75 — Complexity Guard
-
-Follow `bf:bfeature` Phase 4.75 exactly, with one override:
-
-**Fix cycle decision:** Instead of asking "Should I fix these complexity issues?", call critic:
-```
-QUESTION: Fix the blocked complexity issues?
-PHASE: complexity-guard
-SESSION_LOG: <path>
-OPTIONS: A) Yes, apply fixes | B) No, accept as-is
-CONTEXT:
-<blocked issues from ## Complexity Report>
-```
-
----
-
-## Phase 5 — Review Implementation
-
-Follow `bf:bfeature` Phase 5 exactly, with one override:
-
-**Fix cycle decision:** Instead of asking "Should I fix these concerns?", call critic:
-```
-QUESTION: Fix the implementation concerns flagged in this review cycle?
-PHASE: review-impl
-SESSION_LOG: <path>
-OPTIONS: A) Yes, apply fixes | B) No, accept as-is
-CONTEXT:
-<concern list from ## Implementation Review>
-```
-
----
-
-## Phase 6 — Finalize
-
-Follow `bf:bfeature` Phase 6 exactly, with these overrides:
-
-**Pre-finalization gate:** Instead of asking "Ready to finalize?", call critic:
-```
-QUESTION: All checks green. Finalize — commit, push, and open PR?
-PHASE: finalize
-SESSION_LOG: <path>
-OPTIONS: A) Yes, finalize | B) No, stop — needs manual review
-CONTEXT:
-<## Plan summary, verification status: green>
-```
-
-If verdict is B: uninstall the hook, stop with a summary.
-
-**TODO gate (full mode only):** Instead of asking "Should I scan for TODOs?", call critic:
-```
-QUESTION: Scan for TODO comments and collect them to the backlog?
-PHASE: finalize
-SESSION_LOG: <path>
-OPTIONS: A) Yes, collect TODOs | B) No, skip
-CONTEXT:
-Idea: <idea>. Feature scope: <one-line description from spec>.
-```
-
-Set `collect_todos` in state per the verdict, then continue.
-
----
-
-## Phase 7 — Collect TODOs
-
-Follow `bf:bfeature` Phase 7 exactly.
-
----
-
-## Phase 8 — Cleanup
-
-Follow `bf:bfeature` Phase 8 exactly, then uninstall the stop hook:
+When the target skill reaches its normal end (cleanup, done, or a verdict-B stop), uninstall the hook:
 
 ```bash
 SKILL_DIR="${CLAUDE_PLUGIN_ROOT}/skills/autopilot"
 bash "$SKILL_DIR/hooks/install.sh" off
 ```
 
----
+Then print a compact handoff:
 
-## Error Recovery
+```
+── bf:autopilot | Done ───────────────────────────────
 
-Same as `bf:bfeature` — if the session ends mid-phase, the next `/bf:autopilot` invocation reads `build-state.json` and resumes. The stop hook keeps the session alive across unexpected stops. On re-entry after a stop, reinstall the hook (Setup step) before resuming the current phase.
+Skill: <target_skill>
+Decisions made: <N> (critic verdicts logged in session log or conversation)
+Low-confidence flags: <list, or "none">
+```
+
+## Error recovery
+
+If the session ends mid-run, the stop hook keeps state alive. On re-entry:
+1. Run Setup (Step 2) again — reinstalls the hook and state file.
+2. Read `build-state.json` (if the target skill uses one) and resume from the current phase.
+3. Apply the critic rule from that point forward.
+
+To interrupt autopilot: type anything at the prompt — the UserPromptSubmit hook wipes state immediately.

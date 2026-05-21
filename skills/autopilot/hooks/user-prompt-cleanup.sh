@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-STATE_FILE="$HOME/.vs/bf-autopilot/state.json"
+STATE_FILE="$HOME/.bf/autopilot/state.json"
 
 rm -f "$STATE_FILE"
 exit 0
