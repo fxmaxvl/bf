@@ -126,7 +126,7 @@ The `description:` field must:
 - Be **third-person, action-trigger phrasing** — describe when the model should invoke the skill, not what it does internally.
 - Start with "Use when…" or list trigger phrases (e.g. "Review code against…").
 - Match the style of existing descriptions:
-  - `review`: "Review code against bfeature conventions and the complexity gate."
+  - `review`: "Review code against feature conventions and the complexity gate."
   - `autopilot`: "General autonomous wrapper — runs any bf skill without user input."
   - `quick`: "Quick workflow (refine → plan → execute → verify → finalize) — skips brainstorm and review-design."
 

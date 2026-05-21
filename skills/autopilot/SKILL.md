@@ -29,7 +29,7 @@ Otherwise: `target_skill=feature`, `target_args=$ARGUMENTS` (treat the whole inp
 
 | Argument | SKILL.md path |
 |----------|---------------|
-| `feature` (default) | `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/SKILL.md` |
+| `feature` (default) | `${CLAUDE_PLUGIN_ROOT}/skills/feature/SKILL.md` |
 | `quick`   | `${CLAUDE_PLUGIN_ROOT}/skills/quick/SKILL.md` |
 | `micro`   | `${CLAUDE_PLUGIN_ROOT}/skills/micro/SKILL.md` |
 | `review`  | `${CLAUDE_PLUGIN_ROOT}/skills/review/SKILL.md` |

@@ -58,7 +58,7 @@ Use this decision tree, in order:
 
 **Hard rule — stakeholder document:** This doc is written for a non-technical or mixed audience (stakeholders, product, leadership). It must be:
 
-- **Free of implementation specifics:** no code snippets, no internal tool names (no mentions of bfeature, Claude, or any internal tooling), no framework or library references, no file paths or codebase details.
+- **Free of implementation specifics:** no code snippets, no internal tool names (no mentions of feature, Claude, or any internal tooling), no framework or library references, no file paths or codebase details.
 - **Concept-level, not code-level:** describe systems and interactions in terms of responsibilities, data flows, and trust boundaries — not classes, endpoints, or database schemas.
 - **Decision-enabling, not solution-prescribing:** the goal is to align stakeholders on the problem and the high-level approach. Detailed implementation planning comes after stakeholder review.
 - **Jargon-light:** define any technical term the first time it appears. Avoid abbreviations without explanation.

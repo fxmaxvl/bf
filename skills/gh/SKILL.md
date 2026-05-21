@@ -1,6 +1,6 @@
 ---
 name: gh
-description: Create GitHub issues or pick existing ones to work on. Auto-generates titles/labels for new issues, classifies existing ones, and kicks off bfeature.
+description: Create GitHub issues or pick existing ones to work on. Auto-generates titles/labels for new issues, classifies existing ones, and kicks off feature.
 argument-hint: [optional: "pick", "pick bug", or issue description]
 model: sonnet
 ---
@@ -111,28 +111,28 @@ When the user picks an issue:
 
 1. Get the current GitHub user with `gh api user --jq '.login'`.
 2. Assign the issue to them: `gh issue edit <number> --repo <owner/repo> --add-assignee <login>`.
-3. Get the full issue details (title, body, number) to pass to bfeature.
+3. Get the full issue details (title, body, number) to pass to feature.
 
 ### 5. Choose mode
 
 Ask: "Full workflow (brainstorm → spec → review → plan → execute) or quick mode (refine → plan → execute)?"
 
-### 6. Kick off bfeature
+### 6. Kick off feature
 
-Invoke `bfeature` or `quick` based on the user's choice. Pass a synthesized description that includes:
+Invoke `feature` or `quick` based on the user's choice. Pass a synthesized description that includes:
 
-- A `GH-ISSUE:<number>` marker so bfeature can detect the GitHub issue (e.g., `GH-ISSUE:12`)
+- A `GH-ISSUE:<number>` marker so feature can detect the GitHub issue (e.g., `GH-ISSUE:12`)
 - The issue title
 - The issue body/description
 
-Example `$ARGUMENTS` for bfeature:
+Example `$ARGUMENTS` for feature:
 ```
 GH-ISSUE:12 Token refresh fails on expired sessions
 
 Session tokens are not being refreshed when they expire, causing 401 errors...
 ```
 
-This gives bfeature the full context to start the brainstorm phase and track the issue through to PR creation.
+This gives feature the full context to start the brainstorm phase and track the issue through to PR creation.
 
 ---
 

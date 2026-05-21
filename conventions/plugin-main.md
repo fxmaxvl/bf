@@ -1,4 +1,4 @@
-# bfeature Plugin — Shared Conventions
+# feature Plugin — Shared Conventions
 
 These rules apply to every skill in this plugin.
 

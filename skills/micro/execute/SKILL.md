@@ -10,7 +10,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains pl
 Run the helper script to load state and artifact paths:
 
 ```
-bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"
 ```
 
 This gives you `slug`, `build_timestamp`, `artifacts_dir`, and `paths.*`.

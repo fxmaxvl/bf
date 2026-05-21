@@ -81,28 +81,28 @@ When the user picks a ticket:
 
 1. Read the full ticket details with `read-ticket(ticket_key)` (see Operations below)
 2. Transition the ticket to "In Progress": `transition-to(ticket_key, "In Progress")`
-3. Kick off the `bfeature` skill with the ticket context
+3. Kick off the `feature` skill with the ticket context
 
 ### 5. Choose mode
 
 Ask: "Full workflow (brainstorm → spec → review → plan → execute) or quick mode (refine → plan → execute)?"
 
-### 6. Kick off bfeature
+### 6. Kick off feature
 
-Invoke `bfeature` or `quick` based on the user's choice. Pass a synthesized description that includes:
+Invoke `feature` or `quick` based on the user's choice. Pass a synthesized description that includes:
 
-- The Jira ticket URL so bfeature can detect it (e.g., `https://<domain>.atlassian.net/browse/PROJ-45`)
+- The Jira ticket URL so feature can detect it (e.g., `https://<domain>.atlassian.net/browse/PROJ-45`)
 - The ticket title/summary
 - The ticket description/body
 
-Example `$ARGUMENTS` for bfeature:
+Example `$ARGUMENTS` for feature:
 ```
 https://<domain>.atlassian.net/browse/PROJ-45 Token refresh fails on expired sessions
 
 Session tokens are not being refreshed when they expire, causing 401 errors...
 ```
 
-This gives bfeature the full context to start the brainstorm phase and track the ticket through to PR creation.
+This gives feature the full context to start the brainstorm phase and track the ticket through to PR creation.
 
 ---
 
@@ -114,13 +114,13 @@ When a Jira ticket URL is passed directly:
 2. Read the full ticket details with `read-ticket(ticket_key)`
 3. Transition to "In Progress": `transition-to(ticket_key, "In Progress")`
 4. Ask: "Full workflow (brainstorm → spec → review → plan → execute) or quick mode (refine → plan → execute)?"
-5. Kick off `bfeature` or `quick` based on the user's choice, with the ticket context (same format as Pick Mode step 6)
+5. Kick off `feature` or `quick` based on the user's choice, with the ticket context (same format as Pick Mode step 6)
 
 ---
 
 ## Operations
 
-These operations are also used by other skills (e.g., `bfeature`) when they need to interact with Jira tickets.
+These operations are also used by other skills (e.g., `feature`) when they need to interact with Jira tickets.
 
 ### `read-ticket(ticket_key)`
 1. Call `<prefix>get-issues` with the ticket key
