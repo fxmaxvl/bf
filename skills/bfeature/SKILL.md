@@ -231,9 +231,10 @@ Run up to 3 analyze → fix cycles:
    - If yes: read `bfeature/review-design/fix/SKILL.md` and pass its contents as an Agent prompt (model: sonnet), then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review the spec manually" and stop
-5. Run complexity-gate on the spec (phase is still `review-design` — the skill auto-detects spec advisory mode):
-   Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
-   Show findings to the user. Always proceed regardless of outcome — findings here are advisory only.
+5. Run complexity-gate and consistency-gate on the spec in parallel (phase is still `review-design` — both skills auto-detect spec advisory mode):
+   - Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
+   - Read `consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus).
+   Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
 6. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=plan phase_status=in_progress
    ```
@@ -244,9 +245,10 @@ Run up to 3 analyze → fix cycles:
 Print banner: `── bfeature | Plan ───────────────────────────────`
 
 1. Read `bfeature/plan/SKILL.md` and pass its contents as an Agent prompt (model: opus) — it appends `## Plan` and `## Todo` blocks to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
-2. After the plan agent completes, run complexity-gate on the plan (phase is still `plan` — the skill auto-detects plan advisory mode):
-   Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
-   Show findings to the user. Always proceed regardless of outcome — findings here are advisory only.
+2. After the plan agent completes, run complexity-gate and consistency-gate on the plan in parallel (phase is still `plan` — both skills auto-detect plan advisory mode):
+   - Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
+   - Read `consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus).
+   Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
 3. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" \
      artifacts.plan="<build_timestamp>-<slug>-session-log.md" \
@@ -282,23 +284,27 @@ Print banner: `── bfeature | Verify ─────────────�
    ```
    Proceed immediately to Phase 4.75 (no approval gate)
 
-## Phase 4.75 — Complexity Guard
+## Phase 4.75 — Complexity & Consistency Guard
 
-Print banner: `── bfeature | Complexity Guard ───────────────────────────────`
+Print banner: `── bfeature | Complexity & Consistency Guard ───────────────────────────────`
 
 Run up to 3 scan → fix cycles:
 
-1. Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus)
-   - Phase is `verify` — the skill auto-detects scan mode and uses `changed_files`
-2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
-3. If output is `PASS` or `ADVISORY`: show findings if any, proceed to step 5
-4. If output is `BLOCK`:
-   - Show the blocked issues to the user
-   - Ask: "Should I fix these complexity issues?"
-   - If yes: spawn a fix agent (model: sonnet) with this prompt: "Extract the `## Complexity Report` block from `paths.temp`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
+1. Run both gates in parallel (phase is `verify` — both skills auto-detect scan mode):
+   - Read `bfeature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus)
+   - Read `consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus)
+2. Check both reports:
+   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
+   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "<paths.temp>" --block "## Consistency Report"`
+   - Overall STATUS: escalate to `BLOCK` if either returns `BLOCK`; otherwise `ADVISORY` if either returns `ADVISORY`; else `PASS`
+3. If overall STATUS is `PASS` or `ADVISORY`: show findings if any, proceed to step 5
+4. If overall STATUS is `BLOCK`:
+   - Show the blocked issues from both reports to the user
+   - Ask: "Should I fix these issues?"
+   - If yes: spawn a fix agent (model: sonnet) with this prompt: "Extract the `## Complexity Report` and `## Consistency Report` blocks from `paths.temp`. For each issue under Blocked Issues in either report, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
      Then go back to step 1
    - If no (user accepts as-is): proceed to step 5
-   - If this was already the 3rd cycle: tell the user "Max complexity fix cycles reached — please review the blocked issues manually" and stop
+   - If this was already the 3rd cycle: tell the user "Max fix cycles reached — please review the blocked issues manually" and stop
 5. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/state-ops.sh" phase=review-impl phase_status=in_progress
    ```

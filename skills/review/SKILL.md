@@ -187,13 +187,14 @@ Write the following JSON to `$temp_state`:
 
 **Note**: `state-ops.sh` computes `paths.complexity_report` as `<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-temp.md`. Set `complexity_report_path` to that path.
 
-### Invoke complexity-gate Agent (model: opus)
+### Invoke complexity-gate and consistency-gate Agents in parallel (model: opus)
 
-Print (plain text): `→ Running complexity gate with opus…`
+Print (plain text): `→ Running complexity + consistency gates with opus…`
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/bfeature/complexity-gate/SKILL.md` in full.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/consistency-gate/SKILL.md` in full.
 
-Always prepend the following override block (the review agent may have reviewed a scope that differs from `master...HEAD`):
+Always prepend the following override block to each gate's prompt (the review agent may have reviewed a scope that differs from `master...HEAD`):
 
 ```
 ## OVERRIDE — changed_files
@@ -205,11 +206,11 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 Proceed with scan mode using these paths.
 ```
 
-Pass the full prompt (override block + SKILL.md contents) to an Agent with model: opus.
+Pass the full prompt (override block + SKILL.md contents) to two Agents in a single message (both model: opus), so they run in parallel.
 
 ### Clean up temp state
 
-After the complexity Agent returns (whether it succeeds or fails):
+After both Agents return (whether they succeed or fail):
 
 ```bash
 rm -f "$temp_state"
@@ -218,9 +219,9 @@ rm -f "$temp_state"
 
 **This cleanup must happen on every exit path — do not skip it.**
 
-### Merge complexity findings into report
+### Merge complexity and consistency findings into report
 
-Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
+**Complexity:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
 
 Renumber all complexity findings as X1, X2, ... sequentially.
 
@@ -240,9 +241,27 @@ STATUS: <PASS | ADVISORY | BLOCK>
 
 Omit the section body if STATUS is PASS.
 
+**Consistency:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bfeature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Consistency Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Consistency\nSTATUS: UNKNOWN (consistency gate failed — see conversation)`.
+
+Renumber all consistency findings as Y1, Y2, ... sequentially.
+
+Map severity identically (BLOCK → `[must-fix]`, ADVISORY → `[should-consider]`).
+
+Append to the report at `$report_path`:
+
+```
+## Consistency
+STATUS: <PASS | ADVISORY | BLOCK>
+
+### <Lens>
+- **Y1** [must-fix | should-consider] `file:line or spec section` — <observation> — Suggested: <fix>
+```
+
+Omit the section body if STATUS is PASS.
+
 ### Escalate overall STATUS
 
-If any C* or X* concern exists, set overall STATUS to CONCERN.
+If any C*, X*, or Y* concern exists, set overall STATUS to CONCERN.
 
 Rewrite `$report_path` with the merged content (replace the STATUS line at the top).
 
@@ -252,7 +271,7 @@ Print:
 
 ```
 STATUS: <PASS | CONCERN>
-Concerns: <N> code (<M> must-fix), <X> complexity
+Concerns: <N> code (<M> must-fix), <X> complexity, <Y> consistency
 Report: <report_path>
 ```
 
@@ -274,11 +293,12 @@ Print a one-line summary of each concern:
 C1 [must-fix]        src/foo.ts:42 — <problem description>
 C2 [should-consider] src/bar.ts:8 — <problem description>
 X1 [must-fix]        src/baz.ts:15 — <complexity finding>
+Y1 [should-consider] src/qux.ts:3 — <consistency finding>
 ```
 
 Then ask (one question only):
 
-> Which concerns would you like to fix? Reply with IDs (e.g. `C1 C3 X1`), `all`, `must-fix`, or `none`.
+> Which concerns would you like to fix? Reply with IDs (e.g. `C1 X1 Y2`), `all`, `must-fix`, or `none`.
 
 Wait for the user's reply before proceeding.
 
