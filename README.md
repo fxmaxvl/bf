@@ -27,6 +27,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:jira` | Utility | Pick a Jira ticket and kick off a full or quick workflow |
 | `/bf:review [PR# \| files]` | Utility | Review code (current branch diff, a PR by number, or specific files) against conventions and the complexity gate |
 | `/bf:discuss <question>` | Utility | Explore a question or design decision via dialogue before committing to a direction |
+| `/bf:write-skill [name]` | Utility | Author a new bf-style skill — gather requirements, draft SKILL.md from a bf-targeted template, review against checklist |
 | `/bf:session-summary` | Utility | Generate a summary of the current session |
 
 ## Getting started

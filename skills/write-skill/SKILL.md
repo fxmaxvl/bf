@@ -39,6 +39,14 @@ Then write the file.
 
 Run the checklist in the **Review Checklist** section against the drafted file. Fix every gap before declaring done.
 
+Once the checklist passes, add a row for the new skill to the `## What's inside` table in `README.md`:
+
+```
+| `/bf:<name> <hint>` | Utility | <one-line description of what it does> |
+```
+
+Match the concise, action-oriented style of existing rows.
+
 ---
 
 ## Skill Structure
@@ -142,6 +150,7 @@ Before finishing, verify each item. Fix any gap before marking done.
 - [ ] **Reads plugin-main.md first** — the exact line `Read \`${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md\` first` appears as the first non-frontmatter line.
 - [ ] **ONE-question-per-turn respected** — any interactive gather phase asks one question, then waits. No batched questions anywhere in the skill.
 - [ ] **Single file unless justified** — no companion files created unless the skill exceeds ~130 lines or scripts are reusable across skills.
+- [ ] **README updated** — a row for the new skill is added to the `## What's inside` table in `README.md`.
 - [ ] **Deterministic ops are in scripts** — path computation, JSON reads, stack detection, and status parsing are in shell scripts rather than left to the model to derive inline. Token-heavy bash output is piped through a reducing proxy (e.g. `rtk`) where available.
 - [ ] **Description is action-triggered** — starts with "Use when…" or equivalent trigger phrasing; not a description of internals.
 - [ ] **Convention lookup used where relevant** — if the skill needs dev/testing/architecture/code-review conventions, it uses the 3-step lookup from plugin-main.md rather than hard-coding paths.
