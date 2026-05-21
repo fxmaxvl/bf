@@ -18,7 +18,7 @@ Ask ONE question at a time (per plugin-main.md). Clarify in this order, stopping
 
 1. **What should the skill do?** — the core capability, trigger phrase, and expected output.
 2. **Does it need interactive Q&A, or is it fully autonomous?** — determines whether to include a gather/clarify phase.
-3. **Does it need scripts, agents, or external tools?** — determines `allowed-tools` and whether a companion script is warranted.
+3. **Does it need scripts, agents, or external tools?** — determines `allowed-tools` and whether a companion script is warranted. Scripts are the right call for any deterministic operation (path computation, JSON state, stack detection, status parsing) — they run once and pass a compact result to Claude instead of burning tokens on inline derivation.
 4. **What is the target model?** — default is `sonnet`; use `opus` for multi-phase reasoning; `haiku` for cheap, fast tasks.
 
 Stop gathering when you have enough to fill all frontmatter fields and sketch the top-level sections.
@@ -56,6 +56,15 @@ skills/
 - A reusable shell script would be called from multiple skills.
 
 Existing single-file skills for reference: `skills/review/SKILL.md`, `skills/quick/SKILL.md`, `skills/autopilot/SKILL.md`.
+
+**Token efficiency — move work to scripts.** This plugin prizes token frugality. Before writing inline model logic, ask: can a shell script do this deterministically? If yes, write the script. The payoff compounds across every invocation:
+
+- `state-ops.sh` — manages build-state.json and computes all artifact paths once
+- `init-probe.sh` — parses arguments + git state into JSON in one bash call
+- `detect-stack.sh` — identifies test/lint commands without model inference
+- `check-report-status.sh` — extracts STATUS from report blocks with grep
+
+For bash commands that produce verbose output (git log, gh queries), pipe through a token-reducing proxy (e.g. `rtk`) where available. Every token saved in a repeated command is a token available for reasoning.
 
 ---
 
@@ -133,6 +142,7 @@ Before finishing, verify each item. Fix any gap before marking done.
 - [ ] **Reads plugin-main.md first** — the exact line `Read \`${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md\` first` appears as the first non-frontmatter line.
 - [ ] **ONE-question-per-turn respected** — any interactive gather phase asks one question, then waits. No batched questions anywhere in the skill.
 - [ ] **Single file unless justified** — no companion files created unless the skill exceeds ~130 lines or scripts are reusable across skills.
+- [ ] **Deterministic ops are in scripts** — path computation, JSON reads, stack detection, and status parsing are in shell scripts rather than left to the model to derive inline. Token-heavy bash output is piped through a reducing proxy (e.g. `rtk`) where available.
 - [ ] **Description is action-triggered** — starts with "Use when…" or equivalent trigger phrasing; not a description of internals.
 - [ ] **Convention lookup used where relevant** — if the skill needs dev/testing/architecture/code-review conventions, it uses the 3-step lookup from plugin-main.md rather than hard-coding paths.
 - [ ] **Banner printed on invocation** — skill prints `── bf:<name> ──…` as plain text (not in a code block) before doing any substantive work.
