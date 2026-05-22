@@ -82,20 +82,17 @@ Output one final block in this exact shape:
 ```
 ### consilium · <one-line question>
 
-**Pair:** <skeptic+alternative | technical+product>
-
-**Verdict:** <consensus answer | majority answer | no majority>
+**Decision:** <answer — one line, plain English>
+**Agreement:** unanimous (3/3) | majority (2/3) | split (no majority)
 
 **Why:** <1–2 sentences citing concrete evidence — convention rule, code pattern, spec line.>
 
-**Confidence:** high | medium | low
-
 **Dissent:** <only if 2/3 — verbatim challenge from the dissenter, ≤2 sentences>
-
-**Flag:** <only if low confidence — specific ambiguity the human should review>
+**Flag:** <only if split — specific ambiguity the human needs to resolve>
 
 ---
-<collapse Verdict A / B / C ledgers below for audit>
+**Pair:** <skeptic+alternative | technical+product>
+<Verdict A / B / C ledgers for audit>
 ```
 
 ## Phase 6 — Log (embedded mode only)
