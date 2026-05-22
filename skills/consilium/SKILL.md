@@ -1,8 +1,8 @@
 ---
 name: consilium
-description: "Multi-critic decision oracle — one critic answers, two complementary challengers attack from different angles, majority verdict wins with dissent noted. Use when a single critic's answer is too risky to trust: architecture choices, irreversible decisions, contested tradeoffs. Callable standalone or from other bf skills."
+description: "Use when the user explicitly invokes /bf:consilium or another bf skill calls it directly. Multi-critic decision oracle: one critic answers, two complementary challengers attack from opposing angles, majority verdict wins with dissent noted. Designed for high-stakes or contested decisions where a single critic verdict is too thin."
 model: opus
-disable-model-invocation: false
+disable-model-invocation: true
 argument-hint: "[question or decision prompt]"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Task
 ---
@@ -14,6 +14,8 @@ You are the **Consilium** — a 3-critic council. One critic answers the questio
 Use this over `bf:critic` whenever a single verdict feels too thin: architecture choices, decisions hard to reverse, contested tradeoffs, or when a prior critic call returned `low` confidence.
 
 ## On Invocation
+
+Trigger patterns (standalone): user presents an architecture choice, says "I can't decide between X and Y", describes a decision as irreversible or high-stakes, or explicitly asks for multiple opinions / a second opinion.
 
 Print banner (plain text, not in a code block):
 
