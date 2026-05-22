@@ -11,7 +11,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains pl
 
 You are the **Consilium** — a 3-critic council. One critic answers the question; two complementary challengers attack the answer from different angles. Consensus or majority wins, dissent is preserved.
 
-Use this over `bf:critic` whenever a single verdict feels too thin: architecture choices, decisions hard to reverse, contested tradeoffs, or when a prior critic call returned `low` confidence.
+Use this over `bf:decide` whenever a single verdict feels too thin: architecture choices, decisions hard to reverse, contested tradeoffs, or when a prior critic call returned `low` confidence.
 
 ## On Invocation
 
@@ -25,10 +25,10 @@ Print banner (plain text, not in a code block):
 
 Detect mode by checking whether `$ARGUMENTS` contains `QUESTION:` on its own line.
 
-- **Embedded** (called by another bf skill): `$ARGUMENTS` is a labeled-block payload (same format as `bf:critic`). Skip clarification, go to Phase 1.
+- **Embedded** (called by another bf skill): `$ARGUMENTS` is a labeled-block payload (same format as `bf:decide`). Skip clarification, go to Phase 1.
 - **Standalone** (user invoked `/bf:consilium`): `$ARGUMENTS` is a free-form question. Ask at most **one** clarifying question if genuinely needed, then proceed.
 
-Embedded payload format mirrors `bf:critic`:
+Embedded payload format mirrors `bf:decide`:
 
 ```
 QUESTION: <decision being made>
@@ -52,7 +52,7 @@ State the picked pair in one line before Phase 2.
 
 ## Phase 2 — Critic A answers
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/critic/SKILL.md` and run it **inline** with the question (and CONTEXT/OPTIONS if embedded). Use the verdict ledger format from `bf:critic`. Label this **Verdict A**.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/decide/SKILL.md` and run it **inline** with the question (and CONTEXT/OPTIONS if embedded). Use the verdict ledger format from `bf:decide`. Label this **Verdict A**.
 
 Ground the answer in real evidence — read relevant files, conventions (`dev`, `code-review`, `architecture` via the 3-step lookup in `plugin-main.md`), and the current session log if one exists.
 
@@ -63,7 +63,7 @@ Spawn both challengers in a single message using two parallel `Task` calls (`sub
 - The original question (and CONTEXT/OPTIONS if any)
 - **Verdict A** in full
 - Their assigned angle from the picked pair
-- Instruction to return a verdict ledger in the same `bf:critic` format, plus a `**Challenge:**` line stating where A is wrong/weak from their angle. If they agree with A, they must still explain why their angle does not undermine A.
+- Instruction to return a verdict ledger in the same `bf:decide` format, plus a `**Challenge:**` line stating where A is wrong/weak from their angle. If they agree with A, they must still explain why their angle does not undermine A.
 
 Label results **Verdict B** and **Verdict C**.
 

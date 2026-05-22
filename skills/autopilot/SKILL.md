@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(git add *), Bash(git c
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
 
-Autonomous wrapper that executes any bf skill without user input. Every point where the target skill would ask the user a question, wait for approval, or stop for input is replaced by a **critic oracle** call. Everything else follows the target skill exactly.
+Autonomous wrapper that executes any bf skill without user input. Every point where the target skill would ask the user a question, wait for approval, or stop for input is replaced by a **decide oracle** call. Everything else follows the target skill exactly.
 
 ## Step 1 — Parse arguments
 
@@ -57,17 +57,17 @@ Otherwise print `install_output` and continue normally.
 
 Install maintains two scoped state files — `~/.bf/autopilot/state.json` (global) and `~/.bf/autopilot/<project-id>.json` (per-repo) — so only one autopilot can run per repo and one globally at any time. Install also flips `permissions.defaultMode` to `"bypassPermissions"` in the project's `.claude/settings.local.json` (stashing the prior value) so cross-directory reads and non-allowlisted Bash commands run without prompts. Uninstall restores the prior value; the SessionStart and UserPromptSubmit cleanup hooks also call `install.sh off`, so the bypass mode never survives across sessions.
 
-## Step 3 — Execute with the critic rule
+## Step 3 — Execute with the decide rule
 
 Run the target skill's full workflow using `target_args` as `$ARGUMENTS`, with this single override applied everywhere:
 
-**The critic rule:** Whenever the target skill would ask the user a question, wait for a yes/no approval, present options and wait for a choice, or stop with "re-invoke when ready" — call critic instead.
+**The decide rule:** Whenever the target skill would ask the user a question, wait for a yes/no approval, present options and wait for a choice, or stop with "re-invoke when ready" — call decide instead.
 
-Do not stop. Do not wait. Resolve every decision via critic and continue.
+Do not stop. Do not wait. Resolve every decision via decide and continue.
 
-## Step 4 — Calling the critic
+## Step 4 — Calling the decide
 
-At each decision point, read `${CLAUDE_PLUGIN_ROOT}/skills/critic/SKILL.md` and invoke it **inline** with this payload:
+At each decision point, read `${CLAUDE_PLUGIN_ROOT}/skills/decide/SKILL.md` and invoke it **inline** with this payload:
 
 ```
 QUESTION: <the exact decision or question the target skill would have asked>
@@ -81,8 +81,8 @@ CONTEXT:
 Rules:
 - Extract `OPTIONS` from the skill's instructions where given (e.g., "if yes … if no …" → A) yes / B) no). Enumerate them yourself when the skill doesn't list them explicitly.
 - Omit `SESSION_LOG` if the target skill has no session log at that point.
-- If critic returns confidence `low`, log the flag in the session log (or conversation) and proceed with the verdict — do not stop to ask the user. Collect all low-confidence flags and surface them in the final summary.
-- If critic returns verdict B (stop/block): log the reason, uninstall the hook (`install.sh off`), and stop with a clear summary of what needs manual attention.
+- If decide returns confidence `low`, log the flag in the session log (or conversation) and proceed with the verdict — do not stop to ask the user. Collect all low-confidence flags and surface them in the final summary.
+- If decide returns verdict B (stop/block): log the reason, uninstall the hook (`install.sh off`), and stop with a clear summary of what needs manual attention.
 
 ## Step 5 — Teardown
 
@@ -99,7 +99,7 @@ Then print a compact handoff:
 ── bf:autopilot | Done ───────────────────────────────
 
 Skill: <target_skill>
-Decisions made: <N> (critic verdicts logged in session log or conversation)
+Decisions made: <N> (decide verdicts logged in session log or conversation)
 Low-confidence flags: <list, or "none">
 ```
 
@@ -121,6 +121,6 @@ Note: spawning autopilot as a background Agent from within a conversation does n
 If the session ends mid-run, the stop hook keeps state alive. On re-entry:
 1. Run Setup (Step 2) again — reinstalls the hook and state file.
 2. Read `build-state.json` (if the target skill uses one) and resume from the current phase.
-3. Apply the critic rule from that point forward.
+3. Apply the decide rule from that point forward.
 
 To interrupt autopilot: type anything at the prompt — the UserPromptSubmit hook wipes state immediately.

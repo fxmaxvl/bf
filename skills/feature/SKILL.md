@@ -54,11 +54,11 @@ Each sub-skill declares a `model` field in its SKILL.md frontmatter. When delega
 
 Utility sub-skills are not tied to any phase. They can be invoked on-demand at any point in the workflow — typically when the user wants to explore an idea or decision before proceeding.
 
-The discuss utility sub-skill is at `${CLAUDE_PLUGIN_ROOT}/skills/discuss/SKILL.md`.
+The think utility sub-skill is at `${CLAUDE_PLUGIN_ROOT}/skills/think/SKILL.md`.
 
 | Sub-skill | SKILL.md path | Invocation | Model | When to use |
 |-----------|---------------|------------|-------|-------------|
-| discuss | `discuss/SKILL.md` | Inline | opus | Explore a question or design decision via dialogue before committing to a direction |
+| think | `think/SKILL.md` | Inline | opus | Explore a question or design decision via dialogue before committing to a direction |
 
 ## Status Banners
 

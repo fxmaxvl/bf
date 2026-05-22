@@ -17,21 +17,22 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 
 ## What's inside
 
-| Skill | Kind | What it does |
-|---|---|---|
-| `/bf:feature <idea>` | Workflow | Take a rough idea through brainstorm, spec, design review, plan, execute, verify, and finalize — with checkpoints between phases |
-| `/bf:quick <idea>` | Workflow | Plan-to-code for small changes and bugfixes — refine, plan, execute, verify, finalize |
-| `/bf:micro <idea>` | Workflow | Focused refactor workflow with complexity and quality guards — clarify only if needed, then execute |
-| `/bf:design <idea>` | Utility | Turn an idea into a shareable system-design document via interactive Q&A — standalone, no git/PR |
-| `/bf:gh` | Utility | Pick or create a GitHub issue and kick off a full or quick workflow |
-| `/bf:jira` | Utility | Pick a Jira ticket and kick off a full or quick workflow |
-| `/bf:review [PR# \| files]` | Utility | Review code (current branch diff, a PR by number, or specific files) against conventions and the complexity gate |
-| `/bf:discuss <question>` | Utility | Explore a question or design decision via dialogue before committing to a direction |
-| `/bf:write-skill [name]` | Utility | Author a new bf-style skill — gather requirements, draft SKILL.md from a bf-targeted template, review against checklist |
-| `/bf:bug-fix <symptoms>` | Workflow | Autonomous bug-fix flow — parallel root-cause hunt, critic-gated diagnose → design → plan → execute, no user prompts |
-| `consistency-gate` | Gate | Sub-skill: checks naming, style, comments, references, effectiveness, and goal alignment across a diff, spec, or plan — used as a gate inside bf flows |
-| `/bf:consilium <question>` | Utility | Multi-critic decision oracle — one critic answers, two complementary challengers attack from different angles, majority verdict wins with dissent noted |
-| `/bf:session-summary` | Utility | Generate a summary of the current session |
+| Skill | Kind | What it does | When to use |
+|---|---|---|---|
+| `/bf:feature <idea>` | Workflow | Full brainstorm → spec → design → plan → execute → verify flow with checkpoints | You have a new idea and want to think it through before touching code |
+| `/bf:quick <idea>` | Workflow | Lightweight plan → execute → verify loop | You know roughly what needs doing and just want it done |
+| `/bf:micro <idea>` | Workflow | Focused refactor with complexity and quality guards | Small, scoped change — one function, one file, clean it up |
+| `/bf:bug-fix <symptoms>` | Workflow | Parallel root-cause hunt, decide-gated diagnose → fix, no user prompts | Something is broken and you want a fast autonomous fix |
+| `/bf:autopilot [skill] <args>` | Workflow | Runs any bf skill end-to-end without stopping to ask you anything | You want to go fully hands-off — decide oracle handles every decision |
+| `/bf:decide <question>` | Oracle | Single decisive verdict with rationale — weighs options, picks one, cites evidence | You need a quick call on one thing and trust a single opinion |
+| `/bf:think <question>` | Oracle | Open dialogue to explore a question before committing to a direction | You're not ready to decide yet — you want to think out loud first |
+| `/bf:consilium <question>` | Oracle | 3-critic council: one answers, two challenge from opposing angles, majority wins | The decision is high-stakes or contested and one opinion isn't enough |
+| `/bf:design <idea>` | Utility | Shareable system-design doc with diagrams, via interactive Q&A | You need a design artifact — standalone, no git or PR involved |
+| `/bf:review [PR# \| files]` | Utility | Code review against bf conventions and the complexity gate | Before merging — or whenever you want a second set of eyes |
+| `/bf:gh` | Utility | Pick or create a GitHub issue and kick off a workflow | Starting work from an issue tracker |
+| `/bf:jira` | Utility | Pick a Jira ticket and kick off a workflow | Starting work from Jira |
+| `/bf:write-skill [name]` | Utility | Author a new bf-style skill from scratch | You want to extend bf with a new skill |
+| `/bf:session-summary` | Utility | Summary of what happened this session | End of a work session — capture what changed and why |
 
 ## Getting started
 

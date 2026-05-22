@@ -1,5 +1,5 @@
 ---
-name: discuss
+name: think
 description: Thoughtful Q&A dialogue about a question or topic. Use when the user wants to explore an idea before jumping to solutions.
 disable-model-invocation: true
 argument-hint: [question or topic]
@@ -27,23 +27,9 @@ Start by acknowledging the topic and asking one thoughtful clarifying question. 
 
 When the user gives an answer or takes a position:
 
-### 1. Verify before accepting
+### 1. Verify before accepting / Challenge only when warranted
 
-Do not agree automatically. Before accepting a claim:
-- If the topic involves the codebase, read the relevant files to check whether the claim holds
-- If the claim involves how something works (a skill, a flow, a convention), verify it against the actual source
-- If you find evidence that contradicts or complicates the claim, push back with specifics — cite the file and line
-
-Only agree when you've actually verified, or when the claim is clearly a preference/opinion rather than a factual assertion.
-
-### 2. Challenge only when warranted
-
-Don't argue for the sake of it. Push back when:
-- The codebase contradicts the claim
-- The claim has a non-obvious edge case or failure mode
-- The claim conflicts with an existing convention
-
-If nothing contradicts it, accept it and move forward — don't manufacture doubt.
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/verification.md` — the verify-before-accepting and challenge-only-when-warranted rules there apply in full.
 
 ### 3. Project consequences
 

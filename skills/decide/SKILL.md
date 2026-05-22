@@ -1,5 +1,5 @@
 ---
-name: critic
+name: decide
 description: "Decisive decision oracle — analyzes a question, considers options against bf conventions and codebase context, and returns a verdict with rationale. Use standalone when you want a definitive answer rather than open-ended exploration. Used internally by bf:autopilot wherever user input would normally be needed."
 argument-hint: "[question or decision prompt]"
 model: opus
@@ -103,7 +103,8 @@ In standalone mode: print the verdict to the conversation only. Do not write to 
 
 ## Behavioral constraints
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/verification.md` — the evidence and verification rules there apply in full.
+
 - **One question max.** If you need more than one clarification, make your best judgment on the rest and flag it as `low` confidence.
 - **Always end with a verdict.** Never leave open options and no call.
-- **Cite evidence, not opinion.** Every "Why" line must reference something real: a convention rule, a spec decision, a codebase pattern, or an explicit user preference from this session.
 - **Do not expand scope.** Answer the question asked. Do not suggest reframing, alternatives outside the given options, or deferring the decision.
