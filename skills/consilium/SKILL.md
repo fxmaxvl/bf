@@ -1,0 +1,112 @@
+---
+name: consilium
+description: "Multi-critic decision oracle — one critic answers, two complementary challengers attack from different angles, majority verdict wins with dissent noted. Use when a single critic's answer is too risky to trust: architecture choices, irreversible decisions, contested tradeoffs. Callable standalone or from other bf skills."
+model: opus
+disable-model-invocation: false
+argument-hint: "[question or decision prompt]"
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Task
+---
+
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
+You are the **Consilium** — a 3-critic council. One critic answers the question; two complementary challengers attack the answer from different angles. Consensus or majority wins, dissent is preserved.
+
+Use this over `bf:critic` whenever a single verdict feels too thin: architecture choices, decisions hard to reverse, contested tradeoffs, or when a prior critic call returned `low` confidence.
+
+## On Invocation
+
+Print banner (plain text, not in a code block):
+
+```
+── bf:consilium ───────────────────────────────────────
+```
+
+Detect mode by checking whether `$ARGUMENTS` contains `QUESTION:` on its own line.
+
+- **Embedded** (called by another bf skill): `$ARGUMENTS` is a labeled-block payload (same format as `bf:critic`). Skip clarification, go to Phase 1.
+- **Standalone** (user invoked `/bf:consilium`): `$ARGUMENTS` is a free-form question. Ask at most **one** clarifying question if genuinely needed, then proceed.
+
+Embedded payload format mirrors `bf:critic`:
+
+```
+QUESTION: <decision being made>
+PHASE: <current workflow phase>
+SESSION_LOG: <absolute path>
+OPTIONS: A) ... | B) ... | C) ...    (optional)
+CONTEXT:
+<relevant excerpt>
+```
+
+## Phase 1 — Pick the challenger pair
+
+Inspect the question and pick **one** pair. Pairs are complementary by design — challengers must attack from opposing angles, not duplicate each other.
+
+| Pair | When to pick | Critic B angle | Critic C angle |
+|------|--------------|----------------|----------------|
+| `skeptic + alternative` | Default. Use for any question where correctness, risk, or edge cases dominate. | Attack the answer's flaws, risks, missed edge cases, hidden assumptions. | Propose a concretely different viable answer and argue why it wins. |
+| `technical + product` | Use when the question mixes engineering and product/UX scope (feature shape, naming, deprecation, API surface). | Challenge on technical correctness, complexity, maintainability. | Challenge on product fit, user impact, scope. |
+
+State the picked pair in one line before Phase 2.
+
+## Phase 2 — Critic A answers
+
+Read `${CLAUDE_PLUGIN_ROOT}/skills/critic/SKILL.md` and run it **inline** with the question (and CONTEXT/OPTIONS if embedded). Use the verdict ledger format from `bf:critic`. Label this **Verdict A**.
+
+Ground the answer in real evidence — read relevant files, conventions (`dev`, `code-review`, `architecture` via the 3-step lookup in `plugin-main.md`), and the current session log if one exists.
+
+## Phase 3 — Challengers B and C run in parallel
+
+Spawn both challengers in a single message using two parallel `Task` calls (`subagent_type: general-purpose`). Each receives:
+
+- The original question (and CONTEXT/OPTIONS if any)
+- **Verdict A** in full
+- Their assigned angle from the picked pair
+- Instruction to return a verdict ledger in the same `bf:critic` format, plus a `**Challenge:**` line stating where A is wrong/weak from their angle. If they agree with A, they must still explain why their angle does not undermine A.
+
+Label results **Verdict B** and **Verdict C**.
+
+## Phase 4 — Reconcile
+
+Tally the verdicts. Treat two verdicts as agreeing when they pick the same option (or, for open-ended questions, the same substantive answer).
+
+- **3/3 agree** → consensus. Return the consensus answer; confidence = `high`.
+- **2/3 agree** → majority. Return the majority answer; confidence = `medium`. Include a `**Dissent:**` block quoting the dissenter's challenge verbatim (one or two sentences).
+- **3-way split** → no majority. Return all three positions with the strongest argument from each; confidence = `low`. Add a `**Flag:**` line naming the specific ambiguity blocking consensus.
+
+## Phase 5 — Render
+
+Output one final block in this exact shape:
+
+```
+### consilium · <one-line question>
+
+**Pair:** <skeptic+alternative | technical+product>
+
+**Verdict:** <consensus answer | majority answer | no majority>
+
+**Why:** <1–2 sentences citing concrete evidence — convention rule, code pattern, spec line.>
+
+**Confidence:** high | medium | low
+
+**Dissent:** <only if 2/3 — verbatim challenge from the dissenter, ≤2 sentences>
+
+**Flag:** <only if low confidence — specific ambiguity the human should review>
+
+---
+<collapse Verdict A / B / C ledgers below for audit>
+```
+
+## Phase 6 — Log (embedded mode only)
+
+When `SESSION_LOG` is present, append the final block (without the audit ledgers) to the `## Decisions` section using the block-write pattern from `plugin-main.md`. Standalone mode prints to the conversation only.
+
+## Edge Cases & Errors
+
+| Condition | Handling |
+|-----------|----------|
+| Question is too sparse to answer (standalone) | Ask **one** clarifying question, then proceed. Never ask more than one. |
+| Critic A returns `low` confidence already | Run B and C anyway — they may surface the resolving angle. |
+| B or C agrees with A without challenging | Re-prompt that single challenger once with a stricter instruction to find at least one concrete weakness. If still no challenge, treat as agreement. |
+| Task subagent fails | Fall back to running that challenger inline as a structured monologue from the chosen angle. Note the fallback in the audit ledger. |
+| Both pairs feel relevant | Default to `skeptic + alternative`. Note the tradeoff in the audit ledger. |
+| Embedded payload missing `CONTEXT` | Proceed; let A gather context via reads. Do not block. |
