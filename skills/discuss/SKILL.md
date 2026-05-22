@@ -1,5 +1,5 @@
 ---
-name: think
+name: discuss
 description: Thoughtful Q&A dialogue about a question or topic. Use when the user wants to explore an idea before jumping to solutions.
 disable-model-invocation: true
 argument-hint: [question or topic]

@@ -25,7 +25,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:bug-fix <symptoms>` | Workflow | Parallel root-cause hunt, decide-gated diagnose → fix, no user prompts | Something is broken and you want a fast autonomous fix |
 | `/bf:autopilot [skill] <args>` | Workflow | Runs any bf skill end-to-end without stopping to ask you anything | You want to go fully hands-off — decide oracle handles every decision |
 | `/bf:decide <question>` | Oracle | Single decisive verdict with rationale — weighs options, picks one, cites evidence | You need a quick call on one thing and trust a single opinion |
-| `/bf:think <question>` | Oracle | Open dialogue to explore a question before committing to a direction | You're not ready to decide yet — you want to think out loud first |
+| `/bf:discuss <question>` | Oracle | Open dialogue to explore a question before committing to a direction | You're not ready to decide yet — you want to think out loud first |
 | `/bf:consilium <question>` | Oracle | 3-critic council: one answers, two challenge from opposing angles, majority wins | The decision is high-stakes or contested and one opinion isn't enough |
 | `/bf:design <idea>` | Utility | Shareable system-design doc with diagrams, via interactive Q&A | You need a design artifact — standalone, no git or PR involved |
 | `/bf:review [PR# \| files]` | Utility | Code review against bf conventions and the complexity gate | Before merging — or whenever you want a second set of eyes |
