@@ -57,17 +57,28 @@ Otherwise print `install_output` and continue normally.
 
 Install maintains two scoped state files — `~/.bf/autopilot/state.json` (global) and `~/.bf/autopilot/<project-id>.json` (per-repo) — so only one autopilot can run per repo and one globally at any time. Install also flips `permissions.defaultMode` to `"bypassPermissions"` in the project's `.claude/settings.local.json` (stashing the prior value) so cross-directory reads and non-allowlisted Bash commands run without prompts. Uninstall restores the prior value; the SessionStart and UserPromptSubmit cleanup hooks also call `install.sh off`, so the bypass mode never survives across sessions.
 
-## Step 3 — Execute with the decide rule
+## Step 3 — Execute with the oracle rule
 
 Run the target skill's full workflow using `target_args` as `$ARGUMENTS`, with this single override applied everywhere:
 
-**The decide rule:** Whenever the target skill would ask the user a question, wait for a yes/no approval, present options and wait for a choice, or stop with "re-invoke when ready" — call decide instead.
+**The oracle rule:** Whenever the target skill would ask the user a question, wait for a yes/no approval, present options and wait for a choice, or stop with "re-invoke when ready" — call an oracle (decide or consilium) instead.
 
-Do not stop. Do not wait. Resolve every decision via decide and continue.
+Do not stop. Do not wait. Resolve every decision via an oracle and continue.
 
-## Step 4 — Calling the decide
+## Step 4 — Picking the oracle
 
-At each decision point, read `${CLAUDE_PLUGIN_ROOT}/skills/decide/SKILL.md` and invoke it **inline** with this payload:
+Default oracle is `decide` — fast, single verdict, cheap. **Escalate to `consilium`** (3-critic council) when ANY of these is true:
+
+- `PHASE` is `brainstorm`, `design-review`, `spec-review`, or any phase involving architecture or open-ended ideation
+- `OPTIONS` has 4 or more items (high branching — a single critic is too thin)
+- `decide` was already called for this exact decision and returned `confidence: low` (re-invoke same payload via consilium to break the tie)
+
+Both oracles accept the same labeled-block payload — only the SKILL.md path differs:
+
+- `${CLAUDE_PLUGIN_ROOT}/skills/decide/SKILL.md` — default
+- `${CLAUDE_PLUGIN_ROOT}/skills/consilium/SKILL.md` — escalation
+
+Read the chosen oracle's SKILL.md and invoke it **inline** with this payload:
 
 ```
 QUESTION: <the exact decision or question the target skill would have asked>
@@ -81,8 +92,9 @@ CONTEXT:
 Rules:
 - Extract `OPTIONS` from the skill's instructions where given (e.g., "if yes … if no …" → A) yes / B) no). Enumerate them yourself when the skill doesn't list them explicitly.
 - Omit `SESSION_LOG` if the target skill has no session log at that point.
-- If decide returns confidence `low`, log the flag in the session log (or conversation) and proceed with the verdict — do not stop to ask the user. Collect all low-confidence flags and surface them in the final summary.
-- If decide returns verdict B (stop/block): log the reason, uninstall the hook (`install.sh off`), and stop with a clear summary of what needs manual attention.
+- If `decide` returns confidence `low`, immediately escalate: re-invoke the same payload through `consilium` and use its decision instead. Log both calls in the session log (or conversation).
+- If `consilium` returns `Agreement: split (no majority)`, log the flag and proceed with the strongest single position — do not stop to ask the user. Surface the flag in the final summary.
+- If the oracle returns verdict B (stop/block): log the reason, uninstall the hook (`install.sh off`), and stop with a clear summary of what needs manual attention.
 
 ## Step 5 — Teardown
 
@@ -99,7 +111,7 @@ Then print a compact handoff:
 ── bf:autopilot | Done ───────────────────────────────
 
 Skill: <target_skill>
-Decisions made: <N> (decide verdicts logged in session log or conversation)
+Decisions made: <N> (oracle verdicts logged in session log or conversation; note any consilium escalations)
 Low-confidence flags: <list, or "none">
 ```
 
