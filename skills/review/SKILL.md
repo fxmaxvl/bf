@@ -3,7 +3,7 @@ name: review
 description: Review code against feature conventions and the complexity gate. Pass a free-form description of what to review (e.g. a PR number, file paths, a commit range, or a natural-language description) or omit to review the current branch.
 model: opus
 disable-model-invocation: false
-argument-hint: "[free-form: 'PR 42', 'src/auth/', 'last 3 commits', or empty for current branch]"
+argument-hint: "[--dry-run] [free-form: 'PR 42', 'src/auth/', 'last 3 commits', or empty for current branch]"
 allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *)
 ---
 
@@ -18,6 +18,15 @@ Run: `git rev-parse --show-toplevel`
 If this fails, print: "Not a git repository. Exiting." and stop.
 
 Set `project_root` to the output.
+
+### Detect --dry-run
+
+Parse `$ARGUMENTS` for a `--dry-run` token (match it as a standalone word, not as a substring). If present:
+
+- Set `dry_run=true`.
+- Strip the token from `$ARGUMENTS` — the remaining text is the normal scope description (e.g. `PR 42`, `src/auth/`, empty for current branch).
+
+Otherwise set `dry_run=false`.
 
 ### Compute project_id and report paths
 
@@ -38,7 +47,36 @@ Create the reports directory: `mkdir -p "$reports_dir"`
 ── bf:review ───────────────────────────────────────────
 ```
 
-Print as plain text, not in a code block.
+Print as plain text, not in a code block. If `dry_run=true`, append ` (dry-run)` to the banner line.
+
+### Dry-run preview (if dry_run=true)
+
+When `dry_run=true`, skip every Agent spawn and exit before Phase 1 work begins. Print a structured preview so the user can see exactly what would run, then stop. No report is written, no `build-state.json` is created, no symlink is updated.
+
+Steps:
+
+1. Resolve conventions exactly as Phase 1 does — perform the 3-step lookup for `code-review`, `dev`, `testing`, `architecture` — but do **not** read the file bodies. Capture only the resolved absolute paths.
+2. Print this block (plain text, not in a code fence):
+
+   ```
+   bf:review — dry-run
+   Scope: <scope description: "current branch diff vs origin/HEAD" if $ARGUMENTS is empty, else the literal $ARGUMENTS>
+   Report would be written to: <report_path>
+   Resolved conventions:
+     - code-review: <resolved path or "MISSING">
+     - dev:         <resolved path or "MISSING">
+     - testing:     <resolved path or "MISSING">
+     - architecture: <resolved path or "MISSING">
+   Agents that would be spawned (skipped in dry-run):
+     - Phase 1 review Agent (model: opus)
+     - Phase 2 complexity-gate Agent (model: opus)
+     - Phase 2 consistency-gate Agent (model: opus)
+   Interactive phases that would follow (skipped in dry-run):
+     - Phase 3 fix selection
+     - Phase 4 fix apply + re-review
+   ```
+
+3. Exit. Do not proceed to Phase 1.
 
 ## Phase 1 — Review
 
