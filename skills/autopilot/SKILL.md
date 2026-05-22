@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: "General autonomous wrapper — runs any bf skill without user input. Critic oracle resolves every decision. Usage: /bf:autopilot [skill] <args> (e.g. /bf:autopilot quick fix login bug)"
+description: "General autonomous wrapper — runs any bf skill without user input. Oracle (decide/consilium) resolves every decision. Usage: /bf:autopilot [skill] <args> (e.g. /bf:autopilot quick fix login bug)"
 model: opus
 disable-model-invocation: false
 argument-hint: "[skill-name] <idea or args>"
@@ -62,6 +62,8 @@ Install maintains two scoped state files — `~/.bf/autopilot/state.json` (globa
 Run the target skill's full workflow using `target_args` as `$ARGUMENTS`, with this single override applied everywhere:
 
 **The oracle rule:** Whenever the target skill would ask the user a question, wait for a yes/no approval, present options and wait for a choice, or stop with "re-invoke when ready" — call an oracle (decide or consilium) instead.
+
+**Hard rule — no phase skipping:** Never collapse, merge, or skip a phase from the target skill because the change looks small or obvious. The oracle resolves decisions; it does not override the target skill's phase structure. If a phase spawns an Agent, spawn it. If a phase runs verify, run it.
 
 Do not stop. Do not wait. Resolve every decision via an oracle and continue.
 
@@ -133,6 +135,6 @@ Note: spawning autopilot as a background Agent from within a conversation does n
 If the session ends mid-run, the stop hook keeps state alive. On re-entry:
 1. Run Setup (Step 2) again — reinstalls the hook and state file.
 2. Read `build-state.json` (if the target skill uses one) and resume from the current phase.
-3. Apply the decide rule from that point forward.
+3. Apply the oracle rule from that point forward.
 
 To interrupt autopilot: type anything at the prompt — the UserPromptSubmit hook wipes state immediately.
