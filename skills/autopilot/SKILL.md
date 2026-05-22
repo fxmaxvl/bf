@@ -43,10 +43,19 @@ Print: `── bf:autopilot | <target_skill> ───────────�
 
 ```bash
 SKILL_DIR="${CLAUDE_PLUGIN_ROOT}/skills/autopilot"
-bash "$SKILL_DIR/hooks/install.sh" on
+install_output=$(bash "$SKILL_DIR/hooks/install.sh" on 2>&1)
+install_exit=$?
 ```
 
-Install also flips `permissions.defaultMode` to `"bypassPermissions"` in the project's `.claude/settings.local.json` (stashing the prior value) so cross-directory reads and non-allowlisted Bash commands run without prompts. Uninstall restores the prior value; the SessionStart and UserPromptSubmit cleanup hooks also call `install.sh off`, so the bypass mode never survives across sessions.
+If `install_exit` is non-zero and `install_output` starts with `COLLISION:`:
+- Extract the scope from the output (format: `COLLISION:<scope>:<state-file-path>`).
+- Ask the user (one question): "bf:autopilot is already active in <scope>. Override? (yes/no)"
+- If yes: run `bash "$SKILL_DIR/hooks/install.sh" on --force` and continue.
+- If no: print "Autopilot aborted — existing session preserved." and stop.
+
+Otherwise print `install_output` and continue normally.
+
+Install maintains two scoped state files — `~/.bf/autopilot/state.json` (global) and `~/.bf/autopilot/<project-id>.json` (per-repo) — so only one autopilot can run per repo and one globally at any time. Install also flips `permissions.defaultMode` to `"bypassPermissions"` in the project's `.claude/settings.local.json` (stashing the prior value) so cross-directory reads and non-allowlisted Bash commands run without prompts. Uninstall restores the prior value; the SessionStart and UserPromptSubmit cleanup hooks also call `install.sh off`, so the bypass mode never survives across sessions.
 
 ## Step 3 — Execute with the critic rule
 

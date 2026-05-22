@@ -12,7 +12,13 @@ chmod +x "$HOOK_PATH" "$CLEANUP_PATH" "$PROMPT_CLEANUP_PATH"
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 STATE_DIR="$HOME/.bf/autopilot"
-STATE_FILE="$STATE_DIR/state.json"
+
+PROJECT_ID=$(git config --get remote.origin.url 2>/dev/null \
+  | sed -E 's#\.git$##; s#.*[:/]([^/]+/[^/]+)$#\1#; s#/#-#g')
+[ -z "$PROJECT_ID" ] && PROJECT_ID=$(basename "$REPO_ROOT")
+
+GLOBAL_STATE_FILE="$STATE_DIR/state.json"
+REPO_STATE_FILE="$STATE_DIR/${PROJECT_ID}.json"
 
 CLAUDE_SETTINGS="$REPO_ROOT/.claude/settings.local.json"
 
@@ -81,22 +87,38 @@ remove_hook() {
 
 case "$ACTION" in
   on)
+    FORCE="${2:-}"
+    if [[ "$FORCE" != "--force" ]]; then
+      collisions=()
+      [[ -f "$GLOBAL_STATE_FILE" ]] && collisions+=("global")
+      [[ -f "$REPO_STATE_FILE" ]] && collisions+=("repo ($PROJECT_ID)")
+      if [[ ${#collisions[@]} -gt 0 ]]; then
+        scope=$(IFS=" and "; echo "${collisions[*]}")
+        echo "COLLISION:${scope}:${GLOBAL_STATE_FILE}"
+        exit 1
+      fi
+    fi
+
     mkdir -p "$STATE_DIR"
-    jq -n '{active: true}' > "$STATE_FILE"
+    started_at=$(date -u +%Y%m%dT%H%M%S)
+    jq -n --arg pid "$PROJECT_ID" --arg ts "$started_at" \
+      '{active: true, project_id: $pid, started_at: $ts}' > "$GLOBAL_STATE_FILE"
+    jq -n --arg pid "$PROJECT_ID" --arg ts "$started_at" \
+      '{active: true, project_id: $pid, started_at: $ts}' > "$REPO_STATE_FILE"
 
     add_hook "$CLAUDE_SETTINGS"
 
     echo "bf:autopilot hook installed."
-    echo "state: $STATE_FILE"
+    echo "global state: $GLOBAL_STATE_FILE"
+    echo "repo state:   $REPO_STATE_FILE"
     echo
     echo "To stop autopilot:"
     echo "  - type anything at the prompt (UserPromptSubmit hook wipes state)"
     echo "  - close/reopen Claude Code (SessionStart hook wipes state)"
     echo "  - manual:  bash $SKILL_DIR/hooks/install.sh off"
-    echo "  - nuclear: rm $STATE_FILE"
     ;;
   off)
-    rm -f "$STATE_FILE"
+    rm -f "$GLOBAL_STATE_FILE" "$REPO_STATE_FILE"
     remove_hook "$CLAUDE_SETTINGS"
     echo "bf:autopilot hook removed."
     ;;
