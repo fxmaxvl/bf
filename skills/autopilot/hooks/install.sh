@@ -88,29 +88,64 @@ remove_hook() {
 case "$ACTION" in
   on)
     FORCE="${2:-}"
+    mkdir -p "$STATE_DIR"
+
+    # Step 1: Migrate old-format (singleton) state.json BEFORE collision check.
+    # Two-step write invariant: registry entry presence implies per-repo file should
+    # exist; COLLISION treats either as authoritative (belt+suspenders).
+    if [[ -f "$GLOBAL_STATE_FILE" ]]; then
+      if jq -e 'has("active")' "$GLOBAL_STATE_FILE" >/dev/null 2>&1; then
+        echo '{"entries":{}}' > "$GLOBAL_STATE_FILE"
+        echo "bf:autopilot: migrated legacy state.json format" >&2
+      fi
+    fi
+
+    # Step 2: Collision check against (now-migrated) state.
     if [[ "$FORCE" != "--force" ]]; then
-      collisions=()
-      [[ -f "$GLOBAL_STATE_FILE" ]] && collisions+=("global")
-      [[ -f "$REPO_STATE_FILE" ]] && collisions+=("repo ($PROJECT_ID)")
-      if [[ ${#collisions[@]} -gt 0 ]]; then
-        scope=$(IFS=" and "; echo "${collisions[*]}")
+      registry_hit=false
+      repo_hit=false
+      if [[ -f "$GLOBAL_STATE_FILE" ]]; then
+        if jq -e --arg pid "$PROJECT_ID" '.entries[$pid] != null' "$GLOBAL_STATE_FILE" >/dev/null 2>&1; then
+          registry_hit=true
+        fi
+      fi
+      [[ -f "$REPO_STATE_FILE" ]] && repo_hit=true
+
+      if [[ "$registry_hit" == "true" && "$repo_hit" == "true" ]]; then
+        scope="registry+repo ($PROJECT_ID)"
+      elif [[ "$registry_hit" == "true" ]]; then
+        scope="registry ($PROJECT_ID)"
+      elif [[ "$repo_hit" == "true" ]]; then
+        scope="repo ($PROJECT_ID)"
+      else
+        scope=""
+      fi
+
+      if [[ -n "$scope" ]]; then
         echo "COLLISION:${scope}:${GLOBAL_STATE_FILE}"
         exit 1
       fi
     fi
 
-    mkdir -p "$STATE_DIR"
+    # Step 3: Upsert entries[PROJECT_ID] into global registry.
     started_at=$(date -u +%Y%m%dT%H%M%S)
-    jq -n --arg pid "$PROJECT_ID" --arg ts "$started_at" \
-      '{active: true, project_id: $pid, started_at: $ts}' > "$GLOBAL_STATE_FILE"
-    jq -n --arg pid "$PROJECT_ID" --arg ts "$started_at" \
-      '{active: true, project_id: $pid, started_at: $ts}' > "$REPO_STATE_FILE"
+    if [[ ! -f "$GLOBAL_STATE_FILE" ]]; then
+      echo '{"entries":{}}' > "$GLOBAL_STATE_FILE"
+    fi
+    tmp=$(mktemp)
+    jq --arg pid "$PROJECT_ID" --arg ts "$started_at" --arg root "$REPO_ROOT" \
+      '.entries[$pid] = {started_at: $ts, repo_root: $root}' \
+      "$GLOBAL_STATE_FILE" > "$tmp" && mv "$tmp" "$GLOBAL_STATE_FILE"
+
+    # Step 4: Write per-repo file (per-repo lock; checked by stop.sh).
+    jq -n --arg pid "$PROJECT_ID" --arg ts "$started_at" --arg root "$REPO_ROOT" \
+      '{active: true, project_id: $pid, started_at: $ts, repo_root: $root}' > "$REPO_STATE_FILE"
 
     add_hook "$CLAUDE_SETTINGS"
 
     echo "bf:autopilot hook installed."
-    echo "global state: $GLOBAL_STATE_FILE"
-    echo "repo state:   $REPO_STATE_FILE"
+    echo "global registry: $GLOBAL_STATE_FILE"
+    echo "repo state:      $REPO_STATE_FILE"
     echo
     echo "To stop autopilot:"
     echo "  - type anything at the prompt (UserPromptSubmit hook wipes state)"
@@ -118,7 +153,16 @@ case "$ACTION" in
     echo "  - manual:  bash $SKILL_DIR/hooks/install.sh off"
     ;;
   off)
-    rm -f "$GLOBAL_STATE_FILE" "$REPO_STATE_FILE"
+    # jq-delete entries[PROJECT_ID] from global registry; preserve file as {"entries":{...}}.
+    # See install.sh on for the two-step write invariant (registry entry + per-repo file).
+    if [[ -f "$GLOBAL_STATE_FILE" ]]; then
+      if jq -e 'has("entries")' "$GLOBAL_STATE_FILE" >/dev/null 2>&1; then
+        tmp=$(mktemp)
+        jq --arg pid "$PROJECT_ID" 'del(.entries[$pid])' \
+          "$GLOBAL_STATE_FILE" > "$tmp" && mv "$tmp" "$GLOBAL_STATE_FILE"
+      fi
+    fi
+    rm -f "$REPO_STATE_FILE"
     remove_hook "$CLAUDE_SETTINGS"
     echo "bf:autopilot hook removed."
     ;;

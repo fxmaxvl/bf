@@ -55,7 +55,7 @@ If `install_exit` is non-zero and `install_output` starts with `COLLISION:`:
 
 Otherwise print `install_output` and continue normally.
 
-Install maintains two scoped state files — `~/.bf/autopilot/state.json` (global) and `~/.bf/autopilot/<project-id>.json` (per-repo) — so only one autopilot can run per repo and one globally at any time. Install also flips `permissions.defaultMode` to `"bypassPermissions"` in the project's `.claude/settings.local.json` (stashing the prior value) so cross-directory reads and non-allowlisted Bash commands run without prompts. Uninstall restores the prior value; the SessionStart and UserPromptSubmit cleanup hooks also call `install.sh off`, so the bypass mode never survives across sessions.
+Install maintains a global registry (`~/.bf/autopilot/state.json`) shaped `{"entries": {"<project-id>": {started_at, repo_root}, ...}}` alongside a per-repo lock file (`~/.bf/autopilot/<project-id>.json`). The registry tracks all active per-repo autopilot sessions; the per-repo file is the authoritative lock that `stop.sh` checks. Multiple autopilots can run concurrently across distinct repos — COLLISION fires only when the same project-id is already present in the registry or per-repo file. Install also flips `permissions.defaultMode` to `"bypassPermissions"` in the project's `.claude/settings.local.json` (stashing the prior value) so cross-directory reads and non-allowlisted Bash commands run without prompts. Uninstall restores the prior value; the SessionStart and UserPromptSubmit cleanup hooks also call `install.sh off`, so the bypass mode never survives across sessions.
 
 ## Step 3 — Execute with the oracle rule
 
