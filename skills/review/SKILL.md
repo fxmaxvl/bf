@@ -67,10 +67,11 @@ Steps:
      - dev:         <resolved path or "MISSING">
      - testing:     <resolved path or "MISSING">
      - architecture: <resolved path or "MISSING">
-   Agents that would be spawned (skipped in dry-run):
-     - Phase 1 review Agent (model: opus)
-     - Phase 2 complexity-gate Agent (model: opus)
-     - Phase 2 consistency-gate Agent (model: opus)
+   Agents that would be spawned in parallel (skipped in dry-run):
+     - review Agent        (model: opus) — Phase 1 parallel batch
+     - complexity-gate Agent (model: opus) — Phase 1 parallel batch
+     - consistency-gate Agent (model: opus) — Phase 1 parallel batch
+   All three dispatched in a single message; results aggregated in Phase 2.
    Interactive phases that would follow (skipped in dry-run):
      - Phase 3 fix selection
      - Phase 4 fix apply + re-review
@@ -598,18 +599,15 @@ List remaining concerns by ID and label if any exist.
 | `~/.bf` not writable | Fall back to `<project_root>/.bf/sessions/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (all 3 lookup paths absent) | Print "Convention file not found: <last-looked-up path>. This may be a plugin install issue." and stop. |
 
-### Phase 1 — Review
+### Phase 1 — Parallel batch
 
 | Condition | Handling |
 |-----------|----------|
-| Nothing to review (empty diff, no files match) | Agent returns `STATUS: NOTHING_TO_REVIEW` — print it and exit. |
-| `gh` error (not installed, not authenticated, PR not found) | Agent surfaces the error — print it and exit. |
-
-### Phase 2 — Complexity Gate
-
-| Condition | Handling |
-|-----------|----------|
+| Nothing to review (empty diff, no files match) | Pre-check exits with `STATUS: NOTHING_TO_REVIEW` before any Agent is spawned. |
+| `gh` error (not installed, not authenticated, PR not found) | Scope resolution fails — print the error and exit before spawning any Agent. |
+| Review Agent fails or returns invalid output | Surfaces warning; write partial report stub; proceed with X*/Y* aggregation. |
 | Complexity Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
+| Consistency Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
 | `build-state.json` already exists | Back it up, warn the user, restore after scan. |
 
 ### Fix phase
