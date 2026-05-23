@@ -79,6 +79,8 @@ All findings are `ADVISORY`. STATUS: `PASS` or `ADVISORY`.
 
 ## Code Scan Mode (`phase = verify`)
 
+**Doc-only short-circuit:** If every entry in `changed_files` matches `\.(md|mdx|txt|rst)$`, emit `STATUS: PASS` with a single note line `Skipped: doc-only changes` and stop. Write nothing else to the report. (The regex is deliberately conservative — extensions only; files like `LICENSE` or `CHANGELOG` without an extension are not matched and proceed through normal scanning.)
+
 Scan `changed_files` using Grep and Read. Apply all six lenses to actual code changes and their surrounding context.
 
 Focus on:
