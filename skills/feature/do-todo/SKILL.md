@@ -20,6 +20,7 @@ Before starting the loop, read these once:
 - the `testing` convention — test requirements
 - the `git` convention — commit message format
 - `paths.plan` in full — overview, quality gates, dependency graph, and step structure. You will NOT re-read the full plan inside the loop.
+- the `## Context` block from `paths.session_log` (Block Reading Pattern from `plugin-main.md`), if present and not `STATUS: NONE` — use the reuse candidates and local conventions it documents when implementing each todo item.
 
 Repeat the following loop until no unchecked items remain — do not wait for user approval between iterations:
 

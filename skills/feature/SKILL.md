@@ -39,6 +39,7 @@ Each sub-skill declares a `model` field in its SKILL.md frontmatter. When delega
 | refine | `feature/refine/SKILL.md` | Inline | — | Interactive Q&A — must stay in main conversation (quick mode only) |
 | review-design | `feature/review-design/SKILL.md` | Agent | opus | Architectural analysis — produces report, no user interaction |
 | review-design/fix | `feature/review-design/fix/SKILL.md` | Agent | sonnet | Applies spec fixes — execution task |
+| research | `feature/research/SKILL.md` | Agent | sonnet | Read-only codebase scan — surfaces reuse candidates and local conventions before planning |
 | plan | `feature/plan/SKILL.md` | Agent | opus | Deep reasoning for TDD blueprints |
 | do-todo | `feature/do-todo/SKILL.md` | Agent | sonnet | Fast, execution-focused coding |
 | verify | `feature/verify/SKILL.md` | Agent | sonnet | Quality gates — runs tests (monorepo-aware) and lint with auto-fix |
@@ -82,17 +83,17 @@ Print the banner as plain text (not in a code block). Do this before any other w
 
 **Full mode** (default):
 ```
-init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] execute → [auto] verify → [auto] complexity+consistency ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
+init → brainstorm → [auto] review-design ⇄ fix → [auto] research → [auto] plan → [GATE] execute → [auto] verify → [auto] complexity+consistency ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
 ```
 
 **Full mode** (`parallel_audit=true`):
 ```
-init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
+init → brainstorm → [auto] review-design ⇄ fix → [auto] research → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
 ```
 
 **Quick mode** (invoked via `/bf:feature --quick`):
 ```
-init → refine → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] complexity+consistency ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
+init → refine → [auto] research → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] complexity+consistency ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```
 
 **Quick mode** (`parallel_audit=true`):
@@ -223,9 +224,9 @@ Skipped entirely in full mode — full mode uses Phase 1 (Brainstorm) instead.
    - Appends the `## QA` block to `.bf/sessions/<build_timestamp>-<slug>-temp.md`
 2. After refine completes:
    ```
-   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=plan phase_status=in_progress
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=research phase_status=in_progress
    ```
-   Proceed immediately to Phase 3 (no approval gate)
+   Proceed immediately to Phase 1.5 (no approval gate)
 
 ## Phase 2 — Review Design (full mode only)
 
@@ -249,9 +250,22 @@ Run up to 3 analyze → fix cycles:
    - Read `feature/consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus).
    Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
 6. ```
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=research phase_status=in_progress
+   ```
+7. Proceed immediately to Phase 2.5 (no approval gate)
+
+## Phase 2.5 / 1.5 — Research
+
+Print banner: `── feature | Research ───────────────────────────────`
+
+Runs in both modes. Runs after review-design (full) or after refine (quick) — always before plan.
+
+1. Read `feature/research/SKILL.md` and pass its contents as an Agent prompt (model: sonnet)
+2. When it completes (it appends `## Context` to `paths.session_log`):
+   ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=plan phase_status=in_progress
    ```
-7. Proceed immediately to Phase 3 (no approval gate)
+3. Proceed immediately to Phase 3 (no approval gate)
 
 ## Phase 3 — Plan
 

@@ -38,6 +38,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/detect-stack.sh"
 - **Full mode** (`mode` = `"full"`): Extract the `## Spec` block from `paths.spec` (= `paths.session_log`) using the Block Reading Pattern from `plugin-main.md` — this is the primary input for planning.
 - **Quick mode** (`mode` = `"quick"`): No spec exists. Extract the `## QA` block from `paths.qa` (= `paths.temp`) — the Q&A is the primary input. Produce a lighter plan (3-8 todo items) since quick mode targets smaller, well-scoped changes.
 
+Also extract the `## Context` block from `paths.session_log` (Block Reading Pattern). If it exists and does not contain `STATUS: NONE`, use it as grounding for your plan: prefer the reuse candidates it names over inventing new abstractions, follow the local conventions it documents, and flag any risks it surfaces as plan notes.
+
 ## Quality gates — detect and document
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/quality-gate/SKILL.md` and follow it — it resolves test and lint commands and appends the **"Quality Gates"** section to the plan file.
