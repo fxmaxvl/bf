@@ -2,11 +2,19 @@
 # changed-packages.sh — List files changed since the base branch and resolve affected monorepo packages.
 # Outputs JSON.
 # Usage: bash changed-packages.sh [--base <branch>]
-#   --base   Branch to diff against (default: master)
+#   --base   Branch to diff against (default: resolved from origin/HEAD, then main, then master)
 
 set -euo pipefail
 
-BASE="master"
+# Resolve default base: prefer the remote HEAD pointer, then main, then master.
+_resolve_base() {
+  local ref
+  ref=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null) && { echo "${ref#refs/remotes/origin/}"; return; }
+  git rev-parse --verify main  >/dev/null 2>&1 && { echo "main";   return; }
+  echo "master"
+}
+BASE="$(_resolve_base)"
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --base) BASE="$2"; shift 2 ;;
