@@ -2,8 +2,8 @@
 # Shared helpers for autopilot hooks. Source this file; do not execute directly.
 
 # Derive a stable project identifier from the git remote URL, falling back to
-# the repository basename. Mirrors the same logic in install.sh — if you change
-# this derivation, update install.sh to match (and vice-versa).
+# the repository basename. This is the single source of truth — install.sh and
+# stop.sh both source this file instead of duplicating the derivation.
 _derive_project_id() {
   local repo_root
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
