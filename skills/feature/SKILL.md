@@ -145,7 +145,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
   [--gh-issue 42]                          # only if GitHub issue detected
 ```
 
-   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state.
+   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `false`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently.
 
 6. Proceed to Phase 1 (brainstorm for full mode, refine for quick mode).
 
@@ -154,6 +154,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
 - `<build_timestamp>-<slug>-temp.md` (`paths.temp`) — ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report; deleted at cleanup
 
 Use `paths.*` from `state-ops.sh` instead of constructing paths manually.
+
+**Feature flags:** `parallel_audit` — when `true`, Phases 4.75 and 5 collapse into a single 3-way concurrent fan-out (complexity-gate + consistency-gate + review-impl). See Phase 4.75 for details.
 
 ## Phase 1 — Brainstorm (full mode only)
 
