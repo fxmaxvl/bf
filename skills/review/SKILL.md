@@ -67,10 +67,11 @@ Steps:
      - dev:         <resolved path or "MISSING">
      - testing:     <resolved path or "MISSING">
      - architecture: <resolved path or "MISSING">
-   Agents that would be spawned (skipped in dry-run):
-     - Phase 1 review Agent (model: opus)
-     - Phase 2 complexity-gate Agent (model: opus)
-     - Phase 2 consistency-gate Agent (model: opus)
+   Agents that would be spawned in parallel (skipped in dry-run):
+     - review Agent        (model: opus) — Phase 1 parallel batch
+     - complexity-gate Agent (model: opus) — Phase 1 parallel batch
+     - consistency-gate Agent (model: opus) — Phase 1 parallel batch
+   All three dispatched in a single message; results aggregated in Phase 2.
    Interactive phases that would follow (skipped in dry-run):
      - Phase 3 fix selection
      - Phase 4 fix apply + re-review
@@ -92,6 +93,90 @@ Resolve: `code-review`, `dev`, `testing`, `architecture`.
 
 Read each resolved convention file in full.
 
+### Resolve scope and changed_files
+
+Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--dry-run` has been stripped):
+
+1. **Detect PR URL**: if `$ARGUMENTS` contains a GitHub PR URL (e.g. `https://github.com/org/repo/pull/123`), extract `pr_number`:
+   ```bash
+   pr_number=$(echo "$ARGUMENTS" | grep -oE '/pull/[0-9]+' | grep -oE '[0-9]+')
+   ```
+   Then treat the input as if the user had passed the bare `pr_number`.
+
+2. **Compute `scope_description`, `diff_text`, and `pr_head_branch`**:
+   - **No request or "current branch"** (`$ARGUMENTS` is empty after stripping):
+     ```bash
+     diff_text=$(git diff $(git merge-base HEAD $(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main))...HEAD)
+     scope_description="current branch diff vs origin/HEAD"
+     pr_head_branch=""
+     ```
+   - **PR number** (bare integer or extracted `pr_number`):
+     ```bash
+     diff_text=$(gh pr diff <pr_number>)
+     pr_meta=$(gh pr view <pr_number> --json title,headRefName,baseRefName,author)
+     pr_head_branch=$(echo "$pr_meta" | grep -oE '"headRefName":"[^"]*"' | cut -d'"' -f4)
+     scope_description="PR <pr_number>"
+     ```
+   - **File paths or globs**:
+     ```bash
+     diff_text=$(git diff -- <paths>)
+     scope_description="<paths>"
+     pr_head_branch=""
+     ```
+   - **Commit range or other description**: use git to produce the appropriate diff; set `scope_description` to the description; `pr_head_branch=""`.
+
+3. **Compute `changed_files`** from `diff_text`:
+   ```bash
+   changed_files=$(echo "$diff_text" | grep -E '^diff --git' | sed 's#diff --git a/.* b/##')
+   ```
+   For file-path inputs where git diff may be empty (e.g. unmodified files explicitly listed), fall back to the literal paths from `$ARGUMENTS`.
+
+4. **Early exit if nothing to review**: if `changed_files` is empty and `diff_text` is empty:
+   ```
+   STATUS: NOTHING_TO_REVIEW — no changed files found for scope: <scope_description>
+   ```
+   Print this and stop. Do not spawn any Agent.
+
+### Write temporary build-state.json
+
+`state-ops.sh` requires a `build-state.json` file. Create it now so the complexity-gate sub-skill can run later in the parallel batch.
+
+```bash
+temp_state="$project_root/.bf/sessions/build-state.json"
+mkdir -p "$project_root/.bf/sessions"
+build_ts=$(date -u +%Y%m%dT%H)
+slug="review-${timestamp}"
+```
+
+**If `$temp_state` already exists**, back it up first:
+
+```bash
+temp_state_backup="$temp_state.bfreview-backup"
+[ -f "$temp_state" ] && cp "$temp_state" "$temp_state_backup" && \
+  echo "Warning: .bf/sessions/build-state.json already exists — a feature workflow may be in progress. Backing it up; it will be restored after the complexity scan."
+```
+
+Write the following JSON to `$temp_state`:
+
+```json
+{
+  "idea": "bf:review complexity scan",
+  "slug": "review-<timestamp>",
+  "build_timestamp": "<build_ts>",
+  "mode": "review",
+  "phase": "verify",
+  "phase_status": "in_progress",
+  "github_issue": {"enabled": false, "number": null},
+  "jira": {"enabled": false, "ticket_key": null, "ticket_url": null, "pending_questions": null},
+  "collect_todos": null,
+  "artifacts": {"spec": null, "plan": null, "todo": null, "backlog": null},
+  "created_at": "<iso_now>",
+  "updated_at": "<iso_now>"
+}
+```
+
+**Note**: `state-ops.sh` computes `paths.complexity_report` as `<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-temp.md`. Set `complexity_report_path` to that path.
+
 ### Pre-review: check for existing integration/E2E tests
 
 Before spawning the review agent, grep the project for integration and E2E test files:
@@ -106,11 +191,16 @@ Set:
 - `has_integration_tests="yes"` if the command returned any results; `"no"` otherwise.
 - `has_e2e_tests="yes"` if any result path contains `e2e` or `end-to-end`; `"no"` otherwise.
 
-### Spawn review Agent (model: opus)
+### Spawn review + complexity + consistency Agents in parallel (model: opus)
 
-Print (plain text): `→ Reviewing with opus… (this usually takes a few minutes)`
+Print (plain text): `→ Reviewing + running complexity + consistency gates with opus… (this usually takes a few minutes)`
 
-Pass the following prompt to an Agent with model: opus:
+Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/complexity-gate/SKILL.md` in full.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/consistency-gate/SKILL.md` in full.
+
+Build three prompts:
+
+**Prompt A — review Agent:**
 
 ```
 You are a code reviewer. Apply the following conventions strictly.
@@ -127,8 +217,19 @@ You are a code reviewer. Apply the following conventions strictly.
 ## Code Review Convention
 <contents of resolved code-review.md>
 
-## Review Request
-<$ARGUMENTS if non-empty, otherwise: "Review the current branch diff vs origin/HEAD">
+## Scope
+
+The review scope has already been resolved by the orchestrating skill.
+
+changed_files:
+<one path per line from changed_files>
+
+scope_description: <scope_description>
+
+diff_text:
+<diff_text>
+
+pr_head_branch: <pr_head_branch if non-empty, else omit>
 
 ## Test Coverage Context
 
@@ -145,17 +246,10 @@ When flagging missing integration or E2E tests:
 
 ## Instructions
 
-1. Interpret the Review Request to determine what to review. Use git, gh, or Read as needed:
-   Before matching the Review Request against any branch, check if it contains a GitHub PR URL (e.g. `https://github.com/org/repo/pull/123`). If it does, extract the trailing integer as `pr_number` using: `echo "$ARGUMENTS" | grep -oE '/pull/[0-9]+' | grep -oE '[0-9]+'` — then treat the input as if the user had passed that bare number.
-   - No request or "current branch": run `git diff $(git merge-base HEAD $(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main))...HEAD`
-   - A PR number (bare integer, or extracted via `pr_number` from a GitHub PR URL): run `gh pr diff <pr_number>` and `gh pr view <pr_number> --json title,headRefName,baseRefName,author`
-   - File paths or globs: read those files in full; also run `git diff -- <paths>` for the diff context
-   - A commit range or other description: use git to produce the appropriate diff
-2. If nothing to review (empty diff, no matching files), output only:
-   `STATUS: NOTHING_TO_REVIEW — <reason>` and stop.
-3. Read the full content of each changed file using the Read tool before forming conclusions.
-4. Apply every check in the Code Review Convention across all five categories.
-5. Produce the report in this exact format — including the Review Metadata block at the end:
+1. The changed files and diff are already provided in the `## Scope` block above — do NOT re-run git or gh to re-derive the scope.
+2. Read the full current content of each file listed in `changed_files` using the Read tool before forming conclusions.
+3. Apply every check in the Code Review Convention across all five categories.
+4. Produce the report in this exact format — including the Review Metadata block at the end:
 
 # Code Review Report
 - Scope: <human-readable description of what was reviewed>
@@ -197,70 +291,7 @@ pr_head_branch: <branch name if this was a PR review, else omit this line>
 Return only the report — no preamble or commentary.
 ```
 
-### Handle NOTHING_TO_REVIEW
-
-If the Agent output starts with `STATUS: NOTHING_TO_REVIEW`, print it and exit.
-
-### Save report and extract metadata
-
-Write the Agent's output to `$report_path`.
-
-Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
-
-Extract `changed_files` from the `## Review Metadata` block: read the lines listed under `changed_files:` (one path per line, until the next key or end of file).
-
-Extract `pr_head_branch`: read the `pr_head_branch:` line value. Leave empty if absent.
-
-## Phase 2 — Complexity Gate
-
-### Write temporary build-state.json
-
-`state-ops.sh` requires a `build-state.json` file. Create it so the complexity-gate sub-skill can run.
-
-```bash
-temp_state="$project_root/.bf/sessions/build-state.json"
-mkdir -p "$project_root/.bf/sessions"
-build_ts=$(date -u +%Y%m%dT%H)
-slug="review-${timestamp}"
-```
-
-**If `$temp_state` already exists**, back it up first:
-
-```bash
-temp_state_backup="$temp_state.bfreview-backup"
-[ -f "$temp_state" ] && cp "$temp_state" "$temp_state_backup" && \
-  echo "Warning: .bf/sessions/build-state.json already exists — a feature workflow may be in progress. Backing it up; it will be restored after the complexity scan."
-```
-
-Write the following JSON to `$temp_state`:
-
-```json
-{
-  "idea": "bf:review complexity scan",
-  "slug": "review-<timestamp>",
-  "build_timestamp": "<build_ts>",
-  "mode": "review",
-  "phase": "verify",
-  "phase_status": "in_progress",
-  "github_issue": {"enabled": false, "number": null},
-  "jira": {"enabled": false, "ticket_key": null, "ticket_url": null, "pending_questions": null},
-  "collect_todos": null,
-  "artifacts": {"spec": null, "plan": null, "todo": null, "backlog": null},
-  "created_at": "<iso_now>",
-  "updated_at": "<iso_now>"
-}
-```
-
-**Note**: `state-ops.sh` computes `paths.complexity_report` as `<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-temp.md`. Set `complexity_report_path` to that path.
-
-### Invoke complexity-gate and consistency-gate Agents in parallel (model: opus)
-
-Print (plain text): `→ Running complexity + consistency gates with opus…`
-
-Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/complexity-gate/SKILL.md` in full.
-Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/consistency-gate/SKILL.md` in full.
-
-Always prepend the following override block to each gate's prompt (the review agent may have reviewed a scope that differs from `master...HEAD`):
+**Prompt B — complexity-gate Agent** (prepend override block, then SKILL.md contents):
 
 ```
 ## OVERRIDE — changed_files
@@ -270,22 +301,71 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 <one path per line from changed_files>
 
 Proceed with scan mode using these paths.
+
+<full contents of complexity-gate/SKILL.md>
 ```
 
-Pass the full prompt (override block + SKILL.md contents) to two Agents in a single message (both model: opus), so they run in parallel.
+**Prompt C — consistency-gate Agent** (same pattern):
+
+```
+## OVERRIDE — changed_files
+
+Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` instead:
+
+<one path per line from changed_files>
+
+Proceed with scan mode using these paths.
+
+<full contents of consistency-gate/SKILL.md>
+```
+
+Dispatch all three Agents in a **single message** (all model: opus), so they run in parallel. Wait for all three to return.
 
 ### Clean up temp state
 
-After both Agents return (whether they succeed or fail):
+After all three Agents return (whether they succeed or fail):
 
 ```bash
 rm -f "$temp_state"
 [ -f "$temp_state_backup" ] && mv "$temp_state_backup" "$temp_state"
 ```
 
-**This cleanup must happen on every exit path — do not skip it.**
+**This cleanup must happen on every exit path — including when the review Agent fails — do not skip it.**
+
+## Phase 2 — Aggregate Results
+
+### Save review report and extract metadata
+
+If the review Agent returned a valid report (output starts with `# Code Review Report`):
+
+Write the Agent's output to `$report_path`.
+
+Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
+
+Extract `changed_files` (authoritative list): the pre-computed `changed_files` from Phase 1 is the source of truth and was fed to all three Agents. Optionally cross-check against the `## Review Metadata` block in the report — if the Agent lists additional files it read, add them. If the Agent lists fewer files than pre-computed, keep the pre-computed list.
+
+Extract `pr_head_branch`: read the `pr_head_branch:` line from `## Review Metadata`. If absent, use the pre-computed `pr_head_branch` from Phase 1.
+
+If the review Agent failed or returned output that does not start with `# Code Review Report`:
+- Print: `⚠ Review Agent failed — complexity and consistency results are still available.`
+- Set `review_failed=true`.
+- Do not write `$report_path`. Proceed to merge complexity and consistency findings only.
 
 ### Merge complexity and consistency findings into report
+
+**When `review_failed=true`**: create a minimal report stub at `$report_path` before appending:
+
+```
+# Code Review Report (partial — review Agent failed)
+- Scope: <scope_description>
+- Timestamp: <ISO 8601>
+- Files reviewed: <count of changed_files>
+
+STATUS: CONCERN
+
+## Summary
+Review Agent did not complete. Complexity and consistency results are below.
+```
 
 **Complexity:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
 
@@ -327,9 +407,11 @@ Omit the section body if STATUS is PASS.
 
 ### Escalate overall STATUS
 
-If any C*, X*, or Y* concern exists, set overall STATUS to CONCERN.
+If any C*, X*, or Y* concern exists, or if `review_failed=true`, set overall STATUS to CONCERN.
 
 Rewrite `$report_path` with the merged content (replace the STATUS line at the top).
+
+Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 
 ### Show summary in conversation
 
@@ -340,6 +422,8 @@ STATUS: <PASS | CONCERN>
 Concerns: <N> code (<M> must-fix), <X> complexity, <Y> consistency
 Report: <report_path>
 ```
+
+If `review_failed=true`, also print: `⚠ Review Agent failed — code concerns (C*) are not available. Fix selection in Phase 3 is limited to X* and Y* findings.`
 
 ## Phase 3 — Fix Selection
 
@@ -515,18 +599,15 @@ List remaining concerns by ID and label if any exist.
 | `~/.bf` not writable | Fall back to `<project_root>/.bf/sessions/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (all 3 lookup paths absent) | Print "Convention file not found: <last-looked-up path>. This may be a plugin install issue." and stop. |
 
-### Phase 1 — Review
+### Phase 1 — Parallel batch
 
 | Condition | Handling |
 |-----------|----------|
-| Nothing to review (empty diff, no files match) | Agent returns `STATUS: NOTHING_TO_REVIEW` — print it and exit. |
-| `gh` error (not installed, not authenticated, PR not found) | Agent surfaces the error — print it and exit. |
-
-### Phase 2 — Complexity Gate
-
-| Condition | Handling |
-|-----------|----------|
+| Nothing to review (empty diff, no files match) | Pre-check exits with `STATUS: NOTHING_TO_REVIEW` before any Agent is spawned. |
+| `gh` error (not installed, not authenticated, PR not found) | Scope resolution fails — print the error and exit before spawning any Agent. |
+| Review Agent fails or returns invalid output | Surfaces warning; write partial report stub; proceed with X*/Y* aggregation. |
 | Complexity Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
+| Consistency Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
 | `build-state.json` already exists | Back it up, warn the user, restore after scan. |
 
 ### Fix phase
