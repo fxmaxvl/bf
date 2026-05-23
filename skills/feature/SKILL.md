@@ -81,12 +81,22 @@ Print the banner as plain text (not in a code block). Do this before any other w
 
 **Full mode** (default):
 ```
-init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] execute → [auto] verify → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
+init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] execute → [auto] verify → [auto] complexity+consistency ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
+```
+
+**Full mode** (`parallel_audit=true`):
+```
+init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
 ```
 
 **Quick mode** (invoked via `/bf:feature --quick`):
 ```
-init → refine → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
+init → refine → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] complexity+consistency ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
+```
+
+**Quick mode** (`parallel_audit=true`):
+```
+init → refine → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```
 
 Quick mode skips **only** brainstorm and review-design. Every other phase — refine, plan, execute, verify, review-impl, verify (silent), finalize — is **mandatory** regardless of how simple or obvious the fix appears. Do not collapse, merge, or skip phases because the task looks trivial. The phases exist as quality gates that apply at all complexity levels.
@@ -110,7 +120,7 @@ Quick mode skips **only** brainstorm and review-design. Every other phase — re
    - If `phase_status` is `"awaiting_approval"`:
      - If `phase` is `"finalize"`: re-ask the pre-finalization gate per Phase 6 step 2 (one question in quick mode, two in full mode). If not ready: exit. If ready: set `phase_status` to `"in_progress"`, save `collect_todos` per Phase 6 step 2 (user's answer in full mode, `false` automatically in quick mode), update state, continue Phase 6 from step 3 (skip silent verify — it already passed).
      - Otherwise: ask "Paused before [current phase]. Ready to proceed?" — if yes, set `phase_status` to `"in_progress"`, update state, execute the current phase; if no, exit
-   - Otherwise: resume the current phase from where it left off
+   - Otherwise: resume the current phase from where it left off. **Note:** when `parallel_audit` is `true`, `phase=verify phase_status=in_progress` after Phase 4.5 completes means the orchestrator is about to enter the audit-stack fan-out in Phase 4.75 — resume goes directly into Phase 4.75 (not a mid-fan-out partial state).
 
 3. If `has_state` is `false`: proceed to Phase 0 (init).
 
@@ -286,15 +296,19 @@ Print banner: `── feature | Verify ─────────────�
    ```
    Proceed immediately to Phase 4.75 (no approval gate)
 
-## Phase 4.75 — Complexity & Consistency Guard
+## Phase 4.75 — Audit Stack
 
-Print banner: `── feature | Complexity & Consistency Guard ───────────────────────────────`
+Print banner: `── feature | Audit Stack ───────────────────────────────`
 
-Run up to 3 scan → fix cycles:
+**Branch on `parallel_audit`** (read from build-state.json via `state-ops.sh` read mode, or from the init output captured at Phase 0):
+
+### If `parallel_audit` is `false` (default — sequential)
+
+Run up to 3 scan → fix cycles (complexity & consistency):
 
 1. Run both gates in parallel (phase is `verify` — both skills auto-detect scan mode):
    - Read `feature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus)
-   - Read `consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus)
+   - Read `feature/consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus)
 2. Check both reports:
    - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
    - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Consistency Report"`
@@ -312,7 +326,35 @@ Run up to 3 scan → fix cycles:
    ```
 6. Proceed immediately to Phase 5 (no approval gate)
 
+### If `parallel_audit` is `true` (concurrent fan-out)
+
+Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
+
+1. **Record start timestamp:** capture `audit_start=$(date -u +%s)` (or equivalent ISO timestamp) — store it in a shell var or note in conversation.
+2. **Spawn three Agents concurrently in a single tool-use block** (all model: opus):
+   - Agent A: contents of `feature/complexity-gate/SKILL.md`
+   - Agent B: contents of `feature/consistency-gate/SKILL.md`
+   - Agent C: contents of `feature/review-impl/SKILL.md`
+   IMPORTANT: all three must be in the SAME assistant message so they execute in parallel. Do not chain them.
+3. **Record end timestamp** `audit_end=$(date -u +%s)` after all three return. Log to conversation: `Audit stack wall-clock: $((audit_end - audit_start))s (parallel)`.
+4. Check all three reports:
+   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
+   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Consistency Report"`
+   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Implementation Review"`
+5. Aggregate overall STATUS: `BLOCK` if any gate returns `BLOCK` or review-impl returns `CONCERN`; `ADVISORY` if any gate returns `ADVISORY`; else `PASS`.
+6. If `PASS` or `ADVISORY`: show findings, transition to `phase=finalize phase_status=in_progress`, proceed to Phase 6.
+7. If `BLOCK`:
+   - Show blocked issues + review-impl concerns to the user.
+   - Ask: "Should I fix these issues?"
+   - If yes: spawn ONE fix agent (model: sonnet) with prompt: "Extract `## Complexity Report`, `## Consistency Report`, and `## Implementation Review` blocks from paths.temp. For each blocked issue and each review-impl concern, apply the prescribed fix. Stay within `changed_files`. Follow the `dev` convention." Then go back to step 1 (next cycle).
+   - If no: proceed to Phase 6 regardless.
+   - If 3rd cycle exhausted: "Max audit cycles reached — review remaining issues manually" and stop.
+
 ## Phase 5 — Review Implementation
+
+> When `parallel_audit` is `true`, this phase is absorbed into Phase 4.75 (Audit Stack). See above.
+>
+> When `parallel_audit` is `false`, run the original sequential review-impl loop below.
 
 Print banner: `── feature | Review Implementation ───────────────────────────────`
 
