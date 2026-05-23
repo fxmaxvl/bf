@@ -34,6 +34,25 @@ def git_root():
         sys.exit(1)
     return r.stdout.strip()
 
+def read_config():
+    """Read ~/.bf/config.json and return resolved feature flags.
+
+    Returns a dict with at least {'parallel_audit': bool}.
+    Defaults all flags to False if the file is missing, malformed, or the key is absent.
+    """
+    config_path = os.path.expanduser('~/.bf/config.json')
+    try:
+        with open(config_path) as f:
+            data = json.load(f)
+        return {
+            'parallel_audit': bool(data.get('parallel_audit', False)),
+        }
+    except FileNotFoundError:
+        return {'parallel_audit': False}
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"Warning: could not read {config_path}: {e}", file=sys.stderr)
+        return {'parallel_audit': False}
+
 def set_nested(obj, dotted_key, value):
     keys = dotted_key.split('.')
     for key in keys[:-1]:
@@ -97,9 +116,15 @@ def read_output(root, state):
         'jira':            state.get('jira', {}),
     }, indent=2))
 
+args = sys.argv[1:]
+
+# ── Read-config mode (no git repo required) ────────────────────────────────
+if args and args[0] == '--read-config':
+    print(json.dumps(read_config()))
+    sys.exit(0)
+
 root = git_root()
 state_path = os.path.join(root, '.bf', 'sessions', 'build-state.json')
-args = sys.argv[1:]
 
 # ── Init mode ──────────────────────────────────────────────────────────────
 if args and args[0] == '--init':
