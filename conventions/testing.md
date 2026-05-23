@@ -26,3 +26,18 @@ Unit tests MUST be fully isolated from external systems. This means:
 If your unit test makes a real network call, it is an **integration test**, not a unit test. Name it and place it accordingly.
 
 Use dependency injection, mocks, or stubs to control all I/O at the boundary. The test must pass offline and deterministically every time.
+
+### jsdom browser globals
+
+When mocking browser globals (e.g. `window.matchMedia`, `navigator.clipboard`, `IntersectionObserver`) in a jsdom test environment:
+
+- `jest.spyOn(global, 'X')` silently fails if `global.X` is `undefined` in jsdom — the spy is registered but the property never exists, so calls are not intercepted.
+- Before using `spyOn`, add a module-level stub if the property may be absent:
+  ```js
+  if (!global.matchMedia) {
+    global.matchMedia = jest.fn().mockImplementation(query => ({ matches: false, media: query, onchange: null, addListener: jest.fn(), removeListener: jest.fn(), addEventListener: jest.fn(), removeEventListener: jest.fn(), dispatchEvent: jest.fn() }));
+  }
+  ```
+- Place the stub at module level (outside `beforeEach`/`beforeAll`) so it is defined before module imports resolve.
+
+When a review surfaces a `jest.spyOn` concern for a browser global, always include this precondition note in the suggested fix.

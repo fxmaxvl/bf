@@ -3,7 +3,7 @@ name: review
 description: Review code against feature conventions and the complexity gate. Pass a free-form description of what to review (e.g. a PR number, file paths, a commit range, or a natural-language description) or omit to review the current branch.
 model: opus
 disable-model-invocation: false
-argument-hint: "[--dry-run] [free-form: 'PR 42', 'src/auth/', 'last 3 commits', or empty for current branch]"
+argument-hint: "[--dry-run] [free-form: 'PR 42', 'https://github.com/org/repo/pull/42', 'src/auth/', 'last 3 commits', or empty for current branch]"
 allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *)
 ---
 
@@ -92,6 +92,20 @@ Resolve: `code-review`, `dev`, `testing`, `architecture`.
 
 Read each resolved convention file in full.
 
+### Pre-review: check for existing integration/E2E tests
+
+Before spawning the review agent, grep the project for integration and E2E test files:
+
+```bash
+int_tests=$(find "$project_root" -type f \( -name "*.test.*" -o -name "*.spec.*" -o -name "*.e2e.*" \) \
+  -not -path "*/.git/*" -not -path "*/node_modules/*" \
+  | grep -iE "(integration|e2e|end.to.end)" | head -20)
+```
+
+Set:
+- `has_integration_tests="yes"` if the command returned any results; `"no"` otherwise.
+- `has_e2e_tests="yes"` if any result path contains `e2e` or `end-to-end`; `"no"` otherwise.
+
 ### Spawn review Agent (model: opus)
 
 Print (plain text): `→ Reviewing with opus… (this usually takes a few minutes)`
@@ -116,11 +130,25 @@ You are a code reviewer. Apply the following conventions strictly.
 ## Review Request
 <$ARGUMENTS if non-empty, otherwise: "Review the current branch diff vs origin/HEAD">
 
+## Test Coverage Context
+
+Integration tests found in package: <has_integration_tests>
+E2E tests found in package: <has_e2e_tests>
+
+Sample paths (up to 20):
+<$int_tests if non-empty, otherwise: "(none found)">
+
+When flagging missing integration or E2E tests:
+- If `has_integration_tests` is "yes", do NOT flag missing integration tests unless the changed functionality has no integration test coverage at all.
+- If `has_e2e_tests` is "yes", do NOT flag missing E2E tests unless the changed functionality has no E2E test coverage at all.
+- If both are "no", flag their absence as a `[must-fix]` concern under Testing.
+
 ## Instructions
 
 1. Interpret the Review Request to determine what to review. Use git, gh, or Read as needed:
+   Before matching the Review Request against any branch, check if it contains a GitHub PR URL (e.g. `https://github.com/org/repo/pull/123`). If it does, extract the trailing integer as `pr_number` using: `echo "$ARGUMENTS" | grep -oE '/pull/[0-9]+' | grep -oE '[0-9]+'` — then treat the input as if the user had passed that bare number.
    - No request or "current branch": run `git diff $(git merge-base HEAD $(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main))...HEAD`
-   - A PR number: run `gh pr diff <number>` and `gh pr view <number> --json title,headRefName,baseRefName,author`
+   - A PR number (bare integer, or extracted via `pr_number` from a GitHub PR URL): run `gh pr diff <pr_number>` and `gh pr view <pr_number> --json title,headRefName,baseRefName,author`
    - File paths or globs: read those files in full; also run `git diff -- <paths>` for the diff context
    - A commit range or other description: use git to produce the appropriate diff
 2. If nothing to review (empty diff, no matching files), output only:
@@ -394,13 +422,48 @@ You are applying code fixes identified by a code review.
 
 ## Instructions
 
-- Apply each fix in place, editing the actual source files.
-- Do not modify any file outside the changed_files list.
+- You are running in the main working tree rooted at `<project_root>`. Do NOT create or use a git worktree. Do NOT checkout a different directory. Edit source files directly using their absolute paths under `<project_root>`.
+- Apply each fix in place. Every write must target a file listed in the `## Changed Files` block above.
 - Do not commit or push anything.
 - If a fix cannot be applied cleanly (e.g. the code has moved), add a TODO comment:
   `// TODO(bf:review): <concern ID> — <brief description of what needs manual fixing>`
 - Return a brief summary: which concerns were applied, which were deferred with a TODO.
 ```
+
+### Post-fix test check
+
+After the fix Agent returns, check whether the project has a test suite:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/detect-stack.sh"
+```
+
+This gives you `test_commands`. If `test_commands` is non-empty:
+
+1. Run each test command. Capture stdout+stderr combined. Note the exit code.
+2. If all commands exit 0: proceed to the re-review cycle below.
+3. If any command exits non-zero:
+   a. Print (plain text): `⚠ Tests failed after fix — running correction loop…`
+   b. Spawn a correction Agent (model: sonnet) with this prompt:
+      ```
+      The fix you applied caused test failures. Fix only the failing test assertions.
+
+      ## Test Output
+      <captured test output>
+
+      ## Changed Files
+      <one path per line from changed_files>
+
+      ## Instructions
+      - Read the failing test files.
+      - Update only stale test assertions caused by the structural fix — do not change test intent or coverage.
+      - Do not commit or push anything.
+      - Return a brief summary of what you changed.
+      ```
+   c. After the correction Agent returns, run the test commands once more.
+   d. If still failing: print `⚠ Tests still failing after correction. Proceeding to re-review; manual test fixes may be needed.` — then proceed anyway. Do not loop more than once.
+
+If `test_commands` is empty: skip this step and proceed directly to the re-review cycle.
 
 ### Re-review cycle
 
