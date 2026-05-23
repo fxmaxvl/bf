@@ -359,7 +359,11 @@ Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
      bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
      ```
      Proceed to Phase 6.
-   - If 3rd cycle exhausted: "Max audit cycles reached — review remaining issues manually" and stop.
+   - If 3rd cycle exhausted:
+     ```
+     bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
+     ```
+     Note the current ISO timestamp in the conversation. Compute the wall-clock duration by diffing this end timestamp against the start timestamp noted in step 1, and log: `Audit stack wall-clock: <duration>s (parallel)`. Then tell the user "Max audit cycles reached — review remaining issues manually" and stop.
 
 ## Phase 5 — Review Implementation
 
@@ -379,7 +383,7 @@ Run up to 3 analyze → fix cycles:
    - Ask: "Should I fix these concerns?"
    - If yes: read `feature/review-impl/fix/SKILL.md` and pass its contents as an Agent prompt (model: sonnet), then go back to step 1
    - If no (user accepts as-is): proceed to step 5
-   - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review the implementation manually" and stop
+   - If this was already the 3rd cycle: note the current ISO timestamp in the conversation. Compute the wall-clock duration by diffing this end timestamp against the start timestamp noted at the beginning of Phase 4.75, and log: `Audit stack wall-clock: <duration>s (sequential)`. Then tell the user "Max review cycles reached — please review the implementation manually" and stop
 5. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
    ```
