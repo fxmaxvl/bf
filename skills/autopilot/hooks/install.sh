@@ -13,9 +13,9 @@ chmod +x "$HOOK_PATH" "$CLEANUP_PATH" "$PROMPT_CLEANUP_PATH"
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 STATE_DIR="$HOME/.bf/autopilot"
 
-PROJECT_ID=$(git config --get remote.origin.url 2>/dev/null \
-  | sed -E 's#\.git$##; s#.*[:/]([^/]+/[^/]+)$#\1#; s#/#-#g')
-[ -z "$PROJECT_ID" ] && PROJECT_ID=$(basename "$REPO_ROOT")
+# shellcheck source=hooks/lib.sh
+source "$SKILL_DIR/hooks/lib.sh"
+PROJECT_ID=$(_derive_project_id)
 
 GLOBAL_STATE_FILE="$STATE_DIR/state.json"
 REPO_STATE_FILE="$STATE_DIR/${PROJECT_ID}.json"
@@ -91,8 +91,6 @@ case "$ACTION" in
     mkdir -p "$STATE_DIR"
 
     # Step 1: Migrate old-format (singleton) state.json BEFORE collision check.
-    # Two-step write invariant: registry entry presence implies per-repo file should
-    # exist; COLLISION treats either as authoritative (belt+suspenders).
     if [[ -f "$GLOBAL_STATE_FILE" ]]; then
       if jq -e 'has("active")' "$GLOBAL_STATE_FILE" >/dev/null 2>&1; then
         echo '{"entries":{}}' > "$GLOBAL_STATE_FILE"
@@ -128,6 +126,8 @@ case "$ACTION" in
     fi
 
     # Step 3: Upsert entries[PROJECT_ID] into global registry.
+    # Two-step write invariant: registry entry presence implies per-repo file should
+    # exist; COLLISION treats either as authoritative (belt+suspenders).
     started_at=$(date -u +%Y%m%dT%H%M%S)
     if [[ ! -f "$GLOBAL_STATE_FILE" ]]; then
       echo '{"entries":{}}' > "$GLOBAL_STATE_FILE"
@@ -153,13 +153,19 @@ case "$ACTION" in
     echo "  - manual:  bash $SKILL_DIR/hooks/install.sh off"
     ;;
   off)
-    # jq-delete entries[PROJECT_ID] from global registry; preserve file as {"entries":{...}}.
-    # See install.sh on for the two-step write invariant (registry entry + per-repo file).
+    # Remove entries[PROJECT_ID] from global registry; delete the file when empty.
+    # See the two-step write invariant comment in 'on' Step 3.
     if [[ -f "$GLOBAL_STATE_FILE" ]]; then
       if jq -e 'has("entries")' "$GLOBAL_STATE_FILE" >/dev/null 2>&1; then
         tmp=$(mktemp)
         jq --arg pid "$PROJECT_ID" 'del(.entries[$pid])' \
           "$GLOBAL_STATE_FILE" > "$tmp" && mv "$tmp" "$GLOBAL_STATE_FILE"
+        # Delete the global file once all sessions are gone.
+        if jq -e '.entries == {}' "$GLOBAL_STATE_FILE" >/dev/null 2>&1; then
+          rm -f "$GLOBAL_STATE_FILE"
+        fi
+      else
+        rm -f "$GLOBAL_STATE_FILE"
       fi
     fi
     rm -f "$REPO_STATE_FILE"

@@ -133,7 +133,7 @@ Note: spawning autopilot as a background Agent from within a conversation does n
 ## Error recovery
 
 If the session ends mid-run, the stop hook keeps state alive. On re-entry:
-1. Run Setup (Step 2) again — reinstalls the hook and state file.
+1. Run Setup (Step 2) again — reinstalls the hooks and state files.
 2. Read `build-state.json` (if the target skill uses one) and resume from the current phase.
 3. Apply the oracle rule from that point forward.
 

@@ -1,8 +1,3 @@
 #!/usr/bin/env bash
-
-set -euo pipefail
-
-SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-bash "$SCRIPT_DIR/install.sh" off >/dev/null 2>&1 || true
-
-exit 0
+# Delegates to session-start-cleanup.sh — same cleanup logic, different trigger event.
+exec "$(dirname "$0")/session-start-cleanup.sh" "$@"
