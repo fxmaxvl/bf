@@ -43,6 +43,7 @@ Look for:
 - API shapes that are **shallow** (interface nearly as complex as the proposed implementation)
 - Interactions implying **temporal coupling** (caller must perform steps in a specific order)
 - Responsibilities spread across modules causing **change amplification** (one logical change touches many places)
+- The same data shape or transformation appearing in multiple planned locations with no shared abstraction (**inline duplication** — change amplification risk)
 - Concepts named or represented differently across the design (**inconsistency**)
 
 For each finding, cite the spec section and explain the complexity risk it introduces.
