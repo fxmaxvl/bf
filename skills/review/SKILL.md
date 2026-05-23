@@ -136,6 +136,46 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
    ```
    Print this and stop. Do not spawn any Agent.
 
+### Write temporary build-state.json
+
+`state-ops.sh` requires a `build-state.json` file. Create it now so the complexity-gate sub-skill can run later in the parallel batch.
+
+```bash
+temp_state="$project_root/.bf/sessions/build-state.json"
+mkdir -p "$project_root/.bf/sessions"
+build_ts=$(date -u +%Y%m%dT%H)
+slug="review-${timestamp}"
+```
+
+**If `$temp_state` already exists**, back it up first:
+
+```bash
+temp_state_backup="$temp_state.bfreview-backup"
+[ -f "$temp_state" ] && cp "$temp_state" "$temp_state_backup" && \
+  echo "Warning: .bf/sessions/build-state.json already exists — a feature workflow may be in progress. Backing it up; it will be restored after the complexity scan."
+```
+
+Write the following JSON to `$temp_state`:
+
+```json
+{
+  "idea": "bf:review complexity scan",
+  "slug": "review-<timestamp>",
+  "build_timestamp": "<build_ts>",
+  "mode": "review",
+  "phase": "verify",
+  "phase_status": "in_progress",
+  "github_issue": {"enabled": false, "number": null},
+  "jira": {"enabled": false, "ticket_key": null, "ticket_url": null, "pending_questions": null},
+  "collect_todos": null,
+  "artifacts": {"spec": null, "plan": null, "todo": null, "backlog": null},
+  "created_at": "<iso_now>",
+  "updated_at": "<iso_now>"
+}
+```
+
+**Note**: `state-ops.sh` computes `paths.complexity_report` as `<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-temp.md`. Set `complexity_report_path` to that path.
+
 ### Pre-review: check for existing integration/E2E tests
 
 Before spawning the review agent, grep the project for integration and E2E test files:
@@ -256,46 +296,6 @@ Extract `changed_files` from the `## Review Metadata` block: read the lines list
 Extract `pr_head_branch`: read the `pr_head_branch:` line value. Leave empty if absent.
 
 ## Phase 2 — Complexity Gate
-
-### Write temporary build-state.json
-
-`state-ops.sh` requires a `build-state.json` file. Create it so the complexity-gate sub-skill can run.
-
-```bash
-temp_state="$project_root/.bf/sessions/build-state.json"
-mkdir -p "$project_root/.bf/sessions"
-build_ts=$(date -u +%Y%m%dT%H)
-slug="review-${timestamp}"
-```
-
-**If `$temp_state` already exists**, back it up first:
-
-```bash
-temp_state_backup="$temp_state.bfreview-backup"
-[ -f "$temp_state" ] && cp "$temp_state" "$temp_state_backup" && \
-  echo "Warning: .bf/sessions/build-state.json already exists — a feature workflow may be in progress. Backing it up; it will be restored after the complexity scan."
-```
-
-Write the following JSON to `$temp_state`:
-
-```json
-{
-  "idea": "bf:review complexity scan",
-  "slug": "review-<timestamp>",
-  "build_timestamp": "<build_ts>",
-  "mode": "review",
-  "phase": "verify",
-  "phase_status": "in_progress",
-  "github_issue": {"enabled": false, "number": null},
-  "jira": {"enabled": false, "ticket_key": null, "ticket_url": null, "pending_questions": null},
-  "collect_todos": null,
-  "artifacts": {"spec": null, "plan": null, "todo": null, "backlog": null},
-  "created_at": "<iso_now>",
-  "updated_at": "<iso_now>"
-}
-```
-
-**Note**: `state-ops.sh` computes `paths.complexity_report` as `<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-temp.md`. Set `complexity_report_path` to that path.
 
 ### Invoke complexity-gate and consistency-gate Agents in parallel (model: opus)
 
