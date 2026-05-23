@@ -211,8 +211,19 @@ You are a code reviewer. Apply the following conventions strictly.
 ## Code Review Convention
 <contents of resolved code-review.md>
 
-## Review Request
-<$ARGUMENTS if non-empty, otherwise: "Review the current branch diff vs origin/HEAD">
+## Scope
+
+The review scope has already been resolved by the orchestrating skill.
+
+changed_files:
+<one path per line from changed_files>
+
+scope_description: <scope_description>
+
+diff_text:
+<diff_text>
+
+pr_head_branch: <pr_head_branch if non-empty, else omit>
 
 ## Test Coverage Context
 
@@ -229,17 +240,10 @@ When flagging missing integration or E2E tests:
 
 ## Instructions
 
-1. Interpret the Review Request to determine what to review. Use git, gh, or Read as needed:
-   Before matching the Review Request against any branch, check if it contains a GitHub PR URL (e.g. `https://github.com/org/repo/pull/123`). If it does, extract the trailing integer as `pr_number` using: `echo "$ARGUMENTS" | grep -oE '/pull/[0-9]+' | grep -oE '[0-9]+'` — then treat the input as if the user had passed that bare number.
-   - No request or "current branch": run `git diff $(git merge-base HEAD $(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main))...HEAD`
-   - A PR number (bare integer, or extracted via `pr_number` from a GitHub PR URL): run `gh pr diff <pr_number>` and `gh pr view <pr_number> --json title,headRefName,baseRefName,author`
-   - File paths or globs: read those files in full; also run `git diff -- <paths>` for the diff context
-   - A commit range or other description: use git to produce the appropriate diff
-2. If nothing to review (empty diff, no matching files), output only:
-   `STATUS: NOTHING_TO_REVIEW — <reason>` and stop.
-3. Read the full content of each changed file using the Read tool before forming conclusions.
-4. Apply every check in the Code Review Convention across all five categories.
-5. Produce the report in this exact format — including the Review Metadata block at the end:
+1. The changed files and diff are already provided in the `## Scope` block above — do NOT re-run git or gh to re-derive the scope.
+2. Read the full current content of each file listed in `changed_files` using the Read tool before forming conclusions.
+3. Apply every check in the Code Review Convention across all five categories.
+4. Produce the report in this exact format — including the Review Metadata block at the end:
 
 # Code Review Report
 - Scope: <human-readable description of what was reviewed>
@@ -280,10 +284,6 @@ pr_head_branch: <branch name if this was a PR review, else omit this line>
 
 Return only the report — no preamble or commentary.
 ```
-
-### Handle NOTHING_TO_REVIEW
-
-If the Agent output starts with `STATUS: NOTHING_TO_REVIEW`, print it and exit.
 
 ### Save report and extract metadata
 
