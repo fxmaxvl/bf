@@ -92,6 +92,50 @@ Resolve: `code-review`, `dev`, `testing`, `architecture`.
 
 Read each resolved convention file in full.
 
+### Resolve scope and changed_files
+
+Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--dry-run` has been stripped):
+
+1. **Detect PR URL**: if `$ARGUMENTS` contains a GitHub PR URL (e.g. `https://github.com/org/repo/pull/123`), extract `pr_number`:
+   ```bash
+   pr_number=$(echo "$ARGUMENTS" | grep -oE '/pull/[0-9]+' | grep -oE '[0-9]+')
+   ```
+   Then treat the input as if the user had passed the bare `pr_number`.
+
+2. **Compute `scope_description`, `diff_text`, and `pr_head_branch`**:
+   - **No request or "current branch"** (`$ARGUMENTS` is empty after stripping):
+     ```bash
+     diff_text=$(git diff $(git merge-base HEAD $(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main))...HEAD)
+     scope_description="current branch diff vs origin/HEAD"
+     pr_head_branch=""
+     ```
+   - **PR number** (bare integer or extracted `pr_number`):
+     ```bash
+     diff_text=$(gh pr diff <pr_number>)
+     pr_meta=$(gh pr view <pr_number> --json title,headRefName,baseRefName,author)
+     pr_head_branch=$(echo "$pr_meta" | grep -oE '"headRefName":"[^"]*"' | cut -d'"' -f4)
+     scope_description="PR <pr_number>"
+     ```
+   - **File paths or globs**:
+     ```bash
+     diff_text=$(git diff -- <paths>)
+     scope_description="<paths>"
+     pr_head_branch=""
+     ```
+   - **Commit range or other description**: use git to produce the appropriate diff; set `scope_description` to the description; `pr_head_branch=""`.
+
+3. **Compute `changed_files`** from `diff_text`:
+   ```bash
+   changed_files=$(echo "$diff_text" | grep -E '^diff --git' | sed 's#diff --git a/.* b/##')
+   ```
+   For file-path inputs where git diff may be empty (e.g. unmodified files explicitly listed), fall back to the literal paths from `$ARGUMENTS`.
+
+4. **Early exit if nothing to review**: if `changed_files` is empty and `diff_text` is empty:
+   ```
+   STATUS: NOTHING_TO_REVIEW — no changed files found for scope: <scope_description>
+   ```
+   Print this and stop. Do not spawn any Agent.
+
 ### Pre-review: check for existing integration/E2E tests
 
 Before spawning the review agent, grep the project for integration and E2E test files:
