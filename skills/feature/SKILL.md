@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), mcp__*__jira__*
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
-Orchestrate the full development workflow for a feature. Manage state via `.bf/sessions/build-state.json` and delegate to existing skills with approval gates between each phase.
+Orchestrate the full development workflow for a feature. Manage state via `.bf/sessions/build-state.json` and delegate to existing skills with approval gates between each phase. When `parallel_audit` is enabled in `~/.bf/config.json`, the post-verify audit stack (complexity-gate + consistency-gate + review-impl) runs as three concurrent Agent calls instead of sequentially.
 
 ## Artifacts Directory
 
@@ -45,6 +45,7 @@ Each sub-skill declares a `model` field in its SKILL.md frontmatter. When delega
 | review-impl | `feature/review-impl/SKILL.md` | Agent | opus | Implementation analysis — produces report, no user interaction |
 | review-impl/fix | `feature/review-impl/fix/SKILL.md` | Agent | sonnet | Applies code fixes — execution task |
 | complexity-gate | `feature/complexity-gate/SKILL.md` | Agent | opus | Complexity analysis — advisory on spec and plan, blocking scan after verify |
+| consistency-gate | `feature/consistency-gate/SKILL.md` | Agent | opus | Consistency analysis — advisory on spec and plan, blocking scan after verify |
 | quality-gate | `feature/quality-gate/SKILL.md` | Inline | sonnet | Resolve test and lint commands; write Quality Gates section (plan phase) or output commands (verify phase) |
 | collect-todos (Phase 7, optional) | `feature/collect-todos/SKILL.md` | Agent | sonnet | Mechanical scanning task — skipped if user declines |
 
@@ -304,6 +305,8 @@ Print banner: `── feature | Audit Stack ────────────
 
 ### If `parallel_audit` is `false` (default — sequential)
 
+**Record start timestamp** before the first scan cycle: capture `audit_start=$(date -u +%s)` (or note the ISO timestamp) — store it for the wall-clock log at the end of Phase 5.
+
 Run up to 3 scan → fix cycles (complexity & consistency):
 
 1. Run both gates in parallel (phase is `verify` — both skills auto-detect scan mode):
@@ -372,6 +375,7 @@ Run up to 3 analyze → fix cycles:
 5. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
    ```
+   **Record end timestamp** `audit_end=$(date -u +%s)` and log to conversation: `Audit stack wall-clock: $((audit_end - audit_start))s (sequential)`.
 6. Proceed immediately to Phase 6 (no approval gate here — the combined gate is inside Phase 6)
 
 ## Phase 6 — Finalize
