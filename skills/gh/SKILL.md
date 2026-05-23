@@ -1,17 +1,18 @@
 ---
 name: gh
-description: Create GitHub issues or pick existing ones to work on. Auto-generates titles/labels for new issues, classifies existing ones, and kicks off feature.
-argument-hint: [optional: "pick", "pick bug", or issue description]
+description: Create GitHub issues, pick existing ones to work on, or verify whether an issue is still actual. Auto-generates titles/labels for new issues, classifies existing ones, and kicks off feature.
+argument-hint: [optional: "pick", "pick bug", issue URL/number + "verify", or issue description]
 model: sonnet
 ---
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
-Manage GitHub issues on the current repository. Two modes: **create** (capture something to track) and **pick** (select an existing issue to work on).
+Manage GitHub issues on the current repository. Three modes: **create** (capture something to track), **pick** (select an existing issue to work on), and **verify** (check whether an issue's items are still open and hand off any that are).
 
 ## Mode Detection
 
 Determine the mode from `$ARGUMENTS` and conversation context:
 
+- **Verify mode**: `$ARGUMENTS` contains an issue URL or number AND at least one of: "verify", "check", "audit", "still actual", "still relevant", "is this still open"
 - **Pick mode**: User says things like "pick", "let's pick a bug", "what do we have", "let's see issues", "find something to work on"
 - **Create mode**: Everything else — user describes a problem, or invoked mid-conversation to capture something
 
@@ -21,6 +22,79 @@ Determine the mode from `$ARGUMENTS` and conversation context:
 
 Run `git remote get-url origin` to get the remote URL. Extract the `owner/repo` from it.
 If no git remote is found, stop and tell the user.
+
+---
+
+## Verify Mode
+
+**This mode is read-only against the codebase.** Do not apply any fixes or write any code here. If work is needed, it MUST be routed through feature/quick via the handoff step below.
+
+### 1. Fetch the issue
+
+Extract the issue number from `$ARGUMENTS` (from a URL like `https://github.com/owner/repo/issues/42` or a bare number). Run:
+
+```
+gh issue view <number> --repo <owner/repo> --json number,title,body,state,labels
+```
+
+If the issue is already closed, tell the user and stop.
+
+### 2. Extract items
+
+Parse the issue body into a list of discrete items. Issues often contain bullet points, numbered lists, or `##` sub-sections — treat each as a separate item. If the body is a single block of prose with no list structure, treat it as one item.
+
+### 3. Check each item against the codebase
+
+For each item, read the relevant files (use Grep/Read/Glob) to determine its current status:
+
+- **Resolved** — the code already addresses the item fully
+- **Partial** — the code addresses part of the item but something remains
+- **Open** — no change found; the item is still relevant
+
+Do not make assumptions — verify by reading the actual files. Cite the file and line for resolved/partial findings.
+
+### 4. Report findings
+
+Present a concise table:
+
+```
+| # | Item (summary) | Status | Evidence |
+|---|----------------|--------|----------|
+| 1 | <short summary> | Resolved | <file:line> |
+| 2 | <short summary> | Open | — |
+| 3 | <short summary> | Partial | <file:line> |
+```
+
+For any resolved items, post a comment on the issue noting what addressed them:
+
+```
+gh issue comment <number> --repo <owner/repo> --body "<comment>"
+```
+
+### 5. Handle open/partial items
+
+If all items are resolved: tell the user, close the issue (`gh issue close <number> --repo <owner/repo>`), and stop.
+
+If any items are open or partial: ask "Want to work on these? (full workflow / quick mode / skip)"
+
+- **Skip**: stop here.
+- **Full or quick**: proceed to the handoff below.
+
+### 6. Handoff to feature/quick
+
+1. Get the current GitHub user: `gh api user --jq '.login'`
+2. Assign the issue: `gh issue edit <number> --repo <owner/repo> --add-assignee <login>`
+3. Synthesize a description containing **only the open/partial items** (not the resolved ones), prefixed with `GH-ISSUE:<number>`:
+
+```
+GH-ISSUE:<number> <issue title>
+
+<open/partial item 1 — full text>
+
+<open/partial item 2 — full text>
+```
+
+4. Invoke `feature` (full workflow) or `quick` (quick mode) with this synthesized description.
 
 ---
 
