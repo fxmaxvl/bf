@@ -32,6 +32,17 @@ Use `test_commands` from `detect-stack.sh`. If monorepo, apply `scope_template` 
 
 Run the full test suite (all tests in scope, not just changed files — the goal is to ensure nothing is broken).
 
+**If the test suite fails to load (setup-stage failure):**
+1. Detect markers in the Jest output indicating a pre-test-execution failure — e.g., `TSError`, `SyntaxError`, or `Cannot find module` whose stack trace originates from a path referenced by `globalSetup`, `globalTeardown`, `setupFiles`, or `setupFilesAfterEach` (the suite collapsed before any test file ran). The same principle applies to other runners with suite-level setup hooks.
+2. Identify the failing setup file path from the stack trace.
+3. Cross-reference that file with `changed_files` from `changed-packages.sh`.
+4. **If the setup file is NOT in `changed_files`:**
+   - Treat as a **pre-existing environment failure** — it existed before this feature branch.
+   - Report: "Pre-existing environment failure: globalSetup error in `<file>` — not modified by this feature, skipping and continuing to lint."
+   - Proceed to Step 3 without waiting for a response.
+5. **If the setup file IS in `changed_files`:**
+   - Treat as an in-scope failure — fall through to the per-test failure handling below (fix the setup file, re-run, repeat until green).
+
 **If tests fail:**
 1. Identify which tests failed and which files they test
 2. Cross-reference with `changed_files` from `changed-packages.sh`
