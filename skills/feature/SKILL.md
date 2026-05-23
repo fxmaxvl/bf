@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), mcp__*__jira__*
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
-Orchestrate the full development workflow for a feature. Manage state via `.bf/sessions/build-state.json` and delegate to existing skills with approval gates between each phase.
+Orchestrate the full development workflow for a feature. Manage state via `.bf/sessions/build-state.json` and delegate to existing skills with approval gates between each phase. When `parallel_audit` is enabled in `~/.bf/config.json`, the post-verify audit stack (complexity-gate + consistency-gate + review-impl) runs as three concurrent Agent calls instead of sequentially.
 
 ## Artifacts Directory
 
@@ -45,6 +45,7 @@ Each sub-skill declares a `model` field in its SKILL.md frontmatter. When delega
 | review-impl | `feature/review-impl/SKILL.md` | Agent | opus | Implementation analysis — produces report, no user interaction |
 | review-impl/fix | `feature/review-impl/fix/SKILL.md` | Agent | sonnet | Applies code fixes — execution task |
 | complexity-gate | `feature/complexity-gate/SKILL.md` | Agent | opus | Complexity analysis — advisory on spec and plan, blocking scan after verify |
+| consistency-gate | `feature/consistency-gate/SKILL.md` | Agent | opus | Consistency analysis — advisory on spec and plan, blocking scan after verify |
 | quality-gate | `feature/quality-gate/SKILL.md` | Inline | sonnet | Resolve test and lint commands; write Quality Gates section (plan phase) or output commands (verify phase) |
 | collect-todos (Phase 7, optional) | `feature/collect-todos/SKILL.md` | Agent | sonnet | Mechanical scanning task — skipped if user declines |
 
@@ -81,12 +82,22 @@ Print the banner as plain text (not in a code block). Do this before any other w
 
 **Full mode** (default):
 ```
-init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] execute → [auto] verify → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
+init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] execute → [auto] verify → [auto] complexity+consistency ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
+```
+
+**Full mode** (`parallel_audit=true`):
+```
+init → brainstorm → [auto] review-design ⇄ fix → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
 ```
 
 **Quick mode** (invoked via `/bf:feature --quick`):
 ```
-init → refine → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
+init → refine → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] complexity+consistency ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
+```
+
+**Quick mode** (`parallel_audit=true`):
+```
+init → refine → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```
 
 Quick mode skips **only** brainstorm and review-design. Every other phase — refine, plan, execute, verify, review-impl, verify (silent), finalize — is **mandatory** regardless of how simple or obvious the fix appears. Do not collapse, merge, or skip phases because the task looks trivial. The phases exist as quality gates that apply at all complexity levels.
@@ -110,7 +121,7 @@ Quick mode skips **only** brainstorm and review-design. Every other phase — re
    - If `phase_status` is `"awaiting_approval"`:
      - If `phase` is `"finalize"`: re-ask the pre-finalization gate per Phase 6 step 2 (one question in quick mode, two in full mode). If not ready: exit. If ready: set `phase_status` to `"in_progress"`, save `collect_todos` per Phase 6 step 2 (user's answer in full mode, `false` automatically in quick mode), update state, continue Phase 6 from step 3 (skip silent verify — it already passed).
      - Otherwise: ask "Paused before [current phase]. Ready to proceed?" — if yes, set `phase_status` to `"in_progress"`, update state, execute the current phase; if no, exit
-   - Otherwise: resume the current phase from where it left off
+   - Otherwise: resume the current phase from where it left off. **Note:** when `parallel_audit` is `true`, `phase=verify phase_status=in_progress` after Phase 4.5 completes means the orchestrator is about to enter the audit-stack fan-out in Phase 4.75 — resume goes directly into Phase 4.75 (not a mid-fan-out partial state). When `parallel_audit` is `false`, `phase=review-impl phase_status=in_progress` means the sequential complexity+consistency gates in Phase 4.75 are complete — resume re-enters Phase 5 as usual.
 
 3. If `has_state` is `false`: proceed to Phase 0 (init).
 
@@ -145,7 +156,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
   [--gh-issue 42]                          # only if GitHub issue detected
 ```
 
-   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state.
+   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `false`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently.
 
 6. Proceed to Phase 1 (brainstorm for full mode, refine for quick mode).
 
@@ -154,6 +165,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
 - `<build_timestamp>-<slug>-temp.md` (`paths.temp`) — ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report; deleted at cleanup
 
 Use `paths.*` from `state-ops.sh` instead of constructing paths manually.
+
+**Feature flags:** `parallel_audit` — when `true`, Phases 4.75 and 5 collapse into a single 3-way concurrent fan-out (complexity-gate + consistency-gate + review-impl). See Phase 4.75 for details.
 
 ## Phase 1 — Brainstorm (full mode only)
 
@@ -284,15 +297,21 @@ Print banner: `── feature | Verify ─────────────�
    ```
    Proceed immediately to Phase 4.75 (no approval gate)
 
-## Phase 4.75 — Complexity & Consistency Guard
+## Phase 4.75 — Audit Stack
 
-Print banner: `── feature | Complexity & Consistency Guard ───────────────────────────────`
+Print banner: `── feature | Audit Stack ───────────────────────────────`
 
-Run up to 3 scan → fix cycles:
+**Branch on `parallel_audit`** (read from build-state.json via `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` (no args) which prints the persisted `parallel_audit` from build-state.json — do NOT use `--read-config` here, which would re-read config.json and ignore the init-time snapshot):
+
+### If `parallel_audit` is `false` (default — sequential)
+
+**Record start timestamp** before the first scan cycle: note the current ISO timestamp in the conversation (e.g. "Audit start: 2026-05-23T15:00:00Z") — this is the canonical store across orchestrator turns. Do not rely on a shell variable; it will not survive across phases.
+
+Run up to 3 scan → fix cycles (complexity & consistency):
 
 1. Run both gates in parallel (phase is `verify` — both skills auto-detect scan mode):
    - Read `feature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus)
-   - Read `consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus)
+   - Read `feature/consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus)
 2. Check both reports:
    - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
    - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Consistency Report"`
@@ -310,7 +329,47 @@ Run up to 3 scan → fix cycles:
    ```
 6. Proceed immediately to Phase 5 (no approval gate)
 
+### If `parallel_audit` is `true` (concurrent fan-out)
+
+Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
+
+1. **Record start timestamp:** note the current ISO timestamp in the conversation (e.g. "Audit start: 2026-05-23T15:00:00Z") — this is the canonical store across orchestrator turns. Do not rely on a shell variable; it will not survive across phases.
+2. **Spawn three Agents concurrently in a single tool-use block** (all model: opus):
+   - Agent A: contents of `feature/complexity-gate/SKILL.md`
+   - Agent B: contents of `feature/consistency-gate/SKILL.md`
+   - Agent C: contents of `feature/review-impl/SKILL.md`
+   IMPORTANT: all three must be in the SAME assistant message so they execute in parallel. Do not chain them.
+3. **Record end timestamp:** note the current ISO timestamp in the conversation after all three return. Compute the wall-clock duration by diffing the end timestamp against the start timestamp noted in step 1, and log: `Audit stack wall-clock: <duration>s (parallel)`.
+4. Check all three reports:
+   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
+   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Consistency Report"`
+   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Implementation Review"`
+5. Aggregate overall STATUS: `BLOCK` if any gate returns `BLOCK` or review-impl returns `CONCERN`; `ADVISORY` if any gate returns `ADVISORY`; else `PASS`.
+6. If `PASS` or `ADVISORY`: show findings, then:
+   ```
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
+   ```
+   Proceed to Phase 6.
+7. If `BLOCK`:
+   - Show blocked issues + review-impl concerns to the user.
+   - Ask: "Should I fix these issues?"
+   - If yes: spawn ONE fix agent (model: sonnet) with prompt: "Extract `## Complexity Report`, `## Consistency Report`, and `## Implementation Review` blocks from paths.temp. For each blocked issue and each review-impl concern, apply the prescribed fix. Stay within `changed_files`. Follow the `dev` convention." Then go back to step 1 (next cycle).
+   - If no:
+     ```
+     bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
+     ```
+     Proceed to Phase 6.
+   - If 3rd cycle exhausted:
+     ```
+     bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
+     ```
+     Note the current ISO timestamp in the conversation. Compute the wall-clock duration by diffing this end timestamp against the start timestamp noted in step 1, and log: `Audit stack wall-clock: <duration>s (parallel)`. Then tell the user "Max audit cycles reached — review remaining issues manually" and stop.
+
 ## Phase 5 — Review Implementation
+
+> When `parallel_audit` is `true`, this phase is absorbed into Phase 4.75 (Audit Stack). See above.
+>
+> When `parallel_audit` is `false`, run the original sequential review-impl loop below.
 
 Print banner: `── feature | Review Implementation ───────────────────────────────`
 
@@ -324,10 +383,11 @@ Run up to 3 analyze → fix cycles:
    - Ask: "Should I fix these concerns?"
    - If yes: read `feature/review-impl/fix/SKILL.md` and pass its contents as an Agent prompt (model: sonnet), then go back to step 1
    - If no (user accepts as-is): proceed to step 5
-   - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review the implementation manually" and stop
+   - If this was already the 3rd cycle: note the current ISO timestamp in the conversation. Compute the wall-clock duration by diffing this end timestamp against the start timestamp noted at the beginning of Phase 4.75, and log: `Audit stack wall-clock: <duration>s (sequential)`. Then tell the user "Max review cycles reached — please review the implementation manually" and stop
 5. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
    ```
+   **Record end timestamp:** note the current ISO timestamp in the conversation. Compute the wall-clock duration by diffing the end timestamp against the start timestamp noted at the beginning of Phase 4.75, and log: `Audit stack wall-clock: <duration>s (sequential)`.
 6. Proceed immediately to Phase 6 (no approval gate here — the combined gate is inside Phase 6)
 
 ## Phase 6 — Finalize
