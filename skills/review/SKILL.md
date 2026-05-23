@@ -190,11 +190,16 @@ Set:
 - `has_integration_tests="yes"` if the command returned any results; `"no"` otherwise.
 - `has_e2e_tests="yes"` if any result path contains `e2e` or `end-to-end`; `"no"` otherwise.
 
-### Spawn review Agent (model: opus)
+### Spawn review + complexity + consistency Agents in parallel (model: opus)
 
-Print (plain text): `→ Reviewing with opus… (this usually takes a few minutes)`
+Print (plain text): `→ Reviewing + running complexity + consistency gates with opus… (this usually takes a few minutes)`
 
-Pass the following prompt to an Agent with model: opus:
+Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/complexity-gate/SKILL.md` in full.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/consistency-gate/SKILL.md` in full.
+
+Build three prompts:
+
+**Prompt A — review Agent:**
 
 ```
 You are a code reviewer. Apply the following conventions strictly.
@@ -285,26 +290,7 @@ pr_head_branch: <branch name if this was a PR review, else omit this line>
 Return only the report — no preamble or commentary.
 ```
 
-### Save report and extract metadata
-
-Write the Agent's output to `$report_path`.
-
-Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
-
-Extract `changed_files` from the `## Review Metadata` block: read the lines listed under `changed_files:` (one path per line, until the next key or end of file).
-
-Extract `pr_head_branch`: read the `pr_head_branch:` line value. Leave empty if absent.
-
-## Phase 2 — Complexity Gate
-
-### Invoke complexity-gate and consistency-gate Agents in parallel (model: opus)
-
-Print (plain text): `→ Running complexity + consistency gates with opus…`
-
-Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/complexity-gate/SKILL.md` in full.
-Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/consistency-gate/SKILL.md` in full.
-
-Always prepend the following override block to each gate's prompt (the review agent may have reviewed a scope that differs from `master...HEAD`):
+**Prompt B — complexity-gate Agent** (prepend override block, then SKILL.md contents):
 
 ```
 ## OVERRIDE — changed_files
@@ -314,20 +300,55 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 <one path per line from changed_files>
 
 Proceed with scan mode using these paths.
+
+<full contents of complexity-gate/SKILL.md>
 ```
 
-Pass the full prompt (override block + SKILL.md contents) to two Agents in a single message (both model: opus), so they run in parallel.
+**Prompt C — consistency-gate Agent** (same pattern):
+
+```
+## OVERRIDE — changed_files
+
+Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` instead:
+
+<one path per line from changed_files>
+
+Proceed with scan mode using these paths.
+
+<full contents of consistency-gate/SKILL.md>
+```
+
+Dispatch all three Agents in a **single message** (all model: opus), so they run in parallel. Wait for all three to return.
 
 ### Clean up temp state
 
-After both Agents return (whether they succeed or fail):
+After all three Agents return (whether they succeed or fail):
 
 ```bash
 rm -f "$temp_state"
 [ -f "$temp_state_backup" ] && mv "$temp_state_backup" "$temp_state"
 ```
 
-**This cleanup must happen on every exit path — do not skip it.**
+**This cleanup must happen on every exit path — including when the review Agent fails — do not skip it.**
+
+## Phase 2 — Aggregate Results
+
+### Save review report and extract metadata
+
+If the review Agent returned a valid report (output starts with `# Code Review Report`):
+
+Write the Agent's output to `$report_path`.
+
+Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
+
+Extract `changed_files` (authoritative list): the pre-computed `changed_files` from Phase 1 is the source of truth and was fed to all three Agents. Optionally cross-check against the `## Review Metadata` block in the report — if the Agent lists additional files it read, add them. If the Agent lists fewer files than pre-computed, keep the pre-computed list.
+
+Extract `pr_head_branch`: read the `pr_head_branch:` line from `## Review Metadata`. If absent, use the pre-computed `pr_head_branch` from Phase 1.
+
+If the review Agent failed or returned output that does not start with `# Code Review Report`:
+- Print: `⚠ Review Agent failed — complexity and consistency results are still available.`
+- Set `review_failed=true`.
+- Do not write `$report_path`. Proceed to merge complexity and consistency findings only.
 
 ### Merge complexity and consistency findings into report
 
