@@ -26,3 +26,9 @@ Unit tests MUST be fully isolated from external systems. This means:
 If your unit test makes a real network call, it is an **integration test**, not a unit test. Name it and place it accordingly.
 
 Use dependency injection, mocks, or stubs to control all I/O at the boundary. The test must pass offline and deterministically every time.
+
+## Pipeline / round-trip tests
+
+When a fix or feature spans more than one transformation layer (e.g. parse → sanitize → render, or serialize → transport → deserialize), add at least one test that exercises the full composed pipeline end-to-end — not just each layer in isolation. Per-layer tests can all pass while the composed result is still wrong; the pipeline test catches that gap.
+
+A pipeline test belongs in the integration test suite (real I/O is allowed). It should feed realistic input into the first layer and assert on the final output, without mocking the intermediate layers.

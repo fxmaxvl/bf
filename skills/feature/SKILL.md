@@ -132,6 +132,8 @@ Print banner: `── feature | Init ──────────────�
 
 Use the `init-probe.sh` output from On Invocation (do **not** re-run it).
 
+0. **Check for a dirty working tree.** Run `git status --short`. If there are modified or untracked files, summarize them (group by status: modified / untracked / staged) and ask: "Your working tree has uncommitted changes — stash them before starting, or continue with them in scope?" Wait for the answer before proceeding. If the user chooses to stash, run `git stash push -m "pre-session stash"` and confirm.
+
 1. **Determine slug:**
    - If `gh_issue` is not null: set slug to `gh-<gh_issue>-<short-description>` (e.g., `gh-12-token-refresh`)
    - If `jira_key` is not null:
@@ -159,7 +161,25 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
 
    The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `false`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently.
 
-6. Proceed to Phase 1 (brainstorm for full mode, refine for quick mode).
+6. **Stub the session log.** Immediately after `state-ops.sh --init`, create `paths.session_log` with empty block headers so the file is visible from the start of the session:
+
+```
+## Decisions
+
+## Spec
+
+## Plan
+
+## Todo
+
+## Backlog
+
+## Deployment
+```
+
+   This makes the session log a forcing function rather than a retroactive artifact — it exists as soon as the session starts and agents simply append content to the blocks they own.
+
+7. Proceed to Phase 1 (brainstorm for full mode, refine for quick mode).
 
 **Artifact layout:** Each session produces two files (see `plugin-main.md` for the Block I/O conventions):
 - `<build_timestamp>-<slug>-session-log.md` (`paths.session_log`) — persistent blocks: Spec, Plan, Todo, Backlog, Deployment, Decisions
