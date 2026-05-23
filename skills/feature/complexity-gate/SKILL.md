@@ -74,6 +74,8 @@ Append the report to `paths.complexity_report` (= `paths.temp`) using `paths.blo
 
 ## Scan Mode (`phase = verify`)
 
+**Doc-only short-circuit:** If every entry in `changed_files` matches `\.(md|mdx|txt|rst)$`, emit `STATUS: PASS` with a single note line `Skipped: doc-only changes` and stop. Write nothing else to the report. (The regex is deliberately conservative — extensions only; files like `LICENSE` or `CHANGELOG` without an extension are not matched and proceed through normal scanning.)
+
 Scan `changed_files` for concrete complexity red flags in the actual code.
 
 For each red flag in COMPLEXITY.md, scan using Grep and Read. For each finding, record:
