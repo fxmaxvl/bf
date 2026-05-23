@@ -352,6 +352,20 @@ If the review Agent failed or returned output that does not start with `# Code R
 
 ### Merge complexity and consistency findings into report
 
+**When `review_failed=true`**: create a minimal report stub at `$report_path` before appending:
+
+```
+# Code Review Report (partial — review Agent failed)
+- Scope: <scope_description>
+- Timestamp: <ISO 8601>
+- Files reviewed: <count of changed_files>
+
+STATUS: CONCERN
+
+## Summary
+Review Agent did not complete. Complexity and consistency results are below.
+```
+
 **Complexity:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
 
 Renumber all complexity findings as X1, X2, ... sequentially.
@@ -392,9 +406,11 @@ Omit the section body if STATUS is PASS.
 
 ### Escalate overall STATUS
 
-If any C*, X*, or Y* concern exists, set overall STATUS to CONCERN.
+If any C*, X*, or Y* concern exists, or if `review_failed=true`, set overall STATUS to CONCERN.
 
 Rewrite `$report_path` with the merged content (replace the STATUS line at the top).
+
+Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 
 ### Show summary in conversation
 
@@ -405,6 +421,8 @@ STATUS: <PASS | CONCERN>
 Concerns: <N> code (<M> must-fix), <X> complexity, <Y> consistency
 Report: <report_path>
 ```
+
+If `review_failed=true`, also print: `⚠ Review Agent failed — code concerns (C*) are not available. Fix selection in Phase 3 is limited to X* and Y* findings.`
 
 ## Phase 3 — Fix Selection
 
