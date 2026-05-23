@@ -30,7 +30,7 @@ Before writing anything, scan the Q&A for any named layers, packages, services, 
 2. Read enough of its structure to understand its types, interfaces, and boundaries (domain types, converters, facades, proto definitions, etc.)
 3. Note any layers named in the Q&A that you could **not** find — flag them explicitly in the spec under Implementation Notes
 
-**Proto fields specifically:** If the Q&A mentions a proto field or proto-backed data, check whether the generated TypeScript types (e.g. `*.pb.ts`, `*_pb.ts`, or files under a `generated/` directory) already expose that field. If the field is absent from the generated types, flag "run `yarn proto` / regenerate types" as a prerequisite in the spec's Implementation Notes before any other implementation step.
+**Proto fields specifically:** If the Q&A mentions a proto field or proto-backed data, locate the generated files for that proto (look for `generated/`, `*.pb.*`, or similar patterns in the repo) and check whether the field is already present. If the field is absent from the generated output, flag "regenerate proto types" as a prerequisite in the spec's Implementation Notes before any other implementation step.
 
 This step exists to prevent the spec from omitting layers that were identified in Q&A but not explored. A layer that appears in Q&A under "what needs to change" **must** appear in the spec's implementation notes.
 
