@@ -17,6 +17,23 @@ When you need a convention file, resolve it using this 3-step lookup — **first
 
 The available convention names and when to use each:
 
+## Custom Convention Discovery
+
+Beyond the predefined convention names above, users may define arbitrarily-named convention files (e.g. `api-style.md`, `monorepo-rules.md`) in either of:
+
+- `<project_root>/.bf/conventions/` — project-local custom conventions
+- `~/.bf/conventions/` — user-global custom conventions
+
+When working on a task where such conventions might apply, run the discovery script:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/discover-conventions.sh"
+```
+
+The script returns a JSON array `[{filename, tier, first_heading, path}]`. Read each file that is relevant to the current task and apply its rules alongside any predefined convention files. Project tier wins when the same filename exists in both tiers.
+
+Alternatively, invoke `/bf:scan-conventions [task description]` — it handles discovery + relevance filtering and returns a structured list of matched files.
+
 ## Artifact Layout
 
 Each session produces two files:
