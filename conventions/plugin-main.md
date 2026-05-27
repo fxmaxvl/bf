@@ -72,4 +72,5 @@ The available convention names and when to use each:
 | Committing | `git` |
 | Designing architecture | `architecture` |
 | TypeScript / JavaScript work | `typescript` |
+| Python work | `python` |
 | Reviewing code | `code-review` |

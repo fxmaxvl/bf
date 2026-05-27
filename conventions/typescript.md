@@ -42,7 +42,7 @@ When mocking browser globals (e.g. `window.matchMedia`, `navigator.clipboard`, `
 
 When a review surfaces a `jest.spyOn` concern for a browser global, always include this precondition note in the suggested fix.
 
-## Linting
+## Linting & Tooling
 
 - Before committing changes to a TypeScript or JavaScript project, check `package.json` for lint scripts (e.g. `lint`, `lint:fix`, `eslint`, `prettier`, `format`).
 - If lint scripts exist, run them and fix all reported issues before considering the task complete.
