@@ -34,6 +34,17 @@ The script returns a JSON array `[{filename, tier, first_heading, path}]`. Read 
 
 Alternatively, invoke `/bf:scan-conventions [task description]` — it handles discovery + relevance filtering and returns a structured list of matched files.
 
+## Generated Artifacts
+
+All generated artifacts (session logs, specs, plans, research reports, QA notes, design docs, and any other skill output) **must** be stored under a `.bf/` directory. Never use `.vs/`, `.context/`, `docs/`, or any other location for skill-generated artifacts.
+
+Resolve the artifact root using this 2-step lookup — first match wins:
+
+1. `<project_root>/.bf/` — use `git rev-parse --show-toplevel` to find project root
+2. `~/.bf/` — fallback when there is no project root (not in a git repo)
+
+Each skill chooses its own subdirectory under that root (e.g. `.bf/sessions/`, `.bf/research/`, `.bf/specs/`). Create the directory with `mkdir -p` before writing.
+
 ## Artifact Layout
 
 Each session produces two files:
