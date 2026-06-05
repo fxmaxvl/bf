@@ -2,6 +2,10 @@
 
 These rules apply to every skill in this plugin.
 
+## User-Level Conventions
+
+User-level conventions from `~/.claude/CLAUDE.md` and its imports are already in context — treat them as authoritative and apply them throughout skill execution.
+
 ## Interaction
 
 - **Always ask for clarification** rather than making assumptions.
