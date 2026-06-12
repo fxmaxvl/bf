@@ -32,6 +32,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:gh` | Utility | Pick or create a GitHub issue and kick off a workflow | Starting work from an issue tracker |
 | `/bf:jira` | Utility | Pick a Jira ticket and kick off a workflow | Starting work from Jira |
 | `/bf:write-skill [name]` | Utility | Author a new bf-style skill from scratch | You want to extend bf with a new skill |
+| `/bf:onboard-skill <url> <instructions>` | Utility | Fetch an external skill, analyze what to port, adapt to bf conventions, and hand off to bf:write-skill | You want to steal a skill from another plugin and adapt it for bf |
 | `/bf:scan-conventions [task]` | Utility | Discovers and filters user-defined custom conventions relevant to the current task. | Before acting on a task where project/user convention files beyond the predefined set might apply |
 | `/bf:session-summary` | Utility | Summary of what happened this session | End of a work session — capture what changed and why |
 | `/bf:gather <feature or PRD>` | Utility | Iterative requirements gathering and versioned PRD distillation across sessions | You have a fuzzy PRD and need to track open questions, scope a POC, and build a versioned source of truth |
