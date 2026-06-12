@@ -70,7 +70,7 @@ Slugs are **lossy** — "learn Rust" and "Rust programming" produce different sl
 
 ## Phase 2 — Ground in the mission
 
-Read `MISSION.md`. If it is absent or vague, interview the user — **ONE QUESTION AT A TIME** (plugin-main hard rule; do not batch the interview). Then write `MISSION.md` per [./MISSION-FORMAT.md](./MISSION-FORMAT.md).
+Read `MISSION.md`. If it is absent or vague, interview the user — **ONE QUESTION AT A TIME** (plugin-main hard rule; do not batch the interview). The moment the interview yields a clear "why," **write `MISSION.md` per [./MISSION-FORMAT.md](./MISSION-FORMAT.md) before doing anything else** — persist it to disk now, not after gathering resources or drafting a lesson. Do not advance to Phase 3+ until `MISSION.md` exists on disk; everything downstream is judged against it, and an un-persisted mission steers nothing.
 
 A bad mission is worse than no mission — push back on vagueness. Without a grounded mission, knowledge acquisition is unanchored, lessons feel abstract, and you cannot judge what to teach next.
 
