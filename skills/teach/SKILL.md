@@ -1,6 +1,6 @@
 ---
 name: teach
-description: "Use when the user wants to deliberately learn a topic over multiple sessions — 'teach me X', 'tutor me on X', 'I want to learn X'. Maintains a stateful per-topic teaching workspace with mission-grounded lessons, reference docs, learning records, resources, and a glossary. Not for one-off explanations."
+description: "Use when the user wants to deliberately learn a topic over multiple sessions — 'teach me X', 'tutor me on X', 'I want to learn X'. Maintains a stateful per-topic teaching workspace with mission-grounded lessons, reference docs, learning records, resources, and a glossary, plus an optional cross-topic learning profile that tailors lesson delivery. Not for one-off explanations."
 model: sonnet
 # Lesson/reference generation is high-volume content work Sonnet handles well; ZPD calc
 # and the mission interview are low-token, interactive — not enough to justify opus.
@@ -41,7 +41,7 @@ Workspace layout inside `~/.bf/teach/<slug>/`:
 | `MISSION.md` | Why the user is learning this — grounds every decision. See [./MISSION-FORMAT.md](./MISSION-FORMAT.md). |
 | `RESOURCES.md` | Curated high-trust sources + communities. See [./RESOURCES-FORMAT.md](./RESOURCES-FORMAT.md). |
 | `GLOSSARY.md` | Canonical, opinionated terminology. See [./GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md). |
-| `NOTES.md` | Scratchpad for stated teaching preferences. |
+| `NOTES.md` | Scratchpad for **topic-specific** teaching notes (e.g. "for Rust, skip the borrow-checker theory — they get it"). For cross-topic learning style, use `LEARNING-PROFILE.md` instead. |
 | `lessons/NNNN-<slug>.html` | The primary teaching unit — one self-contained lesson. |
 | `reference/NNNN-<slug>.html` | Compressed reusable knowledge, designed for quick review. |
 | `learning-records/NNNN-<slug>.md` | ADR-style insights that steer future sessions. See [./LEARNING-RECORD-FORMAT.md](./LEARNING-RECORD-FORMAT.md). |
@@ -141,7 +141,7 @@ Write a `learning-records/NNNN-<slug>.md` per [./LEARNING-RECORD-FORMAT.md](./LE
 3. A misconception was corrected — high-value, predicts future stumbling blocks.
 4. The mission shifted — cross-link to `MISSION.md` and update it.
 
-Do **not** write records for merely-covered material or session activity logs. Handle supersession by marking the old record `Status: superseded by LR-NNNN` rather than deleting it. Capture stated teaching preferences in `NOTES.md`.
+Do **not** write records for merely-covered material or session activity logs. Handle supersession by marking the old record `Status: superseded by LR-NNNN` rather than deleting it. Capture topic-specific teaching notes in `NOTES.md`; cross-topic learning style belongs in `LEARNING-PROFILE.md` (Phase 1.5), not here.
 
 ## Edge Cases & Errors
 
