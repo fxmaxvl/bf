@@ -37,7 +37,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:session-summary` | Utility | Summary of what happened this session | End of a work session — capture what changed and why |
 | `/bf:gather <feature or PRD>` | Utility | Iterative requirements gathering and versioned PRD distillation across sessions | You have a fuzzy PRD and need to track open questions, scope a POC, and build a versioned source of truth |
 | `/bf:research <topic>` | Utility | Decision-oriented researcher: clarifies usecase → issue → focus, gathers cited evidence, produces an Options + Recommendation report | You need prior art, library comparison, or decision support before building — and want a cited report saved to `.bf/research/` |
-| `/bf:teach <topic>` | Utility | Stateful multi-session tutor: mission-grounded HTML lessons, reference docs, learning records, resources, and a glossary in a per-topic workspace | You want to deliberately learn a topic over time, not just get a one-off explanation |
+| `/bf:teach <topic>` | Utility | Stateful multi-session tutor: mission-grounded HTML lessons, reference docs, learning records, resources, and a glossary in a per-topic workspace, plus an optional learning profile that tailors lesson delivery | You want to deliberately learn a topic over time, not just get a one-off explanation |
 
 ## Getting started
 
