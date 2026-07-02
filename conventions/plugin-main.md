@@ -19,7 +19,7 @@ When a skill spawns multiple sub-agents to work the **same task from independent
 - **Spawn together, in one message.** Issue all the parallel calls in a single message so they actually run concurrently.
 - **Wait for all — the fan-out is atomic.** The orchestrator blocks until every agent returns, then synthesizes. Do not advance the workflow, or persist a mid-fan-out state, while any agent is still in flight. This keeps resume trivial: a fan-out has either not started or fully completed.
 - **Keep agents independent — no peer messaging.** Fan-out agents must not `SendMessage` one another. Their worth is *uncorrelated* perspectives; cross-talk manufactures groupthink. All merging, deduping, and verdict logic happens in the orchestrator *after* every agent has returned.
-- **If agents run in the background,** instruct each to report its result to the orchestrator (`main`) as its final act, and have the orchestrator block on all completions before proceeding — a backgrounded agent that finishes its analysis but never reports will stall the fan-out.
+- **If agents run in the background,** instruct each to report its result to the orchestrator as its final act — address it as `team-lead` (the literal `main` only resolves for agents spawned with the background flag; `team-lead` works from any teammate) — and have the orchestrator block on all completions before proceeding. A backgrounded agent that finishes its analysis but never reports will stall the fan-out.
 
 ## Convention Lookup
 
