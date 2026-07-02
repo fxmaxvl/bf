@@ -4,6 +4,7 @@ description: Use when asked to create a new bf skill, author a SKILL.md, build a
 model: opus
 disable-model-invocation: false
 argument-hint: "[skill name or description, e.g. 'deploy-checker' or 'a skill that reviews Jira tickets']"
+allowed-tools: Read, Write, Edit, Grep, Glob
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules, including the **one-question-per-turn** rule that applies at every interactive point in this skill.
@@ -39,10 +40,10 @@ Then write the file.
 
 Run the checklist in the **Review Checklist** section against the drafted file. Fix every gap before declaring done.
 
-Once the checklist passes, add a row for the new skill to the `## What's inside` table in `README.md`:
+Once the checklist passes, add a row for the new skill to the `## What's inside` table in `README.md`. The table has four columns — `Skill | Kind | What it does | When to use`:
 
 ```
-| `/bf:<name> <hint>` | Utility | <one-line description of what it does> |
+| `/bf:<name> <hint>` | <Workflow | Oracle | Utility> | <one-line description of what it does> | <when to reach for it> |
 ```
 
 Match the concise, action-oriented style of existing rows.
@@ -146,7 +147,7 @@ The `description:` field must:
 
 Before finishing, verify each item. Fix any gap before marking done.
 
-- [ ] **Frontmatter complete** — `name`, `description`, `model`, `disable-model-invocation`, `argument-hint` all present and filled.
+- [ ] **Frontmatter complete** — `name`, `description`, `model`, `disable-model-invocation`, `argument-hint`, `allowed-tools` all present and filled.
 - [ ] **Reads plugin-main.md first** — the exact line `Read \`${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md\` first` appears as the first non-frontmatter line.
 - [ ] **ONE-question-per-turn respected** — any interactive gather phase asks one question, then waits. No batched questions anywhere in the skill.
 - [ ] **Single file unless justified** — no companion files created unless the skill exceeds ~130 lines or scripts are reusable across skills.
