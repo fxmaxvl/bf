@@ -45,8 +45,12 @@ Inspect the question and pick **one** pair. Pairs are complementary by design �
 
 | Pair | When to pick | Critic B angle | Critic C angle |
 |------|--------------|----------------|----------------|
-| `skeptic + alternative` | Default. Use for any question where correctness, risk, or edge cases dominate. | Attack the answer's flaws, risks, missed edge cases, hidden assumptions. | Propose a concretely different viable answer and argue why it wins. |
-| `technical + product` | Use when the question mixes engineering and product/UX scope (feature shape, naming, deprecation, API surface). | Challenge on technical correctness, complexity, maintainability. | Challenge on product fit, user impact, scope. |
+| `security + performance` | Infra/systems changes, new endpoints, data handling, auth, or anything touching attack surface or hot paths. | Threat model, attack surface, data exposure, auth/authz gaps of the answer. | Latency, throughput, and resource cost of the same choice. |
+| `cost + scalability` | Capacity, infra spend, or "will this hold at 10×" decisions. | Dollar cost now and operational overhead the answer adds. | Behavior under growth — bottlenecks, limits, what breaks at scale. |
+| `technical + product` | Question mixes engineering and product/UX scope (feature shape, naming, deprecation, API surface). | Challenge on technical correctness, complexity, maintainability. | Challenge on product fit, user impact, scope. |
+| `skeptic + alternative` | Catch-all. Use for any question where correctness, risk, or edge cases dominate and no specialized pair above fits. | Attack the answer's flaws, risks, missed edge cases, hidden assumptions. | Propose a concretely different viable answer and argue why it wins. |
+
+**Selection is priority-ordered, most specific wins.** When a question matches more than one pair, pick the highest row in the table above that applies — the specialized pairs (`security + performance`, `cost + scalability`) take precedence over the general `technical + product`, which takes precedence over the catch-all `skeptic + alternative`. Only fall to a lower row when no higher row fits.
 
 State the picked pair in one line before Phase 2.
 
@@ -91,7 +95,7 @@ Output one final block in this exact shape:
 **Flag:** <only if split — specific ambiguity the human needs to resolve>
 
 ---
-**Pair:** <skeptic+alternative | technical+product>
+**Pair:** <security+performance | cost+scalability | technical+product | skeptic+alternative>
 <Verdict A / B / C ledgers for audit>
 ```
 
@@ -107,5 +111,5 @@ When `SESSION_LOG` is present, append the final block (without the audit ledgers
 | Critic A returns `low` confidence already | Run B and C anyway — they may surface the resolving angle. |
 | B or C agrees with A without challenging | Re-prompt that single challenger once with a stricter instruction to find at least one concrete weakness. If still no challenge, treat as agreement. |
 | Task subagent fails | Fall back to running that challenger inline as a structured monologue from the chosen angle. Note the fallback in the audit ledger. |
-| Both pairs feel relevant | Default to `skeptic + alternative`. Note the tradeoff in the audit ledger. |
+| Multiple pairs feel relevant | Apply the priority order in Phase 1 — pick the highest applicable row (specialized before general before catch-all). Note the runner-up in the audit ledger. |
 | Embedded payload missing `CONTEXT` | Proceed; let A gather context via reads. Do not block. |
