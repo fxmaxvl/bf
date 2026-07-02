@@ -155,5 +155,6 @@ Before finishing, verify each item. Fix any gap before marking done.
 - [ ] **Deterministic ops are in scripts** — path computation, JSON reads, stack detection, and status parsing are in shell scripts rather than left to the model to derive inline. Token-heavy bash output is piped through a reducing proxy (e.g. `rtk`) where available.
 - [ ] **Description is action-triggered** — starts with "Use when…" or equivalent trigger phrasing; not a description of internals.
 - [ ] **Convention lookup used where relevant** — if the skill needs dev/testing/architecture/code-review conventions, it uses the 3-step lookup from plugin-main.md rather than hard-coding paths.
+- [ ] **Parallel fan-out follows the convention** — if the skill spawns multiple sub-agents to work the same task in parallel, they are named (fleet-board legible), spawned in one message, awaited atomically, and do not message each other, per the **Parallel Fan-Out** section of `plugin-main.md`.
 - [ ] **Banner printed on invocation** — skill prints `── bf:<name> ──…` as plain text (not in a code block) before doing any substantive work.
 - [ ] **Edge cases listed** — at least a stub `## Edge Cases & Errors` table covering the most obvious failure modes.

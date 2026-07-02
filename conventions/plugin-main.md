@@ -11,6 +11,16 @@ User-level conventions from `~/.claude/CLAUDE.md` and its imports are already in
 - **Always ask for clarification** rather than making assumptions.
 - **Ask ONE question at a time.** Never batch multiple questions into a single response. If you have several things to clarify, ask the first, wait for the answer, then ask the next. This is a hard rule, not a suggestion. **It applies at every point in every skill and sub-skill — including brainstorm, gather, refine, and any interactive phase. Mid-workflow does not exempt you from this rule.**
 
+## Parallel Fan-Out
+
+When a skill spawns multiple sub-agents to work the **same task from independent angles** in parallel — multi-critic councils, multi-hypothesis investigation, concurrent review gates — follow this pattern. It defines *how* to fan out; each skill still decides *whether and when* to (e.g. behind a `parallel_audit` flag, or always).
+
+- **Name every agent.** Give each a short, descriptive name (e.g. `complexity-gate`, `consistency-gate`, `review-impl`) so the run is legible on the fleet board. No anonymous parallel `Task`/`Agent` calls.
+- **Spawn together, in one message.** Issue all the parallel calls in a single message so they actually run concurrently.
+- **Wait for all — the fan-out is atomic.** The orchestrator blocks until every agent returns, then synthesizes. Do not advance the workflow, or persist a mid-fan-out state, while any agent is still in flight. This keeps resume trivial: a fan-out has either not started or fully completed.
+- **Keep agents independent — no peer messaging.** Fan-out agents must not `SendMessage` one another. Their worth is *uncorrelated* perspectives; cross-talk manufactures groupthink. All merging, deduping, and verdict logic happens in the orchestrator *after* every agent has returned.
+- **If agents run in the background,** instruct each to report its result to the orchestrator (`main`) as its final act, and have the orchestrator block on all completions before proceeding — a backgrounded agent that finishes its analysis but never reports will stall the fan-out.
+
 ## Convention Lookup
 
 When you need a convention file, resolve it using this 3-step lookup — **first match wins, fully replaces the plugin default**:

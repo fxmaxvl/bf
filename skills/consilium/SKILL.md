@@ -58,7 +58,7 @@ Ground the answer in real evidence — read relevant files, conventions (`dev`, 
 
 ## Phase 3 — Challengers B and C run in parallel
 
-Spawn both challengers in a single message using two parallel `Task` calls (`subagent_type: general-purpose`). Each receives:
+Spawn both challengers in a single message per the **Parallel Fan-Out** convention in `plugin-main.md` — two parallel `Task` calls (`subagent_type: general-purpose`), named `challenger-B` and `challenger-C` so they show on the fleet board. They run independently and must not message each other — their value is uncorrelated angles on Verdict A. Each receives:
 
 - The original question (and CONTEXT/OPTIONS if any)
 - **Verdict A** in full

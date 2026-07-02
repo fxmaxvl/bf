@@ -343,9 +343,9 @@ Print banner: `── feature | Audit Stack ────────────
 
 Run up to 3 scan → fix cycles (complexity & consistency):
 
-1. Run both gates in parallel (phase is `verify` — both skills auto-detect scan mode):
-   - Read `feature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus)
-   - Read `feature/consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus)
+1. Run both gates in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board (phase is `verify` — both skills auto-detect scan mode):
+   - `complexity-gate`: read `feature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus)
+   - `consistency-gate`: read `feature/consistency-gate/SKILL.md` and pass its contents as a second Agent prompt (model: opus)
 2. Check both reports:
    - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
    - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Consistency Report"`
@@ -368,11 +368,11 @@ Run up to 3 scan → fix cycles (complexity & consistency):
 Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
 
 1. **Record start timestamp:** note the current ISO timestamp in the conversation (e.g. "Audit start: 2026-05-23T15:00:00Z") — this is the canonical store across orchestrator turns. Do not rely on a shell variable; it will not survive across phases.
-2. **Spawn three Agents concurrently in a single tool-use block** (all model: opus):
-   - Agent A: contents of `feature/complexity-gate/SKILL.md`
-   - Agent B: contents of `feature/consistency-gate/SKILL.md`
-   - Agent C: contents of `feature/review-impl/SKILL.md`
-   IMPORTANT: all three must be in the SAME assistant message so they execute in parallel. Do not chain them.
+2. **Spawn three named Agents concurrently in a single tool-use block** per the **Parallel Fan-Out** convention in `plugin-main.md` (all model: opus). Name each so it shows on the fleet board:
+   - `complexity-gate`: contents of `feature/complexity-gate/SKILL.md`
+   - `consistency-gate`: contents of `feature/consistency-gate/SKILL.md`
+   - `review-impl`: contents of `feature/review-impl/SKILL.md`
+   IMPORTANT: all three must be in the SAME assistant message so they execute in parallel, and the fan-out is atomic — wait for all three to return before proceeding. Do not chain them, and do not have them message each other.
 3. **Record end timestamp:** note the current ISO timestamp in the conversation after all three return. Compute the wall-clock duration by diffing the end timestamp against the start timestamp noted in step 1, and log: `Audit stack wall-clock: <duration>s (parallel)`.
 4. Check all three reports:
    - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
