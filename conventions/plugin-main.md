@@ -48,6 +48,23 @@ The script returns a JSON array `[{filename, tier, first_heading, path}]`. Read 
 
 Alternatively, invoke `/bf:scan-conventions [task description]` — it handles discovery + relevance filtering and returns a structured list of matched files.
 
+## ADR Awareness
+
+Before finalizing any change that touches source code (commit/push/PR), check whether it affects an existing Architecture Decision Record.
+
+1. Resolve the ADR directory:
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/adr-writer/scripts/resolve-adr.sh"
+   ```
+   If `dir_exists` is `false`, there are no ADRs to check against — skip the rest of this section silently. Do not mention ADRs at all in that case.
+2. List existing ADR titles: `grep -h "^# " <adr_dir>/*.md`.
+3. Compare the session's changed files and decisions against those titles. Flag a match only when the change plausibly **contradicts, supersedes, or materially extends** a recorded decision — not for routine changes that merely touch the same files.
+4. If one or more ADRs look affected, ask one question before proceeding with finalize:
+   > This change may affect ADR `<NNNN>` — "<title>". Record a new ADR for it?
+   - **Yes** → invoke `Skill("bf:adr-writer", args="<short title for the new decision>")`, then continue finalize once it returns.
+   - **No** → continue finalize as normal.
+5. If no ADRs are affected, skip silently — do not surface this check to the user when there's nothing to flag.
+
 ## Generated Artifacts
 
 All generated artifacts (session logs, specs, plans, research reports, QA notes, design docs, and any other skill output) **must** be stored under a `.bf/` directory. Never use `.vs/`, `.context/`, `docs/`, or any other location for skill-generated artifacts.

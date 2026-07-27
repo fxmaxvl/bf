@@ -451,11 +451,12 @@ Print banner: `── feature | Finalize ─────────────
       - If no: **Exit** (re-invoke `/bf:feature` when ready).
       - If yes: continue.
    Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=false` — continue. (TODO scanning is always skipped in quick mode.)
-3. **Compose commit message and PR content** (reasoning — model writes this):
+3. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions. Resolve and act on it before composing the commit.
+4. **Compose commit message and PR content** (reasoning — model writes this):
    - **Commit message:** `feat:` prefix with a concise description. Include issue/ticket if enabled (e.g., `feat(#12): address review concerns`, `feat(PROJ-123): address review concerns`).
    - **PR title:** short, imperative (≤70 chars)
    - **PR body:** Extract the `## Spec` block from `paths.session_log` and compose a short summary (2–3 sentences max) of what the feature does and why — no test descriptions, no minor change lists, no implementation details. Store it in a variable for use in the next step.
-4. **Run git finalize:**
+5. **Run git finalize:**
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/finalize-git.sh" \
      --commit-msg "<commit message>" \
@@ -465,14 +466,14 @@ Print banner: `── feature | Finalize ─────────────
      [--jira-url <jira.ticket_url>]           # only if jira.enabled
    ```
    The script stages (excluding `.bf/sessions/`), commits if there are changes, pushes, creates the PR, and outputs the PR URL.
-5. **If `jira.enabled` is `true`:**
+6. **If `jira.enabled` is `true`:**
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-6. Tell the user: "PR is up at <pr_url>. Build complete!"
-7. ```
+7. Tell the user: "PR is up at <pr_url>. Build complete!"
+8. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=collect-todos phase_status=in_progress
    ```
-8. If `collect_todos` is `true` (set at the pre-finalization gate): proceed to Phase 7. Otherwise: skip Phase 7, proceed directly to Phase 8 (Cleanup)
+9. If `collect_todos` is `true` (set at the pre-finalization gate): proceed to Phase 7. Otherwise: skip Phase 7, proceed directly to Phase 8 (Cleanup)
 
 ## Phase 7 — Collect TODOs (optional)
 

@@ -185,22 +185,23 @@ Print banner: `── feature | Finalize ─────────────
    Ask: "Ready to finalize (commit, push, PR)?"
    - If no: **Exit** (re-invoke `/bf:micro` when ready).
    - If yes: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress` — continue.
-3. Stage and commit any uncommitted changes (do **not** stage `.bf/sessions/`) following `conventions/git.md`. Use `refactor:` prefix.
+3. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions. Resolve and act on it before committing.
+4. Stage and commit any uncommitted changes (do **not** stage `.bf/sessions/`) following `conventions/git.md`. Use `refactor:` prefix.
    - If `github_issue.enabled`: include issue number (e.g., `refactor(#12): split processOrder into smaller methods`).
    - If `jira.enabled`: include ticket key.
-4. Push the branch to remote.
-5. Create a PR using `gh pr create`:
+5. Push the branch to remote.
+6. Create a PR using `gh pr create`:
    - **PR body**: Micro mode produces no spec — extract the `## QA` block from `paths.temp` and derive a 2–3 sentence summary describing what was refactored and why.
    - If `github_issue.enabled`: append `Closes #<github_issue.number>`.
    - If `jira.enabled`: append a link to the Jira ticket.
-6. If `jira.enabled`:
+7. If `jira.enabled`:
    - Invoke the `feature-jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `feature-jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-7. Tell the user: "PR is up at <pr_url>. Build complete!"
-8. ```
+8. Tell the user: "PR is up at <pr_url>. Build complete!"
+9. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=done phase_status=in_progress
    ```
-9. Proceed to Phase 7.
+10. Proceed to Phase 7.
 
 ## Phase 7 — Cleanup
 

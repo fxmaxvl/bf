@@ -120,8 +120,9 @@ If a test fails: do **not** ask the user. Diagnose and re-attempt. After 2 faile
 When all steps pass:
 
 1. Re-run the full test suite once for safety.
-2. Write a `## Summary` block: root cause (1 line), fix (1 line), files changed, tests added.
-3. Print:
+2. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions, with one adjustment — this skill never prompts the user interactively (per its autonomous design). If an ADR looks affected, do **not** invoke `bf:adr-writer` automatically; instead surface it as an `ADR flag` in the summary below so the user can decide whether to run it.
+3. Write a `## Summary` block: root cause (1 line), fix (1 line), files changed, tests added.
+4. Print:
 
 ```
 ── bf:bug-fix | Done ──────────────────────────────────────
@@ -130,6 +131,7 @@ Root cause: <one-liner>
 Fix: <one-liner>
 Files changed: <count>
 Low-confidence flags: <list, or "none">
+ADR flags: <affected ADR(s) with path + title, or "none">
 Session log: <absolute path>
 ```
 
