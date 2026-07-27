@@ -28,6 +28,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:discuss <question>` | Oracle | Open dialogue to explore a question before committing to a direction | You're not ready to decide yet — you want to think out loud first |
 | `/bf:consilium <question>` | Oracle | 3-critic council: one answers, two challenge from opposing angles, majority wins | The decision is high-stakes or contested and one opinion isn't enough |
 | `/bf:design <idea>` | Utility | Shareable system-design doc with diagrams, via interactive Q&A | You need a design artifact — standalone, no git or PR involved |
+| `/bf:adr-writer [title]` | Utility | Interactive Q&A to draft a numbered ADR citing only tracked source files | You need to record an architecture decision as a real project doc |
 | `/bf:review [PR# \| files]` | Utility | Code review against bf conventions and the complexity gate | Before merging — or whenever you want a second set of eyes |
 | `/bf:gh` | Utility | Pick or create a GitHub issue and kick off a workflow | Starting work from an issue tracker |
 | `/bf:jira` | Utility | Pick a Jira ticket and kick off a workflow | Starting work from Jira |
