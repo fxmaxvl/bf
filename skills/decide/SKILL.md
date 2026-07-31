@@ -79,6 +79,8 @@ Return the verdict in this exact ledger format:
 
 If confidence is `low`: append a `**Flag:**` line describing the specific ambiguity the human should review on return.
 
+Phrase the rationale as plain engineering prose fit for a durable record: no agent or critic names, no internal process mechanics, and no internal spec-ID references — cite the convention rule, code path, or trade-off directly.
+
 ---
 
 ## Step 4 — Log to session (embedded mode only)

@@ -99,6 +99,8 @@ Output one final block in this exact shape:
 <Verdict A / B / C ledgers for audit>
 ```
 
+Phrase the rationale as plain engineering prose fit for a durable record: no agent or critic names, no internal process mechanics, and no internal spec-ID references — cite the convention rule, code path, or trade-off directly.
+
 ## Phase 6 — Log (embedded mode only)
 
 When `SESSION_LOG` is present, append the final block (without the audit ledgers) to the `## Decisions` section using the block-write pattern from `plugin-main.md`. Standalone mode prints to the conversation only.
