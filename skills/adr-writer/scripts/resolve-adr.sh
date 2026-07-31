@@ -29,7 +29,9 @@ if [ -z "$adr_dir" ]; then
   [ -d "$adr_dir" ] && dir_exists=true
 fi
 
-last_num=$(find "$adr_dir" -maxdepth 1 -name "$adr_glob" 2>/dev/null \
+adr_files=$(find "$adr_dir" -maxdepth 1 -name "$adr_glob" 2>/dev/null | sort) || true
+
+last_num=$(printf '%s\n' "$adr_files" \
   | sed -E 's#.*/([0-9]{4})-.*#\1#' \
   | sort -n \
   | tail -1) || true
@@ -39,8 +41,6 @@ if [ -z "$last_num" ]; then
 else
   next_number=$(printf '%04d' "$((10#$last_num + 1))")
 fi
-
-adr_files=$(find "$adr_dir" -maxdepth 1 -name "$adr_glob" 2>/dev/null | sort) || true
 
 adrs_json="[]"
 if [ -n "$adr_files" ]; then
