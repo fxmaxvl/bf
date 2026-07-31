@@ -23,6 +23,12 @@ Print banner (plain text):
 ── bf:adr-writer ────────────────────────────────────────
 ```
 
+### Mode detection
+
+- If `$ARGUMENTS` starts with `AMEND:` (case-insensitive, leading whitespace tolerated) → **amend mode**. Continue at "## Amend Track" below. The text after the marker is an optional selector: a 4-digit ADR number (`0003`), a bare filename (`0003-use-postgres.md`), or a repo-relative path. Empty remainder → the Amend Track's picker step handles it.
+- Anything else, including empty `$ARGUMENTS` → **create mode**. Continue at "## Phase 1 — Gather" below, unchanged.
+- Never infer amend mode from free text (e.g. "update the ADR about X"). If a selector doesn't resolve to exactly one existing ADR, fall back to the picker — do not guess.
+
 ## Phase 1 — Gather
 
 Ask ONE question at a time, waiting for each answer before asking the next:
@@ -33,6 +39,32 @@ Ask ONE question at a time, waiting for each answer before asking the next:
 4. **Decision** — which option was chosen?
 5. **Consequences** — what trade-offs, follow-up work, or risks does this decision create?
 6. **(Optional) Affected code** — any specific files, modules, or components this decision touches? Skip if the user has nothing specific in mind.
+
+## Amend Track (amend mode)
+
+Entered instead of Phase 1 when Mode detection selects amend mode. Reuses the create flow's verification and content rules rather than duplicating them.
+
+1. Run (same command as Phase 2):
+
+   ```bash
+   bash "${CLAUDE_SKILL_DIR}/scripts/resolve-adr.sh"
+   ```
+
+   Use the `adrs` array from its output for the picker below.
+
+2. If `adrs` is empty: tell the user there are no existing ADRs to amend and ask one question — "No existing ADRs found. Create a new one instead?"
+   - **Yes** — strip the `AMEND:` marker and any selector text from `$ARGUMENTS` first, then ask a fresh one-question title prompt. Do **not** pass the raw `$ARGUMENTS` (e.g. the literal string `"AMEND: 0003"`) through as the title. Continue at Phase 1, step 2 (Context), using the fresh title as the answer to step 1.
+   - **No** — stop.
+3. If a selector was supplied after the `AMEND:` marker and it matches exactly one entry in `adrs` (by number, filename, or path), skip the picker and use that entry. Otherwise, present the numbered `NNNN — Title` list (mirroring the Pick Mode pattern in `skills/gh/SKILL.md`) and ask one question: "Which ADR do you want to amend?"
+4. Read the selected ADR file in full.
+5. Gather the amendment via one-question-at-a-time Q&A:
+   - What changed?
+   - Why now?
+   - Does this amendment extend, narrow, or supersede the recorded decision?
+6. Apply the amendment **in place to the existing numbered file** — same number, same filename, no renumbering, no new file.
+   - For any newly referenced files, reuse Phase 3's tracked-file verification (`git ls-files --error-unmatch`).
+   - The **Content rules** block in Phase 4 (no Claude/skill/tool/agent mentions, no meta-commentary, no internal spec-IDs or process mechanics, tracked source files only) applies unchanged — do not restate or fork it.
+7. Route into Phase 5 — Review (accept / revise) rather than adding a second review loop.
 
 ## Phase 2 — Resolve path
 
