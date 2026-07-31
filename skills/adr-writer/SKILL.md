@@ -1,10 +1,10 @@
 ---
 name: adr-writer
-description: Use when the user wants to document an architecture decision, write an ADR, or create a decision record. Interactively gathers the context, options considered, and chosen approach, then drafts a numbered Architecture Decision Record that cites only tracked source files.
+description: Use when the user wants to document an architecture decision, write an ADR, create a decision record, or amend/update/supersede an existing ADR. Interactively gathers the context, options considered, and chosen approach, then drafts or amends a numbered Architecture Decision Record that cites only tracked source files.
 model: sonnet
 disable-model-invocation: false
-argument-hint: "[decision title, e.g. 'use Postgres for the events table']"
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(mkdir *)
+argument-hint: "[decision title, e.g. 'use Postgres for the events table'] | AMEND: [ADR number or path]"
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(mkdir *), Bash(bash *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules, including the **one-question-per-turn** rule that applies at every interactive point in this skill.
