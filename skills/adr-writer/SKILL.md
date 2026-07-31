@@ -1,6 +1,6 @@
 ---
 name: adr-writer
-description: Use when the user wants to document an architecture decision, write an ADR, create a decision record, or amend/update an existing ADR. Interactively gathers the context, options considered, and chosen approach, then drafts or amends a numbered Architecture Decision Record that cites only tracked source files. Superseding a decision is a manual two-step (amend this skill to mark the old ADR's Status, then run create mode for the successor) — not a single mode.
+description: Use when the user wants to document an architecture decision, write an ADR, create a decision record, or amend/update an existing ADR. Interactively gathers the context, options considered, and chosen approach, then drafts or amends a numbered Architecture Decision Record that cites only tracked source files. Superseding a decision is a manual two-step (run create mode for the successor decision first, then amend the predecessor ADR's Status once the new path is known) — not a single mode.
 model: sonnet
 disable-model-invocation: false
 argument-hint: "[decision title, e.g. 'use Postgres for the events table'] | AMEND: [ADR number or path]"
@@ -25,9 +25,11 @@ Print banner (plain text):
 
 ### Mode detection
 
-- If `$ARGUMENTS` starts with `AMEND:` (case-insensitive, leading whitespace tolerated) **and** the text after the marker, trimmed, is either empty or selector-shaped (a 1–4 digit ADR number, a bare filename ending `.md`, or a repo-relative path containing `/`) → **amend mode**. Consume the marker and selector now: set `selector` to that trimmed remainder (possibly empty) and set `title_hint` to empty — the amend-mode `$ARGUMENTS` is never a title candidate. Continue at "## Amend Track" below.
-- Anything else, including empty `$ARGUMENTS` or `AMEND:` followed by ordinary free text with no selector shape (e.g. `Amend: retention policy for event logs`) → **create mode**. Set `title_hint` to the full, unmodified `$ARGUMENTS` (marker included, if any — it's part of the title, not a mode signal). Continue at "## Phase 1 — Gather" below, unchanged.
-- Never infer amend mode from free text elsewhere in the string. If `selector` doesn't resolve to exactly one existing ADR, fall back to the picker — do not guess.
+- If `$ARGUMENTS` starts with `AMEND:` (case-insensitive, leading whitespace tolerated), let `remainder` be the text after the marker, trimmed:
+  - **Unambiguous selector** — `remainder` is empty, OR is a bare 1–4 digit number, OR is a bare filename ending `.md` with no `/` → **amend mode (unambiguous)**. Set `selector` to `remainder` (possibly empty) and `title_hint` to empty. Continue at "## Amend Track" below.
+  - **Everything else** (including any remainder containing `/`, e.g. `AMEND: CI/CD pipeline ownership`, or any other free text) → **amend mode (candidate)**. This remainder has not been shown to be a real selector yet — it might resolve to an ADR, or it might be an ordinary title that happens to start with the marker. Set `selector` to `remainder` and `title_hint` to the full, unmodified `$ARGUMENTS` (marker included — it doubles as the fallback title if resolution fails). Continue at "## Amend Track" below; resolution happens there once `adrs` is available (step 3), and a zero/multiple-match result falls back to create mode using `title_hint` as-is — no picker.
+- Anything else, including empty `$ARGUMENTS` → **create mode**. Set `title_hint` to the full, unmodified `$ARGUMENTS`. Continue at "## Phase 1 — Gather" below, unchanged.
+- Never infer amend mode from free text elsewhere in the string.
 
 ## Phase 1 — Gather
 
@@ -52,10 +54,13 @@ Entered instead of Phase 1 when Mode detection selects amend mode. Reuses the cr
 
    Use the `adrs` array from its output for the picker below.
 
-2. If `adrs` is empty: tell the user there are no existing ADRs to amend and ask one question — "No existing ADRs found. Create a new one instead?"
-   - **Yes** — `title_hint` is already empty (set at Mode detection) — enter Phase 1 at step 1 unchanged; it will ask for a title since none was supplied.
-   - **No** — stop.
-3. If `selector` (from Mode detection) is non-empty and matches exactly one entry in `adrs` (by number, filename, or path), skip the picker and use that entry. Otherwise, present a numbered list, one `NNNN — Title` per line, and ask one question: "Which ADR do you want to amend?"
+2. Determine whether `selector` (from Mode detection) matches exactly one entry in `adrs` — by number (compare zero-padded to 4 digits, so `3` matches `0003`), filename, or path.
+3. Branch on which form of amend mode Mode detection selected:
+   - **Unambiguous** (`title_hint` is empty): if `adrs` is empty, tell the user there are no existing ADRs to amend and ask one question — "No existing ADRs found. Create a new one instead?"
+     - **Yes** — enter Phase 1 at step 1; `title_hint` is empty, so it will ask for a title.
+     - **No** — stop.
+     Otherwise, if `selector` is non-empty and matches exactly one entry, use that entry. If `selector` is empty, or matches zero or multiple entries, present a numbered list, one `NNNN — Title` per line, and ask one question: "Which ADR do you want to amend?"
+   - **Candidate** (`title_hint` is non-empty): if `selector` matches exactly one entry, use that entry and discard `title_hint` — this is now amend mode. Otherwise (zero or multiple matches, including when `adrs` is empty) — abandon amend mode silently, no picker — enter Phase 1 at step 1 using `title_hint` as the title.
 4. Read the selected ADR file in full.
 5. Gather the amendment via one-question-at-a-time Q&A:
    - What changed?
@@ -64,6 +69,7 @@ Entered instead of Phase 1 when Mode detection selects amend mode. Reuses the cr
 6. Apply the amendment **in place to the existing numbered file** — same number, same filename, no renumbering, no new file.
    - For any newly referenced files, reuse Phase 3's tracked-file verification (`git ls-files --error-unmatch`).
    - The **Content rules** block in Phase 4 applies unchanged — do not restate or fork it.
+   - `## Status` is an amendable field. Its only two permitted values are `Accepted` (the Phase 4 template default) and `Superseded by <repo-relative path>` (set once a successor ADR exists — see the Edge Cases row on superseding below for the required order).
 7. Route into Phase 5 — Review (accept / revise) rather than adding a second review loop.
 
 ## Phase 2 — Resolve path
@@ -152,8 +158,9 @@ Show the user the absolute path and the rendered content. Ask one question:
 | Referenced file is untracked or doesn't exist | Exclude it from the doc; tell the user why, inline in conversation. |
 | Filename collision at the resolved path | Re-run `resolve-adr.sh` conceptually by incrementing the number by one; this should not happen since the script scans existing files, but guard against races. |
 | User has no options to list (obvious/forced decision) | Allow "no alternatives considered" as the answer; omit the Considered Options section. |
-| `$ARGUMENTS` is a create-mode title that legitimately begins `Amend:` (e.g. `Amend: retention policy for event logs`) | Mode detection requires the marker be followed by end-of-string or a selector-shaped remainder (digits, `.md` filename, or a `/`-containing path). Ordinary free text after the marker has no such shape → create mode; the full `$ARGUMENTS`, marker included, is used verbatim as the title. |
-| Amend mode: no existing ADRs found (`adrs` is empty) | Offer to create one instead — one question; on yes, enter Phase 1 at step 1 (title_hint is already empty, so it asks). |
-| Amend mode: `AMEND:` selector matches zero or multiple ADRs | Fall back to the picker rather than guessing; show the numbered list and ask which one. |
+| `$ARGUMENTS` is a create-mode title that legitimately begins `Amend:` (e.g. `AMEND: CI/CD pipeline ownership`, `Amend: retention policy for event logs`) | Mode detection does not discard the title on a `/`-containing or otherwise-shapeless remainder. Any remainder that isn't a bare 1–4 digit number or a bare `.md` filename enters amend mode as a *candidate*, with `title_hint` kept as the full `$ARGUMENTS`. If the candidate resolves to zero or multiple ADRs, amend mode is abandoned and Phase 1 proceeds with `title_hint` verbatim as the title (marker included) — no picker shown. |
+| Amend mode (unambiguous form — bare digits or bare `.md` filename): no existing ADRs found (`adrs` is empty) | Offer to create one instead — one question; on yes, enter Phase 1 at step 1 (`title_hint` is empty, so it asks). |
+| Amend mode (unambiguous form): selector matches zero or multiple ADRs | Fall back to the picker rather than guessing; show the numbered list and ask which one. |
+| Amend mode (candidate form — `/`-containing or free-text remainder): selector matches zero or multiple ADRs | No picker. Silently fall back to create mode using `title_hint` (the full original `$ARGUMENTS`) as the title. |
 | Amend mode: selected ADR file has no parsable `# ` title | Read the file body anyway; refer to it by its filename/number in conversation. |
-| Amend mode: the amendment contradicts, or should supersede rather than extend/narrow, the recorded decision | Surface this to the user. Superseding is a manual two-step, not a mode of this skill: (1) amend the selected ADR's `## Status` line to `Superseded by <path of the new ADR>`, then (2) run create mode for the successor decision. |
+| Amend mode: the amendment contradicts, or should supersede rather than extend/narrow, the recorded decision | Surface this to the user. Superseding is a manual two-step, not a mode of this skill: (1) run create mode for the successor decision first, deriving its path; then (2) amend the predecessor ADR's `## Status` to `Superseded by <path of the new ADR>` using that path. |

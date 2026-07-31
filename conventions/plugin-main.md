@@ -29,8 +29,6 @@ When you need a convention file, resolve it using this 3-step lookup — **first
 2. `~/.bf/conventions/<name>.md`
 3. `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`
 
-The available convention names and when to use each:
-
 ## Custom Convention Discovery
 
 Beyond the predefined convention names above, users may define arbitrarily-named convention files (e.g. `api-style.md`, `monorepo-rules.md`) in either of:
@@ -67,15 +65,16 @@ Before finalizing any change that touches source code (commit/push/PR), check wh
 
 ## Durable Record Phrasing
 
-Applies wherever a verdict, rationale, or amendment rationale ends up in a durable record — an ADR, a session log's `## Decisions` block, or any file that outlives this session.
+Applies wherever a verdict, rationale, or amendment rationale ends up in a durable record. Scope splits into two cases:
 
-The **prose fields only** (`**Why:**`, `**Dissent:**`, `**Flag:**`, and equivalent free-text rationale) must read as plain engineering rationale suitable for someone with no context on how the call was made:
+- **A session log's `## Decisions` block.** This is an in-session audit record. The **prose fields only** (see below) are governed by the ban. The structural scaffolding around those fields — headers like `### <PHASE> · <question>` or `### consilium · <question>`, `**Pair:**` lines, agreement tallies, and ledger dividers — is the oracle's own bookkeeping and is **permitted** to persist verbatim here, for in-session audit purposes.
+- **An ADR, or any other project-facing/exported document.** Both the prose fields *and* the structural scaffolding are governed. Scaffolding must be stripped or paraphrased before anything is copied into a document of this kind — it must never appear verbatim there.
+
+The **prose fields** (`**Why:**`, `**Dissent:**`, `**Flag:**`, and equivalent free-text rationale) must read as plain engineering rationale suitable for someone with no context on how the call was made:
 
 - No agent, critic, or skill names (e.g. "consilium", "critic", "lenses", "bf:decide").
 - No internal process mechanics (phase labels, pair names, agreement tallies, audit-ledger structure).
 - No internal spec-ID references (e.g. "FR-7"). Cite what the rule or spec section *says*, by its name or topic, not its tracking ID — "the auth section of the spec," not "FR-7."
-
-This does **not** apply to the structural scaffolding around those fields — headers like `### <PHASE> · <question>` or `### consilium · <question>`, `**Pair:**` lines, agreement tallies, and ledger dividers are the oracle's own bookkeeping, useful for audit inside the session. They are expected to be stripped or paraphrased by whoever later copies a verdict into a durable record like an ADR — that structure must never be carried over verbatim into one.
 
 ## Generated Artifacts
 

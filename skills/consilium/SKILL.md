@@ -99,7 +99,7 @@ Output one final block in this exact shape:
 <Verdict A / B / C ledgers for audit>
 ```
 
-Durable-record rationale (the `**Why:**`/`**Dissent:**`/`**Flag:**` prose) must follow the Durable Record Phrasing rule in `plugin-main.md`. That rule does not require stripping the `### consilium · <question>` header or the `**Pair:**` line when logging — see Phase 6.
+Durable-record rationale (the `**Why:**`/`**Dissent:**`/`**Flag:**` prose) must follow the Durable Record Phrasing rule in `plugin-main.md`. That rule exempts the `### consilium · <question>` header from stripping when logging to a session log's `## Decisions` block. `**Pair:**` is dropped at log time for a separate reason — it sits below the audit-ledger divider — see Phase 6.
 
 ## Phase 6 — Log (embedded mode only)
 
