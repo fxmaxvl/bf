@@ -72,14 +72,14 @@ Return the verdict in this exact ledger format:
 
 **Verdict:** <A/B/C> — <option label>
 
-**Why:** <1–2 sentences. Cite the specific convention rule, spec section, or code pattern. No vague generalities.>
+**Why:** <1–2 sentences. Cite the specific convention rule, spec section by name/topic, or code pattern. No vague generalities.>
 
 **Confidence:** high | medium | low
 ```
 
 If confidence is `low`: append a `**Flag:**` line describing the specific ambiguity the human should review on return.
 
-Phrase the rationale as plain engineering prose fit for a durable record: no agent or critic names, no internal process mechanics, and no internal spec-ID references — cite the convention rule, code path, or trade-off directly.
+Durable-record rationale (the `**Why:**`/`**Flag:**` prose) must follow the Durable Record Phrasing rule in `plugin-main.md`.
 
 ---
 

@@ -89,7 +89,7 @@ Output one final block in this exact shape:
 **Decision:** <answer — one line, plain English>
 **Agreement:** unanimous (3/3) | majority (2/3) | split (no majority)
 
-**Why:** <1–2 sentences citing concrete evidence — convention rule, code pattern, spec line.>
+**Why:** <1–2 sentences citing concrete evidence — convention rule, code pattern, spec section by name/topic.>
 
 **Dissent:** <only if 2/3 — verbatim challenge from the dissenter, ≤2 sentences>
 **Flag:** <only if split — specific ambiguity the human needs to resolve>
@@ -99,11 +99,11 @@ Output one final block in this exact shape:
 <Verdict A / B / C ledgers for audit>
 ```
 
-Phrase the rationale as plain engineering prose fit for a durable record: no agent or critic names, no internal process mechanics, and no internal spec-ID references — cite the convention rule, code path, or trade-off directly.
+Durable-record rationale (the `**Why:**`/`**Dissent:**`/`**Flag:**` prose) must follow the Durable Record Phrasing rule in `plugin-main.md`. That rule does not require stripping the `### consilium · <question>` header or the `**Pair:**` line when logging — see Phase 6.
 
 ## Phase 6 — Log (embedded mode only)
 
-When `SESSION_LOG` is present, append the final block (without the audit ledgers) to the `## Decisions` section using the block-write pattern from `plugin-main.md`. Standalone mode prints to the conversation only.
+When `SESSION_LOG` is present, append the final block **excluding everything from the `---` divider onward** (i.e. drop `**Pair:**` and the `<Verdict A / B / C ledgers>`, but keep the `### consilium · <question>` header, `**Decision:**`, `**Agreement:**`, `**Why:**`, and any `**Dissent:**`/`**Flag:**`) to the `## Decisions` section using the block-write pattern from `plugin-main.md`. Standalone mode prints to the conversation only.
 
 ## Edge Cases & Errors
 

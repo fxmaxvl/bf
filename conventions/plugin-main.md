@@ -56,14 +56,26 @@ Before finalizing any change that touches source code (commit/push/PR), check wh
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}/skills/adr-writer/scripts/resolve-adr.sh"
    ```
-   If `dir_exists` is `false`, there are no ADRs to check against — skip the rest of this section silently. Do not mention ADRs at all in that case.
-2. List existing ADR titles: `grep -h "^# " <adr_dir>/*.md`.
+   If `dir_exists` is `false` or `adrs` is empty, there are no ADRs to check against — skip the rest of this section silently. Do not mention ADRs at all in that case.
+2. List existing ADR titles: use `adrs[].title` from step 1's output directly — do not re-derive titles with a separate scan.
 3. Compare the session's changed files and decisions against those titles. Flag a match only when the change plausibly **contradicts, supersedes, or materially extends** a recorded decision — not for routine changes that merely touch the same files.
 4. If one or more ADRs look affected, ask one question before proceeding with finalize:
    > This change may affect ADR `<NNNN>` — "<title>". Record a new ADR for it?
    - **Yes** → invoke `Skill("bf:adr-writer", args="<short title for the new decision>")`, then continue finalize once it returns.
    - **No** → continue finalize as normal.
 5. If no ADRs are affected, skip silently — do not surface this check to the user when there's nothing to flag.
+
+## Durable Record Phrasing
+
+Applies wherever a verdict, rationale, or amendment rationale ends up in a durable record — an ADR, a session log's `## Decisions` block, or any file that outlives this session.
+
+The **prose fields only** (`**Why:**`, `**Dissent:**`, `**Flag:**`, and equivalent free-text rationale) must read as plain engineering rationale suitable for someone with no context on how the call was made:
+
+- No agent, critic, or skill names (e.g. "consilium", "critic", "lenses", "bf:decide").
+- No internal process mechanics (phase labels, pair names, agreement tallies, audit-ledger structure).
+- No internal spec-ID references (e.g. "FR-7"). Cite what the rule or spec section *says*, by its name or topic, not its tracking ID — "the auth section of the spec," not "FR-7."
+
+This does **not** apply to the structural scaffolding around those fields — headers like `### <PHASE> · <question>` or `### consilium · <question>`, `**Pair:**` lines, agreement tallies, and ledger dividers are the oracle's own bookkeeping, useful for audit inside the session. They are expected to be stripped or paraphrased by whoever later copies a verdict into a durable record like an ADR — that structure must never be carried over verbatim into one.
 
 ## Generated Artifacts
 
