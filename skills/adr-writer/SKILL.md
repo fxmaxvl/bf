@@ -74,7 +74,7 @@ Run:
 bash "${CLAUDE_SKILL_DIR}/scripts/resolve-adr.sh"
 ```
 
-This returns JSON: `{"adr_dir": "...", "dir_exists": bool, "next_number": "NNNN"}`.
+This returns JSON: `{"adr_dir": "...", "dir_exists": bool, "next_number": "NNNN", "adrs": [{"number": "NNNN", "title": "...", "path": "..."}]}`.
 
 Derive a slug from the title: kebab-case, ASCII only, strip filler words (a, an, the, of, to, in, for, on, at, by, with, and, or, but), cap at 40 characters at a word boundary.
 
@@ -152,3 +152,7 @@ Show the user the absolute path and the rendered content. Ask one question:
 | Referenced file is untracked or doesn't exist | Exclude it from the doc; tell the user why, inline in conversation. |
 | Filename collision at the resolved path | Re-run `resolve-adr.sh` conceptually by incrementing the number by one; this should not happen since the script scans existing files, but guard against races. |
 | User has no options to list (obvious/forced decision) | Allow "no alternatives considered" as the answer; omit the Considered Options section. |
+| Amend mode: no existing ADRs found (`adrs` is empty) | Offer to create one instead — one question; on yes, strip the `AMEND:` marker/selector before asking a fresh title. |
+| Amend mode: `AMEND:` selector matches zero or multiple ADRs | Fall back to the picker rather than guessing; show the numbered list and ask which one. |
+| Amend mode: selected ADR file has no parsable `# ` title | Read the file body anyway; refer to it by its filename/number in conversation. |
+| Amend mode: the amendment contradicts (rather than extends/narrows) the recorded decision | Surface this to the user and ask whether a new superseding ADR is the better move instead of editing in place. |
