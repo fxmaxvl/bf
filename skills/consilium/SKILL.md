@@ -103,7 +103,7 @@ Durable-record rationale (the `**Why:**`/`**Dissent:**`/`**Flag:**` prose) must 
 
 ## Phase 6 — Log (embedded mode only)
 
-When `SESSION_LOG` is present, append the final block **excluding everything from the `---` divider onward** (i.e. drop `**Pair:**` and the `<Verdict A / B / C ledgers>`, but keep the `### consilium · <question>` header, `**Decision:**`, `**Agreement:**`, `**Why:**`, and any `**Dissent:**`/`**Flag:**`) to the `## Decisions` section using the block-write pattern from `plugin-main.md`. Standalone mode prints to the conversation only.
+When `SESSION_LOG` is present, append the final block **excluding everything from the `---` divider onward** (i.e. drop `**Pair:**` and the `<Verdict A / B / C ledgers>`, but keep the `### consilium · <question>` header, `**Decision:**`, `**Agreement:**`, `**Why:**`, and any `**Dissent:**`/`**Flag:**`) to the `## Decisions` section using **case 4 (accumulate)** of the Block Writing Pattern in `plugin-main.md` — `## Decisions` is an accumulate-type block, so insert before the next `^## ` boundary rather than replacing prior entries. Standalone mode prints to the conversation only.
 
 ## Edge Cases & Errors
 

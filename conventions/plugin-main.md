@@ -91,12 +91,16 @@ Each skill chooses its own subdirectory under that root (e.g. `.bf/sessions/`, `
 
 Each session produces two files:
 
-| File | Key | Contents |
-|------|-----|----------|
-| `<prefix>-session-log.md` | `paths.session_log` | Persistent blocks: Spec, Plan, Todo, Backlog, Deployment |
-| `<prefix>-temp.md` | `paths.temp` | Ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report |
+| File | Key | Contents | Write mode |
+|------|-----|----------|------------|
+| `<prefix>-session-log.md` | `paths.session_log` | Persistent blocks: Spec, Plan, Todo, Backlog, Deployment, Decisions | Spec/Plan/Todo/Backlog/Deployment: **regenerate**. Decisions: **accumulate** |
+| `<prefix>-temp.md` | `paths.temp` | Ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report, Consistency Report, Refine Q&A | **regenerate** |
 
 `paths.spec`, `paths.plan`, etc. are **aliases** — they resolve to the same physical file (`session_log` or `temp`). Use `paths.block_<name>` for the matching block header (e.g. `paths.block_spec` = `## Spec`).
+
+**Write mode** is a property of the block, not a judgment made at the call site:
+- **regenerate** — the block is rewritten wholesale each time it's produced (Spec, Plan, Todo, Backlog, Deployment, QA, Design Report, Implementation Review, Complexity Report, Consistency Report, Refine Q&A, etc.).
+- **accumulate** — the block is appended to over time and never overwritten (`Decisions` — every oracle call adds one more verdict).
 
 ### Block Reading Pattern
 
@@ -112,7 +116,8 @@ To write an artifact block:
 
 1. If the physical file doesn't exist: create it with `<paths.block_<artifact>>\n\n<content>`
 2. If it exists but the block header is absent: append `\n\n<paths.block_<artifact>>\n\n<content>`
-3. If the block header already exists: replace the block content in place (edit from header to next `## ` or EOF)
+3. If the block header already exists and the block's write mode is **regenerate**: replace the block content in place (edit from header to next `## ` or EOF)
+4. If the block header already exists and the block's write mode is **accumulate**: locate the next `^## ` after the header (or EOF) and insert the new entry immediately before that boundary — do not replace existing entries.
 
 Do **not** overwrite the entire file — other blocks may already be present.
 
