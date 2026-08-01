@@ -26,8 +26,8 @@ Print banner (plain text):
 ### Mode detection
 
 - If `$ARGUMENTS` starts with `AMEND:` (case-insensitive, leading whitespace tolerated), let `remainder` be the text after the marker, trimmed:
-  - **Unambiguous selector** — `remainder` is empty, OR is a bare 1–4 digit number, OR matches an ADR-filename shape: `<NNNN>-<slug>.md` or `<repo-relative-path>/<NNNN>-<slug>.md` (i.e. a 4-digit prefix immediately before `.md`, optionally preceded by a path — the exact form `resolve-adr.sh` emits as `adrs[].path`, e.g. `docs/adr/0003-postgres.md`) → **amend mode (unambiguous)**. Set `selector` to `remainder` (possibly empty) and `title_hint` to empty. Continue at "## Amend Track" below.
-  - **Everything else** (free text not matching that shape — e.g. `AMEND: CI/CD pipeline ownership`, or a create-mode title that merely ends in `.md` like `AMEND: deprecate README.md`) → **amend mode (candidate)**. This remainder has not been shown to be a real selector yet — it might resolve to an ADR, or it might be an ordinary title that happens to start with the marker. Set `selector` to `remainder` and `title_hint` to the full, unmodified `$ARGUMENTS` (marker included — it doubles as the fallback title if resolution fails). Continue at "## Amend Track" below; resolution happens there once `adrs` is available (step 3): a confirming question is asked before falling back to create mode on a zero-match (see Amend Track step 3).
+  - **Unambiguous selector** — `remainder` is empty, OR is a bare 1–4 digit number, OR matches an ADR-filename shape: `<NNNN>-<slug>.md` or `<repo-relative-path>/<NNNN>-<slug>.md` (i.e. the basename **starts with** 4 digits followed by `-` and ends in `.md`, optionally preceded by a path — the exact form `resolve-adr.sh` emits as `adrs[].path`, e.g. `docs/adr/0003-postgres.md`) → **amend mode (unambiguous)**. Set `selector` to `remainder` (possibly empty) and `title_hint` to empty. Continue at "## Amend Track" below.
+  - **Everything else** (free text not matching that shape — e.g. `AMEND: CI/CD pipeline ownership`, or a create-mode title that merely ends in `.md` like `AMEND: deprecate README.md` or `AMEND: retire plan-2024.md`) → **amend mode (candidate)**. This remainder has not been shown to be a real selector yet — it might resolve to an ADR, or it might be an ordinary title that happens to start with the marker. Set `selector` to `remainder` and `title_hint` to the full, unmodified `$ARGUMENTS` (marker included — it doubles as the fallback title if resolution fails). Continue at "## Amend Track" below; resolution happens there once `adrs` is available (step 3): a confirming question is asked before falling back to create mode on a zero-match (see Amend Track step 3).
 - Anything else, including empty `$ARGUMENTS` → **create mode**. Set `title_hint` to the full, unmodified `$ARGUMENTS`. Continue at "## Phase 1 — Gather" below, unchanged.
 - Never infer amend mode from free text elsewhere in the string.
 
@@ -54,7 +54,7 @@ Entered instead of Phase 1 when Mode detection selects amend mode. Reuses the cr
 
    Use the `adrs` array from its output for the picker below.
 
-2. Determine whether `selector` (from Mode detection) matches exactly one entry in `adrs` — by number (compare zero-padded to 4 digits, so `3` matches `0003`), filename, or path.
+2. Determine how many entries in `adrs` the `selector` (from Mode detection) matches — zero, one, or multiple — by number (compare zero-padded to 4 digits, so `3` matches `0003`), filename, or path.
 3. Branch on which form of amend mode Mode detection selected:
    - **Unambiguous** (`title_hint` is empty): if `adrs` is empty, tell the user there are no existing ADRs to amend and ask one question — "No existing ADRs found. Create a new one instead?"
      - **Yes** — enter Phase 1 at step 1; `title_hint` is empty, so it will ask for a title.
