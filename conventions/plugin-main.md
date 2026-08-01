@@ -29,8 +29,6 @@ When you need a convention file, resolve it using this 3-step lookup — **first
 2. `~/.bf/conventions/<name>.md`
 3. `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`
 
-The available convention names and when to use each:
-
 ## Custom Convention Discovery
 
 Beyond the predefined convention names above, users may define arbitrarily-named convention files (e.g. `api-style.md`, `monorepo-rules.md`) in either of:
@@ -56,14 +54,27 @@ Before finalizing any change that touches source code (commit/push/PR), check wh
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}/skills/adr-writer/scripts/resolve-adr.sh"
    ```
-   If `dir_exists` is `false`, there are no ADRs to check against — skip the rest of this section silently. Do not mention ADRs at all in that case.
-2. List existing ADR titles: `grep -h "^# " <adr_dir>/*.md`.
+   If `dir_exists` is `false` or `adrs` is empty, there are no ADRs to check against — skip the rest of this section silently. Do not mention ADRs at all in that case.
+2. List existing ADR titles: use `adrs[].title` from step 1's output directly — do not re-derive titles with a separate scan.
 3. Compare the session's changed files and decisions against those titles. Flag a match only when the change plausibly **contradicts, supersedes, or materially extends** a recorded decision — not for routine changes that merely touch the same files.
 4. If one or more ADRs look affected, ask one question before proceeding with finalize:
    > This change may affect ADR `<NNNN>` — "<title>". Record a new ADR for it?
    - **Yes** → invoke `Skill("bf:adr-writer", args="<short title for the new decision>")`, then continue finalize once it returns.
    - **No** → continue finalize as normal.
 5. If no ADRs are affected, skip silently — do not surface this check to the user when there's nothing to flag.
+
+## Durable Record Phrasing
+
+Applies wherever a verdict, rationale, or amendment rationale ends up in a durable record. Scope splits into two cases:
+
+- **A session log's `## Decisions` block.** This is an in-session audit record. The **prose fields only** (see below) are governed by the ban. The structural scaffolding around those fields — headers like `### <PHASE> · <question>` or `### consilium · <question>`, `**Pair:**` lines, agreement tallies, and ledger dividers — is the oracle's own bookkeeping and is **permitted** to persist verbatim here, for in-session audit purposes.
+- **An ADR, or any other project-facing/exported document.** Both the prose fields *and* the structural scaffolding are governed. Scaffolding must be stripped or paraphrased before anything is copied into a document of this kind — it must never appear verbatim there.
+
+The **prose fields** (`**Why:**`, `**Dissent:**`, `**Flag:**`, and equivalent free-text rationale) must read as plain engineering rationale suitable for someone with no context on how the call was made:
+
+- No agent, critic, or skill names (e.g. "consilium", "critic", "lenses", "bf:decide").
+- No internal process mechanics (phase labels, pair names, agreement tallies, audit-ledger structure).
+- No internal spec-ID references (e.g. "FR-7"). Cite what the rule or spec section *says*, by its name or topic, not its tracking ID — "the auth section of the spec," not "FR-7."
 
 ## Generated Artifacts
 
@@ -80,12 +91,16 @@ Each skill chooses its own subdirectory under that root (e.g. `.bf/sessions/`, `
 
 Each session produces two files:
 
-| File | Key | Contents |
-|------|-----|----------|
-| `<prefix>-session-log.md` | `paths.session_log` | Persistent blocks: Spec, Plan, Todo, Backlog, Deployment |
-| `<prefix>-temp.md` | `paths.temp` | Ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report |
+| File | Key | Contents | Write mode |
+|------|-----|----------|------------|
+| `<prefix>-session-log.md` | `paths.session_log` | Persistent blocks: Spec, Plan, Todo, Backlog, Deployment, Decisions | Spec/Plan/Todo/Backlog/Deployment: **regenerate**. Decisions: **accumulate** |
+| `<prefix>-temp.md` | `paths.temp` | Ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report, Consistency Report, Refine Q&A | **regenerate** |
 
 `paths.spec`, `paths.plan`, etc. are **aliases** — they resolve to the same physical file (`session_log` or `temp`). Use `paths.block_<name>` for the matching block header (e.g. `paths.block_spec` = `## Spec`).
+
+**Write mode** is a property of the block, not a judgment made at the call site:
+- **regenerate** — the block is rewritten wholesale each time it's produced (Spec, Plan, Todo, Backlog, Deployment, QA, Design Report, Implementation Review, Complexity Report, Consistency Report, Refine Q&A, etc.).
+- **accumulate** — the block is appended to over time and never overwritten (`Decisions` — every oracle call adds one more verdict).
 
 ### Block Reading Pattern
 
@@ -101,7 +116,8 @@ To write an artifact block:
 
 1. If the physical file doesn't exist: create it with `<paths.block_<artifact>>\n\n<content>`
 2. If it exists but the block header is absent: append `\n\n<paths.block_<artifact>>\n\n<content>`
-3. If the block header already exists: replace the block content in place (edit from header to next `## ` or EOF)
+3. If the block header already exists and the block's write mode is **regenerate**: replace the block content in place (edit from header to next `## ` or EOF)
+4. If the block header already exists and the block's write mode is **accumulate**: locate the next `^## ` after the header (or EOF) and insert the new entry immediately before that boundary — do not replace existing entries.
 
 Do **not** overwrite the entire file — other blocks may already be present.
 

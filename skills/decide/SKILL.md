@@ -72,30 +72,20 @@ Return the verdict in this exact ledger format:
 
 **Verdict:** <A/B/C> — <option label>
 
-**Why:** <1–2 sentences. Cite the specific convention rule, spec section, or code pattern. No vague generalities.>
+**Why:** <1–2 sentences. Cite the specific convention rule, spec section by name/topic, or code pattern. No vague generalities.>
 
 **Confidence:** high | medium | low
 ```
 
 If confidence is `low`: append a `**Flag:**` line describing the specific ambiguity the human should review on return.
 
+Durable-record rationale (the `**Why:**`/`**Flag:**` prose) must follow the Durable Record Phrasing rule in `plugin-main.md`.
+
 ---
 
 ## Step 4 — Log to session (embedded mode only)
 
-When `SESSION_LOG` is provided in the payload, append the verdict block to the `## Decisions` section of that file.
-
-Follow the block-write pattern from `plugin-main.md`:
-
-1. Check whether `## Decisions` header exists in `SESSION_LOG`:
-   ```bash
-   grep -n "^## Decisions" "$SESSION_LOG"
-   ```
-2. If **absent**: append the header and verdict:
-   ```bash
-   printf '\n\n## Decisions\n\n%s\n' "<verdict block>" >> "$SESSION_LOG"
-   ```
-3. If **present**: find the line number of `## Decisions` and the next `^## ` after it (or EOF). Insert the verdict block just before that boundary — do not overwrite other blocks.
+When `SESSION_LOG` is provided in the payload, append the verdict block to the `## Decisions` section of that file, following **case 4 (accumulate)** of the Block Writing Pattern in `plugin-main.md` — `## Decisions` is an accumulate-type block, so insert before the next `^## ` boundary (or EOF) rather than replacing prior entries.
 
 In standalone mode: print the verdict to the conversation only. Do not write to any file.
 

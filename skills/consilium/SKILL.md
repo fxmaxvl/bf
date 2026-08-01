@@ -89,7 +89,7 @@ Output one final block in this exact shape:
 **Decision:** <answer — one line, plain English>
 **Agreement:** unanimous (3/3) | majority (2/3) | split (no majority)
 
-**Why:** <1–2 sentences citing concrete evidence — convention rule, code pattern, spec line.>
+**Why:** <1–2 sentences citing concrete evidence — convention rule, code pattern, spec section by name/topic.>
 
 **Dissent:** <only if 2/3 — verbatim challenge from the dissenter, ≤2 sentences>
 **Flag:** <only if split — specific ambiguity the human needs to resolve>
@@ -99,9 +99,11 @@ Output one final block in this exact shape:
 <Verdict A / B / C ledgers for audit>
 ```
 
+Durable-record rationale (the `**Why:**`/`**Dissent:**`/`**Flag:**` prose) must follow the Durable Record Phrasing rule in `plugin-main.md`. That rule exempts the `### consilium · <question>` header from stripping when logging to a session log's `## Decisions` block. `**Pair:**` is dropped at log time for a separate reason — it sits below the audit-ledger divider — see Phase 6.
+
 ## Phase 6 — Log (embedded mode only)
 
-When `SESSION_LOG` is present, append the final block (without the audit ledgers) to the `## Decisions` section using the block-write pattern from `plugin-main.md`. Standalone mode prints to the conversation only.
+When `SESSION_LOG` is present, append the final block **excluding everything from the `---` divider onward** (i.e. drop `**Pair:**` and the `<Verdict A / B / C ledgers>`, but keep the `### consilium · <question>` header, `**Decision:**`, `**Agreement:**`, `**Why:**`, and any `**Dissent:**`/`**Flag:**`) to the `## Decisions` section using **case 4 (accumulate)** of the Block Writing Pattern in `plugin-main.md` — `## Decisions` is an accumulate-type block, so insert before the next `^## ` boundary rather than replacing prior entries. Standalone mode prints to the conversation only.
 
 ## Edge Cases & Errors
 
