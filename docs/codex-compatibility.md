@@ -55,6 +55,14 @@ Every quantitative claim anywhere else in this document cites a row below by its
 
 ## Confirmed Compatible
 
+These are couplings known-portable on the strength of documented format overlap — all graded `[documented]`.
+
+- **The `SKILL.md` + YAML-frontmatter shape itself, and the required `name`/`description` keys.** `[documented]` Both keys are present in 38/38 `SKILL.md` files (evidence table rows: `grep -rlE '^name:' --include=SKILL.md skills | wc -l` = 38; `grep -rlE '^description:' --include=SKILL.md skills | wc -l` = 38). Codex documents the same `SKILL.md` + frontmatter shape as its skill format.
+- **The `skills/<name>/scripts/*.sh` layout.** `[documented]` bf already places its 14 shell scripts (evidence table row: `find skills -name '*.sh' | wc -l` = 14) under per-skill `scripts/` subdirectories, which is the same convention Codex documents. No restructuring is needed for this slice of the format.
+- **bf's interactivity model.** `[documented]` "Ask ONE question at a time" is prose instruction in `conventions/plugin-main.md`, not a call to a host-provided structured question tool. Prose read by an agent is portable to any host capable of reading and following markdown — it does not depend on a Claude Code–specific API.
+- **Markdown-body instructions generally.** `[documented]` The overwhelming majority of every bf skill's content is prose an agent reads and follows step by step. This is the bulk of the format, and it is host-agnostic by construction — it needs nothing beyond a host that hands an agent a file's text as instructions.
+- **Zero use of `references/` or `assets/` directories.** `[documented]` bf uses neither (evidence table row: `find skills -type d \( -name references -o -name assets \)` = empty). This slice of Codex's documented format overlap is therefore untested by this repo but also unneeded — bf carries no risk here because it never exercises the feature.
+
 ## Unverified / Unknown
 
 ## Confirmed Blocking Or High-Risk
