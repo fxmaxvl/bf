@@ -38,9 +38,9 @@ Every quantitative claim anywhere else in this document cites a row below by its
 | `grep -rl CLAUDE_PLUGIN_ROOT --include=SKILL.md skills \| wc -l` | 37 | 2026-08-03 |
 | `comm -23 <(find skills -name SKILL.md \| sort) <(grep -rl CLAUDE_PLUGIN_ROOT --include=SKILL.md skills \| sort)` | `skills/design/gather/SKILL.md` | 2026-08-03 |
 | `find skills -name '*.sh' \| wc -l` | 14 | 2026-08-03 |
-| `grep -rlE '/bf:' --exclude-dir=.git --exclude-dir=.bf . \| wc -l` | 13 | 2026-08-03 |
-| `grep -rlE 'Skill\(["\x27]bf:' --exclude-dir=.git --exclude-dir=.bf . \| wc -l` | 3 | 2026-08-03 |
-| `grep -rnE 'Skill\(["\x27]bf:' --exclude-dir=.git --exclude-dir=.bf . \| wc -l` | 5 | 2026-08-03 |
+| `grep -rlE '/bf:' --exclude-dir=.git --exclude-dir=.bf --exclude=codex-compatibility.md . \| wc -l` | 13 | 2026-08-03 |
+| `grep -rlE 'Skill\(["\x27]bf:' --exclude-dir=.git --exclude-dir=.bf --exclude=codex-compatibility.md . \| wc -l` | 3 | 2026-08-03 |
+| `grep -rnE 'Skill\(["\x27]bf:' --exclude-dir=.git --exclude-dir=.bf --exclude=codex-compatibility.md . \| wc -l` | 5 | 2026-08-03 |
 | `grep -rl '\$ARGUMENTS' --include=SKILL.md skills \| wc -l` | 19 | 2026-08-03 |
 | `grep -rlE '^name:' --include=SKILL.md skills \| wc -l` | 38 | 2026-08-03 |
 | `grep -rlE '^description:' --include=SKILL.md skills \| wc -l` | 38 | 2026-08-03 |
@@ -102,9 +102,9 @@ This coupling has two distinct failure surfaces, not one:
 These are couplings with a `[documented absence]` grade — Codex's documentation, as researched during this build, has no stated equivalent — or a documented behavioural asymmetry that makes silent failure worse than loud failure.
 
 - **Plugin/marketplace manifests.** `[documented absence]` `.claude-plugin/plugin.json` (name `bf`, version `1.26.0`) and `.claude-plugin/marketplace.json` have no confirmed Codex equivalent. The `bf:` namespace that every `/bf:x` reference depends on originates here — without an equivalent manifest concept, there is no `bf:` namespace to resolve against on Codex.
-- **The literal `Skill("bf:…")` call form.** `[documented absence]` The 13 files containing `/bf:`-style references (evidence table row: `grep -rlE '/bf:' --exclude-dir=.git --exclude-dir=.bf . | wc -l` = 13) split into two risk levels, not one:
+- **The literal `Skill("bf:…")` call form.** `[documented absence]` The 13 files containing `/bf:`-style references (evidence table row: `grep -rlE '/bf:' --exclude-dir=.git --exclude-dir=.bf --exclude=codex-compatibility.md . | wc -l` = 13; this document itself is excluded because it quotes the pattern, which would otherwise self-match) split into two risk levels, not one:
   - *Prose references* (~10 files, e.g. "invoke `/bf:decide`", "see `/bf:scan-conventions`") are natural-language instructions. They degrade gracefully — on a host with no such command, the text is still readable and a capable agent can do the equivalent work by hand. **Low risk.**
-  - *Literal `Skill("bf:…")` call sites* — 3 files, 5 sites (evidence table rows: `grep -rlE 'Skill\(["\x27]bf:' --exclude-dir=.git --exclude-dir=.bf . | wc -l` = 3, `grep -rnE 'Skill\(["\x27]bf:' --exclude-dir=.git --exclude-dir=.bf . | wc -l` = 5 — `conventions/plugin-main.md:62`, `skills/design/SKILL.md:242-243`, `skills/gather/SKILL.md:176-177`) are a hard dependency on a host API named `Skill` accepting a `"<plugin>:<skill>"` identifier and an `args` string. No known Codex equivalent. **High risk, but narrow** — all 5 sites are in handoff/terminal paths (`bf:feature`, `bf:quick`, `bf:design`, `bf:adr-writer`).
+  - *Literal `Skill("bf:…")` call sites* — 3 files, 5 sites (evidence table rows: `grep -rlE 'Skill\(["\x27]bf:' --exclude-dir=.git --exclude-dir=.bf --exclude=codex-compatibility.md . | wc -l` = 3, `grep -rnE 'Skill\(["\x27]bf:' --exclude-dir=.git --exclude-dir=.bf --exclude=codex-compatibility.md . | wc -l` = 5 — `conventions/plugin-main.md:62`, `skills/design/SKILL.md:242-243`, `skills/gather/SKILL.md:176-177`) are a hard dependency on a host API named `Skill` accepting a `"<plugin>:<skill>"` identifier and an `args` string. No known Codex equivalent. **High risk, but narrow** — all 5 sites are in handoff/terminal paths (`bf:feature`, `bf:quick`, `bf:design`, `bf:adr-writer`).
 - **`disable-model-invocation: true` (35 files).** `[documented absence]` (evidence table row: `grep -rlE '^disable-model-invocation:' --include=SKILL.md skills | wc -l` = 35) This is a **silent-wrong-behaviour** risk, not merely an unsupported key. If Codex ignores this key rather than erroring on it, `decide`, `consilium`, and every phase sub-skill become model-invocable and can auto-fire on unrelated prompts. Ignoring the key is worse than failing on it.
 - **`allowed-tools` (23 files).** `[documented absence]` (evidence table row: `grep -rlE '^allowed-tools:' --include=SKILL.md skills | wc -l` = 23) A **permission** risk with the same asymmetry as above: if ignored, a skill gets broader tool access than its author declared.
 
