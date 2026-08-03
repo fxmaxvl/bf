@@ -65,6 +65,38 @@ These are couplings known-portable on the strength of documented format overlap 
 
 ## Unverified / Unknown
 
+### `${CLAUDE_PLUGIN_ROOT}` — highest blast radius, canonical home
+
+`[unconfirmed]` Is there a Codex equivalent of `${CLAUDE_PLUGIN_ROOT}` — a variable resolving to the extension's own install root? This is unconfirmed by documentation found during this build; probe 2 (`codex-probes/probe-2-plugin-root/bf-probe-pluginroot/SKILL.md`) exists to test it as a discovery exercise, since even the *name* of any Codex equivalent is unknown.
+
+38 files reference `${CLAUDE_PLUGIN_ROOT}` (evidence table row: `grep -rl CLAUDE_PLUGIN_ROOT skills conventions | wc -l` = 38), the highest blast radius of any single item in this document. **Number-framing note:** this 38 coincidentally equals the 38 total `SKILL.md` files, but the two are different sets — do not read it as a copy-paste error. The composition is 37 `SKILL.md` files (evidence table row: `grep -rl CLAUDE_PLUGIN_ROOT --include=SKILL.md skills | wc -l` = 37) plus `conventions/plugin-main.md` = 38. The sole `SKILL.md` that does **not** reference it is `skills/design/gather/SKILL.md` (evidence table row: `comm -23 …` result).
+
+This coupling has two distinct failure surfaces, not one:
+
+- **(a) Convention/sub-skill file reads.** Nearly every `SKILL.md` reads `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` near its top, and orchestrators resolve sub-skills by prepending `${CLAUDE_PLUGIN_ROOT}/skills/` to a path in a routing table.
+- **(b) Script invocation.** All 14 shell scripts under `skills/` (evidence table row: `find skills -name '*.sh' | wc -l` = 14) are invoked as `bash "${CLAUDE_PLUGIN_ROOT}/skills/…/x.sh"`. State management (`state-ops.sh`, `init-probe.sh`) sits entirely behind this path — an unset variable here does not degrade gracefully, it breaks state handling outright.
+
+### The orchestration-substrate gap (FR6b) — ranked alongside `${CLAUDE_PLUGIN_ROOT}`, no probe exists
+
+`[unconfirmed]` Does Codex provide a subagent mechanism that accepts an inline prompt **and** a per-call model override? This is bf's actual orchestration substrate: every phase sub-skill is executed by reading its `SKILL.md` from a path, passing the file's contents as an agent prompt, and passing the `model` declared in that file's frontmatter — see `skills/feature/SKILL.md` §Sub-skill Resolution and `skills/micro/SKILL.md` §Sub-skill Resolution, both of which state sub-skills are resolved by reading a file path directly rather than through host skill discovery. The plugin's Parallel Fan-Out convention depends on the same mechanism plus concurrent spawning and agent naming.
+
+- **No probe exists for this in this build**, deliberately. The Codex subagent API shape is unconfirmed by any documentation found during this build, so any probe here would encode a guessed API; its failure would prove nothing about Codex, only about the guess.
+- **What would resolve it:** reading Codex's own subagent documentation, or one interactive session with a Codex install.
+- This absorbs the shallower observation that 38/38 `SKILL.md` files declare a `model:` key (evidence table row: `grep -rlE '^model:' --include=SKILL.md skills | wc -l` = 38) — "does Codex ignore the `model` key" is subordinate to the real question, "can Codex route a sub-call to a chosen model at all."
+- If the answer turns out to be no, bf's workflow still **runs** — it just silently loses per-phase model routing and parallel fan-out. That is a degradation, not an error, and is invisible unless someone explicitly checks for it.
+
+### Nested `SKILL.md` files (18 of 38) — a harmlessness question, not a capability question
+
+`[unconfirmed]` 18 of 38 `SKILL.md` files sit nested below the top level of a skills directory (evidence table row: `find skills -name SKILL.md | awk -F/ 'NF>3' | wc -l` = 18, vs. 20 top-level). This count is given as **context, not exposure** — bf resolves its own sub-skills by file path, not by relying on the host to discover nested skills (see the orchestration-substrate entry above). So the question this build needs answered is not "can Codex find nested skills" but "does anything bad happen if Codex encounters one" — see probe 1 (`codex-probes/probe-1-nested-handling/`), which is framed around a four-outcome observation matrix (spelled out in the Verification Checklist, §7) rather than a single yes/no.
+
+### `$ARGUMENTS` substitution
+
+`[unconfirmed]` Does Codex substitute `$ARGUMENTS` (or an equivalent) with user-supplied invocation arguments? 19 `SKILL.md` files reference the token (evidence table row: `grep -rl '\$ARGUMENTS' --include=SKILL.md skills | wc -l` = 19) — **never 20**: a repo-wide grep returns 20 because `skills/feature/scripts/init-probe.sh:4` contains `# Usage: bash init-probe.sh "$ARGUMENTS"`, a shell-comment usage example, not a host substitution site. See probe 3 (`codex-probes/probe-3-arguments/bf-probe-arguments/SKILL.md`).
+
+### Frontmatter parser tolerance
+
+`[unconfirmed]` Does Codex's frontmatter parser tolerate unknown keys (ignore them) or reject them (error)? See probe 4 (`codex-probes/probe-4-frontmatter/bf-probe-frontmatter/SKILL.md`), which also distinguishes the dangerous third outcome — accepted-and-ignored — from both pass and error.
+
 ## Confirmed Blocking Or High-Risk
 
 ## Recommendation
