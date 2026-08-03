@@ -17,7 +17,7 @@ Because "documentation research" and "an actual run" are not the same strength o
 | Grade | Meaning | Home section |
 |-------|---------|--------------|
 | `documented` | Stated explicitly in Codex's own documentation | `Confirmed Compatible` |
-| `inferred` / `unconfirmed` | Not stated in documentation found during this build, or stated as absent; resolvable only by an actual probe run or a documentation lookup this build did not perform | `Unverified / Unknown` (tied to a probe or to FR6b) |
+| `inferred` / `unconfirmed` | Not stated in documentation found during this build, or stated as absent; resolvable only by an actual probe run or a documentation lookup this build did not perform | `Unverified / Unknown` (tied to a probe or to the orchestration-substrate gap); two `inferred` claims about bf's own format sit under `Confirmed Compatible` instead, since they concern portability of bf's own conventions rather than an open Codex-side question |
 | `documented absence` | Codex's documentation is silent on, or explicitly lacks, an equivalent mechanism | `Confirmed Blocking Or High-Risk` |
 
 Known grading as of this build:
@@ -42,6 +42,7 @@ Every quantitative claim anywhere else in this document cites a row below by its
 | `grep -rlE 'Skill\(["\x27]bf:' --exclude-dir=.git --exclude-dir=.bf --exclude=codex-compatibility.md . \| wc -l` | 3 | 2026-08-03 |
 | `grep -rnE 'Skill\(["\x27]bf:' --exclude-dir=.git --exclude-dir=.bf --exclude=codex-compatibility.md . \| wc -l` | 5 | 2026-08-03 |
 | `grep -rl '\$ARGUMENTS' --include=SKILL.md skills \| wc -l` | 19 | 2026-08-03 |
+| `grep -rl '\$ARGUMENTS' skills \| wc -l` | 20 | 2026-08-03 |
 | `grep -rlE '^name:' --include=SKILL.md skills \| wc -l` | 38 | 2026-08-03 |
 | `grep -rlE '^description:' --include=SKILL.md skills \| wc -l` | 38 | 2026-08-03 |
 | `grep -rlE '^model:' --include=SKILL.md skills \| wc -l` | 38 | 2026-08-03 |
@@ -55,12 +56,12 @@ Every quantitative claim anywhere else in this document cites a row below by its
 
 ## Confirmed Compatible
 
-These are couplings known-portable on the strength of documented format overlap — all graded `[documented]`.
+These are couplings known-portable. Most rest on documented format overlap and are graded `[documented]`; two rest on a reasonable inference from the format's shape rather than an explicit Codex statement and are graded `[inferred]` instead.
 
 - **The `SKILL.md` + YAML-frontmatter shape itself, and the required `name`/`description` keys.** `[documented]` Both keys are present in 38/38 `SKILL.md` files (evidence table rows: `grep -rlE '^name:' --include=SKILL.md skills | wc -l` = 38; `grep -rlE '^description:' --include=SKILL.md skills | wc -l` = 38). Codex documents the same `SKILL.md` + frontmatter shape as its skill format.
 - **The `skills/<name>/scripts/*.sh` layout.** `[documented]` bf already places its 14 shell scripts (evidence table row: `find skills -name '*.sh' | wc -l` = 14) under per-skill `scripts/` subdirectories, which is the same convention Codex documents. No restructuring is needed for this slice of the format.
-- **bf's interactivity model.** `[documented]` "Ask ONE question at a time" is prose instruction in `conventions/plugin-main.md`, not a call to a host-provided structured question tool. Prose read by an agent is portable to any host capable of reading and following markdown — it does not depend on a Claude Code–specific API.
-- **Markdown-body instructions generally.** `[documented]` The overwhelming majority of every bf skill's content is prose an agent reads and follows step by step. This is the bulk of the format, and it is host-agnostic by construction — it needs nothing beyond a host that hands an agent a file's text as instructions.
+- **bf's interactivity model.** `[inferred]` "Ask ONE question at a time" is prose instruction in `conventions/plugin-main.md`, not a call to a host-provided structured question tool. Codex's documentation says nothing about this specific instruction; the claim that prose read by an agent is portable to any host capable of reading and following markdown is a reasonable conclusion from how the format works, not a statement found in Codex's own documentation.
+- **Markdown-body instructions generally.** `[inferred]` The overwhelming majority of every bf skill's content is prose an agent reads and follows step by step. This is the bulk of the format, and it is host-agnostic by construction — but that host-agnosticism is an inference from the format's shape, not something Codex's documentation states.
 - **Zero use of `references/` or `assets/` directories.** `[documented]` bf uses neither (evidence table row: `find skills -type d \( -name references -o -name assets \)` = empty). This slice of Codex's documented format overlap is therefore untested by this repo but also unneeded — bf carries no risk here because it never exercises the feature.
 
 ## Unverified / Unknown
@@ -76,7 +77,7 @@ This coupling has two distinct failure surfaces, not one:
 - **(a) Convention/sub-skill file reads.** Nearly every `SKILL.md` reads `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` near its top, and orchestrators resolve sub-skills by prepending `${CLAUDE_PLUGIN_ROOT}/skills/` to a path in a routing table.
 - **(b) Script invocation.** All 14 shell scripts under `skills/` (evidence table row: `find skills -name '*.sh' | wc -l` = 14) are invoked as `bash "${CLAUDE_PLUGIN_ROOT}/skills/…/x.sh"`. State management (`state-ops.sh`, `init-probe.sh`) sits entirely behind this path — an unset variable here does not degrade gracefully, it breaks state handling outright.
 
-### The orchestration-substrate gap (FR6b) — ranked alongside `${CLAUDE_PLUGIN_ROOT}`, no probe exists
+### The orchestration-substrate gap — ranked alongside `${CLAUDE_PLUGIN_ROOT}`, no probe exists
 
 `[unconfirmed]` Does Codex provide a subagent mechanism that accepts an inline prompt **and** a per-call model override? This is bf's actual orchestration substrate: every phase sub-skill is executed by reading its `SKILL.md` from a path, passing the file's contents as an agent prompt, and passing the `model` declared in that file's frontmatter — see `skills/feature/SKILL.md` §Sub-skill Resolution and `skills/micro/SKILL.md` §Sub-skill Resolution, both of which state sub-skills are resolved by reading a file path directly rather than through host skill discovery. The plugin's Parallel Fan-Out convention depends on the same mechanism plus concurrent spawning and agent naming.
 
@@ -91,7 +92,7 @@ This coupling has two distinct failure surfaces, not one:
 
 ### `$ARGUMENTS` substitution
 
-`[unconfirmed]` Does Codex substitute `$ARGUMENTS` (or an equivalent) with user-supplied invocation arguments? 19 `SKILL.md` files reference the token (evidence table row: `grep -rl '\$ARGUMENTS' --include=SKILL.md skills | wc -l` = 19) — **never 20**: a repo-wide grep returns 20 because `skills/feature/scripts/init-probe.sh:4` contains `# Usage: bash init-probe.sh "$ARGUMENTS"`, a shell-comment usage example, not a host substitution site. See probe 3 (`codex-probes/probe-3-arguments/bf-probe-arguments/SKILL.md`).
+`[unconfirmed]` Does Codex substitute `$ARGUMENTS` (or an equivalent) with user-supplied invocation arguments? 19 `SKILL.md` files reference the token (evidence table row: `grep -rl '\$ARGUMENTS' --include=SKILL.md skills | wc -l` = 19) — **never 20**: a `skills/`-scoped grep over all file types (evidence table row: `grep -rl '\$ARGUMENTS' skills | wc -l` = 20) returns 20 because `skills/feature/scripts/init-probe.sh:4` contains `# Usage: bash init-probe.sh "$ARGUMENTS"`, a shell-comment usage example, not a host substitution site. (A repo-wide grep returns a higher count still — inflated by this document and the probe files themselves discussing the token by name — so it is not a meaningful comparison and is not cited as evidence here.) See probe 3 (`codex-probes/probe-3-arguments/bf-probe-arguments/SKILL.md`).
 
 ### Frontmatter parser tolerance
 
@@ -115,7 +116,7 @@ These are couplings with a `[documented absence]` grade — Codex's documentatio
 **Do not port any real bf skill to Codex yet.** Three reasons:
 
 - **(a) All four mechanical unknowns are unresolved,** two of them with a 20+ file blast radius: `${CLAUDE_PLUGIN_ROOT}` at 38 files (evidence table row: `grep -rl CLAUDE_PLUGIN_ROOT skills conventions | wc -l`), and `disable-model-invocation` frontmatter at 35 files (evidence table row: `grep -rlE '^disable-model-invocation:' --include=SKILL.md skills | wc -l`).
-- **(b) The low-coupling skills that look like easy pilots are also the most interaction- and fan-out-heavy** in the repo. A port that appears to work on one of these would not generalise — it would hide exactly the orchestration-substrate risk (FR6b, §4) that matters most, because a "successful" pilot proves nothing about the sub-skills that actually exercise cross-skill invocation and per-call model routing.
+- **(b) The low-coupling skills that look like easy pilots are also the most interaction- and fan-out-heavy** in the repo. A port that appears to work on one of these would not generalise — it would hide exactly the orchestration-substrate risk (§4) that matters most, because a "successful" pilot proves nothing about the sub-skills that actually exercise cross-skill invocation and per-call model routing.
 - **(c) Two of the highest-risk items fail silently, not loudly** (`disable-model-invocation`, §5; `allowed-tools`, §5). "It ran without error" is not sufficient grounds for confidence when the exact failure mode is behaviour being quietly ignored rather than rejected.
 
 **Ordered sequence of work that would be justified once the probes resolve** (see §7 Verification Checklist for how to run each):
@@ -123,7 +124,7 @@ These are couplings with a `[documented absence]` grade — Codex's documentatio
 1. Run probes 2 and 3 first — resolve whether Codex has a plugin-root equivalent and an `$ARGUMENTS` equivalent. Both are prerequisites for almost anything else bf does.
 2. Run probe 4 — resolve frontmatter tolerance, distinguishing accepted-and-ignored from the other two outcomes.
 3. Run probe 1 with its full control-and-registry-inspection procedure — resolve nested-`SKILL.md` harmlessness.
-4. Read Codex's subagent documentation (or run one interactive session) to resolve the orchestration-substrate gap (FR6b) — this is the item with no probe and the highest strategic weight, since it decides whether bf's per-phase model routing and parallel fan-out are portable at all.
+4. Read Codex's subagent documentation (or run one interactive session) to resolve the orchestration-substrate gap — this is the item with no probe and the highest strategic weight, since it decides whether bf's per-phase model routing and parallel fan-out are portable at all.
 5. Only after all four are resolved: pick the single lowest-risk bf skill that does **not** depend on cross-skill invocation or model routing, and attempt a real port as a pilot — not before.
 
 ### Not Investigated
@@ -133,11 +134,11 @@ The following topics were deliberately left out of this build's scope and are no
 - **MCP-server configuration portability.** bf itself declares no MCP server, so this was not investigated.
 - **Hooks / `.claude/settings*.json` portability.** `.claude/settings.local.json` is user-local and not part of the plugin's shipped surface.
 - **A Codex-equivalent plugin manifest.** No documentation research established the manifest format, so writing a speculative one would be invention, not a probe of a specific question.
-- **CI enforcement of this document's own word ban** (see NFR1 in the build's spec). A manual grep at build time is sufficient; a lint rule would be over-engineering for one document.
+- **CI enforcement of this document's honesty discipline** — this build avoids words like "verified" or "confirmed working" when describing Codex-side behaviour that was never actually run, checking that discipline by hand at build time. A manual grep at build time is sufficient; a lint rule would be over-engineering for one document.
 
 ## Verification Checklist
 
-Six numbered entries: one per probe (four), one for the probe-less orchestration-substrate unknown (FR6b), and a final entry recording the Codex CLI version and date. Work top to bottom. All probe files referenced below live under `codex-probes/` — see `codex-probes/README.md` for install instructions.
+Six numbered entries: one per probe (four), one for the probe-less orchestration-substrate unknown, and a final entry recording the Codex CLI version and date. Work top to bottom. All probe files referenced below live under `codex-probes/` — see `codex-probes/README.md` for install instructions.
 
 ### 1. Probe 1 — nested `SKILL.md` handling
 
@@ -177,9 +178,9 @@ Six numbered entries: one per probe (four), one for the probe-less orchestration
 ### 5. Orchestration substrate / per-call model override — **no probe — documentation lookup**
 
 - **(a) Action:** read Codex's subagent documentation, and/or run one interactive session with a Codex install attempting to spawn a sub-call with an inline prompt and a specific model.
-- **(b) Expected finding on success:** documentation (or an observed session) confirms Codex can accept an inline prompt and route a sub-call to a chosen model.
+- **(b) Expected finding on success:** documentation (or an observed session) shows Codex accepting an inline prompt and routing a sub-call to a chosen model.
 - **(c) Failure / negative finding:** documentation confirms no such mechanism exists, or is silent on it after a genuine search — record which.
-- **(d) Section to update:** `Unverified / Unknown` (orchestration-substrate entry, FR6b) — if the answer is no, also revisit `Recommendation`, since this is the item with the highest strategic weight.
+- **(d) Section to update:** `Unverified / Unknown` (orchestration-substrate entry) — if the answer is no, also revisit `Recommendation`, since this is the item with the highest strategic weight.
 
 ### 6. Record Codex CLI version and date
 
