@@ -99,6 +99,17 @@ This coupling has two distinct failure surfaces, not one:
 
 ## Confirmed Blocking Or High-Risk
 
+These are couplings with a `[documented absence]` grade — Codex's documentation, as researched during this build, has no stated equivalent — or a documented behavioural asymmetry that makes silent failure worse than loud failure.
+
+- **Plugin/marketplace manifests.** `[documented absence]` `.claude-plugin/plugin.json` (name `bf`, version `1.26.0`) and `.claude-plugin/marketplace.json` have no confirmed Codex equivalent. The `bf:` namespace that every `/bf:x` reference depends on originates here — without an equivalent manifest concept, there is no `bf:` namespace to resolve against on Codex.
+- **The literal `Skill("bf:…")` call form.** `[documented absence]` The 13 files containing `/bf:`-style references (evidence table row: `grep -rlE '/bf:' --exclude-dir=.git --exclude-dir=.bf . | wc -l` = 13) split into two risk levels, not one:
+  - *Prose references* (~10 files, e.g. "invoke `/bf:decide`", "see `/bf:scan-conventions`") are natural-language instructions. They degrade gracefully — on a host with no such command, the text is still readable and a capable agent can do the equivalent work by hand. **Low risk.**
+  - *Literal `Skill("bf:…")` call sites* — 3 files, 5 sites (evidence table rows: `grep -rlE 'Skill\(["\x27]bf:' --exclude-dir=.git --exclude-dir=.bf . | wc -l` = 3, `grep -rnE 'Skill\(["\x27]bf:' --exclude-dir=.git --exclude-dir=.bf . | wc -l` = 5 — `conventions/plugin-main.md:62`, `skills/design/SKILL.md:242-243`, `skills/gather/SKILL.md:176-177`) are a hard dependency on a host API named `Skill` accepting a `"<plugin>:<skill>"` identifier and an `args` string. No known Codex equivalent. **High risk, but narrow** — all 5 sites are in handoff/terminal paths (`bf:feature`, `bf:quick`, `bf:design`, `bf:adr-writer`).
+- **`disable-model-invocation: true` (35 files).** `[documented absence]` (evidence table row: `grep -rlE '^disable-model-invocation:' --include=SKILL.md skills | wc -l` = 35) This is a **silent-wrong-behaviour** risk, not merely an unsupported key. If Codex ignores this key rather than erroring on it, `decide`, `consilium`, and every phase sub-skill become model-invocable and can auto-fire on unrelated prompts. Ignoring the key is worse than failing on it.
+- **`allowed-tools` (23 files).** `[documented absence]` (evidence table row: `grep -rlE '^allowed-tools:' --include=SKILL.md skills | wc -l` = 23) A **permission** risk with the same asymmetry as above: if ignored, a skill gets broader tool access than its author declared.
+
+`${CLAUDE_PLUGIN_ROOT}` is **not** restated here — see `${CLAUDE_PLUGIN_ROOT}` under Unverified / Unknown, since whether it ends up blocking depends entirely on the still-open question of whether Codex has an equivalent. The 18-of-38 nested-`SKILL.md` figure and the `model:` frontmatter key are likewise not listed here — both live under Unverified / Unknown, where their risk is framed correctly (harmlessness question and orchestration-substrate gap, respectively).
+
 ## Recommendation
 
 ## Verification Checklist
