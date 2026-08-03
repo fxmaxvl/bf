@@ -116,7 +116,7 @@ These are couplings with a `[documented absence]` grade — Codex's documentatio
 
 - **(a) All four mechanical unknowns are unresolved,** two of them with a 20+ file blast radius: `${CLAUDE_PLUGIN_ROOT}` at 38 files (evidence table row: `grep -rl CLAUDE_PLUGIN_ROOT skills conventions | wc -l`), and `disable-model-invocation` frontmatter at 35 files (evidence table row: `grep -rlE '^disable-model-invocation:' --include=SKILL.md skills | wc -l`).
 - **(b) The low-coupling skills that look like easy pilots are also the most interaction- and fan-out-heavy** in the repo. A port that appears to work on one of these would not generalise — it would hide exactly the orchestration-substrate risk (FR6b, §4) that matters most, because a "successful" pilot proves nothing about the sub-skills that actually exercise cross-skill invocation and per-call model routing.
-- **(c) Two of the highest-risk items fail silently, not loudly** (`disable-model-invocation`, §5; `allowed-tools`, §5). A port cannot be validated by "it ran without error" when the exact failure mode is behaviour being quietly ignored rather than rejected.
+- **(c) Two of the highest-risk items fail silently, not loudly** (`disable-model-invocation`, §5; `allowed-tools`, §5). "It ran without error" is not sufficient grounds for confidence when the exact failure mode is behaviour being quietly ignored rather than rejected.
 
 **Ordered sequence of work that would be justified once the probes resolve** (see §7 Verification Checklist for how to run each):
 
