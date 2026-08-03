@@ -1,6 +1,6 @@
 # Codex CLI Compatibility
 
-**Provenance:** commit `d373524dffd0238ca107f436cbf7869b4a7b8152`, branch `feat/codex-universal-support`, date `2026-08-03`.
+**Provenance:** branch-base commit (merge-base with `main`) `d373524dffd0238ca107f436cbf7869b4a7b8152`, branch `feat/codex-universal-support`, date `2026-08-03`. Repo-side facts below were gathered against this base and may drift slightly ahead of it as the branch is amended; re-run the commands in the evidence table to sanity-check before relying on exact figures.
 
 This file is committed product documentation — in the same class as `README.md` — not a session-generated artifact. It intentionally lives under `docs/` rather than `.bf/`.
 
@@ -10,7 +10,7 @@ Codex support for the `bf` plugin is **not yet possible to confirm, and not yet 
 
 ## How This Was Determined
 
-Every repo-side fact in this document was produced by a grep or `find` command run directly against this repository at commit `d373524dffd0238ca107f436cbf7869b4a7b8152` (branch `feat/codex-universal-support`, `2026-08-03`) — not estimated, not carried over from an earlier draft. Every Codex-side claim was produced by documentation research on Codex CLI conducted during this build. **No Codex CLI run occurred in this session.** No probe below has been executed; no Codex-side behaviour has been observed directly.
+Every repo-side fact in this document was produced by a grep or `find` command run directly against this repository at branch-base commit `d373524dffd0238ca107f436cbf7869b4a7b8152` (the merge-base with `main`; branch `feat/codex-universal-support`, `2026-08-03`) — not estimated, not carried over from an earlier draft. Every Codex-side claim was produced by documentation research on Codex CLI conducted during this build. **No Codex CLI run occurred in this session.** No probe below has been executed; no Codex-side behaviour has been observed directly.
 
 Because "documentation research" and "an actual run" are not the same strength of evidence, every Codex-side claim in this document carries one of three grades, and the grade travels with the claim everywhere it reappears:
 
@@ -23,6 +23,7 @@ Because "documentation research" and "an actual run" are not the same strength o
 Known grading as of this build:
 
 - **`documented`** — the `SKILL.md` + YAML-frontmatter shape; the optional `scripts/` / `references/` / `assets/` subdirectories; global skill discovery at `~/.agents/skills` and repo-local discovery at `.agents/skills`; MCP-server support.
+- **`inferred`** — bf's interactivity model; markdown-body instructions generally.
 - **`unconfirmed`** — the plugin/extension manifest format; the hooks format; whether Codex's subagent mechanism (if any) accepts an inline prompt and a per-call model override; the absence of a structured mid-task question tool.
 
 ### Canonical evidence table
@@ -50,7 +51,7 @@ Every quantitative claim anywhere else in this document cites a row below by its
 | `grep -rlE '^argument-hint:' --include=SKILL.md skills \| wc -l` | 25 | 2026-08-03 |
 | `grep -rlE '^allowed-tools:' --include=SKILL.md skills \| wc -l` | 23 | 2026-08-03 |
 | `find skills -type d \( -name references -o -name assets \)` | *(empty)* | 2026-08-03 |
-| `git rev-parse HEAD` | `d373524dffd0238ca107f436cbf7869b4a7b8152` | 2026-08-03 |
+| `git merge-base main HEAD` (branch base) | `d373524dffd0238ca107f436cbf7869b4a7b8152` | 2026-08-03 |
 | `git rev-parse --abbrev-ref HEAD` | `feat/codex-universal-support` | 2026-08-03 |
 | `date -u +%F` | `2026-08-03` | 2026-08-03 |
 
@@ -160,8 +161,8 @@ Six numbered entries: one per probe (four), one for the probe-less orchestration
 
 ### 3. Probe 3 — `$ARGUMENTS` substitution
 
-- **(a) Command(s):** copy `codex-probes/probe-3-arguments/bf-probe-arguments/` into a Codex skills location, invoke e.g. `bf-probe-arguments hello world`.
-- **(b) Expected output on success:** a line `BF_PROBE_3_ARGS=hello world` (the actual invocation text substituted in).
+- **(a) Command(s):** copy `codex-probes/probe-3-arguments/bf-probe-arguments/` into a Codex skills location, invoke `bf-probe-arguments <nonce>` where `<nonce>` is an arbitrary/random string you choose at test time — not one printed anywhere in the probe file.
+- **(b) Expected output on success:** a line `BF_PROBE_3_ARGS=<nonce>`, where `<nonce>` matches exactly what you typed (the actual invocation text substituted in).
 - **(c) Failure:** the line shows the literal, unexpanded text `$ARGUMENTS` instead of the invocation text — this is the negative result.
 - **(d) Section to update:** `Unverified / Unknown` (`$ARGUMENTS` entry).
 
