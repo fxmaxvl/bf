@@ -136,3 +136,54 @@ The following topics were deliberately left out of this build's scope and are no
 - **CI enforcement of this document's own word ban** (see NFR1 in the build's spec). A manual grep at build time is sufficient; a lint rule would be over-engineering for one document.
 
 ## Verification Checklist
+
+Six numbered entries: one per probe (four), one for the probe-less orchestration-substrate unknown (FR6b), and a final entry recording the Codex CLI version and date. Work top to bottom. All probe files referenced below live under `codex-probes/` — see `codex-probes/README.md` for install instructions.
+
+### 1. Probe 1 — nested `SKILL.md` handling
+
+- **(a) Command(s):** First, as a **mandatory control**, install and run probe 2 or probe 3 (a top-level probe) from the same Codex skills location and confirm it loads — see entries 2/3 below. Only then: copy `codex-probes/probe-1-nested-handling/bf-probe-parent/` (including its `child/` subdirectory) into a Codex skills location (e.g. `~/.agents/skills/bf-probe-parent/`), invoke `bf-probe-parent`, then separately inspect Codex's skill/command registry listing for a child entry, and separately attempt **direct invocation** of the child skill (e.g. `bf-probe-child`, or whatever name the registry shows).
+- **(b) Expected output on success:** depends on which of four outcomes occurs (see matrix below) — there is no single "success" string; `BF_PROBE_1_PARENT_LOADED` from the parent is always expected once the control run confirms probes load from this location at all.
+- **(c) Failure / outcome matrix:**
+  1. Both `BF_PROBE_1_PARENT_LOADED` **and** `BF_PROBE_1_CHILD_LOADED` appear → nested files are loaded and executed.
+  2. `BF_PROBE_1_PARENT_LOADED` appears, `BF_PROBE_1_CHILD_LOADED` does not, **and** the child does not appear in Codex's registry listing → silently ignored. **This is a pass** — bf does not need nested skills discovered.
+  3. `BF_PROBE_1_PARENT_LOADED` appears, `BF_PROBE_1_CHILD_LOADED` does not, **and** the child does appear in the registry listing → registered but not auto-loaded. Untidy namespace pollution, not blocking — confirm by attempting direct invocation of the child; if that also fails to produce `BF_PROBE_1_CHILD_LOADED`, note that separately.
+  4. Neither sentinel appears, plus a load error or refusal → hard failure, the only genuinely blocking outcome. **This outcome is only interpretable given the control from (a)** — without a top-level probe having already loaded successfully from the same location, this cannot be distinguished from "the parent file is malformed" or "Codex loads nothing from this location at all."
+- **(d) Section to update:** `Unverified / Unknown` (nested `SKILL.md` entry) and, if outcome 4 occurs, promote the finding to `Confirmed Blocking Or High-Risk`.
+
+### 2. Probe 2 — plugin-root equivalent
+
+- **(a) Command(s):** copy `codex-probes/probe-2-plugin-root/bf-probe-pluginroot/` into a Codex skills location, invoke `bf-probe-pluginroot`.
+- **(b) Expected output on success:** a line `BF_PROBE_2_ROOT=<value>` where `<value>` is a real filesystem path.
+- **(c) Failure:** `<value>` is an unexpanded literal token (e.g. the string `${CLAUDE_PLUGIN_ROOT}` printed verbatim) rather than a path — this is the negative result, not a crash.
+- **(d) Section to update:** `Unverified / Unknown` (`${CLAUDE_PLUGIN_ROOT}` entry) — if a working equivalent is found, also revisit `Confirmed Blocking Or High-Risk` and `Recommendation`, since this is the highest-blast-radius unknown.
+
+### 3. Probe 3 — `$ARGUMENTS` substitution
+
+- **(a) Command(s):** copy `codex-probes/probe-3-arguments/bf-probe-arguments/` into a Codex skills location, invoke e.g. `bf-probe-arguments hello world`.
+- **(b) Expected output on success:** a line `BF_PROBE_3_ARGS=hello world` (the actual invocation text substituted in).
+- **(c) Failure:** the line shows the literal, unexpanded text `$ARGUMENTS` instead of the invocation text — this is the negative result.
+- **(d) Section to update:** `Unverified / Unknown` (`$ARGUMENTS` entry).
+
+### 4. Probe 4 — frontmatter tolerance
+
+- **(a) Command(s):** copy `codex-probes/probe-4-frontmatter/bf-probe-frontmatter/` into a Codex skills location, invoke `bf-probe-frontmatter`.
+- **(b) Expected output on success:** `BF_PROBE_4_LOADED`, plus a report of which of the three outcomes below occurred.
+- **(c) Failure / outcome (three-way, not two-way):**
+  1. Accepted-and-honoured — the four non-standard keys visibly changed behaviour.
+  2. **Accepted-and-ignored** — `BF_PROBE_4_LOADED` printed, but none of the four keys had any effect. This is the dangerous silent-failure shape: it looks identical to outcome 1 from the sentinel alone.
+  3. Rejected — Codex refuses to load the file or errors before `BF_PROBE_4_LOADED` ever prints.
+- **(d) Section to update:** `Confirmed Blocking Or High-Risk` (`disable-model-invocation` and `allowed-tools` entries) if outcome 2 occurs; `Unverified / Unknown` otherwise.
+
+### 5. Orchestration substrate / per-call model override — **no probe — documentation lookup**
+
+- **(a) Action:** read Codex's subagent documentation, and/or run one interactive session with a Codex install attempting to spawn a sub-call with an inline prompt and a specific model.
+- **(b) Expected finding on success:** documentation (or an observed session) confirms Codex can accept an inline prompt and route a sub-call to a chosen model.
+- **(c) Failure / negative finding:** documentation confirms no such mechanism exists, or is silent on it after a genuine search — record which.
+- **(d) Section to update:** `Unverified / Unknown` (orchestration-substrate entry, FR6b) — if the answer is no, also revisit `Recommendation`, since this is the item with the highest strategic weight.
+
+### 6. Record Codex CLI version and date
+
+- **(a) Action:** record the exact Codex CLI version string (e.g. `codex --version` or equivalent) and the date every entry above was actually run.
+- **(b) Expected output:** a version string and an ISO date, recorded alongside the results of entries 1–5.
+- **(c) Failure:** no version could be determined — record that fact explicitly rather than omitting the field.
+- **(d) Section to update:** `How This Was Determined` (append a "results recorded" note) — this exists because Codex's extension model is young and answers may not survive a release; a stale, unrecorded version silently invalidates every other entry above it.
