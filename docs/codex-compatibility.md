@@ -112,4 +112,27 @@ These are couplings with a `[documented absence]` grade — Codex's documentatio
 
 ## Recommendation
 
+**Do not port any real bf skill to Codex yet.** Three reasons:
+
+- **(a) All four mechanical unknowns are unresolved,** two of them with a 20+ file blast radius: `${CLAUDE_PLUGIN_ROOT}` at 38 files (evidence table row: `grep -rl CLAUDE_PLUGIN_ROOT skills conventions | wc -l`), and `disable-model-invocation` frontmatter at 35 files (evidence table row: `grep -rlE '^disable-model-invocation:' --include=SKILL.md skills | wc -l`).
+- **(b) The low-coupling skills that look like easy pilots are also the most interaction- and fan-out-heavy** in the repo. A port that appears to work on one of these would not generalise — it would hide exactly the orchestration-substrate risk (FR6b, §4) that matters most, because a "successful" pilot proves nothing about the sub-skills that actually exercise cross-skill invocation and per-call model routing.
+- **(c) Two of the highest-risk items fail silently, not loudly** (`disable-model-invocation`, §5; `allowed-tools`, §5). A port cannot be validated by "it ran without error" when the exact failure mode is behaviour being quietly ignored rather than rejected.
+
+**Ordered sequence of work that would be justified once the probes resolve** (see §7 Verification Checklist for how to run each):
+
+1. Run probes 2 and 3 first — resolve whether Codex has a plugin-root equivalent and an `$ARGUMENTS` equivalent. Both are prerequisites for almost anything else bf does.
+2. Run probe 4 — resolve frontmatter tolerance, distinguishing accepted-and-ignored from the other two outcomes.
+3. Run probe 1 with its full control-and-registry-inspection procedure — resolve nested-`SKILL.md` harmlessness.
+4. Read Codex's subagent documentation (or run one interactive session) to resolve the orchestration-substrate gap (FR6b) — this is the item with no probe and the highest strategic weight, since it decides whether bf's per-phase model routing and parallel fan-out are portable at all.
+5. Only after all four are resolved: pick the single lowest-risk bf skill that does **not** depend on cross-skill invocation or model routing, and attempt a real port as a pilot — not before.
+
+### Not Investigated
+
+The following topics were deliberately left out of this build's scope and are not covered above:
+
+- **MCP-server configuration portability.** bf itself declares no MCP server, so this was not investigated.
+- **Hooks / `.claude/settings*.json` portability.** `.claude/settings.local.json` is user-local and not part of the plugin's shipped surface.
+- **A Codex-equivalent plugin manifest.** No documentation research established the manifest format, so writing a speculative one would be invention, not a probe of a specific question.
+- **CI enforcement of this document's own word ban** (see NFR1 in the build's spec). A manual grep at build time is sufficient; a lint rule would be over-engineering for one document.
+
 ## Verification Checklist
