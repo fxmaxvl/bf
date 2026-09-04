@@ -30,6 +30,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:design <idea>` | Utility | Shareable system-design doc with diagrams, via interactive Q&A | You need a design artifact — standalone, no git or PR involved |
 | `/bf:adr-writer [title]` | Utility | Interactive Q&A to draft a numbered ADR citing only tracked source files | You need to record an architecture decision as a real project doc |
 | `/bf:review [PR# \| files]` | Utility | Code review against bf conventions and the complexity gate | Before merging — or whenever you want a second set of eyes |
+| `/bf:coherence [scope]` | Utility | Checks whether a change left the code it touched coherent, against the guidelines' breakage kinds | Right after editing existing code — the fast counterpart to `/bf:review` |
 | `/bf:gh` | Utility | Pick or create a GitHub issue and kick off a workflow | Starting work from an issue tracker |
 | `/bf:jira` | Utility | Pick a Jira ticket and kick off a workflow | Starting work from Jira |
 | `/bf:write-skill [name]` | Utility | Author a new bf-style skill from scratch | You want to extend bf with a new skill |
@@ -82,6 +83,7 @@ claude --plugin-dir ./path/to/bf
 
 The `conventions/` directory contains language- and action-specific guidelines Claude reads before acting:
 
+- `guidelines.md` — behavioral guardrails; unconditional, applies to every phase of every skill
 - `dev.md` — writing and modifying code
 - `testing.md` — writing and modifying tests
 - `git.md` — commit messages (Conventional Commits)

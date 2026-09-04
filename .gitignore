@@ -1,3 +1,4 @@
 .bf/sessions/
+.bf/gather/
 .claude/session_*.md
 .idea/

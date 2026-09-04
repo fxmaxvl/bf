@@ -6,6 +6,12 @@ These rules apply to every skill in this plugin.
 
 User-level conventions from `~/.claude/CLAUDE.md` and its imports are already in context — treat them as authoritative and apply them throughout skill execution.
 
+## Engineering Guidelines
+
+Read `guidelines.md` (resolved via the 3-step Convention Lookup below) at the start of any skill
+run and apply it throughout. Unlike the action-scoped conventions in the table at the end of this
+file, it is not conditional — it governs every phase of every skill.
+
 ## Interaction
 
 - **Always ask for clarification** rather than making assumptions.
