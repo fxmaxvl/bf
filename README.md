@@ -82,6 +82,7 @@ claude --plugin-dir ./path/to/bf
 
 The `conventions/` directory contains language- and action-specific guidelines Claude reads before acting:
 
+- `guidelines.md` — behavioral guardrails; unconditional, applies to every phase of every skill
 - `dev.md` — writing and modifying code
 - `testing.md` — writing and modifying tests
 - `git.md` — commit messages (Conventional Commits)
