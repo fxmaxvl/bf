@@ -66,28 +66,48 @@ Before and after editing, look at the **feature slice**: every file your change 
 their direct collaborators — the full call path of the behavior you are changing. Not the whole
 repo, and not just the lines you typed.
 
-After adding to an existing unit, re-read that unit as a whole and answer, explicitly:
+After adding to an existing unit, re-read **the whole unit** and check it against every breakage
+kind in the table below. State the result; "I re-read it and it still reads as one coherent thing"
+is a valid answer, silence is not.
 
-- Does it still do one thing, or has it become two?
-- Is its name still accurate now that it does this?
-- Did I just add something the slice already provides elsewhere?
-- Do its callers still make sense, or does the new behavior belong at a different layer?
-- Is this consistent with how the neighbouring code solves the same problem?
+Anything the table catches is a finding. Never skip this because the addition was small — small
+additions to load-bearing methods are exactly where incoherence accumulates.
 
-Answering "no" to any of these is a finding. Never skip this because the addition was small —
-small additions to load-bearing methods are exactly where incoherence accumulates.
+### What counts as broken
+
+"Broken" is not only *behaviorally* broken. Design-level breakage counts, and it is the kind an
+assistant is most likely to wave through because the tests still pass:
+
+| Kind | It is broken when |
+|------|-------------------|
+| **Behavior** | Wrong output, a crash, a failing or newly-meaningless test. |
+| **Abstraction** | The unit now leaks a concern from another layer, or its callers must know its internals to use it correctly. A flag parameter threaded through to select between two behaviors is the usual tell. |
+| **Encapsulation** | State or an invariant is now reachable or mutable from outside the type that owns it, or an invariant is enforced at the call site instead of inside the owner. |
+| **Contract** | The name, signature, type, or doc comment no longer describes what the code does — or existing callers silently get different behavior than before. |
+| **Readability** | The unit can no longer be followed in one read: nesting deepened, levels of abstraction mixed, or a comment is now needed to explain what the code itself should say. |
+| **Consistency** | The slice now solves one problem two different ways, or the same concept goes by two names. |
+| **Cohesion** | The unit acquired a second responsibility, or the logic landed in the file that was convenient rather than the file that owns it. |
+
+Two rules bound this, and they do the real work:
+
+- **Judge the end state, not the diff.** Ask what these look like *after* your change, not whether
+  your lines caused them in isolation. Tests passing is not evidence of none of them.
+- **You own what you break or worsen.** Breakage your change introduces — or measurably deepens —
+  is yours to fix. Breakage that was already there and that your change neither touches nor
+  worsens is a finding to report, not a licence to rewrite. Encountering bad code is not the same
+  as being made responsible for it.
 
 ### Change only what coherence requires
 
 A finding does not automatically license an edit. Two cases, and the boundary is not a judgment
 call to be made loosely:
 
-- **Refactor inline** when leaving the code as-is would make *your own change* incoherent,
-  redundant, or misleading: the method now does two things and must be split, a helper you just
-  duplicated already exists, the new behavior sits at the wrong layer, the name is now a lie.
-  This is in scope, expected, and does not need permission.
-- **Write it down** for everything else — code that is merely ugly, dated, or not how you would
-  have written it, but which your change does not make incoherent. Report it; do not fix it.
+- **Refactor inline** when your change leaves any of the breakage kinds above in place — split
+  the method that now does two things, use the helper you were about to duplicate, move the logic
+  to the layer that owns it, rename what your change made a lie, restore the invariant to its
+  owner. This is in scope, expected, and does not need permission.
+- **Write it down** for everything else — pre-existing breakage your change does not worsen, and
+  code that is merely ugly, dated, or not how you would have written it. Report it; do not fix it.
   Pre-existing dead code is in this bucket: mention it, don't delete it.
 
 Also still true:
@@ -97,7 +117,8 @@ Also still true:
 - Don't reformat, re-comment, or tidy code you had no reason to open.
 
 The test: **does my change make sense where it lands?** Every changed line must be defensible as
-either the request itself or what the request made necessary. A line you cannot defend either way
+either the request itself or what the request made necessary — where "necessary" means it fixes
+breakage your change would otherwise have introduced. A line you cannot defend either way
 is a line to revert.
 
 When a coherence refactor makes the diff substantially larger than the request implies, say so in
