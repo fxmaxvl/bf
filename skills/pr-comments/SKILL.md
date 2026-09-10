@@ -1,6 +1,6 @@
 ---
 name: pr-comments
-description: Use when a PR has review feedback to work through — "address the PR comments", "handle the review feedback", "respond to CodeRabbit", "what did the reviewer say". Triages every comment on its merits rather than obeying it: escalates contested ones to bf:consilium, then fixes, argues back, or defers each one, and posts the replies and resolutions as one approved batch.
+description: Use when a PR has review feedback to work through — "address the PR comments", "handle the review feedback", "respond to CodeRabbit", "what did the reviewer say". Triages every comment on its merits rather than obeying it: escalates contested ones to bf:consilium, then fixes, argues back, or defers each one. A fix covers every instance the PR introduced, not just the line the reviewer happened to spot. Replies and resolutions post as one approved batch.
 model: opus
 disable-model-invocation: false
 argument-hint: "[empty for the current branch's PR | <pr number> | <pr url>]"
@@ -34,7 +34,10 @@ Fetch everything in one call — never assemble threads from separate `gh` queri
 bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/fetch-pr-comments.sh" "$ARGUMENTS"
 ```
 
-It returns `{pr, url, title, head_sha, viewer, base, head, threads[], counts{}, notes[]}`. Each
+It returns `{pr, url, title, head_sha, viewer, base, head, threads[], files[], counts{}, notes[]}`.
+`files[]` is the PR's changed files as `{path, additions, deletions, change_type}` with `DELETED`
+ones dropped — that list is the search surface for Phase 3's generalization pass, so do not rebuild
+it with `git diff` against a guessed base. Each
 `threads[]` entry is `{kind, thread_id, comment_id, file, line, side, outdated, resolved, author,
 is_bot, body, replies[], diff_hunk, answered_by_viewer}`, where `kind` is:
 
@@ -101,6 +104,13 @@ says a branch can be reached with a null and you cannot show it cannot, that is 
 skill built to push back, and it is worse than obeying, because a wrong rejection is public and
 argued.
 
+**Check the class before rejecting.** Run steps 1 and 2 of the generalization pass in Phase 3 first.
+If the pattern appears elsewhere in the PR's changed lines and the reviewer's concern is valid
+*there*, the verdict is not `reject` — fix the sibling, and reply that the commented line
+specifically is fine and why. A rejection that is right about the line and wrong about the class is
+the most expensive mistake available here: it is public, it is argued, and it leaves the real
+instance sitting in the branch.
+
 ### Escalation
 
 Run `Skill("bf:decide", args=...)` inline for any comment where the verdict is not obvious after
@@ -143,11 +153,40 @@ The table:
 3  src/api/handler.ts:12        babakks        accept-different   fix at the caller, not here
 ```
 
-## Phase 3 — Fix
+## Phase 3 — Fix the class, not the line
 
 Apply the `accept` and `accept-different` fixes. Follow the `dev` and `testing` conventions; run the
 project's tests and lint as those conventions require, and report failures rather than posting a
 reply that claims a fix that does not build.
+
+**A review comment is a sample, not an inventory.** Reviewers spot-check — they read until they hit
+an instance, comment on that one, and move on. The line they pointed at is rarely the only place the
+problem occurs, so fixing exactly that line and resolving the thread leaves the PR carrying the same
+defect wherever the reviewer happened not to look — now with a resolved thread implying it was
+handled.
+
+For every `accept` and `accept-different` fix, run a generalization pass:
+
+1. **Name the class.** State the defect as a rule, not a location — "the retry ceiling is a literal
+   instead of config", not "line 42 is wrong". A defect you cannot state as a rule is a one-off, and
+   the pass ends here.
+2. **Search the surface.** Derive a signature from the class and `Grep` the paths in `files[]` for
+   it. Search for the *pattern* — the call shape, the missing guard, the unchecked return — never
+   the literal text of the commented line, which by definition occurs once. A grep hit is a lead:
+   read each candidate before counting it an instance.
+3. **Fix every instance the PR introduced or touched**, then verify each one the same way as the
+   original.
+
+**The boundary is the PR's own changed lines, not its changed files.** An instance in code this PR
+did not touch is `defer` — even in a file the PR edits, even when it is unmistakably the same
+defect. A three-line hunk in a four-hundred-line file does not make the other lines this PR's
+business. Widening past that turns a review fix into an unrequested refactor the reviewer now has to
+re-review, which is the failure this pass has to avoid while still being thorough.
+
+**Cap: about 5 sibling sites.** Past that the class is a refactor rather than a review fix — hand it
+to `bf:decide`, and expect the answer to be fix the commented site now and `defer` the class with a
+reply saying where it went. The number is a chosen default, not derived from anything; tune it if it
+splits classes that should have been fixed whole.
 
 Re-read each edited unit once and check it against the comment as stated. **A resolution says the
 thread's concern is gone** — resolving on an unverified fix is a false public claim, so a fix that
@@ -158,6 +197,10 @@ did not verify drops back to `question` or stays open with an honest reply.
 One reply per comment that needs one. Address the reviewer's actual point; a reply that restates the
 comment and adds "fixed" is noise.
 
+- **Any fix that widened** — name the other sites, with paths. A reviewer who pointed at one line
+  and got four fixed will otherwise re-read that one line, resolve, and never learn the rest of the
+  change happened. This disclosure is what keeps a widened fix reviewed instead of silent, so it is
+  required even where the reply was otherwise optional — an `accept` that widened now needs one.
 - **`accept-different`** — what you did instead, and the reason. This is the reply that most often
   prevents a second round.
 - **`reject`** — the argument and its evidence: the convention by name or topic, the code path that
@@ -208,6 +251,9 @@ has unpushed fixes, so the reviewer is looking at replies that reference code th
 | `counts.actionable` is `0` | `STATUS: NO_OPEN_COMMENTS` and stop. Do not go looking for feedback elsewhere |
 | Thread is `outdated: true` | The code moved after the comment. Judge the current code; if the concern no longer applies, that is a reply saying so, not a silent resolve |
 | Comment asks for something already done in a later commit | Reply pointing at the commit, then resolve. Do not redo the work |
+| `counts.files_truncated` is `true` | The PR touches more than 100 files, so `files[]` is partial and the generalization pass cannot see the whole surface. Say so in the output and treat every widened fix as best-effort rather than exhaustive |
+| A sibling instance sits in code the PR did not touch | `defer` it — say in the reply that the pattern predates the PR and where it lives. Do not fix it here, and do not let it block resolving the thread |
+| Generalization pass finds more than ~5 siblings | Escalate the class to `bf:decide`. Fix the commented site, `defer` the class, and say both in the reply — never silently refactor past the cap |
 | More than ~30 open comments | Group aggressively in Phase 1, triage the groups, and say in the output that comments were grouped. Do not silently drop the tail |
 | A reply fails to post but its thread resolved (or vice versa) | The `results[]` entry shows the split. Report it and leave the triage file unmarked for that entry — a rerun retries only what failed |
 | Reviewer has already replied since the fetch | The rerun's `answered_by_viewer` filter does not cover reviewer replies. On a `failed` post, refetch before retrying so the reply lands in context |

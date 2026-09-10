@@ -10,6 +10,8 @@
 #     threads[] = {kind, thread_id, comment_id, file, line, side, outdated,
 #                  resolved, author, is_bot, body, replies[], diff_hunk,
 #                  answered_by_viewer}
+#     files[]   = {path, additions, deletions, change_type} — the PR's changed files,
+#                 DELETED ones excluded; this is the search surface for sibling instances
 #       kind: "thread" (line-anchored, resolvable) | "issue" (PR-level) | "review" (review summary body)
 #   notes[] = human-readable lines about what was filtered and why
 # Errors: {"error":"<code>","detail":"..."} + exit 1
@@ -54,6 +56,7 @@ query($owner:String!,$repo:String!,$num:Int!){
       number url title
       baseRefName headRefName
       commits(last:1){nodes{commit{oid}}}
+      files(first:100){totalCount nodes{path additions deletions changeType}}
       comments(first:100){nodes{
         author{login __typename} body createdAt
       }}
@@ -135,6 +138,10 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
             state: .state
           } ] ) as $reviews
 
+  | ( [ ($pr.files.nodes // [])[]
+        | select(.changeType != "DELETED")
+        | {path: .path, additions: .additions, deletions: .deletions, change_type: .changeType} ] ) as $files
+
   | ($threads + $issues + $reviews) as $every
   | ( if $all then $every
       else [ $every[] | select(.resolved == false and .answered_by_viewer == false) ]
@@ -149,7 +156,11 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
       base: $pr.baseRefName,
       head: $pr.headRefName,
       threads: $open,
+      files: $files,
       counts: {
+        files: ($files | length),
+        files_deleted: ((($pr.files.nodes // []) | map(select(.changeType == "DELETED")) | length)),
+        files_truncated: ((($pr.files.totalCount // 0) > 100)),
         total: ($every | length),
         actionable: ($open | length),
         resolved: ([ $every[] | select(.resolved) ] | length),
@@ -163,6 +174,9 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
           ( ([ $every[] | select(.answered_by_viewer) ] | length) as $a
             | if ($a > 0 and ($all|not)) then "\($a) thread(s) already answered by \($me) skipped — rerun with --all to include" else empty end ),
           ( ([ $open[] | select(.outdated) ] | length) as $o
-            | if $o > 0 then "\($o) actionable thread(s) are outdated — the code they point at has moved" else empty end ) ]
+            | if $o > 0 then "\($o) actionable thread(s) are outdated — the code they point at has moved" else empty end ),
+          ( if (($pr.files.totalCount // 0) > 100)
+            then "PR touches \($pr.files.totalCount) files; only the first 100 are listed — the sibling-instance search surface is incomplete"
+            else empty end ) ]
       )
     }'
