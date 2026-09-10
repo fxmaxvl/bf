@@ -74,7 +74,10 @@ reviewer's stylistic preference that contradicts a project convention loses to t
 that is the argument to make in the reply.
 
 Group comments that make the same point across files, and triage the group once. Reviewers repeat
-themselves; so do bots.
+themselves; so do bots. **A group is one verdict over many threads, never one thread standing in for
+the others** — carry every member's `thread_id` on the grouped entry. Each of those threads is
+public, and each still needs its own reply and its own resolve in Phase 5; a group that loses a
+thread id leaves that thread open forever with its concern already fixed.
 
 ## Phase 2 — Triage
 
@@ -151,7 +154,9 @@ The table:
 1  src/net/retry.ts:42          babakks        accept             cap comes from config
 2  src/order/service.ts:88      coderabbitai   reject             the guard is unreachable — arg in reply
 3  src/api/handler.ts:12        babakks        accept-different   fix at the caller, not here
+4  src/{a,b}/parse.ts:12,31     babakks ×2     accept             same missing guard — 2 threads
 ```
+Row 4 is a grouped entry: one verdict, two threads, and both thread ids recorded on it.
 
 ## Phase 3 — Fix the class, not the line
 
@@ -230,7 +235,10 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/post-replies.sh" <plan.js
 ```
 
 `plan.json` is an array of `{kind, thread_id, reply, resolve}` in triage order — write it under
-`.bf/pr-comments/`. `resolve: true` only for verified `accept`/`accept-different` entries on `kind:
+`.bf/pr-comments/`. **One entry per thread, not per triage row.** A grouped row fans back out here:
+each `thread_id` it carries gets its own entry, so every reviewer reads the answer on the thread
+they wrote and every thread resolves. The replies may be near-identical — that is fine, and far
+better than a thread left open because another thread answered for it. `resolve: true` only for verified `accept`/`accept-different` entries on `kind:
 thread`; the script skips resolution on `issue` and `review` entries, which have no thread. Add
 `--dry-run` to print what would be sent without sending it.
 
@@ -254,6 +262,7 @@ has unpushed fixes, so the reviewer is looking at replies that reference code th
 | `counts.files_truncated` is `true` | The PR touches more than 100 files, so `files[]` is partial and the generalization pass cannot see the whole surface. Say so in the output and treat every widened fix as best-effort rather than exhaustive |
 | A sibling instance sits in code the PR did not touch | `defer` it — say in the reply that the pattern predates the PR and where it lives. Do not fix it here, and do not let it block resolving the thread |
 | Generalization pass finds more than ~5 siblings | Escalate the class to `bf:decide`. Fix the commented site, `defer` the class, and say both in the reply — never silently refactor past the cap |
+| A grouped triage row reaches Phase 5 | Fan it out to one plan entry per `thread_id`. Verify the plan's entry count against the number of threads in scope, not the number of triage rows — they differ exactly when grouping happened |
 | More than ~30 open comments | Group aggressively in Phase 1, triage the groups, and say in the output that comments were grouped. Do not silently drop the tail |
 | A reply fails to post but its thread resolved (or vice versa) | The `results[]` entry shows the split. Report it and leave the triage file unmarked for that entry — a rerun retries only what failed |
 | Reviewer has already replied since the fetch | The rerun's `answered_by_viewer` filter does not cover reviewer replies. On a `failed` post, refetch before retrying so the reply lands in context |
