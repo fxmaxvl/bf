@@ -110,11 +110,17 @@ Each session produces two files:
 
 ### Block Reading Pattern
 
-To read a specific artifact from a merged file:
+To read a specific artifact from a merged file, call the script — one round-trip, no
+header arithmetic:
 
-1. Grep `paths.<artifact>` for `^<paths.block_<artifact>>` to find the start line
-2. Grep `paths.<artifact>` for the next `^## ` after that line to find the end (use EOF if it's the last block)
-3. Read `paths.<artifact>` with `offset=<start>` and `limit=<end - start>`
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.<artifact>> --block "<paths.block_<artifact>>"
+```
+
+It prints the block body on stdout. Empty output means the block is absent or empty, or
+the file does not exist — the optional-block call sites already treat those the same.
+The header is matched whole, so `## Spec` never returns `## Specification`, and a nested
+`###` heading does not end a block.
 
 ### Block Writing Pattern
 

@@ -31,24 +31,7 @@ fi
 
 if [[ -n "$BLOCK_HEADER" ]]; then
     # Extract the named block: from the header line to the next ^## or EOF
-    CONTENT=$(python3 - "$FILE" "$BLOCK_HEADER" << 'EOF'
-import sys
-
-path, header = sys.argv[1], sys.argv[2]
-lines = open(path).readlines()
-in_block = False
-block_lines = []
-for line in lines:
-    if line.rstrip() == header:
-        in_block = True
-        continue
-    if in_block:
-        if line.startswith('## ') and line.rstrip() != header:
-            break
-        block_lines.append(line)
-print(''.join(block_lines), end='')
-EOF
-)
+    CONTENT=$(bash "$(dirname "$0")/read-block.sh" "$FILE" --block "$BLOCK_HEADER")
 else
     CONTENT=$(cat "$FILE")
 fi

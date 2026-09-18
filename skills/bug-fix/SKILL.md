@@ -27,7 +27,7 @@ Autonomous bug-fix workflow. The user provides symptoms + directions and grants 
 
 Spawn **3 named Agent subagents in parallel** per the **Parallel Fan-Out** convention in `plugin-main.md` (single message, three Agent tool calls, `subagent_type: general-purpose`), named so they show on the fleet board. They run independently and must not message each other — their value is uncorrelated angles on the same bug. Each agent gets the symptoms brief and an angle:
 
-- **`recent-change` (Agent A)**: grep `git log -p --since="14 days"` and the diff of likely files for changes that match the symptom area; return ranked candidate root causes with file:line citations.
+- **`recent-change` (Agent A)**: stage the search instead of reading a fortnight of patches at once — run `git log --since="14 days" --stat -n 50` to rank commits by whether they touch the symptom area, then `git show <sha> -- <paths>` for only the few that do; return ranked candidate root causes with file:line citations.
 - **`code-path` (Agent B)**: trace the failing behavior from entry point to suspected fault site; return the call chain and the most-suspect node with file:line.
 - **`data-state` (Agent C)**: examine inputs, persisted state, config, env, and external boundaries (API, DB) that could produce the symptom; return ranked candidates with citations.
 
