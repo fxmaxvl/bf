@@ -53,7 +53,16 @@ If `install_exit` is non-zero and `install_output` starts with `COLLISION:`:
 - If yes: run `bash "$SKILL_DIR/hooks/install.sh" on --force` and continue.
 - If no: print "Autopilot aborted — existing session preserved." and stop.
 
-Otherwise print `install_output` and continue normally.
+If `install_exit` is non-zero and the output does **not** start with `COLLISION:` — a denied settings write, a blocked Bash call, a usage error — then the bypass did not install. Do not fall through silently: the run would look normal while every gated step still stops for approval, and the user is left to re-invoke the underlying skill by hand.
+
+- Print `install_output`, and say plainly that the permission bypass was not installed, with whatever reason the output gives.
+- Ask the user (one question): "Autopilot could not install its permission bypass. Continue in normal approval-gated mode?"
+- If yes: continue without the bypass and say that steps needing approval will prompt.
+- If no: print "Autopilot aborted — no changes made." and stop.
+
+The bypass is a convenience, not a prerequisite — everything downstream works under approvals, just with prompts.
+
+If `install_exit` is zero: print `install_output` and continue normally.
 
 Install maintains a global registry (`~/.bf/autopilot/state.json`) shaped `{"entries": {"<project-id>": {started_at, repo_root}, ...}}` alongside a per-repo lock file (`~/.bf/autopilot/<project-id>.json`). The registry tracks all active per-repo autopilot sessions; the per-repo file is the authoritative lock that `stop.sh` checks. Multiple autopilots can run concurrently across distinct repos — COLLISION fires only when the same project-id is already present in the registry or per-repo file. Install also flips `permissions.defaultMode` to `"bypassPermissions"` in the project's `.claude/settings.local.json` (stashing the prior value) so cross-directory reads and non-allowlisted Bash commands run without prompts. Uninstall restores the prior value; the SessionStart and UserPromptSubmit cleanup hooks also call `install.sh off`, so the bypass mode never survives across sessions.
 
