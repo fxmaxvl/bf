@@ -4,7 +4,7 @@ description: Review code against feature conventions and the complexity gate. Pa
 model: opus
 disable-model-invocation: false
 argument-hint: "[--dry-run] [free-form: 'PR 42', 'https://github.com/org/repo/pull/42', 'src/auth/', 'last 3 commits', or empty for current branch]"
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *)
+allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mktemp *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill, including the **one-question-per-turn** rule that applies at every interactive point in this skill.
@@ -103,35 +103,49 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
    ```
    Then treat the input as if the user had passed the bare `pr_number`.
 
-2. **Compute `scope_description`, `diff_text`, and `pr_head_branch`**:
-   - **No request or "current branch"** (`$ARGUMENTS` is empty after stripping):
+2. **Resolve the scope in one call.** `scope.sh` already implements the branch, range
+   and paths modes, and `--with-diff` returns the diff as a **path** rather than a
+   value — so the diff never has to pass through this conversation. Do not hand-derive
+   a diff or a file list.
+
+   **Normalize the target first.** `scope.sh` dispatches on the literal `branch`, on a
+   rev or range `git rev-parse --verify` accepts, or on a pathspec — and anything else
+   falls through to a pathspec, which matches nothing and reviews nothing. So translate
+   a free-form request before passing it:
+
+   | `$ARGUMENTS` | target to pass |
+   |---|---|
+   | empty, or a bare "current branch" | `""` |
+   | a natural-language range, e.g. "last 3 commits" | the equivalent rev range, e.g. `HEAD~3...HEAD` |
+   | a free-form PR reference, e.g. "PR 42" | none — use the PR case below |
+   | a rev, a range, or file paths | unchanged |
+
+   - **Anything that is not a PR** — pass the normalized target through. An empty target
+     resolves to uncommitted changes, falling back to branch-vs-base when the tree is
+     clean:
      ```bash
-     diff_text=$(git diff $(git merge-base HEAD $(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main))...HEAD)
-     scope_description="current branch diff vs origin/HEAD"
-     pr_head_branch=""
+     scope=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff "$target")
      ```
-   - **PR number** (bare integer or extracted `pr_number`):
+     Read `mode`, `files`, `file_count` and `diff_file` from the returned JSON. Set
+     `changed_files` from `files`, `diff_file` from `diff_file`, `pr_head_branch=""`,
+     and `scope_description` from the original request (e.g. "current branch diff vs
+     origin/HEAD" for `branch`, the literal paths for `paths`).
+
+   - **PR number** (bare integer or extracted `pr_number`): `scope.sh` has no PR mode,
+     so resolve this one through `gh` and write the diff to a file rather than a
+     variable:
      ```bash
-     diff_text=$(gh pr diff <pr_number>)
-     pr_meta=$(gh pr view <pr_number> --json title,headRefName,baseRefName,author)
-     pr_head_branch=$(echo "$pr_meta" | grep -oE '"headRefName":"[^"]*"' | cut -d'"' -f4)
+     diff_file=$(mktemp)
+     gh pr diff <pr_number> > "$diff_file"
+     changed_files=$(sed -n 's#^diff --git a/.* b/##p' "$diff_file")
+     pr_head_branch=$(gh pr view <pr_number> --json headRefName -q .headRefName)
      scope_description="PR <pr_number>"
      ```
-   - **File paths or globs**:
-     ```bash
-     diff_text=$(git diff -- <paths>)
-     scope_description="<paths>"
-     pr_head_branch=""
-     ```
-   - **Commit range or other description**: use git to produce the appropriate diff; set `scope_description` to the description; `pr_head_branch=""`.
 
-3. **Compute `changed_files`** from `diff_text`:
-   ```bash
-   changed_files=$(echo "$diff_text" | grep -E '^diff --git' | sed 's#diff --git a/.* b/##')
-   ```
-   For file-path inputs where git diff may be empty (e.g. unmodified files explicitly listed), fall back to the literal paths from `$ARGUMENTS`.
+   For file-path inputs where the diff may be empty (e.g. unmodified files explicitly
+   listed), fall back to the literal paths from `$ARGUMENTS` for `changed_files`.
 
-4. **Early exit if nothing to review**: if `changed_files` is empty and `diff_text` is empty:
+3. **Early exit if nothing to review**: if `changed_files` is empty:
    ```
    STATUS: NOTHING_TO_REVIEW — no changed files found for scope: <scope_description>
    ```
@@ -226,8 +240,7 @@ changed_files:
 
 scope_description: <scope_description>
 
-diff_text:
-<diff_text>
+diff_file: <diff_file>
 
 pr_head_branch: <pr_head_branch if non-empty, else omit>
 
@@ -246,7 +259,7 @@ When flagging missing integration or E2E tests:
 
 ## Instructions
 
-1. The changed files and diff are already provided in the `## Scope` block above — do NOT re-run git or gh to re-derive the scope.
+1. The changed files are listed in the `## Scope` block above and the diff is on disk at `diff_file` — read it with the Read tool. Do NOT re-run git or gh to re-derive the scope.
 2. Read the full current content of each file listed in `changed_files` using the Read tool before forming conclusions.
 3. Apply every check in the Code Review Convention across all five categories.
 4. Produce the report in this exact format — including the Review Metadata block at the end:
