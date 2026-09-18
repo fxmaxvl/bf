@@ -143,7 +143,7 @@ On approval:
 
 ### 1. Fetch open issues
 
-Run `gh issue list --repo <owner/repo> --state open --limit 50 --json number,title,labels,body,assignees --jq '[.[] | {number, title, labels: [.labels[].name], assignees: [.assignees[].login], body: (.body // "" | .[:200])}]'` to get the list of open issues. The projection keeps the first 200 characters of each body — enough to classify in step 2, without pulling fifty complete bodies into context. Step 4 fetches the full body of the one issue the user picks.
+Run `gh issue list --repo <owner/repo> --state open --limit 50 --json number,title,labels,body,assignees --jq '[.[] | {number, title, labels: [.labels[].name], assignees: [.assignees[].login], body: (.body // "" | .[:200])}]'` to get the list of open issues. The projection keeps the first 200 characters of each body as a classification hint, instead of pulling fifty complete bodies into context. Where an issue opens with boilerplate the excerpt may carry little signal — classify from the title and label in that case, per the best-effort rule in **Notes**. Step 4 fetches the full body of the one issue the user picks.
 
 If no open issues exist, tell the user.
 
