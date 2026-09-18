@@ -1,6 +1,6 @@
 ---
 name: session-summary
-description: Create a summary of the current session with cost, efficiency insights, and observations.
+description: Create a summary of the current session with efficiency insights and observations.
 model: sonnet
 disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash(git *), Bash(gh issue create *)
@@ -13,10 +13,10 @@ Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains pl
 Create `session_{slug}_{timestamp}.md` with a complete summary of our session. Include:
 
 - A brief recap of key actions.
-- Total cost of the session.
+- Total cost of the session — only if the harness actually surfaces it. It usually does not, in which case write "not available" and move on. Never estimate or infer a figure.
 - Efficiency insights.
 - Possible process improvements.
-- The total number of conversation turns.
+- The total number of conversation turns, labelled as approximate unless you can count them exactly.
 - Any other interesting observations or highlights.
 
 ## Step 2 — Surface skill/flow improvement candidates
