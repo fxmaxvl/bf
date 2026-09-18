@@ -3,6 +3,7 @@ name: gh
 description: Create GitHub issues, pick existing ones to work on, or verify whether an issue is still actual. Auto-generates titles/labels for new issues, classifies existing ones, and kicks off feature.
 argument-hint: [optional: "pick", "pick bug", issue URL/number + "verify", or issue description]
 model: sonnet
+allowed-tools: Read, Grep, Glob, Bash(git *), Bash(gh *), Skill
 ---
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
