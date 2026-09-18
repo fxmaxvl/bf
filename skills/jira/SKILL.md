@@ -3,6 +3,7 @@ name: jira
 model: sonnet
 description: Pick Jira tickets to work on or interact with them (read, transition, comment). Discovers Jira MCP tools dynamically.
 argument-hint: [optional: "pick", "pick PROJECT", or Jira ticket URL]
+allowed-tools: Read, Skill, mcp__*__jira__*
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.

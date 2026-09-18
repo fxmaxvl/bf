@@ -85,6 +85,7 @@ def artifact_paths(adir, prefix):
         'design_report':     temp,
         'impl_report':       temp,
         'complexity_report': temp,
+        'consistency_report': temp,
         # block headers (used to scope reads/appends within the merged files)
         'block_spec':               '## Spec',
         'block_plan':               '## Plan',
@@ -95,6 +96,8 @@ def artifact_paths(adir, prefix):
         'block_design_report':      '## Design Report',
         'block_impl_report':        '## Implementation Review',
         'block_complexity_report':  '## Complexity Report',
+        'block_consistency_report': '## Consistency Report',
+        'block_context':            '## Context',
         'block_decisions':          '## Decisions',
     }
 

@@ -3,14 +3,26 @@ name: session-summary
 description: Create a summary of the current session with efficiency insights and observations.
 model: sonnet
 disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Bash(git *), Bash(gh issue create *)
+allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(mkdir *), Bash(gh issue create *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
 ## Step 1 — Write the session summary
 
-Create `session_{slug}_{timestamp}.md` with a complete summary of our session. Include:
+Resolve the artifact root, then write the summary to `$SESSIONS_DIR/session_{slug}_{timestamp}.md`:
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -n "$PROJECT_ROOT" ] && [ -d "$PROJECT_ROOT/.bf" ]; then
+  SESSIONS_DIR="$PROJECT_ROOT/.bf/sessions"
+else
+  SESSIONS_DIR="$HOME/.bf/sessions"
+fi
+mkdir -p "$SESSIONS_DIR"
+```
+
+Include:
 
 - A brief recap of key actions.
 - Total cost of the session — only if the harness actually surfaces it. It usually does not, in which case write "not available" and move on. Never estimate or infer a figure.
