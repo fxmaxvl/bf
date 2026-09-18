@@ -142,13 +142,13 @@ On approval:
 
 ### 1. Fetch open issues
 
-Run `gh issue list --repo <owner/repo> --state open --limit 50 --json number,title,labels,body,assignee` to get the list of open issues.
+Run `gh issue list --repo <owner/repo> --state open --limit 50 --json number,title,labels,body,assignees --jq '[.[] | {number, title, labels: [.labels[].name], assignees: [.assignees[].login], body: (.body // "" | .[:200])}]'` to get the list of open issues. The projection keeps the first 200 characters of each body — enough to classify in step 2, without pulling fifty complete bodies into context. Step 4 fetches the full body of the one issue the user picks.
 
 If no open issues exist, tell the user.
 
 ### 2. Classify issues
 
-For each issue, determine its type — even if it has no labels or doesn't follow our naming conventions. Read the title and body to infer the category:
+For each issue, determine its type — even if it has no labels or doesn't follow our naming conventions. Read the title and the body excerpt to infer the category:
 
 - `bug` — describes something broken, an error, unexpected behavior
 - `feature` — describes a request, idea, enhancement
