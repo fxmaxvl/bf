@@ -468,7 +468,7 @@ Wait for the user's reply before proceeding.
 **Parse the answer:**
 
 - `none` or empty → print "No fixes requested. Report saved at `<report_path>`." and exit.
-- `all` → select all C* and X* concerns.
+- `all` → select all C*, X* and Y* concerns.
 - `must-fix` → select all concerns labelled `[must-fix]`.
 - Space-separated IDs → validate each ID exists in the report.
   - If any ID is unknown, ask once: "Unknown ID(s): <list>. Please re-enter valid IDs from the list above." Re-parse the new answer; if still invalid, treat as `none`.
