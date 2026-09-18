@@ -30,7 +30,10 @@ Read the appropriate feature context for filtering relevant TODOs:
 
 ### 1. Find TODOs introduced by this branch
 
-Use `git diff master...HEAD` to get the actual diff. Only consider lines that were **added or modified** by this branch (lines starting with `+` in the diff). Cross-reference against `changed_files` from `changed-packages.sh` to confirm scope. This ensures pre-existing TODOs in touched files are excluded.
+Use `git diff <base>...HEAD` to get the actual diff, where `<base>` is the `base` field that
+`changed-packages.sh` reports — a remote-tracking ref. Never a bare local branch name: a local
+`master` sitting behind its remote inflates the diff with everything merged upstream since, so
+pre-existing TODOs get attributed to this branch. Only consider lines that were **added or modified** by this branch (lines starting with `+` in the diff). Cross-reference against `changed_files` from `changed-packages.sh` to confirm scope. This ensures pre-existing TODOs in touched files are excluded.
 
 Search the added/modified lines for `TODO` comments (case-insensitive).
 
