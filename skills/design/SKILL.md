@@ -54,7 +54,7 @@ gather (inline Q&A) → generate (opus agent) → review (inline) → handoff? (
    ```
    project_root=$(git rev-parse --show-toplevel 2>/dev/null) \
      && TEMP_DIR="$project_root/.bf/sessions" \
-     || TEMP_DIR="$PWD/.bf/sessions"
+     || TEMP_DIR="$HOME/.bf/sessions"
    mkdir -p "$TEMP_DIR"
    ```
    The temp Q&A file path is `$TEMP_DIR/<timestamp>-design-qa.md`.
