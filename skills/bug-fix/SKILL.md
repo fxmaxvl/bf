@@ -9,13 +9,13 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Agent
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
 
-Autonomous bug-fix workflow. The user provides symptoms + directions and grants all permissions upfront. The skill then runs Investigate → Diagnose → Design → Plan → Execute without further user input. Every phase boundary is gated by the **decide** skill — no human approval points.
+Autonomous bug-fix workflow. The user provides symptoms + directions and grants all permissions upfront. The skill then runs Investigate → Diagnose → Design → Plan → Execute → Sibling sweep without further user input. Every phase boundary is gated by the **decide** skill — no human approval points.
 
 ## On Invocation
 
 1. Capture `$ARGUMENTS` as the **symptoms brief**. Do not ask the user to expand on it — decide resolves ambiguity.
 2. Resolve repo root: `git rev-parse --show-toplevel`.
-3. Create session log at `$repo_root/.bf/sessions/<timestamp>-bug-fix-session-log.md` with blocks `## Symptoms`, `## Hypotheses`, `## Root Cause`, `## Solutions`, `## Plan`, `## Decisions`, `## Execution`.
+3. Create session log at `$repo_root/.bf/sessions/<timestamp>-bug-fix-session-log.md` with blocks `## Symptoms`, `## Hypotheses`, `## Root Cause`, `## Solutions`, `## Plan`, `## Decisions`, `## Execution`, `## Siblings`.
 4. Write the symptoms brief into `## Symptoms`.
 5. Print banner (plain text):
 
@@ -115,6 +115,20 @@ Follow the approved plan step by step. For each step:
 
 If a test fails: do **not** ask the user. Diagnose and re-attempt. After 2 failed attempts on the same step, invoke decide with a `QUESTION: How to proceed given the failing step?` payload and follow its verdict.
 
+## Phase 7.5 — Sibling sweep
+
+A confirmed root cause names a *class*, and the instance that got reported is rarely the only one. Sweep for the rest here, in one pass, instead of leaving a reviewer to re-flag them round after round.
+
+1. State the class in one line as a **searchable shape**, not a symptom — an `IN (...)` built from an unbounded list, a derived key that can be NULL, a cleanup task whose failure is swallowed. "The bug in `parseOrder`" is not a class.
+2. Grep for that shape across the repo. Search the property, never the identifier: a sibling has different names, which is why reviewers find them and a symptom-search does not.
+3. Record every hit in `## Siblings` with `path:line` and one of:
+   - **same class, in scope** — fix it as part of this change and add a line to `## Execution`.
+   - **same class, out of scope** (another package, another owner, a separate release) — leave the code alone and list it, so it is a filed follow-up rather than a silent omission.
+   - **not the class** — one line on why. Rejected hits are evidence the search was wide enough to be worth trusting.
+4. If the only hit is the instance already fixed, write that down. A sweep that found nothing is a result, and it distinguishes "no siblings" from "never looked".
+
+Re-run the test command after any sibling fix, then proceed to Phase 8.
+
 ## Phase 8 — Finalize
 
 When all steps pass:
@@ -130,6 +144,7 @@ When all steps pass:
 Root cause: <one-liner>
 Fix: <one-liner>
 Files changed: <count>
+Siblings: <fixed count> fixed, <deferred count> deferred (or "none found")
 Low-confidence flags: <list, or "none">
 ADR flags: <affected ADR(s) with path + title, or "none">
 Session log: <absolute path>
