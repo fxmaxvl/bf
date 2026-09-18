@@ -93,9 +93,11 @@ Fixes run **sequentially by default** — Parallel Fan-Out in `plugin-main.md` g
 **This repo has no test suite** — it is prose skills plus bash scripts. Do not borrow a test-running verify phase and do not report green from a command that found nothing to run. Per item:
 
 1. Re-read the edited region and state the item's specific ask alongside the line that now satisfies it. An ask that cannot be quoted back is not done.
-2. For an edited `SKILL.md`: run the structural items of the **Review Checklist** in `${CLAUDE_PLUGIN_ROOT}/skills/write-skill/SKILL.md` against it — frontmatter, plugin-main.md first, one-question-per-turn, banner, edge cases. The new-skill items (README row, single-file justification) do not apply when editing an existing skill.
-3. For an added or edited script: `bash -n <file>`, then execute it once on real input and confirm the output matches its documented contract. A script whose contract is unexercised counts as unverified.
-4. Grep for stale references to anything renamed, removed, or re-scoped — comments and docs that still describe the old behavior are part of the fix, not follow-up.
+2. **If the change is a decision rule, drive it.** A heuristic, a gating condition, a base-ref choice, a skip criterion — anything a later run must *apply* rather than read — is not verified by read-back. The text can be correct and the rule still never fire. Build the smallest real input that exercises it (a throwaway commit, a fixture directory, a stub beside the script) and observe the rule both **firing** and **declining to fire**, then report both observations. A rule whose accept and reject cases have not each been seen is unverified, exactly as an unexercised script is under step 4.
+   Edits with no accept/reject behaviour of their own — a reworded convention, a stated preference, a clarified description — are documentation and finish at step 1. Say which of the two an item is before verifying it, because that choice decides what counts as done.
+3. For an edited `SKILL.md`: run the structural items of the **Review Checklist** in `${CLAUDE_PLUGIN_ROOT}/skills/write-skill/SKILL.md` against it — frontmatter, plugin-main.md first, one-question-per-turn, banner, edge cases. The new-skill items (README row, single-file justification) do not apply when editing an existing skill.
+4. For an added or edited script: `bash -n <file>`, then execute it once on real input and confirm the output matches its documented contract. A script whose contract is unexercised counts as unverified.
+5. Grep for stale references to anything renamed, removed, or re-scoped — comments and docs that still describe the old behavior are part of the fix, not follow-up.
 
 If an item cannot be verified, revert its commit, return it to the backlog, and say so. Never ship an unverified item to keep the count at three.
 
