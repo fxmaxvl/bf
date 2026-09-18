@@ -80,7 +80,7 @@ Do not stop. Do not wait. Resolve every decision via an oracle and continue.
 
 Default oracle is `decide` — fast, single verdict, cheap. **Escalate to `consilium`** (3-critic council) when ANY of these is true:
 
-- `PHASE` is `brainstorm`, `design-review`, `spec-review`, or any phase involving architecture or open-ended ideation
+- `PHASE` is `brainstorm`, `review-design`, or any phase involving architecture or open-ended ideation
 - `OPTIONS` has 4 or more items (high branching — a single critic is too thin)
 - `decide` was already called for this exact decision and returned `confidence: low` (re-invoke same payload via consilium to break the tie)
 
