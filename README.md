@@ -37,6 +37,8 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:jira` | Utility | Pick a Jira ticket and kick off a workflow | Starting work from Jira |
 | `/bf:write-skill [name]` | Utility | Author a new bf-style skill from scratch | You want to extend bf with a new skill |
 | `/bf:onboard-skill <url> <instructions>` | Utility | Fetch an external skill, analyze what to port, adapt to bf conventions, and hand off to bf:write-skill | You want to steal a skill from another plugin and adapt it for bf |
+| `/bf:self-audit [scope]` | Utility | Sweeps every skill, script, and convention for drift, stale references, and token waste, then files the findings as GitHub issues | You want to know what has rotted in the plugin itself — pairs with `/bf:self-heal`, which fixes what it files |
+| `/bf:self-heal [repo \| ids]` | Utility | Harvests the plugin's own open issues, scores them on token frugality, quality, and speed, argues for the top 3, fixes them, and ships one PR | The backlog has accumulated skill-improvement suggestions and you want the best three paid down in one go |
 | `/bf:scan-conventions [task]` | Utility | Discovers and filters user-defined custom conventions relevant to the current task. | Before acting on a task where project/user convention files beyond the predefined set might apply |
 | `/bf:session-summary` | Utility | Summary of what happened this session | End of a work session — capture what changed and why |
 | `/bf:gather <feature or PRD>` | Utility | Iterative requirements gathering and versioned PRD distillation across sessions | You have a fuzzy PRD and need to track open questions, scope a POC, and build a versioned source of truth |
