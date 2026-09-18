@@ -135,14 +135,16 @@ Print banner: `── feature | Complexity Guard ──────────�
 new code. When the task produced none, they cost two round-trips and find nothing:
 
 ```bash
-git diff --name-status <base>...HEAD
+git diff --name-status origin/HEAD...HEAD
 ```
 
-Use the same `<base>` as `changed-packages.sh` (origin/HEAD, then main, then master). Skip
-this phase and Phase 5 — go straight to Phase 6 — when every changed entry is either a pure
-rename (`R100`, no content change) or a modification whose added and removed lines differ
-only in a path or module string. Anything else, including a single new conditional or
-dependency, means both gates run as normal. When the diff is mixed or unclear, run them: a
+Diff against the remote-tracking ref, not a local branch name — a local `main` that is behind
+its remote reports renames as unpaired adds, which reads as new code and silently forfeits the
+skip. Skip this phase and Phase 5 — go straight to Phase 6 — when every changed entry is either a pure
+rename (`R100`) or a modification whose added and removed lines differ only in a path or
+module string. `R100` is load-bearing: a rename that also carries edits scores below it
+(`R099` and down), so it fails this test on its own. Anything else, including a single new
+conditional or dependency, means both gates run as normal. When the diff is mixed or unclear, run them: a
 gate skipped over real code costs more than two spent round-trips.
 
 If skipping, record it and say so:
