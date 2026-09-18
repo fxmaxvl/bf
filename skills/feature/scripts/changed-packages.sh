@@ -6,11 +6,15 @@
 
 set -euo pipefail
 
-# Resolve default base: prefer the remote HEAD pointer, then main, then master.
+# Resolve default base, preferring remote-tracking refs. A local branch behind its
+# remote yields a changed-file list inflated with everything merged upstream since,
+# and reports renames as unpaired adds -- silently, since the diff still succeeds.
 _resolve_base() {
-  local ref
-  ref=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null) && { echo "${ref#refs/remotes/origin/}"; return; }
-  git rev-parse --verify main  >/dev/null 2>&1 && { echo "main";   return; }
+  local ref b
+  ref=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null) && { echo "${ref#refs/remotes/}"; return; }
+  for b in origin/main origin/master main master; do
+    git rev-parse --verify "$b" >/dev/null 2>&1 && { echo "$b"; return; }
+  done
   echo "master"
 }
 BASE="$(_resolve_base)"
