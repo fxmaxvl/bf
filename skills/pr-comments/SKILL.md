@@ -3,7 +3,7 @@ name: pr-comments
 description: Use when a PR has review feedback to work through — "address the PR comments", "handle the review feedback", "respond to CodeRabbit", "what did the reviewer say". Triages every comment on its merits rather than obeying it: escalates contested ones to bf:consilium, then fixes, argues back, or defers each one. A fix covers every instance the PR introduced, not just the line the reviewer happened to spot. Replies and resolutions post as one approved batch.
 model: opus
 disable-model-invocation: false
-argument-hint: "[empty for the current branch's PR | <pr number> | <pr url>]"
+argument-hint: "[empty for the current branch's PR | <pr number> | <pr url>] [--wait]"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(bash *), Bash(git *), Bash(gh *), Bash(mkdir *), Bash(jq *), Task, Skill
 ---
 
@@ -52,8 +52,28 @@ The script drops resolved threads and threads whose conversation already contain
 print those lines. Pass `--all` only when the user explicitly asks to revisit answered or resolved
 feedback.
 
-On `{"error": ...}`: print `detail` and stop. If `counts.actionable` is `0`, print
-`STATUS: NO_OPEN_COMMENTS` and stop — read nothing, spawn nothing.
+On `{"error": ...}`: print `detail` and stop.
+
+If `counts.actionable` is `0`, check whether a review is still running — a bot's "started
+reviewing" status post, or any returned body that reads as a review-in-progress marker. If one is
+there the run is early, not done:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/wait-for-review.sh" "$ARGUMENTS" --timeout 600
+```
+
+Run it without asking when `$ARGUMENTS` contains `--wait`; otherwise ask once whether to wait up to
+ten minutes for the review to land. Never hand-roll the loop — one that watches only for findings
+hangs silently through a review that fails or is abandoned. Act on `status`:
+
+| `status` | Do |
+|----------|-----|
+| `findings` | Re-run the fetch above and continue the normal flow. |
+| `review_settled` | The review finished with nothing actionable — print `STATUS: NO_OPEN_COMMENTS` and stop. |
+| `timeout` | Report how long it waited and that the review never landed; it may have failed. Stop rather than guess at findings. |
+
+With nothing actionable and no in-progress marker, print `STATUS: NO_OPEN_COMMENTS` and stop —
+read nothing, spawn nothing.
 
 Then print one line: `PR #<pr> "<title>" — <actionable> open comment(s), <bot> from bots`.
 
@@ -256,7 +276,8 @@ has unpushed fixes, so the reviewer is looking at replies that reference code th
 |-----------|----------|
 | `gh` missing or unauthenticated | The script returns `gh_missing` / `gh_unauthenticated`. Print `detail` and stop — `gh` is a stated bf requirement |
 | No PR for the current branch | `no_pr`. Ask for a PR number or URL — one question |
-| `counts.actionable` is `0` | `STATUS: NO_OPEN_COMMENTS` and stop. Do not go looking for feedback elsewhere |
+| `counts.actionable` is `0`, no review in flight | `STATUS: NO_OPEN_COMMENTS` and stop. Do not go looking for feedback elsewhere |
+| `counts.actionable` is `0` but a review is still running | Wait via `wait-for-review.sh` (see the fetch step), then act on its `status` |
 | Thread is `outdated: true` | The code moved after the comment. Judge the current code; if the concern no longer applies, that is a reply saying so, not a silent resolve |
 | Comment asks for something already done in a later commit | Reply pointing at the commit, then resolve. Do not redo the work |
 | `counts.files_truncated` is `true` | The PR touches more than 100 files, so `files[]` is partial and the generalization pass cannot see the whole surface. Say so in the output and treat every widened fix as best-effort rather than exhaustive |
