@@ -40,7 +40,7 @@ Print as plain text (not in a code block).
 ## Phase Flow
 
 ```
-init → [clarify if needed] → execute → verify → complexity guard → review-impl ⇄ fix → verify (silent) → [GATE: ready?] finalize → cleanup
+init → [clarify if needed] → execute → verify → [complexity guard → review-impl ⇄ fix, skipped for non-code changes] → verify (silent) → [GATE: ready?] finalize → cleanup
 ```
 
 ## On Invocation
@@ -131,7 +131,29 @@ When tests and lint are green: proceed immediately to Phase 4. **Do not update `
 
 Print banner: `── feature | Complexity Guard ───────────────────────────────`
 
-Run up to 3 scan → fix cycles:
+**Non-code change check.** Both this phase and Phase 5 spawn opus agents to reason about
+new code. When the task produced none, they cost two round-trips and find nothing:
+
+```bash
+git diff --name-status <base>...HEAD
+```
+
+Use the same `<base>` as `changed-packages.sh` (origin/HEAD, then main, then master). Skip
+this phase and Phase 5 — go straight to Phase 6 — when every changed entry is either a pure
+rename (`R100`, no content change) or a modification whose added and removed lines differ
+only in a path or module string. Anything else, including a single new conditional or
+dependency, means both gates run as normal. When the diff is mixed or unclear, run them: a
+gate skipped over real code costs more than two spent round-trips.
+
+If skipping, record it and say so:
+
+```
+bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
+```
+
+Tell the user which gates were skipped and which check licensed it, then proceed to Phase 6.
+
+Otherwise, run up to 3 scan → fix cycles:
 
 1. Read `feature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
    Phase is `verify` — the skill auto-detects scan mode and scans `changed_files`.
