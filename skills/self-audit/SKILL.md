@@ -1,5 +1,5 @@
 ---
-name: audit
+name: self-audit
 description: Use when asked to audit the plugin, check the skills for convention drift or token waste, or find what needs fixing in bf itself. Sweeps every skill, script, and convention for drift, stale references, and token waste, then files the findings as GitHub issues for /bf:self-heal to fix.
 model: opus
 disable-model-invocation: false
@@ -18,7 +18,7 @@ Audit this plugin against its own conventions and file what it finds as GitHub i
 Print banner (plain text):
 
 ```
-── bf:audit ─────────────────────────────────────────────
+── bf:self-audit ────────────────────────────────────────
 ```
 
 1. `git rev-parse --show-toplevel` — the plugin repo to audit.
@@ -28,7 +28,7 @@ Print banner (plain text):
 ## Phase 1 — Static Sweep
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/audit/scripts/audit-static.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/self-audit/scripts/audit-static.sh"
 ```
 
 Returns `{root, counts, findings[], notes[]}`. Each finding carries a stable `audit_id` — the fingerprint that keeps repeat runs from re-filing the same thing.
@@ -101,7 +101,7 @@ Print the filed issue urls, the number deduped away, and the artifact path. Clos
 |---|---|
 | `audit-static.sh` returns `{"error":...}` | Surface `detail` and stop — `not_plugin_repo` means you are outside the bf repo. |
 | No findings survive dedupe | Report "backlog already covers everything this run found" and exit without filing. |
-| A finding targets `skills/audit/**` | File it like any other — but note the self-reference in the issue body so whoever fixes it knows the auditor is the subject. |
+| A finding targets `skills/self-audit/**` | File it like any other — but note the self-reference in the issue body so whoever fixes it knows the auditor is the subject. |
 | `harvest-issues.sh` is missing or errors | Skip dedupe, warn that duplicates are possible, and continue — never skip filing over it. |
 | A lens returns findings without `path:line` | Drop them and note the count; uncitable findings are not filed. |
 | `gh` unauthenticated | Stop before filing, keep the artifact, and tell the user to run `gh auth login` then re-invoke. |
