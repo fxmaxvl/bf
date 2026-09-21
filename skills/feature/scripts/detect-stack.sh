@@ -155,6 +155,14 @@ def detect(root):
                 out['monorepo_type'] = 'lerna'
                 out['workspaces'] = lerna.get('packages', [])
 
+    # Callers paste these into `scope_template`, so emit them the way a command line wants them:
+    # go.work writes entries as "./api", and pnpm's "!packages/legacy" is an exclusion, not a
+    # package. `changed-packages.sh` reads the same files and normalizes the same way.
+    out['workspaces'] = [
+        (w[2:] if w.startswith('./') else w).rstrip('/')
+        for w in out['workspaces'] if not w.startswith('!')
+    ]
+
     return out
 
 print(json.dumps(detect(git_root()), indent=2))
