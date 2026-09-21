@@ -17,10 +17,9 @@ This gives you `slug`, `build_timestamp`, `artifacts_dir`, and `paths.*`.
 
 Read the task instruction from `paths.qa`.
 
-Before writing any code, read:
-- `${CLAUDE_PLUGIN_ROOT}/conventions/dev.md`
-- `${CLAUDE_PLUGIN_ROOT}/conventions/testing.md`
-- `${CLAUDE_PLUGIN_ROOT}/conventions/git.md`
+Before writing any code, read the `dev`, `testing` and `git` conventions.
+
+Resolve each using the 3-step lookup from `plugin-main.md` — `<project_root>/.bf/conventions/<name>.md`, then `~/.bf/conventions/<name>.md`, then `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`; first match wins and fully replaces the plugin default.
 
 Implement the refactoring:
 
