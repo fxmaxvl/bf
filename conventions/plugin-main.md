@@ -84,7 +84,9 @@ The **prose fields** (`**Why:**`, `**Dissent:**`, `**Flag:**`, and equivalent fr
 
 ## Generated Artifacts
 
-All generated artifacts (session logs, specs, plans, research reports, QA notes, design docs, and any other skill output) **must** be stored under a `.bf/` directory. Never use `.vs/`, `.context/`, `docs/`, or any other location for skill-generated artifacts.
+All generated artifacts (session logs, specs, plans, research reports, QA notes, and any other skill output) **must** be stored under a `.bf/` directory. Never use `.vs/`, `.context/`, `docs/`, or any other location for skill-generated artifacts.
+
+**Named exceptions.** A skill may write outside `.bf/` only when its output is a document meant to be read and shared by people rather than consumed by a later phase, and only when it says so on the line that deviates. The current exceptions are `bf:adr-writer` (a numbered ADR is a real project doc), `bf:teach`, and `bf:design` (the design doc is the deliverable the user shares, and `.bf/` is commonly gitignored). Anything not named here follows the rule.
 
 Resolve the artifact root using this 2-step lookup — first match wins:
 

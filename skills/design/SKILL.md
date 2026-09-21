@@ -115,6 +115,8 @@ Print banner: `── design | Generate (may take 1–2 min) ──────�
    ```
    Use the current working directory where the skill was invoked — NOT `git rev-parse --show-toplevel`. Never derive the path from the git root.
 
+   This is a deliberate carve-out from the `.bf/` artifact rule, listed under **Named exceptions** in `plugin-main.md`: the design doc is the deliverable the user shares and commits, not an artifact a later phase consumes, and `.bf/` is commonly gitignored — a doc written there would never travel with a clone. The temp Q&A file is an ordinary artifact and does go under `.bf/`.
+
 3. **Handle filename collisions:** If `<slug>-design.md` already exists in cwd, try `<slug>-design-2.md`, `<slug>-design-3.md`, and so on until a free name is found. Never silently overwrite an existing file. Inform the user: "Found an existing file; saved as `<new-name>`."
 
 4. **(Optional) Confirm the slug:** Before invoking the agent, show the user the derived slug and ask if they want to override it. One short question — not a full Q&A. If the user overrides, re-apply the collision check.
