@@ -33,7 +33,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:coherence [scope]` | Utility | Checks whether a change left the code it touched coherent, against the guidelines' breakage kinds | Right after editing existing code — the fast counterpart to `/bf:review` |
 | `/bf:walkthrough [scope]` | Utility | Guided read of a finished change — tours the hunks that carried a decision, one at a time, and collects your comments | Right after a build, while you can still say why you did it that way |
 | `/bf:pr-comments [pr]` | Utility | Triages PR review feedback on its merits — fixes the whole class each comment sampled, argues back, or defers, then posts replies and resolutions as one approved batch | A PR has review comments (human or bot) and you want them judged, not obeyed |
-| `/bf:gh` | Utility | Pick or create a GitHub issue and kick off a workflow | Starting work from an issue tracker |
+| `/bf:gh` | Utility | Create, pick, or verify a GitHub issue — verify re-checks an issue's items against the code and hands off what's still open | Starting work from an issue tracker, or checking whether a stale issue is still real |
 | `/bf:jira` | Utility | Pick a Jira ticket and kick off a workflow | Starting work from Jira |
 | `/bf:write-skill [name]` | Utility | Author a new bf-style skill from scratch | You want to extend bf with a new skill |
 | `/bf:onboard-skill <url> <instructions>` | Utility | Fetch an external skill, analyze what to port, adapt to bf conventions, and hand off to bf:write-skill | You want to steal a skill from another plugin and adapt it for bf |
