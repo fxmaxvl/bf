@@ -54,11 +54,11 @@ Every finding must cite `path:line` and name the convention or cost it violates.
 1. Merge the static and lens findings. Where a lens restates a static finding, keep the static one — it has the stable id.
    `audit-static.sh` always sweeps the whole repo, so if a scope was given, drop static findings whose `path` falls outside it here.
 2. Assign any finding without one an `audit_id` of `<check>:<path>[:<symbol>]`.
-3. **Dedupe against the live backlog.** Fetch the existing items (full bodies — no `--brief`, the fingerprint sits at the end of each item):
+3. **Dedupe against the live backlog.** Fetch the existing items (full bodies — no `--brief`, the fingerprint sits at the end of each item) together with the settled fingerprints:
    ```bash
-   bash "${CLAUDE_PLUGIN_ROOT}/skills/self-heal/scripts/harvest-issues.sh"
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/self-heal/scripts/harvest-issues.sh" --settled
    ```
-   Drop every finding whose `audit_id` already appears in an open item. Report the count dropped — a run that files nothing because everything is already tracked is a success, not a failure.
+   Drop every finding whose `audit_id` already appears in an open item, **and** every finding whose `audit_id` appears in `settled_audit_ids` — those were filed, considered, and closed as not-planned, so re-filing them relitigates a settled call. Report the two counts separately; a run that files nothing because everything is already tracked or already settled is a success, not a failure.
 4. Group the survivors into categories: **convention drift**, **stale references**, **token waste**, **structural gaps**.
 5. Rank within each category by the axes a fix would move (token frugality, code quality, speed) and by how localized it is — this is the signal `/bf:self-heal` scores on, so a finding that cannot name an axis is not worth filing.
 
@@ -100,6 +100,7 @@ Print the filed issue urls, the number deduped away, and the artifact path. Clos
 | Condition | Handling |
 |---|---|
 | `audit-static.sh` returns `{"error":...}` | Surface `detail` and stop — `not_plugin_repo` means you are outside the bf repo. |
+| A finding matches a `settled_audit_ids` entry but you believe it is now valid | Do not silently re-file. Say which fingerprint was settled and why the situation changed, and ask once before filing. |
 | No findings survive dedupe | Report "backlog already covers everything this run found" and exit without filing. |
 | A finding targets `skills/self-audit/**` | File it like any other — but note the self-reference in the issue body so whoever fixes it knows the auditor is the subject. |
 | `harvest-issues.sh` is missing or errors | Skip dedupe, warn that duplicates are possible, and continue — never skip filing over it. |
