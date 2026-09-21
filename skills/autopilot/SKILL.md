@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: "General autonomous wrapper — runs any bf skill without user input. Oracle (decide/consilium) resolves every decision. Usage: /bf:autopilot [skill] <args> (e.g. /bf:autopilot quick fix login bug)"
+description: "General autonomous wrapper — runs the core bf workflows (feature, quick, micro, review, design) without user input. Oracle (decide/consilium) resolves every decision. Usage: /bf:autopilot [skill] <args> (e.g. /bf:autopilot quick fix login bug)"
 model: opus
 disable-model-invocation: false
 argument-hint: "[skill-name] <idea or args>"
@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(git add *), Bash(git c
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
 
-Autonomous wrapper that executes any bf skill without user input. Every point where the target skill would ask the user a question, wait for approval, or stop for input is replaced by a **decide oracle** call. Everything else follows the target skill exactly.
+Autonomous wrapper that executes one of the core bf workflows — feature, quick, micro, review or design — without user input. The routing table below is the complete set; anything else falls through to `feature` with the whole input as idea text, so a skill outside it (`bug-fix`, for instance, which is already autonomous and needs no oracle wrapper) should be invoked directly rather than through autopilot. Every point where the target skill would ask the user a question, wait for approval, or stop for input is replaced by a **decide oracle** call. Everything else follows the target skill exactly.
 
 ## Step 1 — Parse arguments
 
