@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Agent
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
 
-Autonomous bug-fix workflow. The user provides symptoms + directions and grants all permissions upfront. The skill then runs Investigate → Diagnose → Design → Plan → Execute → Sibling sweep without further user input. Every phase boundary is gated by the **decide** skill — no human approval points.
+Autonomous bug-fix workflow. The user provides symptoms + directions and grants all permissions upfront. The skill then runs Investigate → Diagnose → Design → Plan → Execute → Sibling sweep without further user input. Every phase boundary is gated by the **decide** skill — no human approval points, except the one stop in Edge Cases: a fix that reaches outside the repo or needs destructive actions halts for authorization.
 
 ## On Invocation
 

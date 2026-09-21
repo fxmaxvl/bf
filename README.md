@@ -22,7 +22,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:feature <idea>` | Workflow | Full brainstorm → spec → design → plan → execute → verify flow with checkpoints | You have a new idea and want to think it through before touching code |
 | `/bf:quick <idea>` | Workflow | refine → research → plan → execute → verify → audit → review → finalize; skips only brainstorm and design review | You know roughly what needs doing and just want it done |
 | `/bf:micro <idea>` | Workflow | Focused refactor with complexity and quality guards | Small, scoped change — one function, one file, clean it up |
-| `/bf:bug-fix <symptoms>` | Workflow | Parallel root-cause hunt, decide-gated diagnose → fix, no user prompts | Something is broken and you want a fast autonomous fix |
+| `/bf:bug-fix <symptoms>` | Workflow | Parallel root-cause hunt, decide-gated diagnose → fix; no user prompts except a stop for out-of-repo or destructive fixes | Something is broken and you want a fast autonomous fix |
 | `/bf:autopilot [skill] <args>` | Workflow | Runs a core bf workflow (feature, quick, micro, review, design) end-to-end, resolving every decision the wrapped workflow would ask you (setup collisions still prompt) | You want to go fully hands-off — decide oracle handles every decision |
 | `/bf:decide <question>` | Oracle | Single decisive verdict with rationale — weighs options, picks one, cites evidence | You need a quick call on one thing and trust a single opinion |
 | `/bf:discuss <question>` | Oracle | Open dialogue to explore a question before committing to a direction | You're not ready to decide yet — you want to think out loud first |
