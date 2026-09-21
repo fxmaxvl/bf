@@ -15,9 +15,9 @@ Close the loop on this plugin's own backlog: read its open issues, pick the thre
 
 Issues in this backlog are **batches** — one issue holds 3–4 unrelated suggestions. Every phase of this skill therefore operates on **items**, addressed as `<issue>:<index>` (e.g. `34:3`). Consequences, which the finalize phase depends on:
 
-- A PR never uses `Closes #N` unless *every* item in issue `N` is in it.
+- A PR uses `Closes #N` only when issue `N` has nothing left to track — every item is either in the PR or was verified already satisfied in the tree, cited by file and line. Items merely *believed* done do not count.
 - Each item carries its own provenance into its commit message and the PR body.
-- An issue is closed only once its last open item is done; otherwise it gets a comment naming what was addressed.
+- An issue is closed only once its last item is resolved — shipped here or already satisfied. Otherwise it stays open with a comment naming what was addressed and what remains.
 
 ## On Invocation
 
@@ -110,7 +110,7 @@ If an item cannot be verified, revert its commit, return it to the backlog, and 
 
 1. **ADR check:** apply **ADR Awareness** from `plugin-main.md` against the changed files before pushing.
 2. Push the branch.
-3. Open **one** PR via `gh pr create`, titled `chore: self-heal — <n> backlog items`. Body: one section per item giving the source (`#<issue>` item `<index>`), the ask, what changed, and how it was verified. Link every source issue; add `Closes #N` only for an issue whose every item is in this PR.
+3. Open **one** PR via `gh pr create`, titled `chore: self-heal — <n> backlog items`. Body: one section per item giving the source (`#<issue>` item `<index>`), the ask, what changed, and how it was verified. Link every source issue; add `Closes #N` only for an issue with nothing left to track (see **Items, Not Issues**). Prefer `Closes` over closing by hand — an issue closed before the PR merges claims a fix the tree does not have yet.
 4. Per source issue, `gh issue comment` naming which items this PR addressed, which were already satisfied in the tree, and which remain open.
 5. **Before closing any issue, carry its leftovers forward.** Re-read the issue body and list the items this PR did not address. If any remain, either leave the issue open, or — when the issue is being closed anyway — file a fresh issue containing those items *verbatim*, each tagged `_Carried from #<N> item <M>._`, and link it from the closing comment. Closed-issue bodies are only visible by re-reading them, so an item dropped at close time is effectively unrecoverable. Close an issue only once nothing is left in it or its leftovers are carried.
 6. Report the PR url, which items stayed in the backlog, and any carry-forward issue you filed.
