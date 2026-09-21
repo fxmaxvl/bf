@@ -448,13 +448,21 @@ Wait for the user's reply before proceeding.
 
 **Parse the answer:**
 
-- `none` or empty → print "No fixes requested. Report saved at `<report_path>`." and exit.
+- `none` or empty → select nothing.
 - `all` → select all C*, X* and Y* concerns.
 - `must-fix` → select all concerns labelled `[must-fix]`.
 - Space-separated IDs → validate each ID exists in the report.
   - If any ID is unknown, ask once: "Unknown ID(s): <list>. Please re-enter valid IDs from the list above." Re-parse the new answer; if still invalid, treat as `none`.
 
 Set `selected_concerns` to the validated list.
+
+**Mark what was not selected.** Every concern left out — including all of them when the answer was `none`, empty, or never given — gets `[deferred]` appended to its label line in the saved report, so a concern that was seen and passed over is distinguishable from one nobody ruled on:
+
+```
+- **C4** [should-consider] [deferred] `file:line` — <problem> — Suggested: <fix>
+```
+
+If nothing was selected, print "No fixes requested. <N> concern(s) marked `[deferred]` in the report at `<report_path>`." and exit. Never exit leaving concerns unlabelled.
 
 **Step 2 — Confirmation question**
 
@@ -603,13 +611,14 @@ List remaining concerns by ID and label if any exist.
 | Review Agent fails or returns invalid output | Surfaces warning; write partial report stub; proceed with X*/Y* aggregation. |
 | Complexity Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
 | Consistency Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
-| `build-state.json` already exists | Back it up, warn the user, restore after scan. |
+| `build-state.json` already exists | Move it aside, warn the user, restore after scan. |
 
 ### Fix phase
 
 | Condition | Handling |
 |-----------|----------|
 | Fix Agent fails | Inform the user, skip re-review, print original report path only. |
+| User never answers the fix-selection question | Mark every concern `[deferred]` in the saved report before exiting, so the next reader can tell the concerns were surfaced and left unruled rather than never raised. |
 | Re-review finds new concerns not in the original | Include in "remaining" count, label `[new]`. |
 
 ### Re-invocation
