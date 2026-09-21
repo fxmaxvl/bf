@@ -216,6 +216,7 @@ Print banner: `── micro | Finalize ─────────────�
 5. Push the branch to remote.
 6. Create a PR using `gh pr create`:
    - **PR body**: Micro mode produces no spec — extract the `## QA` block from `paths.temp` and derive a 2–3 sentence summary describing what was refactored and why.
+   - **Coverage note**: when the change adds logic with more than one outcome, name which branches were actually executed during verify and which were only reasoned about. Cheap-to-drive paths and paths needing conditions that do not exist in the repo right now are not the same claim, and the undriven one is where the first real-use defect lands. A body that says "verified" without that split overstates coverage. Omit the note entirely when the change has no branching behaviour of its own.
    - If `github_issue.enabled`: append `Closes #<github_issue.number>`.
    - If `jira.enabled`: append a link to the Jira ticket.
 7. If `jira.enabled`:

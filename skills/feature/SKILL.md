@@ -456,6 +456,7 @@ Print banner: `── feature | Finalize ─────────────
    - **Commit message:** `feat:` prefix with a concise description. Include issue/ticket if enabled (e.g., `feat(#12): address review concerns`, `feat(PROJ-123): address review concerns`).
    - **PR title:** short, imperative (≤70 chars)
    - **PR body:** Extract the `## Spec` block from `paths.session_log` and compose a short summary (2–3 sentences max) of what the feature does and why — no test descriptions, no minor change lists, no implementation details. Store it in a variable for use in the next step.
+   - **Coverage note:** when the change adds logic with more than one outcome, name which branches were actually executed during verify and which were only reasoned about. Cheap-to-drive paths and paths needing conditions that do not exist in the repo right now are not the same claim, and the undriven one is where the first real-use defect lands. A body that says "verified" without that split overstates coverage. Omit the note entirely when the change has no branching behaviour of its own.
 5. **Run git finalize:**
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/finalize-git.sh" \
