@@ -17,7 +17,7 @@ Sub-skill SKILL.md files are bundled with the plugin. Prepend `${CLAUDE_PLUGIN_R
 
 **Invocation patterns:**
 - **Inline**: Read the SKILL.md and follow its instructions directly in the current conversation.
-- **Agent**: Read the SKILL.md and pass its full contents as the agent's `prompt`. Always pass the declared model.
+- **Agent** (written below as "dispatch `<path>` as an Agent"): do **not** read the SKILL.md yourself. Interpolate its resolved absolute path into the agent's `prompt` and instruct the agent to read that file and follow it — `${CLAUDE_PLUGIN_ROOT}` is expanded by the orchestrator because the agent cannot expand it. Any per-phase overrides go in the prompt alongside the path. Always pass the declared model.
 
 | Sub-skill | SKILL.md path | Invocation | Model |
 |-----------|---------------|------------|-------|
@@ -108,7 +108,7 @@ Proceed to Phase 2.
 
 Print banner: `── micro | Execute ───────────────────────────────`
 
-Read `micro/execute/SKILL.md` and pass its contents as an Agent prompt (model: sonnet).
+Dispatch `micro/execute/SKILL.md` as an Agent (model: sonnet).
 
 When it completes:
 ```
@@ -121,7 +121,7 @@ Proceed immediately to Phase 3 (no approval gate).
 
 Print banner: `── micro | Verify ───────────────────────────────`
 
-Read `feature/verify/SKILL.md` and pass its contents as an Agent prompt (model: sonnet).
+Dispatch `feature/verify/SKILL.md` as an Agent (model: sonnet).
 - Runs tests and lint, auto-fixes where possible.
 - Surfaces unrelated failures to the user.
 
@@ -157,7 +157,7 @@ Tell the user which gates were skipped and which check licensed it, then proceed
 
 Otherwise, run up to 3 scan → fix cycles:
 
-1. Read `feature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
+1. Dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus).
    Phase is `verify` — the skill auto-detects scan mode and scans `changed_files`.
 2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
 3. If output is `PASS` or `ADVISORY`: show findings if any, proceed to step 5.
@@ -180,13 +180,13 @@ Print banner: `── micro | Review Implementation ─────────�
 
 Run up to 3 analyze → fix cycles:
 
-1. Read `feature/review-impl/SKILL.md` and pass its contents as an Agent prompt (model: opus).
+1. Dispatch `feature/review-impl/SKILL.md` as an Agent (model: opus).
 2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Implementation Review"`
 3. If output is `PASS`: proceed to step 5.
 4. If output is `CONCERN`:
    - Show the concerns to the user.
    - Ask: "Should I fix these concerns?"
-   - If yes: read `feature/review-impl/fix/SKILL.md` and pass as Agent prompt (model: sonnet), then go back to step 1.
+   - If yes: dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), then go back to step 1.
    - If no (user accepts as-is): proceed to step 5.
    - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review manually" and stop.
 5. ```
@@ -198,7 +198,7 @@ Run up to 3 analyze → fix cycles:
 
 Print banner: `── micro | Finalize ───────────────────────────────`
 
-1. **Silent quality gate**: Read `feature/verify/SKILL.md` and pass as Agent prompt (model: sonnet).
+1. **Silent quality gate**: dispatch `feature/verify/SKILL.md` as an Agent (model: sonnet).
    - Catches regressions introduced by review-impl fix cycles.
    - If tests or lint fail: stop, tell the user which checks failed, ask how to proceed — do **not** commit broken code.
    - If green: continue.

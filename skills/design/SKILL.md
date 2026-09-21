@@ -24,7 +24,7 @@ Sub-skills are **not registered** with the Skill tool and cannot be invoked via 
 Two invocation patterns are used in this skill:
 
 - **Inline** (gather, review, handoff): Read the SKILL.md and follow its instructions directly in the current conversation. Do **not** use the Agent tool.
-- **Agent** (generate): Read the SKILL.md and pass its full contents as the agent's `prompt`. Always pass `model: opus`.
+- **Agent** (generate): do **not** read the SKILL.md yourself. Interpolate its resolved absolute path into the agent's `prompt` and instruct the agent to read that file and follow it — `${CLAUDE_PLUGIN_ROOT}` is expanded by the orchestrator because the agent cannot expand it. Any per-phase overrides go in the prompt alongside the path. Always pass `model: opus`.
 
 ## Status Banners
 
