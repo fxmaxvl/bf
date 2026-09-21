@@ -128,7 +128,7 @@ Connecting [TypeSafe](https://docs.typesafe.ai) replaces those three guesses wit
 a boosted run can pick wrong, but it can never invent content that was not in the source.
 
 ```bash
-export TYPESAFE_API_KEY=...   # in your shell profile
+echo 'export TYPESAFE_API_KEY=...' >> ~/.zshrc   # a bare export won't carry over
 /bf:typesafe on               # smoke-calls the API, then flips one flag
 /bf:typesafe off              # back to deterministic, any time
 ```

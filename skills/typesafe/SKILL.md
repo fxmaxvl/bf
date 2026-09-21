@@ -46,7 +46,7 @@ silently.
 | Result | Say |
 |---|---|
 | `on`, `smoke.ok: true` | Boosting is on, the key answered, and name what gets boosted (below). |
-| `on`, `key_present: false` | The key is not in this shell. Tell them to export `$<api_key_env>` and re-run — offer `--key-env <VAR>` if their key lives elsewhere. Nothing was written. |
+| `on`, `key_present: false` | The key is not in this shell. A bare `export` will not help — each command gets a fresh shell. Tell them to put it in `~/.zshrc`, or set it inline on the command. Nothing was written. |
 | `on`, `smoke.ok: false` with a key | Quote `smoke.detail`. Auth rejected means the key is wrong; a rate limit or timeout means try again. Nothing was written. |
 | `off` | Boosting is off. State that every call site falls back to its deterministic path, and that the config keeps the key env var name for next time. |
 | `status`, `enabled: true` | Report the smoke result — a stale key shows up here, not mid-run. |
@@ -98,7 +98,7 @@ copying a shape from memory.
 |-----------|----------|
 | `~/.bf/config.json` is malformed JSON | Script exits `{"error":"config_malformed"}`. Do not rewrite the file — report it and let the user fix or move it; it holds their other settings. |
 | `jq` or `curl` missing | Reported as an error (setup) or as unavailable (helper). Boosting stays off; nothing else in bf is affected. |
-| Key exported in a different shell than the one Claude runs | `key_present: false` despite the user "having set it". Point at their shell profile, not at the key. |
+| User ran `export` and the key is still missing | Each command gets a fresh shell, so a bare `export` does not carry over. Point at `~/.zshrc`, not at the key. |
 | User asks to store the key in the config file | Decline and explain: the config is world-readable in `$HOME` and gets pasted into issues. The env var name is stored; the key is not. |
 | `off` when no config exists | Nothing to write; report off. The absence of config already means off. |
 | Rate limited during a real run | The call site falls back silently by design. It is not an error to report mid-workflow. |
