@@ -561,8 +561,14 @@ After the fix Agent returns, spawn a new review Agent (same conventions, model: 
 ```
 You are a code reviewer performing a re-review after fixes were applied.
 
-## Dev Convention / Testing Convention / Architecture Convention / Code Review Convention
-<same convention contents as Phase 1>
+## Conventions
+
+Read each of these files and apply it strictly:
+
+- Dev: <resolved absolute path to dev.md>
+- Testing: <resolved absolute path to testing.md>
+- Architecture: <resolved absolute path to architecture.md>
+- Code review: <resolved absolute path to code-review.md>
 
 ## Files to Re-review
 <one path per line from changed_files>
