@@ -50,14 +50,13 @@ gather (inline Q&A) → generate (opus agent) → review (inline) → handoff? (
 
 1. If `$ARGUMENTS` is empty or whitespace-only: ask the user one question — "What do you want to design?" — and use their answer as the idea.
 2. Otherwise, use `$ARGUMENTS` verbatim as the idea. Do not truncate or preprocess it, even if it is a multi-paragraph paste.
-3. Compute a session timestamp in `YYYYMMDDTHH` format (e.g., `20260420T14`). Then resolve the temp directory:
+3. Resolve every path this session needs in one call:
+   ```bash
+   bash "${CLAUDE_SKILL_DIR}/scripts/design-paths.sh" --idea "<idea>"
    ```
-   project_root=$(git rev-parse --show-toplevel 2>/dev/null) \
-     && TEMP_DIR="$project_root/.bf/sessions" \
-     || TEMP_DIR="$HOME/.bf/sessions"
-   mkdir -p "$TEMP_DIR"
-   ```
-   The temp Q&A file path is `$TEMP_DIR/<timestamp>-design-qa.md`.
+   It returns `{timestamp, slug, temp_dir, qa_path, doc_path, doc_collided}` — the temp
+   directory is already created. Use `qa_path` for the Q&A file; `slug` and `doc_path` are
+   used in Phase 2. Do not re-derive any of them by hand.
 
 ## Phase 1 — Gather
 
@@ -68,12 +67,12 @@ Print banner: `── design | Gather ──────────────
 2. When gather returns:
 
    **On cancellation** (gather returns `BFEATURE_DESIGN_CANCELLED`):
-   - Delete the temp Q&A file at `$TEMP_DIR/<timestamp>-design-qa.md` if it exists.
+   - Delete the temp Q&A file at `qa_path` if it exists.
    - Print: "Cancelled — no design doc produced."
    - Exit. Do NOT write a design doc.
 
    **On success** (gather returns `BFEATURE_DESIGN_QA_COMPLETE` with the structured Q&A):
-   - Serialize the Q&A to `$TEMP_DIR/<timestamp>-design-qa.md` using this format:
+   - Serialize the Q&A to `qa_path` using this format:
 
      ```markdown
      # Bfeature-Design Q&A
@@ -92,7 +91,7 @@ Print banner: `── design | Gather ──────────────
    - If the Write fails for any reason (disk full, permission denied, sandboxing, etc.), abort immediately with a clear error:
 
      ```
-     Cannot write Q&A transcript to $TEMP_DIR/<timestamp>-design-qa.md — <reason>. Cannot continue.
+     Cannot write Q&A transcript to <qa_path> — <reason>. Cannot continue.
      ```
 
      Do NOT silently continue without the transcript.
@@ -103,30 +102,27 @@ Print banner: `── design | Gather ──────────────
 
 Print banner: `── design | Generate (may take 1–2 min) ──────────`
 
-1. **Derive a slug** from the original idea:
-   - Convert to kebab-case and ASCII characters only (strip accents and non-ASCII).
-   - Remove common filler words: a, an, the, of, to, in, for, on, at, by, with, and, or, but.
-   - Cap at 40 characters, truncating at the nearest **word boundary before** the 40-char limit (never cut mid-word).
-   - If the result is empty, too short (≤ 3 chars), or consists only of filler, use `design-<YYYYMMDD>` as the slug (e.g., `design-20260420`).
+1. **Use the `slug` and `doc_path` already resolved** by `design-paths.sh` in On Invocation
+   step 3. The script kebab-cases the idea, strips accents, drops filler words, caps the slug
+   at 40 characters on a word boundary, and falls back to `design-<YYYYMMDD>`.
 
-2. **Compute the output path:**
-   ```
-   <cwd>/<slug>-design.md
-   ```
-   Use the current working directory where the skill was invoked — NOT `git rev-parse --show-toplevel`. Never derive the path from the git root.
+2. **The output path** is the script's `doc_path`: `<cwd>/<slug>-design.md`, resolved against
+   the current working directory where the skill was invoked — NOT `git rev-parse --show-toplevel`. Never derive the path from the git root.
 
    This is a deliberate carve-out from the `.bf/` artifact rule, listed under **Named exceptions** in `plugin-main.md`: the design doc is the deliverable the user shares and commits, not an artifact a later phase consumes, and `.bf/` is commonly gitignored — a doc written there would never travel with a clone. The temp Q&A file is an ordinary artifact and does go under `.bf/`.
 
-3. **Handle filename collisions:** If `<slug>-design.md` already exists in cwd, try `<slug>-design-2.md`, `<slug>-design-3.md`, and so on until a free name is found. Never silently overwrite an existing file. Inform the user: "Found an existing file; saved as `<new-name>`."
+3. **Filename collisions are already resolved** — the script probes `-2`, `-3`, … and never
+   returns an existing file. When `doc_collided` is `true`, inform the user: "Found an existing
+   file; saved as `<basename of doc_path>`."
 
-4. **(Optional) Confirm the slug:** Before invoking the agent, show the user the derived slug and ask if they want to override it. One short question — not a full Q&A. If the user overrides, re-apply the collision check.
+4. **(Optional) Confirm the slug:** Before invoking the agent, show the user the derived slug and ask if they want to override it. One short question — not a full Q&A. If the user overrides, re-run `design-paths.sh --slug <override>` to get the corrected `doc_path`.
 
 5. **Invoke the generate agent:**
    - Do **not** read `generate/SKILL.md` yourself. Interpolate its resolved absolute path
      (`${CLAUDE_SKILL_DIR}/generate/SKILL.md`, expanded by the orchestrator) into the Agent
      prompt with `model: opus` and instruct the agent to read that file and follow it.
    - The agent prompt must include:
-     - The absolute path to the temp Q&A file from Phase 1 (`$TEMP_DIR/<timestamp>-design-qa.md`).
+     - The absolute path to the temp Q&A file from Phase 1 (`qa_path`).
      - The absolute path to the target design doc file computed above.
      - No inline Q&A text — the agent reads the Q&A file itself.
 
@@ -200,7 +196,7 @@ Print banner: `── design | Handoff ─────────────�
 
 2. **If NO:**
 
-   a. Delete the temp Q&A file at `$TEMP_DIR/<timestamp>-design-qa.md`. If deletion fails, warn but do not abort.
+   a. Delete the temp Q&A file at `qa_path`. If deletion fails, warn but do not abort.
 
    b. Print:
       ```
@@ -233,7 +229,7 @@ Print banner: `── design | Handoff ─────────────�
       (Design doc: <absolute path to design doc>)
       ```
 
-   c. Delete the temp Q&A file at `$TEMP_DIR/<timestamp>-design-qa.md` **before** invoking feature. If deletion fails, warn but proceed.
+   c. Delete the temp Q&A file at `qa_path` **before** invoking feature. If deletion fails, warn but proceed.
 
    d. Print the sensitive-data reminder:
       ```
