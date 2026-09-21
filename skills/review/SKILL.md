@@ -180,17 +180,19 @@ complexity_report_path=$(echo "$paths_json" | python3 -c 'import json,sys; print
 
 ### Pre-review: check for existing integration/E2E tests
 
-Before spawning the review agent, grep the project for integration and E2E test files:
+Before spawning the review agent, list the project's tracked integration and E2E test files.
+`git ls-files` respects `.gitignore`, so it never descends `dist/`, `build/`, `.venv/` or
+`target/` the way a bare `find` does:
 
 ```bash
-int_tests=$(find "$project_root" -type f \( -name "*.test.*" -o -name "*.spec.*" -o -name "*.e2e.*" \) \
-  -not -path "*/.git/*" -not -path "*/node_modules/*" \
-  | grep -iE "(integration|e2e|end.to.end)" | head -20)
+int_tests=$(git -C "$project_root" ls-files \
+  | grep -E "\.(test|spec|e2e)\." | grep -iE "(integration|e2e|end.to.end)" | head -20)
+has_integration_tests=$([ -n "$int_tests" ] && echo yes || echo no)
+has_e2e_tests=$(echo "$int_tests" | grep -qiE "(e2e|end.to.end)" && echo yes || echo no)
 ```
 
-Set:
-- `has_integration_tests="yes"` if the command returned any results; `"no"` otherwise.
-- `has_e2e_tests="yes"` if any result path contains `e2e` or `end-to-end`; `"no"` otherwise.
+Read `has_integration_tests` and `has_e2e_tests` from that output — do not re-derive them by
+eyeballing the paths.
 
 ### Spawn review + complexity + consistency Agents in parallel (model: opus)
 
