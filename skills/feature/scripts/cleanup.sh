@@ -8,7 +8,7 @@
 # Persistent artifacts in <prefix>-session-log.md (spec, plan, todo, backlog, deployment) are kept.
 #
 # Usage:
-#   bash ~/.claude/skills/feature/scripts/cleanup.sh
+#   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/cleanup.sh"
 
 set -euo pipefail
 
