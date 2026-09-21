@@ -4,7 +4,7 @@ description: Use when asked to audit the plugin, check the skills for convention
 model: opus
 disable-model-invocation: false
 argument-hint: "[optional: scope like 'skills/review', or '--static-only' to skip the judgment pass]"
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(bash *)
+allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(bash *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.

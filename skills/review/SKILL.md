@@ -4,7 +4,7 @@ description: Review code against feature conventions and the complexity gate. Pa
 model: opus
 disable-model-invocation: false
 argument-hint: "[--dry-run] [free-form: 'PR 42', 'https://github.com/org/repo/pull/42', 'src/auth/', 'last 3 commits', or empty for current branch]"
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mktemp *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *), Bash(bash *)
+allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(mktemp *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *), Bash(bash *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill, including the **one-question-per-turn** rule that applies at every interactive point in this skill.

@@ -3,7 +3,7 @@ name: quick
 description: Quick workflow (refine → research → plan → execute → verify → audit → review → finalize) — skips brainstorm and review-design; every other feature phase is mandatory.
 model: sonnet
 argument-hint: [idea description, Jira ticket URL, or GH-ISSUE:<number>]
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), mcp__*__jira__*
+allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(bash *), mcp__*__jira__*
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
