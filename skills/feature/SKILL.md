@@ -339,7 +339,11 @@ Print banner: `── feature | Audit Stack ────────────
 
 ### If `parallel_audit` is `false` (default — sequential)
 
-**Record start timestamp** before the first scan cycle: note the current ISO timestamp in the conversation (e.g. "Audit start: 2026-05-23T15:00:00Z") — this is the canonical store across orchestrator turns. Do not rely on a shell variable; it will not survive across phases.
+**Record start timestamp** before the first scan cycle — store it in state, where it survives across orchestrator turns:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" audit_started_at=$(date -u +%s)
+```
 
 Run up to 3 scan → fix cycles (complexity & consistency):
 
@@ -367,13 +371,13 @@ Run up to 3 scan → fix cycles (complexity & consistency):
 
 Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
 
-1. **Record start timestamp:** note the current ISO timestamp in the conversation (e.g. "Audit start: 2026-05-23T15:00:00Z") — this is the canonical store across orchestrator turns. Do not rely on a shell variable; it will not survive across phases.
+1. **Record start timestamp:** `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" audit_started_at=$(date -u +%s)` — state survives across orchestrator turns.
 2. **Spawn three named Agents concurrently in a single tool-use block** per the **Parallel Fan-Out** convention in `plugin-main.md` (all model: opus). Name each so it shows on the fleet board:
    - `complexity-gate`: contents of `feature/complexity-gate/SKILL.md`
    - `consistency-gate`: contents of `feature/consistency-gate/SKILL.md`
    - `review-impl`: contents of `feature/review-impl/SKILL.md`
    IMPORTANT: all three must be in the SAME assistant message so they execute in parallel, and the fan-out is atomic — wait for all three to return before proceeding. Do not chain them, and do not have them message each other.
-3. **Record end timestamp:** note the current ISO timestamp in the conversation after all three return. Compute the wall-clock duration by diffing the end timestamp against the start timestamp noted in step 1, and log: `Audit stack wall-clock: <duration>s (parallel)`.
+3. **Record end timestamp:** after all three return, log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (parallel)"`, reading `audit_started_at` from state.
 4. Check all three reports:
    - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
    - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Consistency Report"`
@@ -397,7 +401,7 @@ Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
      ```
      bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
      ```
-     Note the current ISO timestamp in the conversation. Compute the wall-clock duration by diffing this end timestamp against the start timestamp noted in step 1, and log: `Audit stack wall-clock: <duration>s (parallel)`. Then tell the user "Max audit cycles reached — review remaining issues manually" and stop.
+     Log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (parallel)"`, reading `audit_started_at` from state. Then tell the user "Max audit cycles reached — review remaining issues manually" and stop.
 
 ## Phase 5 — Review Implementation
 
@@ -417,11 +421,11 @@ Run up to 3 analyze → fix cycles:
    - Ask: "Should I fix these concerns?"
    - If yes: dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), then go back to step 1
    - If no (user accepts as-is): proceed to step 5
-   - If this was already the 3rd cycle: note the current ISO timestamp in the conversation. Compute the wall-clock duration by diffing this end timestamp against the start timestamp noted at the beginning of Phase 4.75, and log: `Audit stack wall-clock: <duration>s (sequential)`. Then tell the user "Max review cycles reached — please review the implementation manually" and stop
+   - If this was already the 3rd cycle: log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (sequential)"`, reading `audit_started_at` from state. Then tell the user "Max review cycles reached — please review the implementation manually" and stop
 5. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
    ```
-   **Record end timestamp:** note the current ISO timestamp in the conversation. Compute the wall-clock duration by diffing the end timestamp against the start timestamp noted at the beginning of Phase 4.75, and log: `Audit stack wall-clock: <duration>s (sequential)`.
+   **Record end timestamp:** log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (sequential)"`, reading `audit_started_at` from state.
 6. Proceed immediately to Phase 6 (no approval gate here — the combined gate is inside Phase 6)
 
 ## Phase 6 — Finalize
