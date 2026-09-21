@@ -161,4 +161,4 @@ Do not commit unless the invoking caller (autopilot, user) explicitly requested 
 | Repo has no test command discoverable | Skip step 3 of execution; flag in `## Decisions` and continue. Final summary surfaces the flag. |
 | Chosen solution touches files outside the repo or requires destructive actions | Stop execution, log a `STOP` decision, and print a clear handoff asking the user to authorize. This is the one phase where autonomy yields to safety. |
 | Critic returns verdict B on plan review twice in a row | Execute the latest plan anyway and log a low-confidence flag (per autopilot doctrine). |
-| Phase-1 agent fails to return | Treat its slot as empty; proceed with the remaining hypotheses. Critic still picks. |
+| Phase-1 agent fails to return | Run that angle inline as a structured monologue from the same brief, so the fan-out still completes — a partial fan-out is ruled out by the **Parallel Fan-Out** convention. Note the fallback in `## Hypotheses`. If the inline pass also fails, record the angle and why it is missing in `## Hypotheses` so the root-cause input is visibly incomplete rather than silently narrowed. |
