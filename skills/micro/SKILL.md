@@ -211,7 +211,7 @@ Print banner: `── micro | Finalize ─────────────�
    - If no: **Exit** (re-invoke `/bf:micro` when ready).
    - If yes: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress` — continue.
 3. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions. Resolve and act on it before committing.
-4. Stage and commit any uncommitted changes (do **not** stage `.bf/sessions/`) following `conventions/git.md`. Use `refactor:` prefix.
+4. Stage and commit any uncommitted changes (do **not** stage `.bf/sessions/`) following the `git` convention (resolved via the lookup in `plugin-main.md`). Use `refactor:` prefix.
    - If `github_issue.enabled`: include issue number (e.g., `refactor(#12): split processOrder into smaller methods`).
    - If `jira.enabled`: include ticket key.
 5. Push the branch to remote.
