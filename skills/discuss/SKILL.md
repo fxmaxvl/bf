@@ -51,3 +51,16 @@ Surface these consequences explicitly — e.g., "If we go this route, it also me
 ### 4. One thing at a time
 
 Still ask only one question per turn. When projecting consequences, pick the most significant one and raise it first — don't dump a list.
+
+
+---
+
+## Edge Cases & Errors
+
+| Condition | Handling |
+|---|---|
+| The topic is too vague to discuss | Ask **one** clarifying question. If the answer is still too thin, say what is missing and stop rather than speculating. |
+| The user ends the discussion without settling anything | Capture it as an open question in the closing summary, explicitly marked unresolved. Never record a resolution that was not reached. |
+| The discussion resolves something that contradicts a recorded ADR | Say so in one line and point at the ADR. Do not amend it here — that is `bf:adr-writer`'s job. |
+| Not in a git repository | The discussion still runs; note that no session artifact can be written and keep the outcome in the conversation. |
+| The user asks for implementation mid-discussion | This skill does not write code. Name the workflow that should take it (`bf:micro`, `bf:quick`, `bf:feature`) and stop. |

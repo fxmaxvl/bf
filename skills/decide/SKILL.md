@@ -105,3 +105,16 @@ Read `${CLAUDE_PLUGIN_ROOT}/conventions/verification.md` — the evidence and ve
 - **One question max.** If you need more than one clarification, make your best judgment on the rest and flag it as `low` confidence.
 - **Always end with a verdict.** Never leave open options and no call.
 - **Do not expand scope.** Answer the question asked. Do not suggest reframing, alternatives outside the given options, or deferring the decision.
+
+
+---
+
+## Edge Cases & Errors
+
+| Condition | Handling |
+|---|---|
+| `OPTIONS` is missing or empty | Do not invent options. Ask the one permitted clarifying question naming what is needed; if still empty, return `STOP` with the reason rather than a verdict. |
+| Only one option is supplied | Return that option as the verdict with `low` confidence and a one-line note that nothing was weighed against it. |
+| A convention file cannot be resolved at any of the 3 tiers | Proceed on the evidence available, name the missing convention in the verdict rationale, and drop confidence to `low`. Never silently decide as if the rule did not exist. |
+| Evidence contradicts every option | Return `STOP` with what the evidence shows. A forced pick between options the evidence rules out is worse than no verdict. |
+| Invoked in-workflow but no session log exists | Print the verdict to the conversation and say it was not recorded — do not create a session log as a side effect. |

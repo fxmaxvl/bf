@@ -246,5 +246,17 @@ Print banner: `── design | Handoff ─────────────�
 
 4. Hand control to /bf:feature (if YES) or end the session (if NO).
 
+---
+
+## Edge Cases & Errors
+
+| Condition | Handling |
+|---|---|
+| Not in a git repository | Fall back to `~/.bf/` for the temp Q&A file per the artifact-root lookup; the design doc itself still resolves normally. |
+| The target directory is not writable | Report the resolved path and stop before running the Q&A — do not spend the user's answers on a doc that cannot be saved. |
+| Collision suffixes are exhausted or the slug resolves empty | Fall back to `design-<YYYYMMDD>`, then to a timestamped name. Never silently overwrite an existing file. |
+| `$ARGUMENTS` is empty | Ask **one** question for the idea. Do not start the Q&A on nothing. |
+| The user abandons the Q&A partway | Write what was gathered, marked incomplete, so the session is not lost. |
+
 Here is the idea:
 $ARGUMENTS
