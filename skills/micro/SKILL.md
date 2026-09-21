@@ -81,11 +81,12 @@ Print banner: `── micro | Init ───────────────
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=clarify phase_status=in_progress
    ```
-7. Write the instruction to `paths.qa` so review-impl can use it:
+7. Write the instruction to `paths.qa` under the `## QA` block header — that is the header
+   review-impl, its fix pass, and the Phase 6 PR body all read:
    ```markdown
    # Micro Instruction
 
-   ## Task
+   ## QA
    <idea from $ARGUMENTS>
    ```
 8. Proceed to Phase 1.
