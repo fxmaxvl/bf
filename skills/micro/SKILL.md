@@ -32,7 +32,7 @@ Sub-skill SKILL.md files are bundled with the plugin. Prepend `${CLAUDE_PLUGIN_R
 At the start of every phase, print a banner:
 
 ```
-── feature | Name ───────────────────────────────
+── micro | Name ───────────────────────────────
 ```
 
 Print as plain text (not in a code block).
@@ -60,7 +60,7 @@ If not found: start from Phase 0.
 
 ## Phase 0 — Init
 
-Print banner: `── feature | Init ───────────────────────────────`
+Print banner: `── micro | Init ───────────────────────────────`
 
 1. **Detect GitHub issue**: Check if `$ARGUMENTS` contains `GH-ISSUE:<number>`. If yes: extract the number, set `github_issue.enabled=true`, use `gh-<number>-<short-description>` as slug.
 2. **Detect Jira ticket**: Check if `$ARGUMENTS` contains a Jira ticket URL. If yes: extract the ticket key, invoke the `feature-jira` skill to verify MCP tools are available (stop if not), transition to "In Progress", use `<ticket-key>-<short-description>` as slug.
@@ -92,7 +92,7 @@ Print banner: `── feature | Init ──────────────�
 
 ## Phase 1 — Clarify
 
-Print banner: `── feature | Clarify ───────────────────────────────`
+Print banner: `── micro | Clarify ───────────────────────────────`
 
 If the instruction is clear and unambiguous → proceed immediately to Phase 2. Do **not** ask anything.
 
@@ -106,7 +106,7 @@ Proceed to Phase 2.
 
 ## Phase 2 — Execute
 
-Print banner: `── feature | Execute ───────────────────────────────`
+Print banner: `── micro | Execute ───────────────────────────────`
 
 Read `micro/execute/SKILL.md` and pass its contents as an Agent prompt (model: sonnet).
 
@@ -119,7 +119,7 @@ Proceed immediately to Phase 3 (no approval gate).
 
 ## Phase 3 — Verify
 
-Print banner: `── feature | Verify ───────────────────────────────`
+Print banner: `── micro | Verify ───────────────────────────────`
 
 Read `feature/verify/SKILL.md` and pass its contents as an Agent prompt (model: sonnet).
 - Runs tests and lint, auto-fixes where possible.
@@ -129,7 +129,7 @@ When tests and lint are green: proceed immediately to Phase 4. **Do not update `
 
 ## Phase 4 — Complexity Guard
 
-Print banner: `── feature | Complexity Guard ───────────────────────────────`
+Print banner: `── micro | Complexity Guard ───────────────────────────────`
 
 **Non-code change check.** Both this phase and Phase 5 spawn opus agents to reason about
 new code. When the task produced none, they cost two round-trips and find nothing:
@@ -176,7 +176,7 @@ Otherwise, run up to 3 scan → fix cycles:
 
 ## Phase 5 — Review Implementation
 
-Print banner: `── feature | Review Implementation ───────────────────────────────`
+Print banner: `── micro | Review Implementation ───────────────────────────────`
 
 Run up to 3 analyze → fix cycles:
 
@@ -196,7 +196,7 @@ Run up to 3 analyze → fix cycles:
 
 ## Phase 6 — Finalize
 
-Print banner: `── feature | Finalize ───────────────────────────────`
+Print banner: `── micro | Finalize ───────────────────────────────`
 
 1. **Silent quality gate**: Read `feature/verify/SKILL.md` and pass as Agent prompt (model: sonnet).
    - Catches regressions introduced by review-impl fix cycles.
@@ -229,7 +229,7 @@ Print banner: `── feature | Finalize ─────────────
 
 ## Phase 7 — Cleanup
 
-Print banner: `── feature | Cleanup ───────────────────────────────`
+Print banner: `── micro | Cleanup ───────────────────────────────`
 
 ```
 bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/cleanup.sh"
