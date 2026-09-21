@@ -26,11 +26,9 @@ Repeat the following loop until no unchecked items remain — do not wait for us
 
 **Each iteration:**
 1. Open the file at `paths.todo` and pick the **first unchecked item** (one item only).
-2. Read the matching `### Prompt N:` section from `paths.plan` — do not read the full plan file:
-   1. Extract the step number N from the todo item (e.g., "Step 3: ..." → N=3)
-   2. Grep `paths.plan` for `### Prompt N:` to find the start line
-   3. Grep `paths.plan` for the next `### Prompt ` after that line to find the end (use EOF if last prompt)
-   4. Read `paths.plan` with `offset=<start>` and `limit=<end - start>`
+2. Work from the matching `### Prompt N:` section of the plan **already in context** — extract the
+   step number N from the todo item (e.g., "Step 3: ..." → N=3) and use that section. Do not re-read
+   or re-slice `paths.plan`; it was read in full before the loop.
 3. Carefully plan your approach before touching any code — think through edge cases, dependencies, and impact on existing code.
 4. Implement the item — write robust, readable code, add tests, verify tests pass.
 5. Mark the item as checked (`- [x]`) in the todo file immediately after completing it.
