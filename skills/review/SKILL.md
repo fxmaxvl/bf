@@ -153,43 +153,28 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
 
 ### Write temporary build-state.json
 
-`state-ops.sh` requires a `build-state.json` file. Create it now so the complexity-gate sub-skill can run later in the parallel batch.
+`state-ops.sh` requires a `build-state.json` file. Create it now so the complexity-gate sub-skill can run later in the parallel batch. `--init` builds the whole file and returns the computed artifact paths, so do not hand-write the JSON or re-derive the path formula.
 
 ```bash
 temp_state="$project_root/.bf/sessions/build-state.json"
-mkdir -p "$project_root/.bf/sessions"
-build_ts=$(date -u +%Y%m%dT%H)
-slug="review-${timestamp}"
+temp_state_backup="$temp_state.bfreview-backup"
 ```
 
-**If `$temp_state` already exists**, back it up first:
+**If `$temp_state` already exists**, move it aside first — `--init` refuses to overwrite an existing state file:
 
 ```bash
-temp_state_backup="$temp_state.bfreview-backup"
-[ -f "$temp_state" ] && cp "$temp_state" "$temp_state_backup" && \
-  echo "Warning: .bf/sessions/build-state.json already exists — a feature workflow may be in progress. Backing it up; it will be restored after the complexity scan."
+[ -f "$temp_state" ] && mv "$temp_state" "$temp_state_backup" && \
+  echo "Warning: .bf/sessions/build-state.json already exists — a feature workflow may be in progress. Moving it aside; it will be restored after the complexity scan."
 ```
 
-Write the following JSON to `$temp_state`:
+Then initialize the state and read the paths it returns:
 
-```json
-{
-  "idea": "bf:review complexity scan",
-  "slug": "review-<timestamp>",
-  "build_timestamp": "<build_ts>",
-  "mode": "review",
-  "phase": "verify",
-  "phase_status": "in_progress",
-  "github_issue": {"enabled": false, "number": null},
-  "jira": {"enabled": false, "ticket_key": null, "ticket_url": null, "pending_questions": null},
-  "collect_todos": null,
-  "artifacts": {"spec": null, "plan": null, "todo": null, "backlog": null},
-  "created_at": "<iso_now>",
-  "updated_at": "<iso_now>"
-}
+```bash
+paths_json=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
+  --slug "review-${timestamp}" --idea "bf:review complexity scan" --mode review)
+bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=verify phase_status=in_progress
+complexity_report_path=$(echo "$paths_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["paths"]["complexity_report"])')
 ```
-
-**Note**: `state-ops.sh` computes `paths.complexity_report` as `<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-temp.md`. Set `complexity_report_path` to that path.
 
 ### Pre-review: check for existing integration/E2E tests
 
