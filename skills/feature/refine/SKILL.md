@@ -6,6 +6,8 @@ disable-model-invocation: true
 argument-hint: [idea description]
 ---
 
+Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
 Ask the user 2-5 focused questions to clarify scope and approach for a small change. This is the quick-mode alternative to the full brainstorm — no spec is generated, the Q&A feeds directly into the plan phase.
 
 ## Questions to ask
@@ -34,15 +36,15 @@ Once you have enough information, run the helper script to get state and artifac
 bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"
 ```
 
-Save a Q&A summary to the path at `paths.qa`. Format:
+Append a Q&A summary to `paths.qa` (= `paths.temp`) using `paths.block_qa` (`## QA`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`. Content format:
 
 ```markdown
-# Refine Q&A
+## QA
 
-## Original Idea
+### Original Idea
 <original idea text>
 
-## Clarifications
+### Clarifications
 **Q: <question>**
 A: <answer>
 
