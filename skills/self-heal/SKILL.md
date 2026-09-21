@@ -39,6 +39,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/self-heal/scripts/harvest-issues.sh" --brief
 
 Returns `{repo, counts, items[], notes[]}` with every open item segmented and its body truncated for cheap scoring. Do not re-derive segmentation yourself, and do not fetch full issue bodies at this stage — Phase 3 pulls the full text for selected items only.
 
+Bodies that use neither `### ` headings nor `- **` bullets cannot be split by pattern, so they arrive as one item. With TypeSafe boosting on (`/bf:typesafe`), `boost-segments.py` re-splits exactly those at judged item boundaries and caches the result by body digest, so a later `--item` run slices where this one did. Without it the single-item fallback stands — say so in Phase 2 rather than pretending a lump is one suggestion.
+
 If `counts.items` is 0, print "Backlog is empty — nothing to heal." and exit.
 
 ## Phase 2 — Score & Select

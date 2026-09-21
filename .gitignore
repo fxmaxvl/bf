@@ -2,3 +2,4 @@
 .bf/gather/
 .claude/session_*.md
 .idea/
+__pycache__/

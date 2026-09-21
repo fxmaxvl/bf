@@ -27,6 +27,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 python3 - "$BASE" << 'EOF'
+import fnmatch
 import json
 import os
 import subprocess
@@ -111,18 +112,28 @@ def resolve_affected(files, workspaces):
     """Map changed files to their workspace package directories."""
     if not workspaces:
         return []
+    # Patterns are matched whole, not truncated to their literal prefix: "apps/**/services/*"
+    # cannot be reduced to "apps/" without claiming every file under apps/. A leading "!" is
+    # pnpm's exclusion — a file under an excluded path belongs to no package.
+    # go.work writes its entries as "./api"; changed-file paths never carry the "./".
+    def norm(w):
+        w = w[2:] if w.startswith('./') else w
+        return w.rstrip('/')
+
+    includes = [norm(w) for w in workspaces if not w.startswith('!')]
+    excludes = [norm(w[1:]) for w in workspaces if w.startswith('!')]
     affected = set()
     for f in files:
-        for ws in workspaces:
-            # Strip glob wildcards for prefix matching (e.g. "packages/*" → "packages/")
-            prefix = ws.rstrip('*').rstrip('/')
-            if f.startswith(prefix + '/') or f == prefix:
-                # Use the actual directory, not the glob pattern
-                parts = f.split('/')
-                ws_parts = prefix.split('/')
-                pkg_dir = '/'.join(parts[:len(ws_parts) + 1])
-                affected.add(pkg_dir)
-                break
+        parts = f.split('/')
+        # The shortest matching ancestor is the package root: under "packages/*",
+        # "packages/api" matches before "packages/api/src" is ever tried.
+        for n in range(1, len(parts)):
+            prefix = '/'.join(parts[:n])
+            if not any(fnmatch.fnmatch(prefix, p) for p in includes):
+                continue
+            if not any(fnmatch.fnmatch(prefix, e) for e in excludes):
+                affected.add(prefix)
+            break
     return sorted(affected)
 
 root = git_root()

@@ -40,6 +40,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:self-audit [scope]` | Utility | Sweeps every skill, script, and convention for drift, stale references, and token waste, then files the findings as GitHub issues | You want to know what has rotted in the plugin itself — pairs with `/bf:self-heal`, which fixes what it files |
 | `/bf:self-heal [repo \| ids]` | Utility | Harvests the plugin's own open issues, scores them on token frugality, quality, and speed, argues for the top 3, fixes them, and ships one PR | The backlog has accumulated skill-improvement suggestions and you want the best three paid down in one go |
 | `/bf:scan-conventions [task]` | Utility | Discovers and filters user-defined custom conventions relevant to the current task. | Before acting on a task where project/user convention files beyond the predefined set might apply |
+| `/bf:typesafe [status \| on \| off]` | Utility | Opt-in TypeSafe (System One / Jev) boosting — verifies your API key with a live smoke call, then flips one flag in `~/.bf/config.json` | You want typed model judgments backing the places bf currently guesses with regex — entirely optional, bf behaves identically without it |
 | `/bf:session-summary` | Utility | Summary of what happened this session | End of a work session — capture what changed and why |
 | `/bf:gather <feature or PRD>` | Utility | Iterative requirements gathering and versioned PRD distillation across sessions | You have a fuzzy PRD and need to track open questions, scope a POC, and build a versioned source of truth |
 | `/bf:research <topic>` | Utility | Decision-oriented researcher: clarifies usecase → issue → focus, gathers cited evidence, produces an Options + Recommendation report | You need prior art, library comparison, or decision support before building — and want a cited report saved to `.bf/research/` |
@@ -103,9 +104,49 @@ The `conventions/` directory contains language- and action-specific guidelines C
 
 To override a convention, create the `.bf/conventions/` directory in the appropriate location and drop in files using the same names as above (e.g., `dev.md`, `git.md`). A matching file fully replaces the plugin default — there is no merging.
 
+## Optional: TypeSafe boosting
+
+**bf works fully without this.** Skip the section and nothing is missing — no skill requires it, no
+prompt nags you, and every code path below runs the same deterministic logic it always has.
+
+A few places in bf have to answer a question that regex is genuinely bad at. Today each one guesses
+with a pattern or a hardcoded list, and each guess has a known failure:
+
+- **`/bf:self-heal` reads a backlog issue as one lump** when the body uses neither `### ` headings
+  nor `- **` bullets. Selection and scoring work per item, so an unsplit issue wins or loses whole —
+  and the issues that fail this way are the ones a human wrote, not the ones `/bf:self-audit` filed.
+- **`/bf:self-audit` files false findings** from a word list (`path`, `to`, `foo`, `your`, …) that
+  decides whether `some-skill/SKILL.md` in a doc is a broken reference or just prose. The list
+  cannot be completed; every false finding becomes a GitHub issue self-heal then pays to reject.
+- **A quality gate opens silently** when a report says `**STATUS:** BLOCK` instead of
+  `STATUS: BLOCK`. The grep misses, the caller gets `NOT_FOUND`, and `NOT_FOUND` is also what a
+  missing report returns — so nothing distinguishes "clean" from "never ran".
+
+Connecting [TypeSafe](https://docs.typesafe.ai) replaces those three guesses with typed judgments
+(yes/no probabilities and single-choice picks, not generated text). The shape is always the same:
+**code enumerates the candidates, the model picks among them, code slices the original text** — so
+a boosted run can pick wrong, but it can never invent content that was not in the source.
+
+```bash
+export TYPESAFE_API_KEY=...   # in your shell profile
+/bf:typesafe on               # smoke-calls the API, then flips one flag
+/bf:typesafe off              # back to deterministic, any time
+```
+
+`on` writes `typesafe.enabled` to `~/.bf/config.json` **only if the smoke call answers**, so a
+typo'd key fails loudly at setup instead of silently degrading every later run. The key itself is
+never written to disk — only the name of the env var holding it.
+
+When boosting is off, unconfigured, rate-limited, or the API is unreachable, every call site falls
+back to the deterministic path and the run continues. That is a design rule, not a courtesy:
+a boost that breaks when removed is a dependency, and does not ship. See
+[`docs/typesafe-opportunities.md`](docs/typesafe-opportunities.md) for the call sites and the ones
+still on the list.
+
 ## Requirements
 
 - [Claude Code](https://claude.ai/code)
 - `gh` CLI (for `/bf:gh` and PR creation)
 - Jira MCP server configured (for `/bf:jira`)
 - Excalidraw MCP server (optional, for diagrams in `/bf:design`)
+- TypeSafe API key (optional — see [TypeSafe boosting](#optional-typesafe-boosting))
