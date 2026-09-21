@@ -9,6 +9,12 @@ allowed-tools: Read, Grep, Glob
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
+On invocation, print this banner as plain text (not in a code block) before doing any other work:
+
+```
+── bf:discuss ──────────────────────────────────────────
+```
+
 You are given a question or topic to discuss: $ARGUMENTS
 
 Before providing any solution or answer:
@@ -30,7 +36,7 @@ When the user gives an answer or takes a position:
 
 ### 1. Verify before accepting / Challenge only when warranted
 
-Read `${CLAUDE_PLUGIN_ROOT}/conventions/verification.md` — the verify-before-accepting and challenge-only-when-warranted rules there apply in full.
+Read the `verification` convention — the verify-before-accepting and challenge-only-when-warranted rules there apply in full. Resolve it through the same 3-step lookup as any convention — `<project_root>/.bf/conventions/verification.md`, then `~/.bf/conventions/verification.md`, then the plugin default; first match wins.
 
 ### 3. Project consequences
 
@@ -45,3 +51,43 @@ Surface these consequences explicitly — e.g., "If we go this route, it also me
 ### 4. One thing at a time
 
 Still ask only one question per turn. When projecting consequences, pick the most significant one and raise it first — don't dump a list.
+
+
+---
+
+## Closing — capture what was decided
+
+A discussion that ends without a recorded outcome is lost by the next session. Before the conversation moves on, close it explicitly:
+
+1. Ask (one question only):
+
+   > Have we settled this? Reply with the decision, or `open` if it is still unresolved.
+
+2. Write a short block to the artifact root (`<artifact_root>/.bf/discussions/<YYYY-MM-DD>-<slug>.md`, `mkdir -p` first), regenerating it if the same discussion is resumed:
+
+   ```markdown
+   # <topic>
+
+   **Decision:** <what was agreed, or "Unresolved">
+   **Why:** <the reasoning that carried it>
+   **Consequences:** <the downstream effects surfaced in section 3, if any>
+   **Open questions:** <anything deliberately left open>
+   ```
+
+   Write it as plain engineering rationale per the **Durable Record Phrasing** convention — no skill or phase names.
+
+3. Tell the user where it was written.
+
+If the user disengages before answering, write the block with `**Decision:** Unresolved` and the open questions as they stand. Never invent a resolution that was not reached.
+
+---
+
+## Edge Cases & Errors
+
+| Condition | Handling |
+|---|---|
+| The topic is too vague to discuss | Ask **one** clarifying question. If the answer is still too thin, say what is missing and stop rather than speculating. |
+| The user ends the discussion without settling anything | Write the closing block with `**Decision:** Unresolved` and the open questions as they stand. Never record a resolution that was not reached. |
+| The discussion resolves something that contradicts a recorded ADR | Say so in one line and point at the ADR. Do not amend it here — that is `bf:adr-writer`'s job. |
+| Not in a git repository | The closing block goes to `~/.bf/discussions/` per the artifact-root lookup; the discussion is unaffected. |
+| The user asks for implementation mid-discussion | This skill does not write code. Name the workflow that should take it (`bf:micro`, `bf:quick`, `bf:feature`) and stop. |

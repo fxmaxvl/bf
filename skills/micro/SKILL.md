@@ -2,7 +2,7 @@
 name: micro
 description: Micro workflow for small, focused refactors — clarifies only if needed, then executes directly with complexity and quality guards.
 argument-hint: [refactoring description]
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), mcp__*__jira__*
+allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(bash *), mcp__*__jira__*
 model: opus
 disable-model-invocation: false
 ---
@@ -17,7 +17,7 @@ Sub-skill SKILL.md files are bundled with the plugin. Prepend `${CLAUDE_PLUGIN_R
 
 **Invocation patterns:**
 - **Inline**: Read the SKILL.md and follow its instructions directly in the current conversation.
-- **Agent**: Read the SKILL.md and pass its full contents as the agent's `prompt`. Always pass the declared model.
+- **Agent** (written below as "dispatch `<path>` as an Agent"): do **not** read the SKILL.md yourself. Interpolate its resolved absolute path into the agent's `prompt` and instruct the agent to read that file and follow it — `${CLAUDE_PLUGIN_ROOT}` is expanded by the orchestrator because the agent cannot expand it. Any per-phase overrides go in the prompt alongside the path. Always pass the declared model.
 
 | Sub-skill | SKILL.md path | Invocation | Model |
 |-----------|---------------|------------|-------|
@@ -32,7 +32,7 @@ Sub-skill SKILL.md files are bundled with the plugin. Prepend `${CLAUDE_PLUGIN_R
 At the start of every phase, print a banner:
 
 ```
-── feature | Name ───────────────────────────────
+── micro | Name ───────────────────────────────
 ```
 
 Print as plain text (not in a code block).
@@ -60,7 +60,7 @@ If not found: start from Phase 0.
 
 ## Phase 0 — Init
 
-Print banner: `── feature | Init ───────────────────────────────`
+Print banner: `── micro | Init ───────────────────────────────`
 
 1. **Detect GitHub issue**: Check if `$ARGUMENTS` contains `GH-ISSUE:<number>`. If yes: extract the number, set `github_issue.enabled=true`, use `gh-<number>-<short-description>` as slug.
 2. **Detect Jira ticket**: Check if `$ARGUMENTS` contains a Jira ticket URL. If yes: extract the ticket key, invoke the `feature-jira` skill to verify MCP tools are available (stop if not), transition to "In Progress", use `<ticket-key>-<short-description>` as slug.
@@ -92,7 +92,7 @@ Print banner: `── feature | Init ──────────────�
 
 ## Phase 1 — Clarify
 
-Print banner: `── feature | Clarify ───────────────────────────────`
+Print banner: `── micro | Clarify ───────────────────────────────`
 
 If the instruction is clear and unambiguous → proceed immediately to Phase 2. Do **not** ask anything.
 
@@ -106,9 +106,9 @@ Proceed to Phase 2.
 
 ## Phase 2 — Execute
 
-Print banner: `── feature | Execute ───────────────────────────────`
+Print banner: `── micro | Execute ───────────────────────────────`
 
-Read `micro/execute/SKILL.md` and pass its contents as an Agent prompt (model: sonnet).
+Dispatch `micro/execute/SKILL.md` as an Agent (model: sonnet).
 
 When it completes:
 ```
@@ -119,9 +119,9 @@ Proceed immediately to Phase 3 (no approval gate).
 
 ## Phase 3 — Verify
 
-Print banner: `── feature | Verify ───────────────────────────────`
+Print banner: `── micro | Verify ───────────────────────────────`
 
-Read `feature/verify/SKILL.md` and pass its contents as an Agent prompt (model: sonnet).
+Dispatch `feature/verify/SKILL.md` as an Agent (model: sonnet).
 - Runs tests and lint, auto-fixes where possible.
 - Surfaces unrelated failures to the user.
 
@@ -129,7 +129,7 @@ When tests and lint are green: proceed immediately to Phase 4. **Do not update `
 
 ## Phase 4 — Complexity Guard
 
-Print banner: `── feature | Complexity Guard ───────────────────────────────`
+Print banner: `── micro | Complexity Guard ───────────────────────────────`
 
 **Non-code change check.** Both this phase and Phase 5 spawn opus agents to reason about
 new code. When the task produced none, they cost two round-trips and find nothing:
@@ -157,7 +157,7 @@ Tell the user which gates were skipped and which check licensed it, then proceed
 
 Otherwise, run up to 3 scan → fix cycles:
 
-1. Read `feature/complexity-gate/SKILL.md` and pass its contents as an Agent prompt (model: opus).
+1. Dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus).
    Phase is `verify` — the skill auto-detects scan mode and scans `changed_files`.
 2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
 3. If output is `PASS` or `ADVISORY`: show findings if any, proceed to step 5.
@@ -176,17 +176,17 @@ Otherwise, run up to 3 scan → fix cycles:
 
 ## Phase 5 — Review Implementation
 
-Print banner: `── feature | Review Implementation ───────────────────────────────`
+Print banner: `── micro | Review Implementation ───────────────────────────────`
 
 Run up to 3 analyze → fix cycles:
 
-1. Read `feature/review-impl/SKILL.md` and pass its contents as an Agent prompt (model: opus).
+1. Dispatch `feature/review-impl/SKILL.md` as an Agent (model: opus).
 2. Run: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Implementation Review"`
 3. If output is `PASS`: proceed to step 5.
 4. If output is `CONCERN`:
    - Show the concerns to the user.
    - Ask: "Should I fix these concerns?"
-   - If yes: read `feature/review-impl/fix/SKILL.md` and pass as Agent prompt (model: sonnet), then go back to step 1.
+   - If yes: dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), then go back to step 1.
    - If no (user accepts as-is): proceed to step 5.
    - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review manually" and stop.
 5. ```
@@ -196,9 +196,9 @@ Run up to 3 analyze → fix cycles:
 
 ## Phase 6 — Finalize
 
-Print banner: `── feature | Finalize ───────────────────────────────`
+Print banner: `── micro | Finalize ───────────────────────────────`
 
-1. **Silent quality gate**: Read `feature/verify/SKILL.md` and pass as Agent prompt (model: sonnet).
+1. **Silent quality gate**: dispatch `feature/verify/SKILL.md` as an Agent (model: sonnet).
    - Catches regressions introduced by review-impl fix cycles.
    - If tests or lint fail: stop, tell the user which checks failed, ask how to proceed — do **not** commit broken code.
    - If green: continue.
@@ -216,6 +216,7 @@ Print banner: `── feature | Finalize ─────────────
 5. Push the branch to remote.
 6. Create a PR using `gh pr create`:
    - **PR body**: Micro mode produces no spec — extract the `## QA` block from `paths.temp` and derive a 2–3 sentence summary describing what was refactored and why.
+   - **Coverage note**: when the change adds logic with more than one outcome, name which branches were actually executed during verify and which were only reasoned about. Cheap-to-drive paths and paths needing conditions that do not exist in the repo right now are not the same claim, and the undriven one is where the first real-use defect lands. A body that says "verified" without that split overstates coverage. Omit the note entirely when the change has no branching behaviour of its own.
    - If `github_issue.enabled`: append `Closes #<github_issue.number>`.
    - If `jira.enabled`: append a link to the Jira ticket.
 7. If `jira.enabled`:
@@ -229,7 +230,7 @@ Print banner: `── feature | Finalize ─────────────
 
 ## Phase 7 — Cleanup
 
-Print banner: `── feature | Cleanup ───────────────────────────────`
+Print banner: `── micro | Cleanup ───────────────────────────────`
 
 ```
 bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/cleanup.sh"

@@ -24,7 +24,7 @@ Sub-skills are **not registered** with the Skill tool and cannot be invoked via 
 Two invocation patterns are used in this skill:
 
 - **Inline** (gather, review, handoff): Read the SKILL.md and follow its instructions directly in the current conversation. Do **not** use the Agent tool.
-- **Agent** (generate): Read the SKILL.md and pass its full contents as the agent's `prompt`. Always pass `model: opus`.
+- **Agent** (generate): do **not** read the SKILL.md yourself. Interpolate its resolved absolute path into the agent's `prompt` and instruct the agent to read that file and follow it — `${CLAUDE_PLUGIN_ROOT}` is expanded by the orchestrator because the agent cannot expand it. Any per-phase overrides go in the prompt alongside the path. Always pass `model: opus`.
 
 ## Status Banners
 
@@ -114,6 +114,8 @@ Print banner: `── design | Generate (may take 1–2 min) ──────�
    <cwd>/<slug>-design.md
    ```
    Use the current working directory where the skill was invoked — NOT `git rev-parse --show-toplevel`. Never derive the path from the git root.
+
+   This is a deliberate carve-out from the `.bf/` artifact rule, listed under **Named exceptions** in `plugin-main.md`: the design doc is the deliverable the user shares and commits, not an artifact a later phase consumes, and `.bf/` is commonly gitignored — a doc written there would never travel with a clone. The temp Q&A file is an ordinary artifact and does go under `.bf/`.
 
 3. **Handle filename collisions:** If `<slug>-design.md` already exists in cwd, try `<slug>-design-2.md`, `<slug>-design-3.md`, and so on until a free name is found. Never silently overwrite an existing file. Inform the user: "Found an existing file; saved as `<new-name>`."
 
@@ -245,6 +247,18 @@ Print banner: `── design | Handoff ─────────────�
       Do NOT ask the user to paste a command manually. Do NOT read the feature SKILL.md directly — the Skill tool handles that.
 
 4. Hand control to /bf:feature (if YES) or end the session (if NO).
+
+---
+
+## Edge Cases & Errors
+
+| Condition | Handling |
+|---|---|
+| Not in a git repository | Fall back to `~/.bf/` for the temp Q&A file per the artifact-root lookup; the design doc itself still resolves normally. |
+| The target directory is not writable | Report the resolved path and stop before running the Q&A — do not spend the user's answers on a doc that cannot be saved. |
+| Collision suffixes are exhausted or the slug resolves empty | Fall back to `design-<YYYYMMDD>`, then to a timestamped name. Never silently overwrite an existing file. |
+| `$ARGUMENTS` is empty | Ask **one** question for the idea. Do not start the Q&A on nothing. |
+| The user abandons the Q&A partway | Write what was gathered, marked incomplete, so the session is not lost. |
 
 Here is the idea:
 $ARGUMENTS

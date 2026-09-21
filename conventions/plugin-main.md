@@ -84,7 +84,9 @@ The **prose fields** (`**Why:**`, `**Dissent:**`, `**Flag:**`, and equivalent fr
 
 ## Generated Artifacts
 
-All generated artifacts (session logs, specs, plans, research reports, QA notes, design docs, and any other skill output) **must** be stored under a `.bf/` directory. Never use `.vs/`, `.context/`, `docs/`, or any other location for skill-generated artifacts.
+All generated artifacts (session logs, specs, plans, research reports, QA notes, and any other skill output) **must** be stored under a `.bf/` directory. Never use `.vs/`, `.context/`, `docs/`, or any other location for skill-generated artifacts.
+
+**Named exceptions.** A skill may write outside `.bf/` only when its output is a document meant to be read and shared by people rather than consumed by a later phase, and only when it says so on the line that deviates. The current exceptions are `bf:adr-writer` (a numbered ADR is a real project doc), `bf:teach`, and `bf:design` (the design doc is the deliverable the user shares, and `.bf/` is commonly gitignored). Anything not named here follows the rule.
 
 Resolve the artifact root using this 2-step lookup — first match wins:
 
@@ -100,12 +102,12 @@ Each session produces two files:
 | File | Key | Contents | Write mode |
 |------|-----|----------|------------|
 | `<prefix>-session-log.md` | `paths.session_log` | Persistent blocks: Spec, Plan, Todo, Backlog, Deployment, Decisions | Spec/Plan/Todo/Backlog/Deployment: **regenerate**. Decisions: **accumulate** |
-| `<prefix>-temp.md` | `paths.temp` | Ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report, Consistency Report, Refine Q&A | **regenerate** |
+| `<prefix>-temp.md` | `paths.temp` | Ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report, Consistency Report | **regenerate** |
 
 `paths.spec`, `paths.plan`, etc. are **aliases** — they resolve to the same physical file (`session_log` or `temp`). Use `paths.block_<name>` for the matching block header (e.g. `paths.block_spec` = `## Spec`).
 
 **Write mode** is a property of the block, not a judgment made at the call site:
-- **regenerate** — the block is rewritten wholesale each time it's produced (Spec, Plan, Todo, Backlog, Deployment, QA, Design Report, Implementation Review, Complexity Report, Consistency Report, Refine Q&A, etc.).
+- **regenerate** — the block is rewritten wholesale each time it's produced (Spec, Plan, Todo, Backlog, Deployment, QA, Design Report, Implementation Review, Complexity Report, Consistency Report, etc.).
 - **accumulate** — the block is appended to over time and never overwritten (`Decisions` — every oracle call adds one more verdict).
 
 ### Block Reading Pattern

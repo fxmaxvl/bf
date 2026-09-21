@@ -4,7 +4,7 @@ description: Review code against feature conventions and the complexity gate. Pa
 model: opus
 disable-model-invocation: false
 argument-hint: "[--dry-run] [free-form: 'PR 42', 'https://github.com/org/repo/pull/42', 'src/auth/', 'last 3 commits', or empty for current branch]"
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mktemp *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *)
+allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mktemp *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *), Bash(bash *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill, including the **one-question-per-turn** rule that applies at every interactive point in this skill.
@@ -28,14 +28,16 @@ Parse `$ARGUMENTS` for a `--dry-run` token (match it as a standalone word, not a
 
 Otherwise set `dry_run=false`.
 
-### Compute project_id and report paths
+### Compute report paths
+
+Resolve the artifact root with the 2-step lookup from `plugin-main.md` — the project's own
+`.bf/` first, `~/.bf/` only when there is no repo:
 
 ```bash
-PROJECT_ID=$(git config --get remote.origin.url 2>/dev/null \
-  | sed -E 's#\.git$##; s#.*[:/]([^/]+/[^/]+)$#\1#; s#/#-#g')
-[ -z "$PROJECT_ID" ] && PROJECT_ID=$(basename "$project_root")
 timestamp=$(date -u +%Y%m%dT%H%M%S)
-reports_dir="$HOME/.bf/$PROJECT_ID/reviews"
+project_root=$(git rev-parse --show-toplevel 2>/dev/null)
+reports_dir="${project_root:+$project_root/.bf}"
+reports_dir="${reports_dir:-$HOME/.bf}/reviews"
 report_path="$reports_dir/${timestamp}-review.md"
 ```
 
@@ -91,7 +93,7 @@ Resolve each convention using the 3-step lookup from `plugin-main.md`:
 
 Resolve: `code-review`, `dev`, `testing`, `architecture`.
 
-Read each resolved convention file in full.
+Record the four resolved absolute paths. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
 
 ### Resolve scope and changed_files
 
@@ -153,43 +155,28 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
 
 ### Write temporary build-state.json
 
-`state-ops.sh` requires a `build-state.json` file. Create it now so the complexity-gate sub-skill can run later in the parallel batch.
+`state-ops.sh` requires a `build-state.json` file. Create it now so the complexity-gate sub-skill can run later in the parallel batch. `--init` builds the whole file and returns the computed artifact paths, so do not hand-write the JSON or re-derive the path formula.
 
 ```bash
 temp_state="$project_root/.bf/sessions/build-state.json"
-mkdir -p "$project_root/.bf/sessions"
-build_ts=$(date -u +%Y%m%dT%H)
-slug="review-${timestamp}"
+temp_state_backup="$temp_state.bfreview-backup"
 ```
 
-**If `$temp_state` already exists**, back it up first:
+**If `$temp_state` already exists**, move it aside first — `--init` refuses to overwrite an existing state file:
 
 ```bash
-temp_state_backup="$temp_state.bfreview-backup"
-[ -f "$temp_state" ] && cp "$temp_state" "$temp_state_backup" && \
-  echo "Warning: .bf/sessions/build-state.json already exists — a feature workflow may be in progress. Backing it up; it will be restored after the complexity scan."
+[ -f "$temp_state" ] && mv "$temp_state" "$temp_state_backup" && \
+  echo "Warning: .bf/sessions/build-state.json already exists — a feature workflow may be in progress. Moving it aside; it will be restored after the complexity scan."
 ```
 
-Write the following JSON to `$temp_state`:
+Then initialize the state and read the paths it returns:
 
-```json
-{
-  "idea": "bf:review complexity scan",
-  "slug": "review-<timestamp>",
-  "build_timestamp": "<build_ts>",
-  "mode": "review",
-  "phase": "verify",
-  "phase_status": "in_progress",
-  "github_issue": {"enabled": false, "number": null},
-  "jira": {"enabled": false, "ticket_key": null, "ticket_url": null, "pending_questions": null},
-  "collect_todos": null,
-  "artifacts": {"spec": null, "plan": null, "todo": null, "backlog": null},
-  "created_at": "<iso_now>",
-  "updated_at": "<iso_now>"
-}
+```bash
+paths_json=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
+  --slug "review-${timestamp}" --idea "bf:review complexity scan" --mode review)
+bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=verify phase_status=in_progress
+complexity_report_path=$(echo "$paths_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["paths"]["complexity_report"])')
 ```
-
-**Note**: `state-ops.sh` computes `paths.complexity_report` as `<project_root>/.bf/sessions/<build_ts>-review-<timestamp>-temp.md`. Set `complexity_report_path` to that path.
 
 ### Pre-review: check for existing integration/E2E tests
 
@@ -209,27 +196,21 @@ Set:
 
 Print (plain text): `→ Reviewing + running complexity + consistency gates with opus… (this usually takes a few minutes)`
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/complexity-gate/SKILL.md` in full.
-Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/consistency-gate/SKILL.md` in full.
-
 Build three prompts:
 
 **Prompt A — review Agent:**
 
 ```
-You are a code reviewer. Apply the following conventions strictly.
+You are a code reviewer.
 
-## Dev Convention
-<contents of resolved dev.md>
+## Conventions
 
-## Testing Convention
-<contents of resolved testing.md>
+Read each of these files and apply it strictly:
 
-## Architecture Convention
-<contents of resolved architecture.md>
-
-## Code Review Convention
-<contents of resolved code-review.md>
+- Dev: <resolved absolute path to dev.md>
+- Testing: <resolved absolute path to testing.md>
+- Architecture: <resolved absolute path to architecture.md>
+- Code review: <resolved absolute path to code-review.md>
 
 ## Scope
 
@@ -315,7 +296,7 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 
 Proceed with scan mode using these paths.
 
-<full contents of complexity-gate/SKILL.md>
+Read <resolved absolute path to skills/feature/complexity-gate/SKILL.md> and follow it.
 ```
 
 **Prompt C — consistency-gate Agent** (same pattern):
@@ -329,7 +310,7 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 
 Proceed with scan mode using these paths.
 
-<full contents of consistency-gate/SKILL.md>
+Read <resolved absolute path to skills/feature/consistency-gate/SKILL.md> and follow it.
 ```
 
 Dispatch all three Agents in a **single message** (all model: opus), so they run in parallel. Wait for all three to return.
@@ -467,13 +448,21 @@ Wait for the user's reply before proceeding.
 
 **Parse the answer:**
 
-- `none` or empty → print "No fixes requested. Report saved at `<report_path>`." and exit.
+- `none` or empty → select nothing.
 - `all` → select all C*, X* and Y* concerns.
 - `must-fix` → select all concerns labelled `[must-fix]`.
 - Space-separated IDs → validate each ID exists in the report.
   - If any ID is unknown, ask once: "Unknown ID(s): <list>. Please re-enter valid IDs from the list above." Re-parse the new answer; if still invalid, treat as `none`.
 
 Set `selected_concerns` to the validated list.
+
+**Mark what was not selected.** Every concern left out — including all of them when the answer was `none`, empty, or never given — gets `[deferred]` appended to its label line in the saved report, so a concern that was seen and passed over is distinguishable from one nobody ruled on:
+
+```
+- **C4** [should-consider] [deferred] `file:line` — <problem> — Suggested: <fix>
+```
+
+If nothing was selected, print "No fixes requested. <N> concern(s) marked `[deferred]` in the report at `<report_path>`." and exit. Never exit leaving concerns unlabelled.
 
 **Step 2 — Confirmation question**
 
@@ -509,7 +498,8 @@ Pass the following prompt to an Agent with model: sonnet:
 You are applying code fixes identified by a code review.
 
 ## Dev Convention
-<contents of resolved dev.md>
+
+Read <resolved absolute path to dev.md> and apply it.
 
 ## Selected Concerns
 <concern block for each selected ID, preserving full text>
@@ -609,7 +599,7 @@ List remaining concerns by ID and label if any exist.
 | Condition | Handling |
 |-----------|----------|
 | Not a git repository | Print "Not a git repository. Exiting." and stop. |
-| `~/.bf` not writable | Fall back to `<project_root>/.bf/sessions/reviews/` for `reports_dir`. Warn the user. |
+| `<project_root>/.bf` not writable | Fall back to `~/.bf/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (all 3 lookup paths absent) | Print "Convention file not found: <last-looked-up path>. This may be a plugin install issue." and stop. |
 
 ### Phase 1 — Parallel batch
@@ -621,13 +611,14 @@ List remaining concerns by ID and label if any exist.
 | Review Agent fails or returns invalid output | Surfaces warning; write partial report stub; proceed with X*/Y* aggregation. |
 | Complexity Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
 | Consistency Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
-| `build-state.json` already exists | Back it up, warn the user, restore after scan. |
+| `build-state.json` already exists | Move it aside, warn the user, restore after scan. |
 
 ### Fix phase
 
 | Condition | Handling |
 |-----------|----------|
 | Fix Agent fails | Inform the user, skip re-review, print original report path only. |
+| User never answers the fix-selection question | Mark every concern `[deferred]` in the saved report before exiting, so the next reader can tell the concerns were surfaced and left unruled rather than never raised. |
 | Re-review finds new concerns not in the original | Include in "remaining" count, label `[new]`. |
 
 ### Re-invocation

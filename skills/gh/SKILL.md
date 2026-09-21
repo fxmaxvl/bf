@@ -7,6 +7,12 @@ allowed-tools: Read, Grep, Glob, Bash(git *), Bash(gh *), Skill
 ---
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
+On invocation, print this banner as plain text (not in a code block) before doing any other work:
+
+```
+── bf:gh ───────────────────────────────────────────────
+```
+
 Manage GitHub issues on the current repository. Three modes: **create** (capture something to track), **pick** (select an existing issue to work on), and **verify** (check whether an issue's items are still open and hand off any that are).
 
 ## Mode Detection
@@ -217,3 +223,17 @@ This gives feature the full context to start the brainstorm phase and track the 
 - Keep titles short (under 80 chars) in create mode.
 - In pick mode, classification should be best-effort — it's fine to mark ambiguous issues as their best guess.
 - If `$ARGUMENTS` is provided and clearly a create request, use it as the primary source for the issue content.
+
+
+---
+
+## Edge Cases & Errors
+
+| Condition | Handling |
+|---|---|
+| `gh` is not authenticated | Print the `gh auth login` instruction and stop. Do not attempt an unauthenticated API call. |
+| The repository has no `origin` remote | Ask the user for `owner/repo` once, then proceed; stop if they decline. |
+| `gh` returns a rate-limit error | Report the reset time from the response and stop. Do not retry in a loop. |
+| Pick mode finds no open issues | Tell the user and stop — offer create mode rather than falling through to it silently. |
+| Create mode has no content beyond a bare invocation | Synthesize from the conversation. If there is nothing to synthesize from, ask **one** question for the issue's substance. |
+| The picked issue is already assigned to someone else | Say so and confirm once before handing it to a workflow. |

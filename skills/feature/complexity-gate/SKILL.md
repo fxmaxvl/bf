@@ -2,7 +2,7 @@
 name: complexity-gate
 description: Scan for complexity red flags (per A Philosophy of Software Design), classify findings as session-introduced vs pre-existing, and produce a structured fix plan.
 disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Bash(git *)
+allowed-tools: Read, Grep, Glob, Bash(git *), Bash(bash *)
 model: opus
 ---
 

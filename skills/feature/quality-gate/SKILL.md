@@ -23,8 +23,10 @@ Note: `detect-stack.sh` may re-run even if the calling skill (plan or verify) al
 
 ## Step 2 — Apply stack-specific convention overrides
 
-- **If `type` is `node` or `typescript`** → read `${CLAUDE_PLUGIN_ROOT}/conventions/typescript.md` for any project-specific overrides to lint and test commands.
-- **All projects** → read `${CLAUDE_PLUGIN_ROOT}/conventions/testing.md` for test requirements.
+- **If `type` is `node` or `typescript`** → read the resolved `typescript` convention for any project-specific overrides to lint and test commands.
+- **All projects** → read the resolved `testing` convention for test requirements.
+
+Resolve each using the 3-step lookup from `plugin-main.md` — `<project_root>/.bf/conventions/<name>.md`, then `~/.bf/conventions/<name>.md`, then `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`; first match wins and fully replaces the plugin default.
 
 ## Step 3 — Apply monorepo scoping
 

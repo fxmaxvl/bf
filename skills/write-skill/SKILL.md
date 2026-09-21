@@ -128,7 +128,7 @@ The `description:` field must:
 - Start with "Use when…" or list trigger phrases (e.g. "Review code against…").
 - Match the style of existing descriptions:
   - `review`: "Review code against feature conventions and the complexity gate."
-  - `autopilot`: "General autonomous wrapper — runs any bf skill without user input."
+  - `autopilot`: "General autonomous wrapper — runs the core bf workflows (feature, quick, micro, review, design) without user input."
   - `quick`: "Quick workflow (refine → plan → execute → verify → finalize) — skips brainstorm and review-design."
 
 ---
@@ -158,3 +158,8 @@ Before finishing, verify each item. Fix any gap before marking done.
 - [ ] **Parallel fan-out follows the convention** — if the skill spawns multiple sub-agents to work the same task in parallel, they are named (fleet-board legible), spawned in one message, awaited atomically, and do not message each other, per the **Parallel Fan-Out** section of `plugin-main.md`.
 - [ ] **Banner printed on invocation** — skill prints `── bf:<name> ──…` as plain text (not in a code block) before doing any substantive work.
 - [ ] **Edge cases listed** — at least a stub `## Edge Cases & Errors` table covering the most obvious failure modes.
+- [ ] **No foreign path namespaces** — a skill drafted from another plugin's file carries its path literals across silently. Run the check below; every hit must become `${CLAUDE_PLUGIN_ROOT}/...` or a path the skill documents as deliberately external.
+
+```bash
+grep -rn -e '.claude/skills' -e '.claude/plugins' -e '$HOME/.claude' <new-skill-dir> || echo "clean"
+```

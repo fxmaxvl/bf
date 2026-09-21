@@ -8,6 +8,12 @@ allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(mkdir *), Bash(gh issu
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
+On invocation, print this banner as plain text (not in a code block) before doing any other work:
+
+```
+── bf:session-summary ──────────────────────────────────
+```
+
 ## Step 1 — Write the session summary
 
 Resolve the artifact root, then write the summary to `$SESSIONS_DIR/session_{slug}_{timestamp}.md`:
@@ -63,3 +69,16 @@ gh issue create \
 ```
 
 The body should list each insight as a bullet point, written as a general improvement suggestion (no session-specific details). Keep each point concise and actionable.
+
+
+---
+
+## Edge Cases & Errors
+
+| Condition | Handling |
+|---|---|
+| Neither `<project_root>/.bf/` nor `~/.bf/` is writable | Print the summary to the conversation and say it could not be persisted. Never drop it silently. |
+| Not in a git repository | Use the `~/.bf/sessions` fallback; the summary does not need a repo. |
+| The session has nothing worth summarizing | Say so in one line and write nothing rather than padding a file. |
+| `gh issue create` fails or `gh` is unauthenticated | Keep the written summary, report the failure, and print the issue body so the user can file it by hand. |
+| The user declines the improvement issue | Write the summary only. Do not re-ask. |
