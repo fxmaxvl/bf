@@ -91,7 +91,7 @@ Resolve each convention using the 3-step lookup from `plugin-main.md`:
 
 Resolve: `code-review`, `dev`, `testing`, `architecture`.
 
-Read each resolved convention file in full.
+Record the four resolved absolute paths. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
 
 ### Resolve scope and changed_files
 
@@ -194,27 +194,21 @@ Set:
 
 Print (plain text): `→ Reviewing + running complexity + consistency gates with opus… (this usually takes a few minutes)`
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/complexity-gate/SKILL.md` in full.
-Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/consistency-gate/SKILL.md` in full.
-
 Build three prompts:
 
 **Prompt A — review Agent:**
 
 ```
-You are a code reviewer. Apply the following conventions strictly.
+You are a code reviewer.
 
-## Dev Convention
-<contents of resolved dev.md>
+## Conventions
 
-## Testing Convention
-<contents of resolved testing.md>
+Read each of these files and apply it strictly:
 
-## Architecture Convention
-<contents of resolved architecture.md>
-
-## Code Review Convention
-<contents of resolved code-review.md>
+- Dev: <resolved absolute path to dev.md>
+- Testing: <resolved absolute path to testing.md>
+- Architecture: <resolved absolute path to architecture.md>
+- Code review: <resolved absolute path to code-review.md>
 
 ## Scope
 
@@ -300,7 +294,7 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 
 Proceed with scan mode using these paths.
 
-<full contents of complexity-gate/SKILL.md>
+Read <resolved absolute path to skills/feature/complexity-gate/SKILL.md> and follow it.
 ```
 
 **Prompt C — consistency-gate Agent** (same pattern):
@@ -314,7 +308,7 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 
 Proceed with scan mode using these paths.
 
-<full contents of consistency-gate/SKILL.md>
+Read <resolved absolute path to skills/feature/consistency-gate/SKILL.md> and follow it.
 ```
 
 Dispatch all three Agents in a **single message** (all model: opus), so they run in parallel. Wait for all three to return.
@@ -494,7 +488,8 @@ Pass the following prompt to an Agent with model: sonnet:
 You are applying code fixes identified by a code review.
 
 ## Dev Convention
-<contents of resolved dev.md>
+
+Read <resolved absolute path to dev.md> and apply it.
 
 ## Selected Concerns
 <concern block for each selected ID, preserving full text>
