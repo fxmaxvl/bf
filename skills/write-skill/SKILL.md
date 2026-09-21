@@ -128,7 +128,7 @@ The `description:` field must:
 - Start with "Use when…" or list trigger phrases (e.g. "Review code against…").
 - Match the style of existing descriptions:
   - `review`: "Review code against feature conventions and the complexity gate."
-  - `autopilot`: "General autonomous wrapper — runs any bf skill without user input."
+  - `autopilot`: "General autonomous wrapper — runs the core bf workflows (feature, quick, micro, review, design) without user input."
   - `quick`: "Quick workflow (refine → plan → execute → verify → finalize) — skips brainstorm and review-design."
 
 ---
