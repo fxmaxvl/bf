@@ -4,7 +4,7 @@ description: Review code against feature conventions and the complexity gate. Pa
 model: opus
 disable-model-invocation: false
 argument-hint: "[--dry-run] [free-form: 'PR 42', 'https://github.com/org/repo/pull/42', 'src/auth/', 'last 3 commits', or empty for current branch]"
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(mktemp *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *), Bash(bash *)
+allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(mktemp *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *), Bash(bash *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill, including the **one-question-per-turn** rule that applies at every interactive point in this skill.
@@ -180,17 +180,19 @@ complexity_report_path=$(echo "$paths_json" | python3 -c 'import json,sys; print
 
 ### Pre-review: check for existing integration/E2E tests
 
-Before spawning the review agent, grep the project for integration and E2E test files:
+Before spawning the review agent, list the project's tracked integration and E2E test files.
+`git ls-files` respects `.gitignore`, so it never descends `dist/`, `build/`, `.venv/` or
+`target/` the way a bare `find` does:
 
 ```bash
-int_tests=$(find "$project_root" -type f \( -name "*.test.*" -o -name "*.spec.*" -o -name "*.e2e.*" \) \
-  -not -path "*/.git/*" -not -path "*/node_modules/*" \
-  | grep -iE "(integration|e2e|end.to.end)" | head -20)
+int_tests=$(git -C "$project_root" ls-files \
+  | grep -E "\.(test|spec|e2e)\." | grep -iE "(integration|e2e|end.to.end)" | head -20)
+has_integration_tests=$([ -n "$int_tests" ] && echo yes || echo no)
+has_e2e_tests=$(echo "$int_tests" | grep -qiE "(e2e|end.to.end)" && echo yes || echo no)
 ```
 
-Set:
-- `has_integration_tests="yes"` if the command returned any results; `"no"` otherwise.
-- `has_e2e_tests="yes"` if any result path contains `e2e` or `end-to-end`; `"no"` otherwise.
+Read `has_integration_tests` and `has_e2e_tests` from that output — do not re-derive them by
+eyeballing the paths.
 
 ### Spawn review + complexity + consistency Agents in parallel (model: opus)
 
@@ -561,8 +563,14 @@ After the fix Agent returns, spawn a new review Agent (same conventions, model: 
 ```
 You are a code reviewer performing a re-review after fixes were applied.
 
-## Dev Convention / Testing Convention / Architecture Convention / Code Review Convention
-<same convention contents as Phase 1>
+## Conventions
+
+Read each of these files and apply it strictly:
+
+- Dev: <resolved absolute path to dev.md>
+- Testing: <resolved absolute path to testing.md>
+- Architecture: <resolved absolute path to architecture.md>
+- Code review: <resolved absolute path to code-review.md>
 
 ## Files to Re-review
 <one path per line from changed_files>

@@ -4,7 +4,7 @@ description: Use when asked to audit the plugin, check the skills for convention
 model: opus
 disable-model-invocation: false
 argument-hint: "[optional: scope like 'skills/review', or '--static-only' to skip the judgment pass]"
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(bash *)
+allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(bash *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
@@ -106,7 +106,7 @@ Print the filed issue urls, the number deduped away, and the artifact path. Clos
 | `harvest-issues.sh` is missing or errors | Skip dedupe, warn that duplicates are possible, and continue — never skip filing over it. |
 | A lens returns findings without `path:line` | Drop them and note the count; uncitable findings are not filed. |
 | `gh` unauthenticated | Stop before filing, keep the artifact, and tell the user to run `gh auth login` then re-invoke. |
-| A lens agent goes idle without reporting | Ask it once for its findings; if it stays silent, proceed with the lenses that returned and record the gap in the artifact. |
+| A lens agent goes idle without reporting | Ask it once for its findings. If it stays silent, run that lens inline from the same brief, so the fan-out still completes — a partial fan-out is ruled out by the **Parallel Fan-Out** convention. Only if the inline pass also fails, record the gap in the artifact so the sweep is visibly incomplete rather than silently narrowed. |
 
 Here is the request:
 $ARGUMENTS

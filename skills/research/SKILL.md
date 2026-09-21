@@ -23,14 +23,14 @@ Print banner (plain text, not in a code block):
 
 Detect mode by checking whether the argument contains `TOPIC:` on its own line.
 
-- **Embedded** (called by another bf skill — `bf:feature`, `bf:gather`, `bf:design`): argument is a labeled payload (see Embedded Mode below). Skip Phase 0.
+- **Embedded** (called by another bf skill): argument is a labeled payload (see Embedded Mode below). Skip Phase 0.
 - **Standalone** (user invoked `/bf:research`): argument is a free-form topic. Proceed to Phase 0.
 
 Resolve artifact location once, up front:
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-if [ -n "$PROJECT_ROOT" ] && [ -d "$PROJECT_ROOT/.bf" ]; then
+if [ -n "$PROJECT_ROOT" ]; then
   ARTIFACTS_DIR="$PROJECT_ROOT/.bf/research"
 else
   ARTIFACTS_DIR="$HOME/.bf/research"

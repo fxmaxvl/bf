@@ -20,10 +20,10 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | Skill | Kind | What it does | When to use |
 |---|---|---|---|
 | `/bf:feature <idea>` | Workflow | Full brainstorm → spec → design → plan → execute → verify flow with checkpoints | You have a new idea and want to think it through before touching code |
-| `/bf:quick <idea>` | Workflow | Lightweight plan → execute → verify loop | You know roughly what needs doing and just want it done |
+| `/bf:quick <idea>` | Workflow | refine → research → plan → execute → verify → audit → review → finalize; skips only brainstorm and design review | You know roughly what needs doing and just want it done |
 | `/bf:micro <idea>` | Workflow | Focused refactor with complexity and quality guards | Small, scoped change — one function, one file, clean it up |
-| `/bf:bug-fix <symptoms>` | Workflow | Parallel root-cause hunt, decide-gated diagnose → fix, no user prompts | Something is broken and you want a fast autonomous fix |
-| `/bf:autopilot [skill] <args>` | Workflow | Runs a core bf workflow (feature, quick, micro, review, design) end-to-end without stopping to ask you anything | You want to go fully hands-off — decide oracle handles every decision |
+| `/bf:bug-fix <symptoms>` | Workflow | Parallel root-cause hunt, decide-gated diagnose → fix; no user prompts except a stop for out-of-repo or destructive fixes | Something is broken and you want a fast autonomous fix |
+| `/bf:autopilot [skill] <args>` | Workflow | Runs a core bf workflow (feature, quick, micro, review, design) end-to-end, resolving every decision the wrapped workflow would ask you (setup collisions still prompt) | You want to go fully hands-off — decide oracle handles every decision |
 | `/bf:decide <question>` | Oracle | Single decisive verdict with rationale — weighs options, picks one, cites evidence | You need a quick call on one thing and trust a single opinion |
 | `/bf:discuss <question>` | Oracle | Open dialogue to explore a question before committing to a direction | You're not ready to decide yet — you want to think out loud first |
 | `/bf:consilium <question>` | Oracle | 3-critic council: one answers, two challenge from opposing angles, majority wins | The decision is high-stakes or contested and one opinion isn't enough |
@@ -33,7 +33,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:coherence [scope]` | Utility | Checks whether a change left the code it touched coherent, against the guidelines' breakage kinds | Right after editing existing code — the fast counterpart to `/bf:review` |
 | `/bf:walkthrough [scope]` | Utility | Guided read of a finished change — tours the hunks that carried a decision, one at a time, and collects your comments | Right after a build, while you can still say why you did it that way |
 | `/bf:pr-comments [pr]` | Utility | Triages PR review feedback on its merits — fixes the whole class each comment sampled, argues back, or defers, then posts replies and resolutions as one approved batch | A PR has review comments (human or bot) and you want them judged, not obeyed |
-| `/bf:gh` | Utility | Pick or create a GitHub issue and kick off a workflow | Starting work from an issue tracker |
+| `/bf:gh` | Utility | Create, pick, or verify a GitHub issue — verify re-checks an issue's items against the code and hands off what's still open | Starting work from an issue tracker, or checking whether a stale issue is still real |
 | `/bf:jira` | Utility | Pick a Jira ticket and kick off a workflow | Starting work from Jira |
 | `/bf:write-skill [name]` | Utility | Author a new bf-style skill from scratch | You want to extend bf with a new skill |
 | `/bf:onboard-skill <url> <instructions>` | Utility | Fetch an external skill, analyze what to port, adapt to bf conventions, and hand off to bf:write-skill | You want to steal a skill from another plugin and adapt it for bf |
@@ -95,6 +95,8 @@ The `conventions/` directory contains language- and action-specific guidelines C
 - `architecture.md` — architectural decisions
 - `code-review.md` — reviewing code
 - `typescript.md` — TypeScript/JavaScript specifics
+- `python.md` — Python specifics
+- `verification.md` — evidence rules the decide and discuss oracles run on
 
 **Overriding conventions:** bf supports a 3-level lookup for each convention file (first match wins, fully replaces the plugin default):
 

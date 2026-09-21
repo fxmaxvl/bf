@@ -2,7 +2,7 @@
 name: micro
 description: Micro workflow for small, focused refactors — clarifies only if needed, then executes directly with complexity and quality guards.
 argument-hint: [refactoring description]
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(bash *), mcp__*__jira__*
+allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(bash *), mcp__*__jira__*
 model: opus
 disable-model-invocation: false
 ---
@@ -63,7 +63,7 @@ If not found: start from Phase 0.
 Print banner: `── micro | Init ───────────────────────────────`
 
 1. **Detect GitHub issue**: Check if `$ARGUMENTS` contains `GH-ISSUE:<number>`. If yes: extract the number, set `github_issue.enabled=true`, use `gh-<number>-<short-description>` as slug.
-2. **Detect Jira ticket**: Check if `$ARGUMENTS` contains a Jira ticket URL. If yes: extract the ticket key, invoke the `feature-jira` skill to verify MCP tools are available (stop if not), transition to "In Progress", use `<ticket-key>-<short-description>` as slug.
+2. **Detect Jira ticket**: Check if `$ARGUMENTS` contains a Jira ticket URL. If yes: extract the ticket key, invoke the `jira` skill to verify MCP tools are available (stop if not), transition to "In Progress", use `<ticket-key>-<short-description>` as slug.
 3. If neither: derive a short kebab-case slug from the instruction (e.g., "split processOrder method" → "split-process-order").
 4. **Branch selection**:
    - If on `master` (or the repo's main branch): create and checkout `feat/<slug>` from master.
@@ -81,11 +81,12 @@ Print banner: `── micro | Init ───────────────
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=clarify phase_status=in_progress
    ```
-7. Write the instruction to `paths.qa` so review-impl can use it:
+7. Write the instruction to `paths.qa` under the `## QA` block header — that is the header
+   review-impl, its fix pass, and the Phase 6 PR body all read:
    ```markdown
    # Micro Instruction
 
-   ## Task
+   ## QA
    <idea from $ARGUMENTS>
    ```
 8. Proceed to Phase 1.
@@ -165,7 +166,7 @@ Otherwise, run up to 3 scan → fix cycles:
    - Show the blocked issues to the user.
    - Ask: "Should I fix these complexity issues?"
    - If yes: spawn a fix agent (model: sonnet) with this prompt:
-     "Extract the `## Complexity Report` block from `paths.temp`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
+     "Read the `## Complexity Report` block with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## Complexity Report\"`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
      Then go back to step 1.
    - If no (user accepts as-is): proceed to step 5.
    - If this was already the 3rd cycle: tell the user "Max complexity fix cycles reached — please review the blocked issues manually" and stop.
@@ -210,23 +211,29 @@ Print banner: `── micro | Finalize ─────────────�
    - If no: **Exit** (re-invoke `/bf:micro` when ready).
    - If yes: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress` — continue.
 3. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions. Resolve and act on it before committing.
-4. Stage and commit any uncommitted changes (do **not** stage `.bf/sessions/`) following `conventions/git.md`. Use `refactor:` prefix.
-   - If `github_issue.enabled`: include issue number (e.g., `refactor(#12): split processOrder into smaller methods`).
-   - If `jira.enabled`: include ticket key.
-5. Push the branch to remote.
-6. Create a PR using `gh pr create`:
-   - **PR body**: Micro mode produces no spec — extract the `## QA` block from `paths.temp` and derive a 2–3 sentence summary describing what was refactored and why.
+4. **Compose commit message and PR content** (reasoning — model writes this), following the `git` convention (resolved via the lookup in `plugin-main.md`):
+   - **Commit message**: `refactor:` prefix with a concise description. If `github_issue.enabled`, include the issue number (e.g., `refactor(#12): split processOrder into smaller methods`); if `jira.enabled`, include the ticket key.
+   - **PR title**: short, imperative (≤70 chars).
+   - **PR body**: Micro mode produces no spec — read the `## QA` block with `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.temp> --block "## QA"` and derive a 2–3 sentence summary describing what was refactored and why.
    - **Coverage note**: when the change adds logic with more than one outcome, name which branches were actually executed during verify and which were only reasoned about. Cheap-to-drive paths and paths needing conditions that do not exist in the repo right now are not the same claim, and the undriven one is where the first real-use defect lands. A body that says "verified" without that split overstates coverage. Omit the note entirely when the change has no branching behaviour of its own.
-   - If `github_issue.enabled`: append `Closes #<github_issue.number>`.
-   - If `jira.enabled`: append a link to the Jira ticket.
-7. If `jira.enabled`:
-   - Invoke the `feature-jira` skill: `transition-to(jira.ticket_key, "To Review")`
-   - Invoke the `feature-jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-8. Tell the user: "PR is up at <pr_url>. Build complete!"
-9. ```
+5. **Run git finalize:**
+   ```
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/finalize-git.sh" \
+     --commit-msg "<commit message>" \
+     --pr-title "<pr title>" \
+     --pr-body "<pr body text>" \
+     [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
+     [--jira-url <jira.ticket_url>]           # only if jira.enabled
+   ```
+   The script stages (excluding `.bf/sessions/`), commits if there are changes, pushes, creates the PR, and outputs the PR URL.
+6. If `jira.enabled`:
+   - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
+   - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
+7. Tell the user: "PR is up at <pr_url>. Build complete!"
+8. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=done phase_status=in_progress
    ```
-10. Proceed to Phase 7.
+9. Proceed to Phase 7.
 
 ## Phase 7 — Cleanup
 

@@ -4,7 +4,7 @@ description: Orchestrate the full brainstorm → plan → execute workflow with 
 model: opus
 disable-model-invocation: false
 argument-hint: [--quick] [idea description, Jira ticket URL, or GH-ISSUE:<number>]
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(bash *), mcp__*__jira__*
+allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(bash *), mcp__*__jira__*
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
@@ -168,6 +168,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
 
 ## Spec
 
+## Context
+
 ## Plan
 
 ## Todo
@@ -265,9 +267,9 @@ Run up to 3 analyze → fix cycles:
    - If yes: dispatch `feature/review-design/fix/SKILL.md` as an Agent (model: sonnet), then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review the spec manually" and stop
-5. Run complexity-gate and consistency-gate on the spec in parallel (phase is still `review-design` — both skills auto-detect spec advisory mode):
-   - Dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus).
-   - Dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus).
+5. Run both gates on the spec in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board, dispatched in one message, both awaited before you proceed (phase is still `review-design` — both skills auto-detect spec advisory mode):
+   - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus)
+   - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus)
    Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
 6. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=research phase_status=in_progress
@@ -292,9 +294,9 @@ Runs in both modes. Runs after review-design (full) or after refine (quick) — 
 Print banner: `── feature | Plan ───────────────────────────────`
 
 1. Dispatch `feature/plan/SKILL.md` as an Agent (model: opus) — it appends `## Plan` and `## Todo` blocks to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
-2. After the plan agent completes, run complexity-gate and consistency-gate on the plan in parallel (phase is still `plan` — both skills auto-detect plan advisory mode):
-   - Dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus).
-   - Dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus).
+2. After the plan agent completes, run both gates on the plan in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board, dispatched in one message, both awaited before you proceed (phase is still `plan` — both skills auto-detect plan advisory mode):
+   - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus)
+   - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus)
    Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
 3. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" \
@@ -339,7 +341,11 @@ Print banner: `── feature | Audit Stack ────────────
 
 ### If `parallel_audit` is `false` (default — sequential)
 
-**Record start timestamp** before the first scan cycle: note the current ISO timestamp in the conversation (e.g. "Audit start: 2026-05-23T15:00:00Z") — this is the canonical store across orchestrator turns. Do not rely on a shell variable; it will not survive across phases.
+**Record start timestamp** before the first scan cycle — store it in state, where it survives across orchestrator turns:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" audit_started_at=$(date -u +%s)
+```
 
 Run up to 3 scan → fix cycles (complexity & consistency):
 
@@ -354,7 +360,7 @@ Run up to 3 scan → fix cycles (complexity & consistency):
 4. If overall STATUS is `BLOCK`:
    - Show the blocked issues from both reports to the user
    - Ask: "Should I fix these issues?"
-   - If yes: spawn a fix agent (model: sonnet) with this prompt: "Extract the `## Complexity Report` and `## Consistency Report` blocks from `paths.temp`. For each issue under Blocked Issues in either report, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
+   - If yes: spawn a fix agent (model: sonnet) with this prompt: "Read the `## Complexity Report` and `## Consistency Report` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each issue under Blocked Issues in either report, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
      Then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: tell the user "Max fix cycles reached — please review the blocked issues manually" and stop
@@ -367,13 +373,13 @@ Run up to 3 scan → fix cycles (complexity & consistency):
 
 Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
 
-1. **Record start timestamp:** note the current ISO timestamp in the conversation (e.g. "Audit start: 2026-05-23T15:00:00Z") — this is the canonical store across orchestrator turns. Do not rely on a shell variable; it will not survive across phases.
+1. **Record start timestamp:** `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" audit_started_at=$(date -u +%s)` — state survives across orchestrator turns.
 2. **Spawn three named Agents concurrently in a single tool-use block** per the **Parallel Fan-Out** convention in `plugin-main.md` (all model: opus). Name each so it shows on the fleet board:
    - `complexity-gate`: contents of `feature/complexity-gate/SKILL.md`
    - `consistency-gate`: contents of `feature/consistency-gate/SKILL.md`
    - `review-impl`: contents of `feature/review-impl/SKILL.md`
    IMPORTANT: all three must be in the SAME assistant message so they execute in parallel, and the fan-out is atomic — wait for all three to return before proceeding. Do not chain them, and do not have them message each other.
-3. **Record end timestamp:** note the current ISO timestamp in the conversation after all three return. Compute the wall-clock duration by diffing the end timestamp against the start timestamp noted in step 1, and log: `Audit stack wall-clock: <duration>s (parallel)`.
+3. **Record end timestamp:** after all three return, log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (parallel)"`, reading `audit_started_at` from state.
 4. Check all three reports:
    - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
    - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Consistency Report"`
@@ -387,7 +393,7 @@ Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
 7. If `BLOCK`:
    - Show blocked issues + review-impl concerns to the user.
    - Ask: "Should I fix these issues?"
-   - If yes: spawn ONE fix agent (model: sonnet) with prompt: "Extract `## Complexity Report`, `## Consistency Report`, and `## Implementation Review` blocks from paths.temp. For each blocked issue and each review-impl concern, apply the prescribed fix. Stay within `changed_files`. Follow the `dev` convention." Then go back to step 1 (next cycle).
+   - If yes: spawn ONE fix agent (model: sonnet) with prompt: "Read the `## Complexity Report`, `## Consistency Report` and `## Implementation Review` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each blocked issue and each review-impl concern, apply the prescribed fix. Stay within `changed_files`. Follow the `dev` convention." Then go back to step 1 (next cycle).
    - If no:
      ```
      bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
@@ -397,7 +403,7 @@ Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
      ```
      bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
      ```
-     Note the current ISO timestamp in the conversation. Compute the wall-clock duration by diffing this end timestamp against the start timestamp noted in step 1, and log: `Audit stack wall-clock: <duration>s (parallel)`. Then tell the user "Max audit cycles reached — review remaining issues manually" and stop.
+     Log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (parallel)"`, reading `audit_started_at` from state. Then tell the user "Max audit cycles reached — review remaining issues manually" and stop.
 
 ## Phase 5 — Review Implementation
 
@@ -417,11 +423,11 @@ Run up to 3 analyze → fix cycles:
    - Ask: "Should I fix these concerns?"
    - If yes: dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), then go back to step 1
    - If no (user accepts as-is): proceed to step 5
-   - If this was already the 3rd cycle: note the current ISO timestamp in the conversation. Compute the wall-clock duration by diffing this end timestamp against the start timestamp noted at the beginning of Phase 4.75, and log: `Audit stack wall-clock: <duration>s (sequential)`. Then tell the user "Max review cycles reached — please review the implementation manually" and stop
+   - If this was already the 3rd cycle: log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (sequential)"`, reading `audit_started_at` from state. Then tell the user "Max review cycles reached — please review the implementation manually" and stop
 5. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
    ```
-   **Record end timestamp:** note the current ISO timestamp in the conversation. Compute the wall-clock duration by diffing the end timestamp against the start timestamp noted at the beginning of Phase 4.75, and log: `Audit stack wall-clock: <duration>s (sequential)`.
+   **Record end timestamp:** log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (sequential)"`, reading `audit_started_at` from state.
 6. Proceed immediately to Phase 6 (no approval gate here — the combined gate is inside Phase 6)
 
 ## Phase 6 — Finalize
@@ -455,7 +461,7 @@ Print banner: `── feature | Finalize ─────────────
 4. **Compose commit message and PR content** (reasoning — model writes this):
    - **Commit message:** `feat:` prefix with a concise description. Include issue/ticket if enabled (e.g., `feat(#12): address review concerns`, `feat(PROJ-123): address review concerns`).
    - **PR title:** short, imperative (≤70 chars)
-   - **PR body:** Extract the `## Spec` block from `paths.session_log` and compose a short summary (2–3 sentences max) of what the feature does and why — no test descriptions, no minor change lists, no implementation details. Store it in a variable for use in the next step.
+   - **PR body:** Read the `## Spec` block — `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.session_log> --block "## Spec"` — and compose a short summary (2–3 sentences max) of what the feature does and why — no test descriptions, no minor change lists, no implementation details. Store it in a variable for use in the next step.
    - **Coverage note:** when the change adds logic with more than one outcome, name which branches were actually executed during verify and which were only reasoned about. Cheap-to-drive paths and paths needing conditions that do not exist in the repo right now are not the same claim, and the undriven one is where the first real-use defect lands. A body that says "verified" without that split overstates coverage. Omit the note entirely when the change has no branching behaviour of its own.
 5. **Run git finalize:**
    ```
@@ -498,7 +504,7 @@ Print banner: `── feature | Cleanup ─────────────�
 bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/cleanup.sh"
 ```
 
-Deletes the ephemeral temp file (`paths.temp`) and `build-state.json`. Persistent artifacts in `paths.session_log` (`spec`, `plan`, `todo`, `backlog`, `deployment`) are kept.
+Deletes the ephemeral temp file (`paths.temp`) and `build-state.json`. Persistent artifacts in `paths.session_log` (`spec`, `context`, `plan`, `todo`, `backlog`, `deployment`, `decisions`) are kept.
 
 ## State Updates
 
