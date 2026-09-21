@@ -30,7 +30,7 @@ Resolve artifact location once, up front:
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-if [ -n "$PROJECT_ROOT" ] && [ -d "$PROJECT_ROOT/.bf" ]; then
+if [ -n "$PROJECT_ROOT" ]; then
   ARTIFACTS_DIR="$PROJECT_ROOT/.bf/research"
 else
   ARTIFACTS_DIR="$HOME/.bf/research"

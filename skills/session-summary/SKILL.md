@@ -20,7 +20,7 @@ Resolve the artifact root, then write the summary to `$SESSIONS_DIR/session_{slu
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-if [ -n "$PROJECT_ROOT" ] && [ -d "$PROJECT_ROOT/.bf" ]; then
+if [ -n "$PROJECT_ROOT" ]; then
   SESSIONS_DIR="$PROJECT_ROOT/.bf/sessions"
 else
   SESSIONS_DIR="$HOME/.bf/sessions"
