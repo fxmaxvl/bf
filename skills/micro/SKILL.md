@@ -211,23 +211,29 @@ Print banner: `── micro | Finalize ─────────────�
    - If no: **Exit** (re-invoke `/bf:micro` when ready).
    - If yes: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress` — continue.
 3. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions. Resolve and act on it before committing.
-4. Stage and commit any uncommitted changes (do **not** stage `.bf/sessions/`) following the `git` convention (resolved via the lookup in `plugin-main.md`). Use `refactor:` prefix.
-   - If `github_issue.enabled`: include issue number (e.g., `refactor(#12): split processOrder into smaller methods`).
-   - If `jira.enabled`: include ticket key.
-5. Push the branch to remote.
-6. Create a PR using `gh pr create`:
+4. **Compose commit message and PR content** (reasoning — model writes this), following the `git` convention (resolved via the lookup in `plugin-main.md`):
+   - **Commit message**: `refactor:` prefix with a concise description. If `github_issue.enabled`, include the issue number (e.g., `refactor(#12): split processOrder into smaller methods`); if `jira.enabled`, include the ticket key.
+   - **PR title**: short, imperative (≤70 chars).
    - **PR body**: Micro mode produces no spec — read the `## QA` block with `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.temp> --block "## QA"` and derive a 2–3 sentence summary describing what was refactored and why.
    - **Coverage note**: when the change adds logic with more than one outcome, name which branches were actually executed during verify and which were only reasoned about. Cheap-to-drive paths and paths needing conditions that do not exist in the repo right now are not the same claim, and the undriven one is where the first real-use defect lands. A body that says "verified" without that split overstates coverage. Omit the note entirely when the change has no branching behaviour of its own.
-   - If `github_issue.enabled`: append `Closes #<github_issue.number>`.
-   - If `jira.enabled`: append a link to the Jira ticket.
-7. If `jira.enabled`:
+5. **Run git finalize:**
+   ```
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/finalize-git.sh" \
+     --commit-msg "<commit message>" \
+     --pr-title "<pr title>" \
+     --pr-body "<pr body text>" \
+     [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
+     [--jira-url <jira.ticket_url>]           # only if jira.enabled
+   ```
+   The script stages (excluding `.bf/sessions/`), commits if there are changes, pushes, creates the PR, and outputs the PR URL.
+6. If `jira.enabled`:
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-8. Tell the user: "PR is up at <pr_url>. Build complete!"
-9. ```
+7. Tell the user: "PR is up at <pr_url>. Build complete!"
+8. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=done phase_status=in_progress
    ```
-10. Proceed to Phase 7.
+9. Proceed to Phase 7.
 
 ## Phase 7 — Cleanup
 
