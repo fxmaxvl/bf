@@ -8,6 +8,12 @@ allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(mkdir *), Bash(gh issu
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
+On invocation, print this banner as plain text (not in a code block) before doing any other work:
+
+```
+── bf:session-summary ──────────────────────────────────
+```
+
 ## Step 1 — Write the session summary
 
 Resolve the artifact root, then write the summary to `$SESSIONS_DIR/session_{slug}_{timestamp}.md`:

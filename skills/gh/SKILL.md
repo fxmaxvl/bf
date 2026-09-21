@@ -7,6 +7,12 @@ allowed-tools: Read, Grep, Glob, Bash(git *), Bash(gh *), Skill
 ---
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
+On invocation, print this banner as plain text (not in a code block) before doing any other work:
+
+```
+── bf:gh ───────────────────────────────────────────────
+```
+
 Manage GitHub issues on the current repository. Three modes: **create** (capture something to track), **pick** (select an existing issue to work on), and **verify** (check whether an issue's items are still open and hand off any that are).
 
 ## Mode Detection

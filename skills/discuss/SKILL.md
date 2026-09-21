@@ -9,6 +9,12 @@ allowed-tools: Read, Grep, Glob
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
+On invocation, print this banner as plain text (not in a code block) before doing any other work:
+
+```
+── bf:discuss ──────────────────────────────────────────
+```
+
 You are given a question or topic to discuss: $ARGUMENTS
 
 Before providing any solution or answer:

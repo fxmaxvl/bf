@@ -8,6 +8,12 @@ allowed-tools: Read, Skill, mcp__*__jira__*
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
+On invocation, print this banner as plain text (not in a code block) before doing any other work:
+
+```
+── bf:jira ─────────────────────────────────────────────
+```
+
 Manage Jira tickets. Two modes: **pick** (browse and select a ticket to work on) and **url** (pass a specific ticket URL). Also provides utility operations used by other skills.
 
 ## Tool Discovery
