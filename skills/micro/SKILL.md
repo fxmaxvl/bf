@@ -2,7 +2,7 @@
 name: micro
 description: Micro workflow for small, focused refactors — clarifies only if needed, then executes directly with complexity and quality guards.
 argument-hint: [refactoring description]
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), mcp__*__jira__*
+allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(bash *), mcp__*__jira__*
 model: opus
 disable-model-invocation: false
 ---

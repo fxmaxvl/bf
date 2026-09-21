@@ -4,7 +4,7 @@ description: Use when you need to verify that changes, a design, or a plan are i
 model: opus
 disable-model-invocation: true
 argument-hint: "[optional: path/block to check — omit when called from a bf flow]"
-allowed-tools: Read, Grep, Glob, Bash(git *)
+allowed-tools: Read, Grep, Glob, Bash(git *), Bash(bash *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.

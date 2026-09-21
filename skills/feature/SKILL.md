@@ -4,7 +4,7 @@ description: Orchestrate the full brainstorm → plan → execute workflow with 
 model: opus
 disable-model-invocation: false
 argument-hint: [--quick] [idea description, Jira ticket URL, or GH-ISSUE:<number>]
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), mcp__*__jira__*
+allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(gh *), Bash(bash *), mcp__*__jira__*
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.

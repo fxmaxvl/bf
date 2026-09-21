@@ -3,7 +3,7 @@ name: research
 description: Scan the local codebase to surface reuse candidates, conventions, and risk signals relevant to the current feature. Writes a ## Context block to session-log consumed by plan and do-todo.
 disable-model-invocation: true
 model: sonnet
-allowed-tools: Read, Grep, Glob, Bash(git *), mcp__octocode__localViewStructure, mcp__octocode__localSearchCode, mcp__octocode__localFindFiles, mcp__octocode__localGetFileContent
+allowed-tools: Read, Grep, Glob, Bash(git *), Bash(bash *), mcp__octocode__localViewStructure, mcp__octocode__localSearchCode, mcp__octocode__localFindFiles, mcp__octocode__localGetFileContent
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.

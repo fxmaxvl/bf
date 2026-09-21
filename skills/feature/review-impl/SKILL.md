@@ -2,7 +2,7 @@
 name: review-impl
 description: Review implementation against spec and plan for completeness and quality. Produces a structured PASS/CONCERN report file.
 disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Bash(git *)
+allowed-tools: Read, Grep, Glob, Bash(git *), Bash(bash *)
 model: opus
 ---
 
