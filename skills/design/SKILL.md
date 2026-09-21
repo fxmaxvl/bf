@@ -122,8 +122,9 @@ Print banner: `── design | Generate (may take 1–2 min) ──────�
 4. **(Optional) Confirm the slug:** Before invoking the agent, show the user the derived slug and ask if they want to override it. One short question — not a full Q&A. If the user overrides, re-apply the collision check.
 
 5. **Invoke the generate agent:**
-   - Read `${CLAUDE_SKILL_DIR}/generate/SKILL.md`.
-   - Pass its full contents as an Agent prompt with `model: opus`.
+   - Do **not** read `generate/SKILL.md` yourself. Interpolate its resolved absolute path
+     (`${CLAUDE_SKILL_DIR}/generate/SKILL.md`, expanded by the orchestrator) into the Agent
+     prompt with `model: opus` and instruct the agent to read that file and follow it.
    - The agent prompt must include:
      - The absolute path to the temp Q&A file from Phase 1 (`$TEMP_DIR/<timestamp>-design-qa.md`).
      - The absolute path to the target design doc file computed above.
@@ -175,8 +176,8 @@ Track a revision counter starting at 0. Increment it on each iterate round.
       This prompt appears once per round — not repeatedly within the same round.
 
    c. Re-invoke the generate agent:
-      - Read `${CLAUDE_SKILL_DIR}/generate/SKILL.md`.
-      - Pass its full contents as an Agent prompt with `model: opus`.
+      - Again pass the resolved absolute path to `generate/SKILL.md` (not its contents),
+        with `model: opus`, instructing the agent to read that file and follow it.
       - The agent prompt must include:
         - The same Q&A file path (from Phase 1).
         - The **same output doc path** (the agent overwrites in place — no new file, no diff).
