@@ -63,7 +63,7 @@ If not found: start from Phase 0.
 Print banner: `── micro | Init ───────────────────────────────`
 
 1. **Detect GitHub issue**: Check if `$ARGUMENTS` contains `GH-ISSUE:<number>`. If yes: extract the number, set `github_issue.enabled=true`, use `gh-<number>-<short-description>` as slug.
-2. **Detect Jira ticket**: Check if `$ARGUMENTS` contains a Jira ticket URL. If yes: extract the ticket key, invoke the `feature-jira` skill to verify MCP tools are available (stop if not), transition to "In Progress", use `<ticket-key>-<short-description>` as slug.
+2. **Detect Jira ticket**: Check if `$ARGUMENTS` contains a Jira ticket URL. If yes: extract the ticket key, invoke the `jira` skill to verify MCP tools are available (stop if not), transition to "In Progress", use `<ticket-key>-<short-description>` as slug.
 3. If neither: derive a short kebab-case slug from the instruction (e.g., "split processOrder method" → "split-process-order").
 4. **Branch selection**:
    - If on `master` (or the repo's main branch): create and checkout `feat/<slug>` from master.
@@ -220,8 +220,8 @@ Print banner: `── micro | Finalize ─────────────�
    - If `github_issue.enabled`: append `Closes #<github_issue.number>`.
    - If `jira.enabled`: append a link to the Jira ticket.
 7. If `jira.enabled`:
-   - Invoke the `feature-jira` skill: `transition-to(jira.ticket_key, "To Review")`
-   - Invoke the `feature-jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
+   - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
+   - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
 8. Tell the user: "PR is up at <pr_url>. Build complete!"
 9. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=done phase_status=in_progress
