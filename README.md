@@ -20,7 +20,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | Skill | Kind | What it does | When to use |
 |---|---|---|---|
 | `/bf:feature <idea>` | Workflow | Full brainstorm → spec → design → plan → execute → verify flow with checkpoints | You have a new idea and want to think it through before touching code |
-| `/bf:quick <idea>` | Workflow | Lightweight plan → execute → verify loop | You know roughly what needs doing and just want it done |
+| `/bf:quick <idea>` | Workflow | refine → research → plan → execute → verify → audit → review → finalize; skips only brainstorm and design review | You know roughly what needs doing and just want it done |
 | `/bf:micro <idea>` | Workflow | Focused refactor with complexity and quality guards | Small, scoped change — one function, one file, clean it up |
 | `/bf:bug-fix <symptoms>` | Workflow | Parallel root-cause hunt, decide-gated diagnose → fix, no user prompts | Something is broken and you want a fast autonomous fix |
 | `/bf:autopilot [skill] <args>` | Workflow | Runs a core bf workflow (feature, quick, micro, review, design) end-to-end without stopping to ask you anything | You want to go fully hands-off — decide oracle handles every decision |
