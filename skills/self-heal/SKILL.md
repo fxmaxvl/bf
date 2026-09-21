@@ -53,6 +53,9 @@ Score every item on this rubric. The three named criteria are the plugin's state
 | Code quality | ×2 | cosmetic | clarifies guidance | prevents a recurring class of defect | closes a correctness or data-loss gap |
 | Speed | ×2 | no effect | saves a step sometimes | removes a round-trip | removes a whole phase or stall |
 | Cost to fix | ×1 | multi-skill redesign | new script + several edits | one file, localized | a few lines in one file |
+| Cost if it ships wrong | ×2 | a cosmetic miss nobody acts on | misleading prose someone notices | a rule that silently misfires until spotted | a wrong rule that corrupts output or loses data |
+
+**Cost if it ships wrong** is scored against the *unverified* version of the fix: if this landed with nobody driving it, what would it take to notice and undo? Token frugality prices what a probe spends, which is a few commands; this axis prices what skipping the probe costs, which is a whole second pass — harvest, score, fix, verify, PR. Those are not symmetric, and without the axis the rubric ranks verification-discipline items below cheaper cosmetic ones. Score it from the failure mode, not from your confidence in the fix.
 
 Most backlog items are workflow or UX suggestions that score near zero on token frugality and speed, so expect flat scores and **apply the tiebreak explicitly** rather than picking arbitrarily:
 
@@ -108,8 +111,20 @@ If an item cannot be verified, revert its commit, return it to the backlog, and 
 1. **ADR check:** apply **ADR Awareness** from `plugin-main.md` against the changed files before pushing.
 2. Push the branch.
 3. Open **one** PR via `gh pr create`, titled `chore: self-heal — <n> backlog items`. Body: one section per item giving the source (`#<issue>` item `<index>`), the ask, what changed, and how it was verified. Link every source issue; add `Closes #N` only for an issue whose every item is in this PR.
-4. Per source issue, `gh issue comment` naming which items this PR addressed and which remain open. Close an issue only when nothing is left in it.
-5. Report the PR url and which items stayed in the backlog.
+4. Per source issue, `gh issue comment` naming which items this PR addressed, which were already satisfied in the tree, and which remain open.
+5. **Before closing any issue, carry its leftovers forward.** Re-read the issue body and list the items this PR did not address. If any remain, either leave the issue open, or — when the issue is being closed anyway — file a fresh issue containing those items *verbatim*, each tagged `_Carried from #<N> item <M>._`, and link it from the closing comment. Closed-issue bodies are only visible by re-reading them, so an item dropped at close time is effectively unrecoverable. Close an issue only once nothing is left in it or its leftovers are carried.
+6. Report the PR url, which items stayed in the backlog, and any carry-forward issue you filed.
+
+## Handoff Contract with `bf:self-audit`
+
+`bf:self-audit` files findings; this skill harvests and fixes them. The two halves only stay compatible if the pairing is actually run end to end, so exercise it rather than reading an audit's findings straight out of the script's JSON. What to watch, and what has already been observed:
+
+| Contract point | Status |
+|---|---|
+| A filed issue body segments into one item per finding | Holds. The `### ` heading the audit writes is a delimiter `harvest-issues.sh` splits on; older `- **bold**` bodies split too. A body using neither arrives as a single item. |
+| The `audit-id` fingerprint prevents re-filing | Holds for open issues, and for not-planned closures via `--settled`. It cannot express "fixed in a branch that has not merged yet". |
+| The axes an audit assigns match the axes this rubric scores | Partly. The audit assigns token-frugality, code-quality and speed; the rubric also scores cost to fix and cost if it ships wrong, neither of which a finding carries. Score those here. |
+| Filed findings stay valid until healed | **Does not hold.** Findings go stale as the tree changes — a run may find a large share already fixed. This is why Phase 2 requires reading the implicated files before scoring, and why the issue comment in Phase 5 names what was already satisfied. |
 
 ## Edge Cases & Errors
 
