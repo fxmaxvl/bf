@@ -3,7 +3,7 @@ name: coherence
 description: Use after adding to or editing existing code — especially before committing, or when new behavior was bolted onto an existing method — to check whether the change left the code coherent. Assesses the change against the engineering guidelines' breakage kinds (abstraction, encapsulation, contract, readability, consistency, cohesion) and reports what must be refactored versus merely noted. Works standalone, outside any bf workflow.
 model: opus
 disable-model-invocation: false
-argument-hint: "[empty for uncommitted changes | 'branch' | <sha or range> | <paths>]"
+argument-hint: "[empty for uncommitted changes, or the branch diff when the tree is clean | 'branch' | <sha or range> | <paths>]"
 allowed-tools: Read, Edit, Grep, Glob, Bash(bash *), Bash(git *), Bash(rtk *)
 ---
 
@@ -32,7 +32,9 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" "$ARGUMENTS"
 ```
 
 It returns `{root, mode, file_count, added, removed, files[]}`. `mode` is `working` (uncommitted),
-`branch`, `range`, or `paths`. If `error` is `not_a_git_repo`, print `Not a git repository. Exiting.`
+`branch`, `range`, or `paths`. With an empty target and a clean tree, `working` finds nothing and the
+script falls through to `branch` — a full `merge-base…HEAD` diff — so an empty invocation after
+committing assesses the whole branch rather than reporting nothing to do. If `error` is `not_a_git_repo`, print `Not a git repository. Exiting.`
 and stop. If `file_count` is `0`, print `STATUS: NOTHING_TO_ASSESS` and stop — spawn nothing, read
 nothing.
 
@@ -107,6 +109,7 @@ Report what you changed against the findings you stated; do not claim a fix you 
 |-----------|----------|
 | Not a git repository | Print `Not a git repository. Exiting.` and stop |
 | Empty scope (`file_count: 0`) | Print `STATUS: NOTHING_TO_ASSESS` and stop; read nothing |
+| `mode` came back `branch` on an empty invocation | The working tree was clean, so scope fell through from `working` to the full `merge-base…HEAD` diff. Say so in one line before assessing — the user asked about uncommitted work and is getting the whole branch |
 | `guidelines.md` missing at all 3 tiers | Report the resolved paths tried and stop — there is no standard to check against |
 | Diff is pure config/lockfile/generated output | Report `STATUS: COHERENT` with a one-line note that there is no logic to assess |
 | Very large scope (>25 files) | Assess the changed files, but skip collaborator widening and say so — an unbounded slice is the sprawl §3 exists to prevent |
