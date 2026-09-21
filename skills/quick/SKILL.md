@@ -11,7 +11,6 @@ Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains pl
 Run the `feature` workflow in quick mode.
 
 1. Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/SKILL.md` and follow its instructions with `--quick` prepended to `$ARGUMENTS`.
-2. Read it and follow its instructions with `--quick` prepended to `$ARGUMENTS`.
 
 Here is the idea:
 $ARGUMENTS
