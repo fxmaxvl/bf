@@ -48,8 +48,15 @@ RAW=$(gh issue list --repo "$REPO" --state open --limit "$LIMIT" \
         --json number,title,body,labels,url 2>&1) \
   || die gh_failed "$(printf '%s' "$RAW" | head -3 | tr '\n' ' ')"
 
-printf '%s' "$RAW" | jq -c \
-  --arg repo "$REPO" --argjson brief "$BRIEF" --argjson want "$(printf '%s\n' "${WANT[@]+"${WANT[@]}"}" | jq -R . | jq -sc 'map(select(length>0))')" '
+# Segmentation runs in three stages so the optional TypeSafe pass lands *before*
+# ids are handed out: `--item 34:3` in the fix pass must point at the same text
+# the scoring pass scored, and it cannot if the two passes segment differently.
+#   A  split every body into chunks and build items (deterministic, always runs)
+#   B  optional TypeSafe re-split of bodies stage A could not divide -- a no-op
+#      without a key, so the final output is unchanged for anyone who has not
+#      opted in (see /bf:typesafe)
+#   C  apply --item/--brief, count, annotate
+STAGE_A=$(printf '%s' "$RAW" | jq -c '
   # Two delimiter formats appear in the wild: "### heading" sections and
   # "- **bold lead**" bullets. jq anchors ^ to string start, so split on a
   # newline lookahead and keep only chunks that open with the delimiter --
@@ -77,7 +84,14 @@ printf '%s' "$RAW" | jq -c \
     | { id: "\($i.number):\(.key + 1)", issue: $i.number, item_index: (.key + 1),
         issue_title: $i.title, title: (.value | headline), url: $i.url,
         labels: [$i.labels[].name], full: (.value | gsub("^\\s+|\\s+$"; "")) } ]
-  | . as $all
+') || die jq_failed "could not build items from the issue list"
+
+BOOSTED=$(printf '%s' "$STAGE_A" | python3 "$(dirname "$0")/boost-segments.py") || BOOSTED=""
+[ -n "$BOOSTED" ] || BOOSTED="$STAGE_A"
+
+printf '%s' "$BOOSTED" | jq -c \
+  --arg repo "$REPO" --argjson brief "$BRIEF" --argjson want "$(printf '%s\n' "${WANT[@]+"${WANT[@]}"}" | jq -R . | jq -sc 'map(select(length>0))')" '
+  . as $all
   | (if ($want | length) > 0 then [$all[] | select(.id as $id | $want | index($id))] else $all end)
   | [ .[] | . + { chars: (.full | length) }
       | . + (if $brief and (.chars > 320)
