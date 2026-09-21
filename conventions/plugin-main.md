@@ -146,3 +146,4 @@ The available convention names and when to use each:
 | TypeScript / JavaScript work | `typescript` |
 | Python work | `python` |
 | Reviewing code | `code-review` |
+| Weighing evidence in decide / discuss | `verification` |

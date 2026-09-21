@@ -95,6 +95,8 @@ The `conventions/` directory contains language- and action-specific guidelines C
 - `architecture.md` — architectural decisions
 - `code-review.md` — reviewing code
 - `typescript.md` — TypeScript/JavaScript specifics
+- `python.md` — Python specifics
+- `verification.md` — evidence rules the decide and discuss oracles run on
 
 **Overriding conventions:** bf supports a 3-level lookup for each convention file (first match wins, fully replaces the plugin default):
 
