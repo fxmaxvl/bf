@@ -265,9 +265,9 @@ Run up to 3 analyze → fix cycles:
    - If yes: dispatch `feature/review-design/fix/SKILL.md` as an Agent (model: sonnet), then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review the spec manually" and stop
-5. Run complexity-gate and consistency-gate on the spec in parallel (phase is still `review-design` — both skills auto-detect spec advisory mode):
-   - Dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus).
-   - Dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus).
+5. Run both gates on the spec in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board, dispatched in one message, both awaited before you proceed (phase is still `review-design` — both skills auto-detect spec advisory mode):
+   - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus)
+   - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus)
    Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
 6. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=research phase_status=in_progress
@@ -292,9 +292,9 @@ Runs in both modes. Runs after review-design (full) or after refine (quick) — 
 Print banner: `── feature | Plan ───────────────────────────────`
 
 1. Dispatch `feature/plan/SKILL.md` as an Agent (model: opus) — it appends `## Plan` and `## Todo` blocks to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
-2. After the plan agent completes, run complexity-gate and consistency-gate on the plan in parallel (phase is still `plan` — both skills auto-detect plan advisory mode):
-   - Dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus).
-   - Dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus).
+2. After the plan agent completes, run both gates on the plan in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board, dispatched in one message, both awaited before you proceed (phase is still `plan` — both skills auto-detect plan advisory mode):
+   - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus)
+   - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus)
    Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
 3. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" \
