@@ -168,6 +168,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
 
 ## Spec
 
+## Context
+
 ## Plan
 
 ## Todo
@@ -502,7 +504,7 @@ Print banner: `── feature | Cleanup ─────────────�
 bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/cleanup.sh"
 ```
 
-Deletes the ephemeral temp file (`paths.temp`) and `build-state.json`. Persistent artifacts in `paths.session_log` (`spec`, `plan`, `todo`, `backlog`, `deployment`) are kept.
+Deletes the ephemeral temp file (`paths.temp`) and `build-state.json`. Persistent artifacts in `paths.session_log` (`spec`, `context`, `plan`, `todo`, `backlog`, `deployment`, `decisions`) are kept.
 
 ## State Updates
 
