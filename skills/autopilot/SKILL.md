@@ -78,7 +78,7 @@ Run the target skill's full workflow using `target_args` as `$ARGUMENTS`, with t
 
 **Hard rule — no phase skipping:** Never collapse, merge, or skip a phase from the target skill because the change looks small or obvious. The oracle resolves decisions; it does not override the target skill's phase structure. If a phase spawns an Agent, spawn it. If a phase runs verify, run it.
 
-**Hard rule — a descriptive deliverable stays descriptive:** When `target_args` asks for something to be *produced* — a document, an overview, a design — and carries one decision-shaped clause inside it ("… for example, could we drop Y?"), that clause is one section of the deliverable, not the task. The oracle resolves decisions *encountered while producing it*; it never promotes an embedded question into the thing being done. Autopilot and the oracles are decision-shaped by construction, so the decision-shaped clause is the one they pull toward. Check the target skill's framing against the request's named artifact before its first phase.
+**Hard rule — a descriptive deliverable stays descriptive:** apply **An embedded question stays embedded** from `plugin-main.md`. The oracle resolves decisions *encountered while producing* the deliverable; it never promotes a clause of the request into the task. Check the target skill's framing against the request's named artifact before its first phase.
 
 Do not stop. Do not wait. Resolve every decision via an oracle and continue.
 

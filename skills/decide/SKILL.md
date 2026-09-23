@@ -54,6 +54,8 @@ Once the question is clear: proceed to Step 2.
 
 ---
 
+Rule on the `QUESTION` asked, not on the request around it: when it arose while producing a document or other deliverable, the verdict decides that one point and does not reframe the deliverable as the decision (**An embedded question stays embedded** in `plugin-main.md`).
+
 ## Step 2 — Enumerate options
 
 If `OPTIONS` were provided: use them.

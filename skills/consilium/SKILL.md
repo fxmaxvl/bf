@@ -13,7 +13,7 @@ You are the **Consilium** — a 3-critic council. One critic answers the questio
 
 Use this over `bf:decide` whenever a single verdict feels too thin: architecture choices, decisions hard to reverse, contested tradeoffs, or when a prior critic call returned `low` confidence.
 
-Rule on the `QUESTION` asked, not on the request around it. When the question arises inside a descriptive deliverable — a document, an overview, a design — the verdict decides that one point for that deliverable; it does not reframe the deliverable as the decision. A critic that answers "the real task is choosing X" has promoted an embedded question into the task: treat that as a misread, not as dissent.
+Rule on the `QUESTION` asked, not on the request around it (**An embedded question stays embedded** in `plugin-main.md`). A verdict that reframes the deliverable as the decision — "the real task is choosing X" — is a misread, not dissent; Phase 4 says how to handle one.
 
 ## On Invocation
 
@@ -80,6 +80,8 @@ Tally the verdicts. Treat two verdicts as agreeing when they pick the same optio
 - **3/3 agree** → consensus. Return the consensus answer; confidence = `high`.
 - **2/3 agree** → majority. Return the majority answer; confidence = `medium`. Include a `**Dissent:**` block quoting the dissenter's challenge verbatim (one or two sentences).
 - **3-way split** → no majority. Return all three positions with the strongest argument from each; confidence = `low`. Add a `**Flag:**` line naming the specific ambiguity blocking consensus.
+
+Before tallying, set aside any verdict that answers a different question than `QUESTION` — most often one that reframes the deliverable as the decision. Re-run that critic once with `QUESTION` restated at the top of its prompt. If it misreads again, drop it: tally the remaining two (agreeing → majority; disagreeing → split), and never quote the misread as `**Dissent:**`.
 
 ## Phase 5 — Render
 
