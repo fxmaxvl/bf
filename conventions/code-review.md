@@ -87,6 +87,7 @@ Apply insights from *Code Complete* (McConnell) when evaluating quality:
 **Comments**
 - Comments should explain *why*, not *what* — if the comment restates the code, it adds no value
 - Comments must stay in sync with the code; outdated comments are worse than none
+- Flag every comment the change *adds* that the **Comments** rule in `plugin-main.md` forbids — narration, banners and dividers, restating the next line, references to the task or the change. Suggest deleting it, or renaming until it is unnecessary. Pre-existing comments are out of scope unless they are actively false
 
 **Simplification recommendations**
 - If a simpler solution exists — in implementation, abstraction design, or class hierarchy — **always recommend it**, even if the current solution is technically correct

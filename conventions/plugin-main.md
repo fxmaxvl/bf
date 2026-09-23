@@ -19,6 +19,15 @@ file, it is not conditional — it governs every phase of every skill.
 - **Restate a wide effect before acting on it.** Before an action whose effect is wide or outward-facing — publishing, pushing, opening or commenting on a PR or issue, deleting, or changing files outside the scope the plan or request set — state that effect in one line: *"this pushes 3 commits to origin/feature-x"*, *"this publishes 25 files, including A, B, C"*. This governs *when* a restatement earns a line; the rule above governs *how* to ask. It is a statement, not a question, and edits inside the planned scope get none. A request with two readings that have different effects — "messy" as layout or as colour — is not a restatement case: ask, as the one question for the turn. Under `/bf:autopilot`, print the line and continue — it is there so a misread is visible, not to wait for approval.
 - **An embedded question stays embedded.** When a request asks for something to be *produced* — a document, an overview, a design, a report — and carries decision-shaped clauses inside it ("… for example, could we drop Y?"), the artifact is the task and each clause is one section of it. Frame the work, and phrase any oracle `QUESTION`, around the artifact. Decision-oriented skills (`autopilot`, `decide`, `consilium`, `research`) pull hardest toward the clause, because it is the part shaped like their input.
 
+## Comments
+
+Applies to every file a skill writes: code, scripts, tests and config.
+
+- **A comment explains *why*, never narrates *what*.** Add one only where the reason is not visible in the code: a hidden constraint, a subtle invariant, a workaround for a specific bug. One line is the norm.
+- **Forbidden:** step-by-step narration (`# loop over the files`), banner and section-divider comments, a comment that restates the line below it, and any reference to the task, ticket, review or change that produced the code (`# added for #66`, `# fixed per review`, `# new approach`). That history belongs in the commit message.
+- **When unsure, leave it out.** A well-named function or variable replaces most comments; rename before you annotate.
+- This governs *adding* comments. Existing comments stay unless they are actively false — see `dev.md`.
+
 ## Parallel Fan-Out
 
 When a skill spawns multiple sub-agents to work the **same task from independent angles** in parallel — multi-critic councils, multi-hypothesis investigation, concurrent review gates — follow this pattern. It defines *how* to fan out; each skill still decides *whether and when* to (e.g. behind a `parallel_audit` flag, or always).
