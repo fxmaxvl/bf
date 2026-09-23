@@ -81,12 +81,15 @@ Print a short frame block, then proceed without waiting for approval:
 
 ```
 ## Research Frame
+Deliverable: <the artifact to produce — a report, an overview, a comparison>
 Topic: <one sentence>
 Usecase: <what you're building/deciding>
 Question: <the specific thing to answer>
 Lens: <external | internal | comparison | decision>
 Success criteria: <what a good answer looks like>
 ```
+
+**Deliverable vs. embedded example.** Before filling the frame, ask yourself: is the thing I am about to research the stated deliverable, or an example inside it? If the prompt names an artifact ("prepare an architecture overview … — for example, could we cut X's dependency on Y?"), the artifact is the deliverable and the example is one section of it. `Question` and `Lens` then describe the deliverable, not the example. The example is the part shaped like a research question, so it pulls hardest; the `Deliverable` line is where a wrong read shows before any gathering starts.
 
 ## Phase 2 — Plan
 
