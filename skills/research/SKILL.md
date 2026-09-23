@@ -4,7 +4,7 @@ description: "Use when the user says 'research X', 'prior art', 'how do other pr
 model: opus
 disable-model-invocation: false
 argument-hint: "[topic, question, or labeled payload]"
-allowed-tools: Read, Write, Edit, Grep, Glob, WebSearch, WebFetch, Bash(git *), Bash(gh *), Bash(mkdir *), Bash(date *), Task
+allowed-tools: Read, Write, Edit, Grep, Glob, WebSearch, WebFetch, Bash(git *), Bash(gh *), Bash(bash *), Bash(mkdir *), Bash(date *), Task
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill, including the **one-question-per-turn** rule that governs every interactive phase below.
@@ -43,6 +43,27 @@ The final report goes to `$ARTIFACTS_DIR/<kebab-slug>.md`.
 ## Phase 0 — Clarify (standalone only)
 
 The skill needs three things — **usecase**, **issue**, **focus lens** — to frame good research. Ask ONE question at a time per `plugin-main.md`. Skip any question whose answer is already evident from the user's prompt. Never batch.
+
+First, judge what the prompt already answers:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/research/scripts/frame.sh" <<'BF_PROMPT'
+<the user's prompt, verbatim>
+BF_PROMPT
+```
+
+`{"boosted": false}` means TypeSafe boosting is off or unavailable — run the questions below exactly as written, judging "evident" yourself. When `boosted` is `true`, the result drives them:
+
+| Field | Effect |
+|---|---|
+| `usecase_evident: true` | Skip question 1; take the usecase from the prompt. |
+| `issue_evident: true` | Skip question 2; take the issue from the prompt. |
+| `lens_confident: true` | Skip question 3; use `lens` and write `(inferred)` after it in the Frame so the assumption is visible. |
+| `lens` set, `lens_confident: false` | Ask question 3, listing `lens` first as *(Recommended)*. |
+| `lens: null` | Ask question 3 as written. |
+| `channels` | Keep for Phase 3. |
+
+A `false` never forces a question you can plainly see is answered — the judgment only removes questions, it does not add them.
 
 1. **Usecase:** "What are you trying to build or decide?"
 2. **Issue:** "What's the specific problem or question you're investigating?"
@@ -94,6 +115,8 @@ Channel routing:
 | library/tool comparison | `WebSearch` + `WebFetch` (docs, changelogs) | `gh api` for repo stats |
 | decision support | mix per the specific decision | — |
 
+For **decision support**, when Phase 0's `frame.sh` result carried a non-empty `channels`, use those (ranked, at most two) instead of choosing the mix yourself: `code_search` → `gh search repos` / `gh search code`, `local_code` → `Read` / `Grep` / `git log`, `web_docs` → `WebSearch` + `WebFetch`, `repo_stats` → `gh api`. An empty list, or no boosted result, leaves the mix to you. Other lenses keep the table above.
+
 If `dev`, `architecture`, or `code-review` conventions are relevant to the lens (e.g. internal codebase reviews), resolve them via the 3-step lookup in `plugin-main.md`.
 
 **Citation rule.** Every finding must carry `{source, url_or_path, locator, quote_or_summary}`. Drop any claim that can't be cited. Label inference separately from direct evidence. Do **not** hallucinate line numbers — if `gh search code` does not return them, cite at file level only. Document evidence (READMEs, marketing pages) is allowed but must be tagged as `doc`, not `direct`.
@@ -134,6 +157,16 @@ Build a kebab-case slug from the topic. Write the report to `$ARTIFACTS_DIR/<slu
 |--------|----------|---------------|
 | <repo/site> | <url or path:line> | direct / inference / doc |
 ````
+
+**Check the evidence tags** before writing the Citations table. Pass every citation — the claim it backs plus the fields above, with your own `evidence_type` — through:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/research/scripts/tag-citations.sh" <<'JSON'
+[{"claim": "...", "source": "...", "locator": "...", "quote_or_summary": "...", "evidence_type": "direct"}]
+JSON
+```
+
+Use the returned `evidence_type` in the table — it is yours unless a confident judgment disagreed. Where `judged_type` is `unsupported` with `judged_confidence` ≥ 0.8, re-read that source: if the quote really does not back the claim, drop the claim or move it to **Open Questions** as unproven. The script never drops anything itself. Without boosting, every entry comes back with your own tag and `judged_type: null`.
 
 Target **2–4 Options**. One Option is fine when the question has a clear answer; more than four means the question is under-specified — flag it in **Open Questions** rather than padding the list.
 
@@ -186,6 +219,7 @@ recommendation: <1 sentence>
 | User's topic is too sparse to frame (standalone) | Ask the first missing one of usecase/issue/lens. Never ask more than one question per turn. |
 | `gh` CLI missing or unauthenticated | Fall back to `WebSearch` + `WebFetch` for the external channel; note the degraded evidence in **Open Questions**. |
 | A channel returns no citable evidence | Drop the channel from the report; do not invent citations. Flag the gap in **Open Questions**. |
+| `frame.sh` or `tag-citations.sh` fails or prints nothing | Treat as `boosted: false` / your own tags. Boosting is never a reason to stop. |
 | Lens is genuinely ambiguous after one clarifying turn | Pick the closest lens, state the assumption in the Frame, and proceed. |
 | Report slug collides with an existing file in `$ARTIFACTS_DIR` | Append `-2`, `-3`, … to the slug rather than overwriting. |
 | Embedded payload missing a required field | Ask the calling skill (via returned error) — do not silently invent values. |
