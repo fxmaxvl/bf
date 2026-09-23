@@ -81,7 +81,7 @@ Tally the verdicts. Treat two verdicts as agreeing when they pick the same optio
 - **2/3 agree** → majority. Return the majority answer; confidence = `medium`. Include a `**Dissent:**` block quoting the dissenter's challenge verbatim (one or two sentences).
 - **3-way split** → no majority. Return all three positions with the strongest argument from each; confidence = `low`. Add a `**Flag:**` line naming the specific ambiguity blocking consensus.
 
-Before tallying, set aside any verdict that answers a different question than `QUESTION` — most often one that reframes the deliverable as the decision. Re-run that critic once with `QUESTION` restated at the top of its prompt. If it misreads again, drop it: tally the remaining two (agreeing → majority; disagreeing → split), and never quote the misread as `**Dissent:**`.
+Before tallying, set aside any verdict that answers a different question than `QUESTION` — most often one that reframes the deliverable as the decision. Re-run that critic once with `QUESTION` restated at the top of its prompt. If Verdict A is the misread, re-run A first and then re-spawn B and C against the new A, since both were built on it. A verdict that misreads again is dropped and never quoted as `**Dissent:**`. With one verdict dropped, tally the remaining two (agreeing → majority; disagreeing → split). With more than one dropped, return `split` and a `**Flag:**` naming the framing problem — the question itself is not landing.
 
 ## Phase 5 — Render
 
