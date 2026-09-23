@@ -123,8 +123,12 @@ with a pattern or a hardcoded list, and each guess has a known failure:
 - **A quality gate opens silently** when a report says `**STATUS:** BLOCK` instead of
   `STATUS: BLOCK`. The grep misses, the caller gets `NOT_FOUND`, and `NOT_FOUND` is also what a
   missing report returns — so nothing distinguishes "clean" from "never ran".
+- **`/bf:autopilot fix the login bug` runs the full feature workflow**, brainstorm and all, because
+  only an exact first word routes anywhere else.
+- **`/bf:research` asks what your prompt already said**, and grades its own citations
+  `direct`/`doc`/`inference` with nothing checking the tag against the quote.
 
-Connecting [TypeSafe](https://docs.typesafe.ai) replaces those three guesses with typed judgments
+Connecting [TypeSafe](https://docs.typesafe.ai) replaces those guesses with typed judgments
 (yes/no probabilities and single-choice picks, not generated text). The shape is always the same:
 **code enumerates the candidates, the model picks among them, code slices the original text** — so
 a boosted run can pick wrong, but it can never invent content that was not in the source.

@@ -9,21 +9,23 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(git add *), Bash(git c
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
 
-Autonomous wrapper that executes one of the core bf workflows — feature, quick, micro, review or design — without user input. The routing table below is the complete set; anything else falls through to `feature` with the whole input as idea text, so a skill outside it (`bug-fix`, for instance, which is already autonomous and needs no oracle wrapper) should be invoked directly rather than through autopilot. Every point where the target skill would ask the user a question, wait for approval, or stop for input is replaced by a **decide oracle** call. Everything else follows the target skill exactly.
+Autonomous wrapper that executes one of the core bf workflows — feature, quick, micro, review or design — without user input. The routing table below is the complete set; anything else falls through to `feature` with the whole input as idea text (or, with `/bf:typesafe` boosting on, to whichever of the five the input confidently describes), so a skill outside it (`bug-fix`, for instance, which is already autonomous and needs no oracle wrapper) should be invoked directly rather than through autopilot. Every point where the target skill would ask the user a question, wait for approval, or stop for input is replaced by a **decide oracle** call. Everything else follows the target skill exactly.
 
 ## Step 1 — Parse arguments
 
 `$ARGUMENTS` has the form: `[skill-name] <forwarded-args>`
 
-Split as follows:
-
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/autopilot/scripts/route.sh" <<'BF_ARGS'
+$ARGUMENTS
+BF_ARGS
 ```
-first_word=$(echo "$ARGUMENTS" | awk '{print $1}')
-rest=$(echo "$ARGUMENTS" | cut -d' ' -f2-)
-```
 
-If `first_word` matches a known bf skill name (see routing table below): `target_skill=$first_word`, `target_args=$rest`.
-Otherwise: `target_skill=feature`, `target_args=$ARGUMENTS` (treat the whole input as the forwarded args).
+Returns `{target_skill, target_args, routed_by, confidence}`. Use `target_skill` and `target_args` as given — do not re-split `$ARGUMENTS`. Keep the quoted heredoc: the arguments are user text, and passing them as a quoted argument lets a backtick or `"` in them run.
+
+- `routed_by: exact` — the first word named a skill in the table below; `target_args` is the rest.
+- `routed_by: typesafe` — no skill was named and TypeSafe boosting picked one from the whole input (`target_args` is all of it). Only a confident pick lands here.
+- `routed_by: default` — no skill named, no confident pick (or boosting off): `feature` with the whole input, as always.
 
 **Skill routing table:**
 
@@ -38,6 +40,8 @@ Otherwise: `target_skill=feature`, `target_args=$ARGUMENTS` (treat the whole inp
 Read the resolved SKILL.md in full before proceeding.
 
 Print: `── bf:autopilot | <target_skill> ───────────────────────────────`
+
+When `routed_by` is `typesafe`, follow the banner with one line — `Routed by TypeSafe (confidence <confidence>) — interrupt now and re-run as /bf:autopilot <skill> … to override.` The run is unattended; this line is the only chance to catch a misroute before it spends a whole workflow.
 
 ## Step 2 — Install stop hook
 
