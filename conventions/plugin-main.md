@@ -16,6 +16,7 @@ file, it is not conditional — it governs every phase of every skill.
 
 - **Always ask for clarification** rather than making assumptions.
 - **Ask ONE question at a time.** Never batch multiple questions into a single response. If you have several things to clarify, ask the first, wait for the answer, then ask the next. This is a hard rule, not a suggestion. **It applies at every point in every skill and sub-skill — including brainstorm, gather, refine, and any interactive phase. Mid-workflow does not exempt you from this rule.**
+- **Restate a wide effect before acting on it.** Before an action whose effect is wide or outward-facing — publishing, pushing, opening or commenting on a PR or issue, deleting, or rewriting more than the files the request named — state that effect in one line: *"this publishes 25 files, including A, B, C"*, *"reading 'messy' as layout, not colour"*. This governs *when* a restatement earns a line; the rule above governs *how* to ask. It is a statement, not a question: ask only when the request supports two readings with different effects, and then as the one question for the turn. Routine local edits the request plainly named get no restatement. Under `/bf:autopilot`, print the line and continue — it is there so a misread is visible, not to wait for approval.
 
 ## Parallel Fan-Out
 
