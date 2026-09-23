@@ -3,3 +3,4 @@
 .claude/session_*.md
 .idea/
 __pycache__/
+evals/results/
