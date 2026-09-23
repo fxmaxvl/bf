@@ -29,6 +29,9 @@ array** of 2–10 level descriptions and returns a fractional position plus `con
 | `self-heal/scripts/boost-segments.py`, called by `harvest-issues.sh` | An issue body used neither `### ` nor `- **`, so the sniffer left it as one item | One lump item, as before |
 | `self-audit/scripts/audit-static.sh` | A `x/SKILL.md` ref survived the denylist *and* does not exist — usually zero per run | Every unresolved ref filed, as before |
 | `feature/scripts/check-report-status.sh` | The `^STATUS:` grep missed and the file exists | `NOT_FOUND`, as before |
+| `autopilot/scripts/route.sh` | The first word names no skill | `feature` with the whole input, as before |
+| `research/scripts/frame.sh` | Every standalone `/bf:research` (Phase 0) | Phase 0 and Phase 3 run as written |
+| `research/scripts/tag-citations.sh` | Every report, before the Citations table | The writer's own tags, as before |
 
 Each was verified in three directions: boosted branch fires, judgment declines, TypeSafe
 unavailable — and in the last case the output is byte-identical to the pre-change baseline.
@@ -128,13 +131,22 @@ that does not exist yet. Revisit when the selection artifact grows a machine-rea
 Listed separately because "boost" here changes what the plugin *does*, rather than fixing what it
 gets wrong:
 
-**`autopilot` Step 1 routing.** Today the first word is matched exactly against a five-entry table
-and anything else routes to `feature`. So `/bf:autopilot fix the login bug` runs the full
+**`autopilot` Step 1 routing — wired in 1.35.0 as `route.sh`.** Before, the first word was matched
+exactly against a five-entry table and anything else routed to `feature`. So `/bf:autopilot fix the login bug` runs the full
 brainstorm→spec→design workflow for a bugfix that `quick` would handle. A **choice** over
 `{feature, quick, micro, review, design}` with `state` = the raw arguments turns that default into a
-routing decision (the docs call this intent-routing). Two guards if it is ever built: an explicit
-first-word match always wins without asking anything, and an unconfident answer falls back to
-`feature`, today's default.
+routing decision (the docs call this intent-routing). Two guards, both built: an explicit
+first-word match always wins without asking anything, and an answer under 0.8 falls back to
+`feature` — the safe superset, since every other workflow skips phases feature runs. A TypeSafe
+route is announced under the banner so an unattended misroute can be interrupted.
+
+**`research` Phase 0 and citations — wired in 1.35.0.** Originally ruled out below as "no script,
+nothing to boost", which undercounted it: Phase 0 is three branch points (is the usecase stated? the
+issue? which of four lenses?), decision support picks channels from a fixed set, and every citation
+carries a tag from a fixed set of three that the writer grades itself. `frame.sh` asks all of Phase
+0 plus four channel nouls in one request; `tag-citations.sh` checks each quote against its claim
+with a fourth `unsupported` option that is reported, never applied. The synthesis and the Options
+themselves stay in the Opus turn.
 
 ---
 
@@ -158,7 +170,7 @@ These run with the diff and the conventions already in context; handing them to 
 model is a downgrade. The exception is when one of them starts handling long lists, where
 comparable per-item numbers would beat prose.
 
-**No script, nothing to boost:** `onboard-skill`, `research`, `session-summary`, `design`,
+**No script, nothing to boost:** `onboard-skill`, `session-summary`, `design`,
 `discuss`, `consilium`, `decide`, `teach`, `write-skill`, `jira`, `bug-fix`, `gather`. All
 interactive, generative, or oracle skills whose output is prose for a human, with no fixed answer
 set and no parsing step. Checked, not skipped.
@@ -170,6 +182,7 @@ set and no parsing step. Checked, not skipped.
 No number in this document is calibrated. The `autoformat` cookbook deliberately uses
 context-dependent bands (0.2 after a dangling line, 0.5 after terminal punctuation) rather than one
 cut, and the shipped sites follow that spirit: 0.5/0.7 for segment boundaries depending on whether
-the line follows a blank, 0.7 for placeholder suppression, 0.8 for a recovered verdict, and a
+the line follows a blank, 0.7 for placeholder suppression, 0.8 for a recovered verdict, an
+autopilot route and a corrected citation tag, 0.85 for skipping a research question, and a
 proposed 0.9 for the gate-skip guard because that one removes a check. Evaluate them against this
 repo's own data before trusting any of them.
