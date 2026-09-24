@@ -134,7 +134,7 @@ Record the four resolved absolute paths. Do **not** read the files — the promp
 
 ### Resolve scope and changed_files
 
-Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--dry-run` has been stripped):
+Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--dry-run`, `--focus` and any free-text focus have been stripped):
 
 1. **Detect PR URL**: if `$ARGUMENTS` contains a GitHub PR URL (e.g. `https://github.com/org/repo/pull/123`), extract `pr_number`:
    ```bash
@@ -401,12 +401,12 @@ Write the Agent's output to `$report_path`.
 
 Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 
-Extract `changed_files` (authoritative list): the pre-computed `changed_files` from Phase 1 is the source of truth and was fed to all three Agents. Optionally cross-check against the `## Review Metadata` block in the report — if the Agent lists additional files it read, add them. If the Agent lists fewer files than pre-computed, keep the pre-computed list.
+Extract `changed_files` (authoritative list): the pre-computed `changed_files` from Phase 1 is the source of truth and was fed to every spawned Agent. Optionally cross-check against the `## Review Metadata` block in the report — if the Agent lists additional files it read, add them. If the Agent lists fewer files than pre-computed, keep the pre-computed list.
 
 Extract `pr_head_branch`: read the `pr_head_branch:` line from `## Review Metadata`. If absent, use the pre-computed `pr_head_branch` from Phase 1.
 
 If the review Agent failed or returned output that does not start with `# Code Review Report`:
-- Print: `⚠ Review Agent failed — complexity and consistency results are still available.`
+- Print: `⚠ Review Agent failed — results from the gates that ran are still available.`
 - Set `review_failed=true`.
 - Do not write `$report_path`. Proceed to merge complexity and consistency findings only.
 
