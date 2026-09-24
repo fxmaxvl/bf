@@ -96,22 +96,25 @@ Steps:
 
    ```
    bf:review — dry-run
-   Scope: <scope description: "current branch diff vs origin/HEAD" if $ARGUMENTS is empty, else the literal $ARGUMENTS>
+   Scope: <scope description: "current branch diff vs origin/HEAD" if the scope text is empty, else the scope text left after flags and focus are stripped>
+   Focus: <focus_label>
    Report would be written to: <report_path>
    Resolved conventions:
      - code-review: <resolved path or "MISSING">
      - dev:         <resolved path or "MISSING">
      - testing:     <resolved path or "MISSING">
      - architecture: <resolved path or "MISSING">
-   Agents that would be spawned in parallel (skipped in dry-run):
+   Agents that would be spawned (skipped in dry-run):
      - review Agent        (model: opus) — Phase 1 parallel batch
      - complexity-gate Agent (model: opus) — Phase 1 parallel batch
      - consistency-gate Agent (model: opus) — Phase 1 parallel batch
-   All three dispatched in a single message; results aggregated in Phase 2.
+   All <N> dispatched in a single message; results aggregated in Phase 2.
    Interactive phases that would follow (skipped in dry-run):
      - Phase 3 fix selection
      - Phase 4 fix apply + re-review
    ```
+
+   List only the agents whose `run_review` / `run_complexity` / `run_consistency` is true. Do not name the others, not even as skipped. When only one agent would run, replace the "All <N> dispatched" line with "Dispatched alone; results aggregated in Phase 2."
 
 3. Exit. Do not proceed to Phase 1.
 
@@ -189,7 +192,9 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
 
 ### Write temporary build-state.json
 
-`state-ops.sh` requires a `build-state.json` file. Create it now so the complexity-gate sub-skill can run later in the parallel batch. `--init` builds the whole file and returns the computed artifact paths, so do not hand-write the JSON or re-derive the path formula.
+Skip this step, and the matching cleanup, when both `run_complexity` and `run_consistency` are false: no gate will run, so an in-progress feature's state is left untouched.
+
+`state-ops.sh` requires a `build-state.json` file. Create it now so the gate sub-skills can run later in the parallel batch. `--init` builds the whole file and returns the computed artifact paths, so do not hand-write the JSON or re-derive the path formula.
 
 ```bash
 temp_state="$project_root/.bf/sessions/build-state.json"
@@ -214,6 +219,8 @@ complexity_report_path=$(echo "$paths_json" | python3 -c 'import json,sys; print
 
 ### Pre-review: check for existing integration/E2E tests
 
+Skip this step unless Testing is in `focus_categories`. The test-coverage context only informs Testing concerns.
+
 Before spawning the review agent, list the project's tracked integration and E2E test files.
 `git ls-files` respects `.gitignore`, so it never descends `dist/`, `build/`, `.venv/` or
 `target/` the way a bare `find` does:
@@ -228,11 +235,13 @@ has_e2e_tests=$(echo "$int_tests" | grep -qiE "(e2e|end.to.end)" && echo yes || 
 Read `has_integration_tests` and `has_e2e_tests` from that output — do not re-derive them by
 eyeballing the paths.
 
-### Spawn review + complexity + consistency Agents in parallel (model: opus)
+### Spawn the enabled Agents in parallel (model: opus)
 
-Print (plain text): `→ Reviewing + running complexity + consistency gates with opus… (this usually takes a few minutes)`
+Spawn only the Agents the focus enables: the review Agent when `run_review`, the complexity-gate when `run_complexity`, the consistency-gate when `run_consistency`. A full review enables all three.
 
-Build three prompts:
+Print (plain text) a line naming what runs, e.g. `→ Reviewing + running complexity + consistency gates with opus… (this usually takes a few minutes)` for a full review, or `→ Reviewing (focus: security) with opus…`.
+
+Build the prompts for the enabled Agents:
 
 **Prompt A — review Agent:**
 
@@ -263,6 +272,8 @@ pr_head_branch: <pr_head_branch if non-empty, else omit>
 
 ## Test Coverage Context
 
+<include this block only when Testing is in focus_categories>
+
 Integration tests found in package: <has_integration_tests>
 E2E tests found in package: <has_e2e_tests>
 
@@ -278,15 +289,16 @@ When flagging missing integration or E2E tests:
 
 1. The changed files are listed in the `## Scope` block above and the diff is on disk at `diff_file` — read it with the Read tool. Do NOT re-run git or gh to re-derive the scope.
 2. Read the full current content of each file listed in `changed_files` using the Read tool before forming conclusions.
-3. Apply every check in the Code Review Convention across all five categories.
+3. Apply the checks in these sections of the Code Review Convention: <the § numbers and names in focus_categories>. <When focused, add: "Do not check or report on any other category.">
 4. Produce the report in this exact format — including the Review Metadata block at the end:
 
 # Code Review Report
 - Scope: <human-readable description of what was reviewed>
 - Timestamp: <ISO 8601>
 - Files reviewed: <count>
+- Focus: <focus_label>
 
-STATUS: PASS | CONCERN
+STATUS: PASS<status_suffix> | CONCERN<status_suffix>
 
 ## Summary
 <2–4 sentence summary of what changed and overall quality>
@@ -307,6 +319,8 @@ STATUS: PASS | CONCERN
 
 ### Readability & Quality
 - **C5** [should-consider] `file:line` — <problem> — Suggested: <fix>
+
+<List only the section headers for the categories in focus_categories.>
 
 Numbering: C1, C2, C3, ... sequentially across all sections.
 Label each concern [must-fix] or [should-consider].
@@ -349,11 +363,11 @@ Proceed with scan mode using these paths.
 Read <resolved absolute path to skills/feature/consistency-gate/SKILL.md> and follow it.
 ```
 
-Dispatch all three Agents in a **single message** (all model: opus), so they run in parallel. Wait for all three to return.
+Dispatch the enabled Agents in a **single message** (all model: opus), so they run in parallel. Wait for all of them to return.
 
 ### Clean up temp state
 
-After all three Agents return (whether they succeed or fail):
+When the temp state was written, after every spawned Agent returns (whether they succeed or fail):
 
 ```bash
 rm -f "$temp_state"
