@@ -1,9 +1,9 @@
 ---
 name: review
-description: Review code against feature conventions and the complexity gate. Pass a free-form description of what to review (e.g. a PR number, file paths, a commit range, or a natural-language description) or omit to review the current branch.
+description: Review code against feature conventions and the complexity gate. Pass a free-form description of what to review (e.g. a PR number, file paths, a commit range, or a natural-language description) or omit to review the current branch. Narrow it to one angle with --focus quality|complexity|consistency|security|tests|conventions (comma-separated), or by asking for an angle in the free text (e.g. "can we make this look nicer").
 model: opus
 disable-model-invocation: false
-argument-hint: "[--dry-run] [free-form: 'PR 42', 'https://github.com/org/repo/pull/42', 'src/auth/', 'last 3 commits', or empty for current branch]"
+argument-hint: "[--dry-run] [--focus <lens>[,<lens>]] [free-form: 'PR 42', 'https://github.com/org/repo/pull/42', 'src/auth/', 'last 3 commits', or empty for current branch]"
 allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(mktemp *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *), Bash(bash *)
 ---
 
