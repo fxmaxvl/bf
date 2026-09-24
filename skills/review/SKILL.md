@@ -28,6 +28,40 @@ Parse `$ARGUMENTS` for a `--dry-run` token (match it as a standalone word, not a
 
 Otherwise set `dry_run=false`.
 
+### Resolve focus
+
+A focus narrows the review to one or more angles. It is exclusive: only the checks the chosen lenses need run, and everything else is skipped rather than de-prioritised. No focus means the full review.
+
+**Lens table.** This is the single source of truth for lenses. Every later section refers to it rather than restating it. Categories are the numbered sections of the Code Review Convention.
+
+| Lens | Review-agent categories | Gates |
+|---|---|---|
+| `quality` | Code Structure & Fit (§4), Readability & Quality (§5) | complexity, consistency |
+| `complexity` | — | complexity |
+| `consistency` | — | consistency |
+| `security` | Security (§3) | — |
+| `tests` | Testing (§2) | — |
+| `conventions` | Dev Conventions (§1) | — |
+
+**Explicit flag.** Parse `$ARGUMENTS` for a `--focus` token (a standalone word, as with `--dry-run`). Its value is the next token, split on commas, e.g. `--focus quality,security`. Strip both tokens from `$ARGUMENTS`. It composes with `--dry-run` in either order. When `--focus` is present it wins: the remaining text is scope only and is never read for focus.
+
+**Free text.** Without `--focus`, read the remaining text for an angle. When it clearly asks *how* to look at the code rather than *what* to review, map it to lenses and treat the rest as scope. For example, "can we make this look nicer" → `quality`, "any security holes?" → `security`, and "PR 42, are the tests good enough" → `tests` with scope `PR 42`. Text that only names a scope, or empty text, means a full review.
+
+**Unknown lens.** If a `--focus` value is not in the lens table, ask one question that lists the valid lenses and asks which was meant, then re-parse the answer.
+
+**Ambiguous split.** If it is unclear whether part of the text is scope or focus (e.g. "review src/auth for security issues"), ask one question. Offer "Full review of `<scope>`" (Recommended) first and "Only the `<lens>` lens on `<scope>`" second.
+
+**Unattended runs.** When nobody can answer, e.g. inline under `bf:autopilot`, ask neither question. An oracle could pick the narrow reading, and an unattended run must not silently skip checks. Take the widest reading, a full review, and record the assumption in `focus_label`.
+
+**Focus variables.** Set these once. Later phases use them and never re-read `$ARGUMENTS`:
+
+- `focus_lenses`: the resolved lenses in lens-table order; empty for a full review.
+- `focus_categories`: the union of their review-agent categories; for a full review, all five.
+- `run_review`: true when `focus_categories` is non-empty.
+- `run_complexity` / `run_consistency`: true when any chosen lens lists that gate; both true for a full review.
+- `focus_label`: `full` for a full review, otherwise the comma-joined `focus_lenses`. When an unattended run fell back, use `full (assumed — <short reason>)`.
+- `status_suffix`: empty for a full review, otherwise ` (focus: <focus_lenses>)`. Every STATUS line this skill writes for the review report ends with it, e.g. `STATUS: PASS (focus: quality)`. A focused pass is never a full pre-PR check.
+
 ### Compute report paths
 
 Resolve the artifact root with the 2-step lookup from `plugin-main.md` — the project's own
@@ -49,7 +83,7 @@ Create the reports directory: `mkdir -p "$reports_dir"`
 ── bf:review ───────────────────────────────────────────
 ```
 
-Print as plain text, not in a code block. If `dry_run=true`, append ` (dry-run)` to the banner line.
+Print as plain text, not in a code block. If `dry_run=true`, append ` (dry-run)` to the banner line. On the next line print `Focus: <focus_label>`.
 
 ### Dry-run preview (if dry_run=true)
 
@@ -609,6 +643,8 @@ List remaining concerns by ID and label if any exist.
 | Not a git repository | Print "Not a git repository. Exiting." and stop. |
 | `<project_root>/.bf` not writable | Fall back to `~/.bf/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (all 3 lookup paths absent) | Print "Convention file not found: <last-looked-up path>. This may be a plugin install issue." and stop. |
+| `--focus` names a lens not in the lens table | Ask which valid lens was meant. When unattended, run the full review with `focus_label` = `full (assumed — unknown lens <name>)`. |
+| Unclear whether text is scope or focus | Ask, with the full review recommended. When unattended, run the full review with `focus_label` = `full (assumed — <reason>)`. |
 
 ### Phase 1 — Parallel batch
 
