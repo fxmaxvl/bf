@@ -380,6 +380,21 @@ rm -f "$temp_state"
 
 ### Save review report and extract metadata
 
+**When `run_review` is false** (the focus has no review-agent categories), no review Agent ran. This is not a failure, so do not set `review_failed`. Write the report header yourself to `$report_path`, keep the pre-computed `changed_files` and `pr_head_branch`, and go on to the merge:
+
+```
+# Code Review Report
+- Scope: <scope_description>
+- Timestamp: <ISO 8601>
+- Files reviewed: <count of changed_files>
+- Focus: <focus_label>
+
+STATUS: PASS<status_suffix>
+
+## Summary
+Focused review: only the <complexity and/or consistency> gate ran. Its results are below.
+```
+
 If the review Agent returned a valid report (output starts with `# Code Review Report`):
 
 Write the Agent's output to `$report_path`.
@@ -404,14 +419,17 @@ If the review Agent failed or returned output that does not start with `# Code R
 - Scope: <scope_description>
 - Timestamp: <ISO 8601>
 - Files reviewed: <count of changed_files>
+- Focus: <focus_label>
 
-STATUS: CONCERN
+STATUS: CONCERN<status_suffix>
 
 ## Summary
 Review Agent did not complete. Complexity and consistency results are below.
 ```
 
-**Complexity:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
+A gate the focus did not enable was never spawned. Skip its merge step and omit its section entirely; never write `UNKNOWN` for it.
+
+**Complexity** (when `run_complexity`)**:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
 
 Renumber all complexity findings as X1, X2, ... sequentially.
 
@@ -431,7 +449,7 @@ STATUS: <PASS | ADVISORY | BLOCK>
 
 Omit the section body if STATUS is PASS.
 
-**Consistency:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Consistency Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Consistency\nSTATUS: UNKNOWN (consistency gate failed — see conversation)`.
+**Consistency** (when `run_consistency`)**:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Consistency Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Consistency\nSTATUS: UNKNOWN (consistency gate failed — see conversation)`.
 
 Renumber all consistency findings as Y1, Y2, ... sequentially.
 
@@ -453,7 +471,7 @@ Omit the section body if STATUS is PASS.
 
 If any C*, X*, or Y* concern exists, or if `review_failed=true`, set overall STATUS to CONCERN.
 
-Rewrite `$report_path` with the merged content (replace the STATUS line at the top).
+Rewrite `$report_path` with the merged content (replace the STATUS line at the top, keeping `<status_suffix>`).
 
 Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 
@@ -462,10 +480,13 @@ Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 Print:
 
 ```
-STATUS: <PASS | CONCERN>
+STATUS: <PASS | CONCERN><status_suffix>
+Focus: <focus_label>
 Concerns: <N> code (<M> must-fix), <X> complexity, <Y> consistency
 Report: <report_path>
 ```
+
+On the `Concerns:` line, list counts only for the parts that ran.
 
 If `review_failed=true`, also print: `⚠ Review Agent failed — code concerns (C*) are not available. Fix selection in Phase 3 is limited to X* and Y* findings.`
 
@@ -669,6 +690,8 @@ List remaining concerns by ID and label if any exist.
 | Review Agent fails or returns invalid output | Surfaces warning; write partial report stub; proceed with X*/Y* aggregation. |
 | Complexity Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
 | Consistency Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
+| Focus has no review-agent categories | No review Agent is spawned. Write the report header directly; this is not `review_failed`. |
+| Focus excludes a gate | That gate is not spawned. Omit its section; do not write `UNKNOWN`. |
 | `build-state.json` already exists | Move it aside, warn the user, restore after scan. |
 
 ### Fix phase
