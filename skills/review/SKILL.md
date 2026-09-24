@@ -424,7 +424,7 @@ If the review Agent failed or returned output that does not start with `# Code R
 STATUS: CONCERN<status_suffix>
 
 ## Summary
-Review Agent did not complete. Complexity and consistency results are below.
+Review Agent did not complete. Results from the gates that ran are below.
 ```
 
 A gate the focus did not enable was never spawned. Skip its merge step and omit its section entirely; never write `UNKNOWN` for it.
