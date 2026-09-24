@@ -22,6 +22,17 @@ REPO_STATE_FILE="$STATE_DIR/${PROJECT_ID}.json"
 
 CLAUDE_SETTINGS="$REPO_ROOT/.claude/settings.local.json"
 
+# Identifies an autopilot hook entry. The `__tag` key is not durable — the harness
+# rewrites settings.local.json (it grows permissions.allow on its own) and drops keys
+# it does not recognise, which left untagged entries that `off` could not remove and
+# `on` kept appending to. So match the command path too: that is self-describing and
+# survives any rewrite. The suffix is deliberately version-independent, so one `off`
+# also clears entries stranded by earlier releases.
+# shellcheck disable=SC2016  # $tag/$suffix are jq variables — they must not expand in shell
+BF_ENTRY_DEF='def bf_entry($tag; $suffix):
+    ((.__tag // "") == $tag)
+    or (any(.hooks[]?; ((.command // "") | endswith($suffix))));'
+
 add_hook() {
   local path="$1"
   mkdir -p "$(dirname "$path")"
@@ -29,21 +40,22 @@ add_hook() {
   local tmp
   tmp=$(mktemp)
   jq --arg stop_cmd "$HOOK_PATH" --arg start_cmd "$CLEANUP_PATH" --arg prompt_cmd "$PROMPT_CLEANUP_PATH" '
+    '"$BF_ENTRY_DEF"'
     .hooks = (.hooks // {}) |
     .hooks.Stop = (
-      [(.hooks.Stop // [])[] | select(.__tag != "bf-autopilot-stop")] +
+      [(.hooks.Stop // [])[] | select(bf_entry("bf-autopilot-stop"; "/skills/autopilot/hooks/stop.sh") | not)] +
       [{ __tag: "bf-autopilot-stop",
          matcher: "",
          hooks: [{ type: "command", command: $stop_cmd }] }]
     ) |
     .hooks.SessionStart = (
-      [(.hooks.SessionStart // [])[] | select(.__tag != "bf-autopilot-cleanup")] +
+      [(.hooks.SessionStart // [])[] | select(bf_entry("bf-autopilot-cleanup"; "/skills/autopilot/hooks/session-start-cleanup.sh") | not)] +
       [{ __tag: "bf-autopilot-cleanup",
          matcher: "",
          hooks: [{ type: "command", command: $start_cmd }] }]
     ) |
     .hooks.UserPromptSubmit = (
-      [(.hooks.UserPromptSubmit // [])[] | select(.__tag != "bf-autopilot-user-cleanup")] +
+      [(.hooks.UserPromptSubmit // [])[] | select(bf_entry("bf-autopilot-user-cleanup"; "/skills/autopilot/hooks/user-prompt-cleanup.sh") | not)] +
       [{ __tag: "bf-autopilot-user-cleanup",
          matcher: "",
          hooks: [{ type: "command", command: $prompt_cmd }] }]
@@ -63,14 +75,15 @@ remove_hook() {
   local tmp
   tmp=$(mktemp)
   jq '
+    '"$BF_ENTRY_DEF"'
     if .hooks.Stop then
-      .hooks.Stop |= [.[] | select(.__tag != "bf-autopilot-stop")]
+      .hooks.Stop |= [.[] | select(bf_entry("bf-autopilot-stop"; "/skills/autopilot/hooks/stop.sh") | not)]
     else . end
     | if .hooks.SessionStart then
-        .hooks.SessionStart |= [.[] | select(.__tag != "bf-autopilot-cleanup")]
+        .hooks.SessionStart |= [.[] | select(bf_entry("bf-autopilot-cleanup"; "/skills/autopilot/hooks/session-start-cleanup.sh") | not)]
       else . end
     | if .hooks.UserPromptSubmit then
-        .hooks.UserPromptSubmit |= [.[] | select(.__tag != "bf-autopilot-user-cleanup")]
+        .hooks.UserPromptSubmit |= [.[] | select(bf_entry("bf-autopilot-user-cleanup"; "/skills/autopilot/hooks/user-prompt-cleanup.sh") | not)]
       else . end
     | if (.hooks.Stop // []) | length == 0 then del(.hooks.Stop) else . end
     | if (.hooks.SessionStart // []) | length == 0 then del(.hooks.SessionStart) else . end
