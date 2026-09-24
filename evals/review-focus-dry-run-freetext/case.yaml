@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: review-focus-dry-run-freetext
+description: "Free text asking for an angle resolves to a lens: 'can we make this look nicer' becomes the quality focus instead of a file scope or a full review"
+tags: [review, focus]
+context:
+  scaffold_script: scaffold.sh
