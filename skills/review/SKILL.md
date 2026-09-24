@@ -625,6 +625,16 @@ If `test_commands` is empty: skip this step and proceed directly to the re-revie
 
 ### Re-review cycle
 
+**When `run_review` is false** (a gates-only focus), skip the re-review. It only ever spawns a review Agent, and gates are not re-run after fixes in a full review either. Tell the user instead:
+
+```
+Original report: <report_path>
+Applied: <N> fix(es)
+Re-run `/bf:review --focus <focus_lenses>` to re-check the gates.
+```
+
+Otherwise the re-review keeps the original focus, so a focused first pass never widens into a full review.
+
 Print (plain text): `→ Re-reviewing post-fix (cycle <N>) with opus…`
 
 After the fix Agent returns, spawn a new review Agent (same conventions, model: opus) with the following prompt:
@@ -647,8 +657,8 @@ Read each of these files and apply it strictly:
 ## Instructions
 
 1. Read the full current content of each file using the Read tool.
-2. Apply every check in the Code Review Convention.
-3. Produce the same report format as before (# Code Review Report … ## Review Metadata).
+2. Apply the checks in these sections of the Code Review Convention: <the § numbers and names in focus_categories>. <When focused, add: "Do not check or report on any other category.">
+3. Produce the same report format as before (# Code Review Report … ## Review Metadata), with `- Focus: <focus_label>` in the header, `<status_suffix>` on the STATUS line, and section headers only for the categories above.
    For changed_files in Review Metadata, repeat the same file list.
 ```
 
@@ -701,6 +711,7 @@ List remaining concerns by ID and label if any exist.
 | Fix Agent fails | Inform the user, skip re-review, print original report path only. |
 | User never answers the fix-selection question | Mark every concern `[deferred]` in the saved report before exiting, so the next reader can tell the concerns were surfaced and left unruled rather than never raised. |
 | Re-review finds new concerns not in the original | Include in "remaining" count, label `[new]`. |
+| Gates-only focus (`run_review` false) after fixes | Skip the re-review; tell the user to re-run `/bf:review --focus <focus_lenses>`. |
 
 ### Re-invocation
 
