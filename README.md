@@ -29,7 +29,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:consilium <question>` | Oracle | 3-critic council: one answers, two challenge from opposing angles, majority wins | The decision is high-stakes or contested and one opinion isn't enough |
 | `/bf:design <idea>` | Utility | Shareable system-design doc with diagrams, via interactive Q&A | You need a design artifact — standalone, no git or PR involved |
 | `/bf:adr-writer [title]` | Utility | Interactive Q&A to draft a numbered ADR citing only tracked source files | You need to record an architecture decision as a real project doc |
-| `/bf:review [PR# \| files]` | Utility | Code review against bf conventions and the complexity gate | Before merging — or whenever you want a second set of eyes |
+| `/bf:review [--focus <lens>] [PR# \| files]` | Utility | Code review against bf conventions and the complexity gate; `--focus` (or asking for an angle) runs only that lens's checks | Before merging — or whenever you want a second set of eyes |
 | `/bf:coherence [scope]` | Utility | Checks whether a change left the code it touched coherent, against the guidelines' breakage kinds | Right after editing existing code — the fast counterpart to `/bf:review` |
 | `/bf:walkthrough [scope]` | Utility | Guided read of a finished change — tours the hunks that carried a decision, one at a time, and collects your comments | Right after a build, while you can still say why you did it that way |
 | `/bf:pr-comments [pr]` | Utility | Triages PR review feedback on its merits — fixes the whole class each comment sampled, argues back, or defers, then posts replies and resolutions as one approved batch | A PR has review comments (human or bot) and you want them judged, not obeyed |

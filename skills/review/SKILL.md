@@ -1,9 +1,9 @@
 ---
 name: review
-description: Review code against feature conventions and the complexity gate. Pass a free-form description of what to review (e.g. a PR number, file paths, a commit range, or a natural-language description) or omit to review the current branch.
+description: Review code against feature conventions and the complexity gate. Pass a free-form description of what to review (e.g. a PR number, file paths, a commit range, or a natural-language description) or omit to review the current branch. Narrow it to one angle with --focus quality|complexity|consistency|security|tests|conventions (comma-separated), or by asking for an angle in the free text (e.g. "can we make this look nicer").
 model: opus
 disable-model-invocation: false
-argument-hint: "[--dry-run] [free-form: 'PR 42', 'https://github.com/org/repo/pull/42', 'src/auth/', 'last 3 commits', or empty for current branch]"
+argument-hint: "[--dry-run] [--focus <lens>[,<lens>]] [free-form: 'PR 42', 'https://github.com/org/repo/pull/42', 'src/auth/', 'last 3 commits', or empty for current branch]"
 allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(mktemp *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *), Bash(bash *)
 ---
 
@@ -28,6 +28,40 @@ Parse `$ARGUMENTS` for a `--dry-run` token (match it as a standalone word, not a
 
 Otherwise set `dry_run=false`.
 
+### Resolve focus
+
+A focus narrows the review to one or more angles. It is exclusive: only the checks the chosen lenses need run, and everything else is skipped rather than de-prioritised. No focus means the full review.
+
+**Lens table.** This is the single source of truth for lenses. Every later section refers to it rather than restating it. Categories are the numbered sections of the Code Review Convention.
+
+| Lens | Review-agent categories | Gates |
+|---|---|---|
+| `quality` | Code Structure & Fit (§4), Readability & Quality (§5) | complexity, consistency |
+| `complexity` | — | complexity |
+| `consistency` | — | consistency |
+| `security` | Security (§3) | — |
+| `tests` | Testing (§2) | — |
+| `conventions` | Dev Conventions (§1) | — |
+
+**Explicit flag.** Parse `$ARGUMENTS` for a `--focus` token (a standalone word, as with `--dry-run`). Its value is the next token, split on commas, e.g. `--focus quality,security`. Strip both tokens from `$ARGUMENTS`. It composes with `--dry-run` in either order. When `--focus` is present it wins: the remaining text is scope only and is never read for focus.
+
+**Free text.** Without `--focus`, read the remaining text for an angle. When it clearly asks *how* to look at the code rather than *what* to review, map it to lenses and treat the rest as scope. For example, "can we make this look nicer" → `quality`, "any security holes?" → `security`, and "PR 42, are the tests good enough" → `tests` with scope `PR 42`. Text that only names a scope, or empty text, means a full review.
+
+**Unknown lens.** If a `--focus` value is not in the lens table, ask one question that lists the valid lenses and asks which was meant, then re-parse the answer.
+
+**Ambiguous split.** If it is unclear whether part of the text is scope or focus (e.g. "review src/auth for security issues"), ask one question. Offer "Full review of `<scope>`" (Recommended) first and "Only the `<lens>` lens on `<scope>`" second.
+
+**Unattended runs.** When nobody can answer, e.g. inline under `bf:autopilot`, ask neither question. An oracle could pick the narrow reading, and an unattended run must not silently skip checks. Take the widest reading, a full review, and record the assumption in `focus_label`.
+
+**Focus variables.** Set these once. Later phases use them and never re-read `$ARGUMENTS`:
+
+- `focus_lenses`: the resolved lenses in lens-table order; empty for a full review.
+- `focus_categories`: the union of their review-agent categories; for a full review, all five.
+- `run_review`: true when `focus_categories` is non-empty.
+- `run_complexity` / `run_consistency`: true when any chosen lens lists that gate; both true for a full review.
+- `focus_label`: `full` for a full review, otherwise the comma-joined `focus_lenses`. When an unattended run fell back, use `full (assumed — <short reason>)`.
+- `status_suffix`: empty for a full review, otherwise ` (focus: <focus_lenses>)`. Every STATUS line this skill writes for the review report ends with it, e.g. `STATUS: PASS (focus: quality)`. A focused pass is never a full pre-PR check.
+
 ### Compute report paths
 
 Resolve the artifact root with the 2-step lookup from `plugin-main.md` — the project's own
@@ -49,7 +83,7 @@ Create the reports directory: `mkdir -p "$reports_dir"`
 ── bf:review ───────────────────────────────────────────
 ```
 
-Print as plain text, not in a code block. If `dry_run=true`, append ` (dry-run)` to the banner line.
+Print as plain text, not in a code block. If `dry_run=true`, append ` (dry-run)` to the banner line. On the next line print `Focus: <focus_label>`.
 
 ### Dry-run preview (if dry_run=true)
 
@@ -62,22 +96,25 @@ Steps:
 
    ```
    bf:review — dry-run
-   Scope: <scope description: "current branch diff vs origin/HEAD" if $ARGUMENTS is empty, else the literal $ARGUMENTS>
+   Scope: <scope description: "current branch diff vs origin/HEAD" if the scope text is empty, else the scope text left after flags and focus are stripped>
+   Focus: <focus_label>
    Report would be written to: <report_path>
    Resolved conventions:
      - code-review: <resolved path or "MISSING">
      - dev:         <resolved path or "MISSING">
      - testing:     <resolved path or "MISSING">
      - architecture: <resolved path or "MISSING">
-   Agents that would be spawned in parallel (skipped in dry-run):
+   Agents that would be spawned (skipped in dry-run):
      - review Agent        (model: opus) — Phase 1 parallel batch
      - complexity-gate Agent (model: opus) — Phase 1 parallel batch
      - consistency-gate Agent (model: opus) — Phase 1 parallel batch
-   All three dispatched in a single message; results aggregated in Phase 2.
+   All <N> dispatched in a single message; results aggregated in Phase 2.
    Interactive phases that would follow (skipped in dry-run):
      - Phase 3 fix selection
      - Phase 4 fix apply + re-review
    ```
+
+   List only the agents whose `run_review` / `run_complexity` / `run_consistency` is true. Do not name the others, not even as skipped. When only one agent would run, replace the "All <N> dispatched" line with "Dispatched alone; results aggregated in Phase 2."
 
 3. Exit. Do not proceed to Phase 1.
 
@@ -97,7 +134,7 @@ Record the four resolved absolute paths. Do **not** read the files — the promp
 
 ### Resolve scope and changed_files
 
-Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--dry-run` has been stripped):
+Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--dry-run`, `--focus` and any free-text focus have been stripped):
 
 1. **Detect PR URL**: if `$ARGUMENTS` contains a GitHub PR URL (e.g. `https://github.com/org/repo/pull/123`), extract `pr_number`:
    ```bash
@@ -155,7 +192,9 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
 
 ### Write temporary build-state.json
 
-`state-ops.sh` requires a `build-state.json` file. Create it now so the complexity-gate sub-skill can run later in the parallel batch. `--init` builds the whole file and returns the computed artifact paths, so do not hand-write the JSON or re-derive the path formula.
+Skip this step, and the matching cleanup, when both `run_complexity` and `run_consistency` are false: no gate will run, so an in-progress feature's state is left untouched.
+
+`state-ops.sh` requires a `build-state.json` file. Create it now so the gate sub-skills can run later in the parallel batch. `--init` builds the whole file and returns the computed artifact paths, so do not hand-write the JSON or re-derive the path formula.
 
 ```bash
 temp_state="$project_root/.bf/sessions/build-state.json"
@@ -180,6 +219,8 @@ complexity_report_path=$(echo "$paths_json" | python3 -c 'import json,sys; print
 
 ### Pre-review: check for existing integration/E2E tests
 
+Skip this step unless Testing is in `focus_categories`. The test-coverage context only informs Testing concerns.
+
 Before spawning the review agent, list the project's tracked integration and E2E test files.
 `git ls-files` respects `.gitignore`, so it never descends `dist/`, `build/`, `.venv/` or
 `target/` the way a bare `find` does:
@@ -194,11 +235,13 @@ has_e2e_tests=$(echo "$int_tests" | grep -qiE "(e2e|end.to.end)" && echo yes || 
 Read `has_integration_tests` and `has_e2e_tests` from that output — do not re-derive them by
 eyeballing the paths.
 
-### Spawn review + complexity + consistency Agents in parallel (model: opus)
+### Spawn the enabled Agents in parallel (model: opus)
 
-Print (plain text): `→ Reviewing + running complexity + consistency gates with opus… (this usually takes a few minutes)`
+Spawn only the Agents the focus enables: the review Agent when `run_review`, the complexity-gate when `run_complexity`, the consistency-gate when `run_consistency`. A full review enables all three.
 
-Build three prompts:
+Print (plain text) a line naming what runs, e.g. `→ Reviewing + running complexity + consistency gates with opus… (this usually takes a few minutes)` for a full review, or `→ Reviewing (focus: security) with opus…`.
+
+Build the prompts for the enabled Agents:
 
 **Prompt A — review Agent:**
 
@@ -229,6 +272,8 @@ pr_head_branch: <pr_head_branch if non-empty, else omit>
 
 ## Test Coverage Context
 
+<include this block only when Testing is in focus_categories>
+
 Integration tests found in package: <has_integration_tests>
 E2E tests found in package: <has_e2e_tests>
 
@@ -244,15 +289,16 @@ When flagging missing integration or E2E tests:
 
 1. The changed files are listed in the `## Scope` block above and the diff is on disk at `diff_file` — read it with the Read tool. Do NOT re-run git or gh to re-derive the scope.
 2. Read the full current content of each file listed in `changed_files` using the Read tool before forming conclusions.
-3. Apply every check in the Code Review Convention across all five categories.
+3. Apply the checks in these sections of the Code Review Convention: <the § numbers and names in focus_categories>. <When focused, add: "Do not check or report on any other category.">
 4. Produce the report in this exact format — including the Review Metadata block at the end:
 
 # Code Review Report
 - Scope: <human-readable description of what was reviewed>
 - Timestamp: <ISO 8601>
 - Files reviewed: <count>
+- Focus: <focus_label>
 
-STATUS: PASS | CONCERN
+STATUS: PASS<status_suffix> | CONCERN<status_suffix>
 
 ## Summary
 <2–4 sentence summary of what changed and overall quality>
@@ -273,6 +319,8 @@ STATUS: PASS | CONCERN
 
 ### Readability & Quality
 - **C5** [should-consider] `file:line` — <problem> — Suggested: <fix>
+
+<List only the section headers for the categories in focus_categories.>
 
 Numbering: C1, C2, C3, ... sequentially across all sections.
 Label each concern [must-fix] or [should-consider].
@@ -315,11 +363,11 @@ Proceed with scan mode using these paths.
 Read <resolved absolute path to skills/feature/consistency-gate/SKILL.md> and follow it.
 ```
 
-Dispatch all three Agents in a **single message** (all model: opus), so they run in parallel. Wait for all three to return.
+Dispatch the enabled Agents in a **single message** (all model: opus), so they run in parallel. Wait for all of them to return.
 
 ### Clean up temp state
 
-After all three Agents return (whether they succeed or fail):
+When the temp state was written, after every spawned Agent returns (whether they succeed or fail):
 
 ```bash
 rm -f "$temp_state"
@@ -332,18 +380,33 @@ rm -f "$temp_state"
 
 ### Save review report and extract metadata
 
+**When `run_review` is false** (the focus has no review-agent categories), no review Agent ran. This is not a failure, so do not set `review_failed`. Write the report header yourself to `$report_path`, keep the pre-computed `changed_files` and `pr_head_branch`, and go on to the merge:
+
+```
+# Code Review Report
+- Scope: <scope_description>
+- Timestamp: <ISO 8601>
+- Files reviewed: <count of changed_files>
+- Focus: <focus_label>
+
+STATUS: PASS<status_suffix>
+
+## Summary
+Focused review: only the <complexity and/or consistency> gate ran. Its results are below.
+```
+
 If the review Agent returned a valid report (output starts with `# Code Review Report`):
 
 Write the Agent's output to `$report_path`.
 
 Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 
-Extract `changed_files` (authoritative list): the pre-computed `changed_files` from Phase 1 is the source of truth and was fed to all three Agents. Optionally cross-check against the `## Review Metadata` block in the report — if the Agent lists additional files it read, add them. If the Agent lists fewer files than pre-computed, keep the pre-computed list.
+Extract `changed_files` (authoritative list): the pre-computed `changed_files` from Phase 1 is the source of truth and was fed to every spawned Agent. Optionally cross-check against the `## Review Metadata` block in the report — if the Agent lists additional files it read, add them. If the Agent lists fewer files than pre-computed, keep the pre-computed list.
 
 Extract `pr_head_branch`: read the `pr_head_branch:` line from `## Review Metadata`. If absent, use the pre-computed `pr_head_branch` from Phase 1.
 
 If the review Agent failed or returned output that does not start with `# Code Review Report`:
-- Print: `⚠ Review Agent failed — complexity and consistency results are still available.`
+- Print: `⚠ Review Agent failed — results from the gates that ran are still available.`
 - Set `review_failed=true`.
 - Do not write `$report_path`. Proceed to merge complexity and consistency findings only.
 
@@ -356,14 +419,17 @@ If the review Agent failed or returned output that does not start with `# Code R
 - Scope: <scope_description>
 - Timestamp: <ISO 8601>
 - Files reviewed: <count of changed_files>
+- Focus: <focus_label>
 
-STATUS: CONCERN
+STATUS: CONCERN<status_suffix>
 
 ## Summary
-Review Agent did not complete. Complexity and consistency results are below.
+Review Agent did not complete. Results from the gates that ran are below.
 ```
 
-**Complexity:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
+A gate the focus did not enable was never spawned. Skip its merge step and omit its section entirely; never write `UNKNOWN` for it.
+
+**Complexity** (when `run_complexity`)**:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
 
 Renumber all complexity findings as X1, X2, ... sequentially.
 
@@ -383,7 +449,7 @@ STATUS: <PASS | ADVISORY | BLOCK>
 
 Omit the section body if STATUS is PASS.
 
-**Consistency:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Consistency Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Consistency\nSTATUS: UNKNOWN (consistency gate failed — see conversation)`.
+**Consistency** (when `run_consistency`)**:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Consistency Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Consistency\nSTATUS: UNKNOWN (consistency gate failed — see conversation)`.
 
 Renumber all consistency findings as Y1, Y2, ... sequentially.
 
@@ -405,7 +471,7 @@ Omit the section body if STATUS is PASS.
 
 If any C*, X*, or Y* concern exists, or if `review_failed=true`, set overall STATUS to CONCERN.
 
-Rewrite `$report_path` with the merged content (replace the STATUS line at the top).
+Rewrite `$report_path` with the merged content (replace the STATUS line at the top, keeping `<status_suffix>`).
 
 Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 
@@ -414,10 +480,13 @@ Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 Print:
 
 ```
-STATUS: <PASS | CONCERN>
+STATUS: <PASS | CONCERN><status_suffix>
+Focus: <focus_label>
 Concerns: <N> code (<M> must-fix), <X> complexity, <Y> consistency
 Report: <report_path>
 ```
+
+On the `Concerns:` line, list counts only for the parts that ran.
 
 If `review_failed=true`, also print: `⚠ Review Agent failed — code concerns (C*) are not available. Fix selection in Phase 3 is limited to X* and Y* findings.`
 
@@ -556,6 +625,16 @@ If `test_commands` is empty: skip this step and proceed directly to the re-revie
 
 ### Re-review cycle
 
+**When `run_review` is false** (a gates-only focus), skip the re-review. It only ever spawns a review Agent, and gates are not re-run after fixes in a full review either. Tell the user instead:
+
+```
+Original report: <report_path>
+Applied: <N> fix(es)
+Re-run `/bf:review --focus <focus_lenses>` to re-check the gates.
+```
+
+Otherwise the re-review keeps the original focus, so a focused first pass never widens into a full review.
+
 Print (plain text): `→ Re-reviewing post-fix (cycle <N>) with opus…`
 
 After the fix Agent returns, spawn a new review Agent (same conventions, model: opus) with the following prompt:
@@ -578,8 +657,8 @@ Read each of these files and apply it strictly:
 ## Instructions
 
 1. Read the full current content of each file using the Read tool.
-2. Apply every check in the Code Review Convention.
-3. Produce the same report format as before (# Code Review Report … ## Review Metadata).
+2. Apply the checks in these sections of the Code Review Convention: <the § numbers and names in focus_categories>. <When focused, add: "Do not check or report on any other category.">
+3. Produce the same report format as before (# Code Review Report … ## Review Metadata), with `- Focus: <focus_label>` in the header, `<status_suffix>` on the STATUS line, and section headers only for the categories above.
    For changed_files in Review Metadata, repeat the same file list.
 ```
 
@@ -609,6 +688,8 @@ List remaining concerns by ID and label if any exist.
 | Not a git repository | Print "Not a git repository. Exiting." and stop. |
 | `<project_root>/.bf` not writable | Fall back to `~/.bf/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (all 3 lookup paths absent) | Print "Convention file not found: <last-looked-up path>. This may be a plugin install issue." and stop. |
+| `--focus` names a lens not in the lens table | Ask which valid lens was meant. When unattended, run the full review with `focus_label` = `full (assumed — unknown lens <name>)`. |
+| Unclear whether text is scope or focus | Ask, with the full review recommended. When unattended, run the full review with `focus_label` = `full (assumed — <reason>)`. |
 
 ### Phase 1 — Parallel batch
 
@@ -619,6 +700,8 @@ List remaining concerns by ID and label if any exist.
 | Review Agent fails or returns invalid output | Surfaces warning; write partial report stub; proceed with X*/Y* aggregation. |
 | Complexity Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
 | Consistency Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
+| Focus has no review-agent categories | No review Agent is spawned. Write the report header directly; this is not `review_failed`. |
+| Focus excludes a gate | That gate is not spawned. Omit its section; do not write `UNKNOWN`. |
 | `build-state.json` already exists | Move it aside, warn the user, restore after scan. |
 
 ### Fix phase
@@ -628,6 +711,7 @@ List remaining concerns by ID and label if any exist.
 | Fix Agent fails | Inform the user, skip re-review, print original report path only. |
 | User never answers the fix-selection question | Mark every concern `[deferred]` in the saved report before exiting, so the next reader can tell the concerns were surfaced and left unruled rather than never raised. |
 | Re-review finds new concerns not in the original | Include in "remaining" count, label `[new]`. |
+| Gates-only focus (`run_review` false) after fixes | Skip the re-review; tell the user to re-run `/bf:review --focus <focus_lenses>`. |
 
 ### Re-invocation
 
