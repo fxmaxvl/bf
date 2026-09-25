@@ -65,13 +65,27 @@ Register the `bf` marketplace with Claude Code (one-time setup):
 
 Then run `/reload-plugins` to activate it.
 
-### Update
+### Stay up to date
 
-Fetch the latest plugin listings and update installed plugins:
+**Turn on auto-update (recommended).** Claude Code refreshes marketplaces that have auto-update
+enabled shortly after a session's first message, and installs any new plugin version it finds.
+It is off by default for third-party marketplaces like this one, and there is no manifest field
+that can switch it on for you — each user enables it once:
+
+> `/plugin` → **Marketplaces** → select `fxmaxvl` → **Enable auto-update**
+
+Administrators can set it for a whole fleet instead, with `"autoUpdate": true` on the
+`extraKnownMarketplaces` entry in managed settings.
+
+**Update by hand.** Without auto-update, pull new versions yourself:
 
 ```shell
-/plugin marketplace update fxmaxvl
+/plugin marketplace update fxmaxvl      # refresh the catalog, in a session
+claude plugin update bf@fxmaxvl         # update the plugin, from a shell
 ```
+
+A new copy arrives only when the plugin's version changes, so `bf` bumps `version` in
+`.claude-plugin/plugin.json` on every release.
 
 ### Uninstall
 
