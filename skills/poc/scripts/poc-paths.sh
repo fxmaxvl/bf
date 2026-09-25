@@ -7,9 +7,9 @@
 # Emits JSON on stdout:
 #   {"slug":"...","poc_dir":"...","brief_path":"...","collided":true|false}
 #
-# cwd     -> <cwd>/<slug>-poc/        (named exception to the .bf/ rule)
+# cwd     -> <cwd>/poc/<slug>/        (named exception to the .bf/ rule)
 # scratch -> ~/.bf/pocs/<slug>/       (inside the .bf fallback root)
-# Collisions resolve to -2, -3, ...; the directory is created, never git-initialised.
+# Collisions resolve to <slug>-2, <slug>-3, ...; the directory is created, never git-initialised.
 set -euo pipefail
 
 IDEA=""
@@ -54,7 +54,7 @@ def derive(idea):
 
 slug = os.environ["SLUG_OVERRIDE"].strip() or derive(os.environ["IDEA"])
 if os.environ["WHERE"] == "cwd":
-    base = os.path.join(os.getcwd(), slug + "-poc")
+    base = os.path.join(os.getcwd(), "poc", slug)
 else:
     base = os.path.join(os.path.expanduser("~"), ".bf", "pocs", slug)
 

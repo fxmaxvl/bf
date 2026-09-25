@@ -26,7 +26,7 @@ Print banner (plain text):
 1. Read `guidelines.md` via the plugin-main 3-step Convention Lookup.
 2. If `$ARGUMENTS` is empty, ask one question — "What idea should the POC prove?" — and use the answer as the idea. Otherwise use `$ARGUMENTS` verbatim.
 3. Ask one question: where should the POC live?
-   - **Current directory** → `./<slug>-poc/`. It can reuse nearby code. This location is a named exception to the plugin-main `.bf/` rule, because the POC is a deliverable people run and share.
+   - **Current directory** → `./poc/<slug>/`. It can reuse nearby code. This location is a named exception to the plugin-main `.bf/` rule, because the POC is a deliverable people run and share.
    - **Standalone scratch** → `~/.bf/pocs/<slug>/`, isolated from any project.
 4. Resolve and create the directory in one call:
    ```bash
