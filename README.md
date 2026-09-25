@@ -32,6 +32,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:review [--focus <lens>] [PR# \| files]` | Utility | Code review against bf conventions and the complexity gate; `--focus` (or asking for an angle) runs only that lens's checks | Before merging — or whenever you want a second set of eyes |
 | `/bf:coherence [scope]` | Utility | Checks whether a change left the code it touched coherent, against the guidelines' breakage kinds | Right after editing existing code — the fast counterpart to `/bf:review` |
 | `/bf:walkthrough [scope]` | Utility | Guided read of a finished change — tours the hunks that carried a decision, one at a time, and collects your comments | Right after a build, while you can still say why you did it that way |
+| `/bf:arch-audit [scope]` | Utility | Descends a repo layer by layer — one round per build unit — into a nested document describing every layer and the structural problems at it | You need to understand how an existing system is built, or where its bottlenecks are |
 | `/bf:pr-comments [pr]` | Utility | Triages PR review feedback on its merits — fixes the whole class each comment sampled, argues back, or defers, then posts replies and resolutions as one approved batch | A PR has review comments (human or bot) and you want them judged, not obeyed |
 | `/bf:gh` | Utility | Create, pick, or verify a GitHub issue — verify re-checks an issue's items against the code and hands off what's still open | Starting work from an issue tracker, or checking whether a stale issue is still real |
 | `/bf:jira` | Utility | Pick a Jira ticket and kick off a workflow | Starting work from Jira |
@@ -64,13 +65,27 @@ Register the `bf` marketplace with Claude Code (one-time setup):
 
 Then run `/reload-plugins` to activate it.
 
-### Update
+### Stay up to date
 
-Fetch the latest plugin listings and update installed plugins:
+**Turn on auto-update (recommended).** Claude Code refreshes marketplaces that have auto-update
+enabled shortly after a session's first message, and installs any new plugin version it finds.
+It is off by default for third-party marketplaces like this one, and there is no manifest field
+that can switch it on for you — each user enables it once:
+
+> `/plugin` → **Marketplaces** → select `fxmaxvl` → **Enable auto-update**
+
+Administrators can set it for a whole fleet instead, with `"autoUpdate": true` on the
+`extraKnownMarketplaces` entry in managed settings.
+
+**Update by hand.** Without auto-update, pull new versions yourself:
 
 ```shell
-/plugin marketplace update fxmaxvl
+/plugin marketplace update fxmaxvl      # refresh the catalog, in a session
+claude plugin update bf@fxmaxvl         # update the plugin, from a shell
 ```
+
+A new copy arrives only when the plugin's version changes, so `bf` bumps `version` in
+`.claude-plugin/plugin.json` on every release.
 
 ### Uninstall
 

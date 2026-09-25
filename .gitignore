@@ -1,5 +1,6 @@
 .bf/sessions/
 .bf/gather/
+.bf/audits/
 .claude/session_*.md
 .idea/
 __pycache__/
