@@ -162,6 +162,8 @@ Ruling these out matters as much as the list above.
 | `pr-comments/scripts/{fetch-pr-comments,wait-for-review,post-replies}.sh` | GraphQL over typed fields; polling with a timeout |
 | `adr-writer/scripts/resolve-adr.sh` (numbering) | Filename globs and `printf '%04d'` |
 | `feature/scripts/{state-ops,finalize-git,cleanup}.sh`, `autopilot/hooks/*` | JSON state, `git status --porcelain`, hook install |
+| `poc/scripts/poc-paths.sh`, `kit/scripts/kit-scaffold.sh` | Slug derivation, path collisions, template rendering, `git init` |
+| `arch-audit/scripts/{detect-units,run-state}.sh` | Build-manifest globs and JSON run state |
 
 **Already model judgment inside an Opus turn — not boost targets.** `complexity-gate`'s red-flag
 scan, `consistency-gate`, `bug-fix`'s root-cause ranking, `walkthrough` Phase 2 ranking, `review`'s
