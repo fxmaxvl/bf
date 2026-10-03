@@ -2,10 +2,10 @@
 # Probe a target directory for a new kit, or scaffold the kit into it.
 #
 # Usage:
-#   bash kit-scaffold.sh probe  --dir <target>
+#   bash kit-scaffold.sh probe  --dir <target> [--name <kebab-name>]
 #   bash kit-scaffold.sh create --dir <target> --name <kebab-name> --description "<one line>"
 #
-# probe  -> {"target":..,"exists":..,"nonempty":..,"inside_repo":..,"repo_root":..,"git_identity":..}
+# probe  -> {"target":..,"exists":..,"nonempty":..,"inside_repo":..,"repo_root":..,"git_identity":..,"name_taken":..}
 # create -> {"kit_dir":..,"name":..,"files":[..]}  (git init only; the first commit happens after drafting)
 set -euo pipefail
 
@@ -47,7 +47,19 @@ def probe():
     identity = bool(git("config", "user.name")) and bool(git("config", "user.email"))
     return {"target": target, "exists": exists, "nonempty": nonempty,
             "inside_repo": repo_root is not None and repo_root != target,
-            "repo_root": repo_root, "git_identity": identity}
+            "repo_root": repo_root, "git_identity": identity,
+            "name_taken": installed_plugin(os.environ["NAME"])}
+
+def installed_plugin(name):
+    # null when the name is unset or the claude CLI can't answer, so the caller can tell "free" from "unknown".
+    if not name:
+        return None
+    try:
+        r = subprocess.run(["claude", "plugin", "list", "--json"], capture_output=True, text=True, timeout=30)
+        plugins = json.loads(r.stdout)
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return None
+    return any(p.get("id", "").split("@")[0] == name for p in plugins)
 
 def create():
     name, desc = os.environ["NAME"], os.environ["DESC"].strip()
@@ -67,8 +79,10 @@ def create():
     layout = {"context-main.md": "context/main.md", "README.md": "README.md",
               "BACKLOG.md": "BACKLOG.md", "knowledge-index.md": "knowledge/index.md",
               "skill-skeleton.md": "templates/skill-skeleton.md"}
-    for skill in sorted(os.listdir(os.path.join(templates, "skills"))):
-        layout[f"skills/{skill}/SKILL.md"] = f"skills/{skill}/SKILL.md"
+    skills_dir = os.path.join(templates, "skills")
+    for skill in sorted(os.listdir(skills_dir)):
+        if os.path.isfile(os.path.join(skills_dir, skill, "SKILL.md")):
+            layout[f"skills/{skill}/SKILL.md"] = f"skills/{skill}/SKILL.md"
 
     written = []
     def write(rel, content):

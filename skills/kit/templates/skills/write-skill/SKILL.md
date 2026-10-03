@@ -11,7 +11,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/context/main.md` first — it holds the kit's purpos
 
 Author a new skill for this kit, from a rough idea to a working `skills/<name>/SKILL.md` in the kit's source repo.
 
-`KIT_SRC` is the **Source repo** path in `context/main.md`. Every write below goes under `KIT_SRC`.
+`<KIT_SRC>` stands for the **Source repo** path in `context/main.md`; substitute that literal path wherever `<KIT_SRC>` appears below. Every write goes under `<KIT_SRC>`.
 
 ## On Invocation
 
@@ -19,9 +19,9 @@ Print banner (plain text):
 
 ── {{KIT_NAME}}:write-skill ─────────────────────────────
 
-If `KIT_SRC` does not exist, ask for the kit's current path (one question) and update the **Source repo** line in `KIT_SRC/context/main.md` once found.
+If `<KIT_SRC>` does not exist, the kit has moved: ask for its current path (one question), update the **Source repo** line in `<new path>/context/main.md` and the paths under § Install in `<new path>/README.md`, then use the new path as `<KIT_SRC>`.
 
-With no argument, read `KIT_SRC/BACKLOG.md`; if it has items, offer them plus "something new" as one question.
+With no argument, read `<KIT_SRC>/BACKLOG.md`; if it has items, offer them plus "something new" as one question.
 
 ## Phase 1 — Gather
 
@@ -35,9 +35,9 @@ Ask ONE question at a time. Stop as soon as the answer is evident from the idea,
 
 ## Phase 2 — Draft
 
-If `KIT_SRC/skills/<name>/` exists, ask whether to overwrite or rename (one question).
+If `<KIT_SRC>/skills/<name>/` exists, ask whether to overwrite or rename (one question).
 
-Read `KIT_SRC/templates/skill-skeleton.md` with the Read tool and follow it: copy its fenced template to `KIT_SRC/skills/<name>/SKILL.md`, fill every placeholder, and apply its path rule.
+Read `<KIT_SRC>/templates/skill-skeleton.md` with the Read tool and follow it: copy its fenced template to `<KIT_SRC>/skills/<name>/SKILL.md`, fill every placeholder, and apply its path rule.
 
 Domain logic belongs in the skill; facts that several skills share belong in the main context or `knowledge/`. Point at them instead of copying them in.
 
@@ -51,16 +51,16 @@ Check the draft, fixing every gap:
 - [ ] The description starts with "Use when…" and names trigger situations, not internals.
 - [ ] A banner is printed before any substantive work.
 - [ ] An `## Edge Cases & Errors` table is present.
-- [ ] The path rule holds: `grep -n "$KIT_SRC" "$KIT_SRC/skills/<name>/SKILL.md"` prints nothing.
+- [ ] The path rule holds: the Grep tool finds no occurrence of the literal `<KIT_SRC>` path in `<KIT_SRC>/skills/<name>/SKILL.md`.
 
 Then register the skill:
 
-1. Add `/{{KIT_NAME}}:<name>` with one line on when to use it under **Kit Skills** in `KIT_SRC/context/main.md`.
-2. Add a row to the `## Skills` table in `KIT_SRC/README.md`.
-3. If it came from `KIT_SRC/BACKLOG.md`, remove that entry.
-4. Commit locally: `git -C "$KIT_SRC" add -A && git -C "$KIT_SRC" commit -m "feat: add <name> skill"`.
+1. Add `/{{KIT_NAME}}:<name>` with one line on when to use it under **Kit Skills** in `<KIT_SRC>/context/main.md`.
+2. Add a row to the `## Skills` table in `<KIT_SRC>/README.md`.
+3. If it came from `<KIT_SRC>/BACKLOG.md`, remove that entry.
+4. Commit locally: `git -C "<KIT_SRC>" add -A && git -C "<KIT_SRC>" commit -m "feat: add <name> skill"`.
 
-Finish by pointing at **Picking up changes** in `KIT_SRC/README.md`.
+Finish by pointing at **Picking up changes** in `<KIT_SRC>/README.md`.
 
 ## Edge Cases & Errors
 

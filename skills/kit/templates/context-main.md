@@ -4,7 +4,7 @@
 
 Every skill in this kit reads this file first and applies it throughout.
 
-Source repo: `{{KIT_SOURCE_DIR}}` — utility skills edit the kit here, never in an installed copy.
+**Source repo:** `{{KIT_SOURCE_DIR}}` — the utility skills make every edit to the kit here.
 
 ## Interaction
 

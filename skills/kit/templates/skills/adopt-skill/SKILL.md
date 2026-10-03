@@ -11,7 +11,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/context/main.md` first.
 
 Take a skill from somewhere else and rework it for this kit's purpose, perspective, and output style, then hand it to write-skill's drafting procedure.
 
-`KIT_SRC` is the **Source repo** path in `context/main.md`.
+`<KIT_SRC>` stands for the **Source repo** path in `context/main.md`; substitute that literal path wherever `<KIT_SRC>` appears below.
 
 ## On Invocation
 
@@ -19,11 +19,13 @@ Print banner (plain text):
 
 ── {{KIT_NAME}}:adopt-skill ─────────────────────────────
 
+If `<KIT_SRC>` does not exist, the kit has moved: ask for its current path (one question), update the **Source repo** line in `<new path>/context/main.md` and the paths under § Install in `<new path>/README.md`, then use the new path as `<KIT_SRC>`.
+
 Parse the argument: the first token that is a URL or an existing path is the **source**; the rest is the **instructions**. If the source is missing, ask for it (one question). Missing instructions mean "adopt the whole skill".
 
 ## Phase 1 — Fetch
 
-- `github.com/<org>/<repo>/blob/<ref>/<path>` → `gh api repos/<org>/<repo>/contents/<path>?ref=<ref> --jq .content | base64 -d`; fall back to WebFetch.
+- `github.com/<org>/<repo>/blob/<ref>/<path>` → `gh api -H 'Accept: application/vnd.github.raw' "repos/<org>/<repo>/contents/<path>?ref=<ref>"`; fall back to WebFetch.
 - Other URL → WebFetch.
 - Local path → Read. If it is a skill directory, read `SKILL.md` and list any `scripts/` or `templates/` beside it.
 
@@ -52,11 +54,11 @@ Proceed without waiting for approval, unless the source clearly doesn't fit the 
 
 ## Phase 3 — Hand Off
 
-Write a design spec covering triggers, phases, inputs, output, model, tools, and edge cases, all in this kit's terms. Then read `KIT_SRC/skills/write-skill/SKILL.md` and follow it from **Phase 2 — Draft** onward, using the spec as the gathered answers. Ask Phase 1 questions only for what the spec leaves open.
+Write a design spec covering triggers, phases, inputs, output, model, tools, and edge cases, all in this kit's terms. Then read `<KIT_SRC>/skills/write-skill/SKILL.md` and follow it from **Phase 2 — Draft** onward, using the spec as the gathered answers. Ask Phase 1 questions only for what the spec leaves open.
 
 Every foreign reference from the analysis must be gone from the drafted skill: no other plugin's paths, banners, or convention files.
 
-If the source shipped `scripts/` or `templates/`, copy them into `KIT_SRC/skills/<name>/` and rewrite their paths per the path rule in `KIT_SRC/templates/skill-skeleton.md`.
+If the source shipped `scripts/` or `templates/`, copy them into `<KIT_SRC>/skills/<name>/` and rewrite their paths per the path rule in `<KIT_SRC>/templates/skill-skeleton.md`.
 
 ## Edge Cases & Errors
 
