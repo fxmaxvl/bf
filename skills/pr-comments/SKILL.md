@@ -72,6 +72,26 @@ hangs silently through a review that fails or is abandoned. Act on `status`:
 | `review_settled` | The review finished with nothing actionable — print `STATUS: NO_OPEN_COMMENTS` and stop. |
 | `timeout` | Report how long it waited and that the review never landed; it may have failed. Stop rather than guess at findings. |
 
+Some review bots keep one standing PR-level comment — "no findings", a status summary — and publish
+their actual result as a CI check. That comment comes back as an actionable `issue` thread, so
+`wait-for-review.sh` reports `findings` on its first poll while the review is still running. When
+every actionable thread is a bot `issue` comment that reads as a status post, look at the checks:
+
+```bash
+gh pr checks <pr> --json name,bucket
+```
+
+If the bot's check has `bucket: "pending"`, wait for it with gh's own loop rather than a hand-rolled
+one, then re-run the fetch above:
+
+```bash
+gh pr checks <pr> --watch --interval 30 > /dev/null
+```
+
+`--watch` has no timeout of its own and waits on every check, so run it with a 600000 ms Bash
+timeout. If it is still running at that point, stop it and handle it as the `timeout` row above. If
+the check is not pending, the status post is the result — continue with the fetch.
+
 With nothing actionable and no in-progress marker, print `STATUS: NO_OPEN_COMMENTS` and stop —
 read nothing, spawn nothing.
 
@@ -278,6 +298,7 @@ has unpushed fixes, so the reviewer is looking at replies that reference code th
 | No PR for the current branch | `no_pr`. Ask for a PR number or URL — one question |
 | `counts.actionable` is `0`, no review in flight | `STATUS: NO_OPEN_COMMENTS` and stop. Do not go looking for feedback elsewhere |
 | `counts.actionable` is `0` but a review is still running | Wait via `wait-for-review.sh` (see the fetch step), then act on its `status` |
+| Only actionable items are a bot's standing status comment, and its CI check is pending | Wait via `gh pr checks <pr> --watch` (see the fetch step), then re-fetch |
 | Thread is `outdated: true` | The code moved after the comment. Judge the current code; if the concern no longer applies, that is a reply saying so, not a silent resolve |
 | Comment asks for something already done in a later commit | Reply pointing at the commit, then resolve. Do not redo the work |
 | `counts.files_truncated` is `true` | The PR touches more than 100 files, so `files[]` is partial and the generalization pass cannot see the whole surface. Say so in the output and treat every widened fix as best-effort rather than exhaustive |
