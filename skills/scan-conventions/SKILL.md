@@ -21,8 +21,6 @@ Print banner (plain text):
 
 Set `DISCOVER_SCRIPT=${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/discover-conventions.sh`.
 
-After changing `scripts/resolve-conventions.sh`, `scripts/convention-tiers.sh` or `scripts/discover-conventions.sh`, run `scripts/resolve-conventions-smoke.sh`.
-
 Determine task context:
 - If an argument was passed, use it as `TASK_DESCRIPTION`.
 - Otherwise run `git log -1 --pretty=%B 2>/dev/null` and `git diff --name-only HEAD 2>/dev/null` to infer context. If git is unavailable, set `TASK_DESCRIPTION=""`.

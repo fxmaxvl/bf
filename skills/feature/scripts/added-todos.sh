@@ -9,8 +9,9 @@
 #   line     1-based line number in the file at HEAD
 #   text     the added line, trimmed
 #   context  up to 2 lines above and below, from the file at HEAD
-# Matching is case-insensitive on `todo` as a standalone word: `TODO:` and `# todo x` match,
-# `todos`, `added-todos.sh` and `mastodon` do not.
+# Matching is case-insensitive on `todo` as a standalone word: `TODO:`, `TODO-123` and `# todo x`
+# match; `todos`, `added-todos.sh` and `mastodon` do not.
+# After changing this script, run added-todos-smoke.sh beside it.
 # Errors: {"error":...,"detail":...} + exit 1 — usage, bad_base, diff_failed (no merge base,
 # shallow clone), jq_missing.
 set -euo pipefail
@@ -38,7 +39,7 @@ hits=$(printf '%s\n' "$diff" | awk '
   in_header && /^\+\+\+ b\// { file = substr($0, 7); next }
   in_header { next }
   /^\+/ {
-    if (file != "" && tolower(substr($0, 2)) ~ /(^|[^a-z0-9_-])todo([^a-z0-9_-]|$)/) {
+    if (file != "" && tolower(substr($0, 2)) ~ /(^|[^a-z0-9_-])todo([^a-z0-9_]|$)/) {
       printf "%s\t%d\t%s\n", file, n, substr($0, 2)
     }
     n++

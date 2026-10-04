@@ -41,8 +41,6 @@ local branch name: a local `master` sitting behind its remote inflates the diff 
 merged upstream since, so pre-existing TODOs get attributed to this branch. Pass `changed_files`
 from `changed-packages.sh` to keep the search in scope; an empty `changed_files` makes the script search the whole branch diff.
 
-After changing `scripts/added-todos.sh`, run `scripts/added-todos-smoke.sh` (paths relative to `skills/feature/`).
-
 The script returns `[{file, line, text, context}]`: only lines this branch **added or modified**
 that mention `TODO` as a standalone word (case-insensitive), with up to 2 lines of context above and below, so
 pre-existing TODOs in touched files are already excluded. An empty array means there is nothing to
