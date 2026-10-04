@@ -19,7 +19,7 @@ Read the task instruction from `paths.qa`.
 
 Before writing any code, read the `dev`, `testing` and `git` conventions.
 
-Resolve each using the 3-step lookup from `plugin-main.md` — `<project_root>/.bf/conventions/<name>.md`, then `~/.bf/conventions/<name>.md`, then `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`; first match wins and fully replaces the plugin default.
+Resolve all three in one call with `resolve-conventions.sh`, per the Convention Lookup in `plugin-main.md`.
 
 Implement the refactoring:
 

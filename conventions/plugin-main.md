@@ -46,6 +46,14 @@ When you need a convention file, resolve it using this 3-step lookup — **first
 2. `~/.bf/conventions/<name>.md`
 3. `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`
 
+Resolve with the script rather than probing the tiers yourself — one call covers every name you need:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" dev testing git
+```
+
+It prints `{"<name>": "<winning absolute path>" | null}`; `null` means no tier has that convention.
+
 ## Custom Convention Discovery
 
 Beyond the predefined convention names above, users may define arbitrarily-named convention files (e.g. `api-style.md`, `monorepo-rules.md`) in either of:
