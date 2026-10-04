@@ -35,13 +35,14 @@ def git(*args, cwd=None):
     return r.stdout.strip() if r.returncode == 0 else None
 
 def nearest_existing(path):
-    while not os.path.exists(path):
+    while not os.path.isdir(path):
         path = os.path.dirname(path)
     return path
 
 def probe():
     exists = os.path.exists(target)
-    nonempty = exists and bool(os.listdir(target))
+    # A file at the target blocks scaffolding exactly like a populated directory does.
+    nonempty = exists and (not os.path.isdir(target) or bool(os.listdir(target)))
     # A kit created inside another repo would show up there as an embedded repository.
     repo_root = git("rev-parse", "--show-toplevel", cwd=nearest_existing(target))
     identity = bool(git("config", "user.name")) and bool(git("config", "user.email"))
@@ -67,6 +68,8 @@ def create():
         return {"error": "bad_name", "detail": "name must be kebab-case: lowercase letters, digits, hyphens"}
     if not desc:
         return {"error": "no_description", "detail": "pass --description \"<one line>\""}
+    if os.path.exists(target) and not os.path.isdir(target):
+        return {"error": "target_not_dir", "detail": target}
     if os.path.exists(target) and os.listdir(target):
         return {"error": "target_nonempty", "detail": target}
 
