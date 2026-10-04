@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Resolve the scope of a change to assess. Emits one JSON object.
 #
-# Usage: scope.sh [--with-diff] [target]
+# Usage: scope.sh [--with-diff] [--with-untracked] [target]
 #   target empty      → uncommitted changes; falls back to branch-vs-base when the tree is clean
 #   target "branch"   → current branch vs merge-base with origin/HEAD
 #   target <sha|range>→ that commit or range
@@ -19,13 +19,32 @@
 #                                               rather than through JSON
 #                       diff_file is a handoff buffer, not a generated artifact: it is left for
 #                       the OS temp reaper, and no caller is expected to delete it.
+#   --with-untracked  → in the working and paths modes, also diff untracked, non-ignored files
+#                       against /dev/null. The working mode skips `.bf/`, which holds skill
+#                       artifacts rather than the change under review.
 set -uo pipefail
 
 root=$(git rev-parse --show-toplevel 2>/dev/null) || { printf '{"error":"not_a_git_repo"}\n'; exit 0; }
 cd "$root" || exit 0
-with_diff=0
-if [ "${1:-}" = "--with-diff" ]; then with_diff=1; shift; fi
+with_diff=0; with_untracked=0
+while :; do
+  case "${1:-}" in
+    --with-diff) with_diff=1; shift ;;
+    --with-untracked) with_untracked=1; shift ;;
+    *) break ;;
+  esac
+done
 target="${1:-}"
+untracked=
+
+# `git diff --no-index` exits 1 whenever the files differ, so its status is not an error signal.
+untracked_diff() {
+  local f
+  while IFS= read -r f; do
+    [ -n "$f" ] && git diff --no-index "$@" -- /dev/null "$f" 2>/dev/null
+  done <<< "$untracked"
+  return 0
+}
 
 base_ref() {
   local head; head=$(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main)
@@ -36,7 +55,12 @@ base_ref() {
 # reuses the same resolution instead of restating the mode logic.
 if [ -z "$target" ]; then
   mode=working; diff_args=(HEAD); diff=$(git diff "${diff_args[@]}" 2>/dev/null)
+  if [ "$with_untracked" = 1 ]; then
+    untracked=$(git ls-files --others --exclude-standard -- . ':(exclude).bf' 2>/dev/null)
+    diff=$(printf '%s\n%s' "$diff" "$(untracked_diff)" | sed '/./,$!d')
+  fi
   if [ -z "$diff" ]; then
+    untracked=
     mode=branch; diff_args=("$(base_ref)"...HEAD); diff=$(git diff "${diff_args[@]}" 2>/dev/null)
   fi
 elif [ "$target" = "branch" ]; then
@@ -45,6 +69,10 @@ elif git rev-parse --verify --quiet "$target" >/dev/null 2>&1 || [[ "$target" ==
   mode=range; diff_args=("$target"); diff=$(git diff "${diff_args[@]}" 2>/dev/null)
 else
   mode=paths; diff_args=(HEAD -- $target); diff=$(git diff "${diff_args[@]}" 2>/dev/null)
+  if [ "$with_untracked" = 1 ]; then
+    untracked=$(git ls-files --others --exclude-standard -- $target 2>/dev/null)
+    diff=$(printf '%s\n%s' "$diff" "$(untracked_diff)" | sed '/./,$!d')
+  fi
 fi
 
 files=$(printf '%s' "$diff" | sed -n 's#^diff --git a/.* b/##p')
@@ -66,6 +94,7 @@ if [ "$with_diff" = 1 ]; then
   # produce no hunks, and the second branch below would then drop every file from the caller's
   # tour. Capture the status separately and, on a real failure, mark nothing whitespace-only.
   ws_diff=$(git diff -w "${diff_args[@]}" 2>/dev/null); ws_rc=$?
+  ws_diff=$(printf '%s\n%s' "$ws_diff" "$(untracked_diff -w)")
   ws_hunked=$(printf '%s\n' "$ws_diff" | awk '
     /^diff --git a\// { f=$0; sub(/^diff --git a\/.* b\//, "", f); next }
     /^@@/ { if (f != "" && !seen[f]++) print f }')

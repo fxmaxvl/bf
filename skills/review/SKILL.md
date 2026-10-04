@@ -161,9 +161,10 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
 
    - **Anything that is not a PR** — pass the normalized target through. An empty target
      resolves to uncommitted changes, falling back to branch-vs-base when the tree is
-     clean:
+     clean. `--with-untracked` keeps brand-new files in scope, which a plain `git diff`
+     never lists:
      ```bash
-     scope=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff "$target")
+     scope=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff --with-untracked "$target")
      ```
      Read `mode`, `files`, `file_count` and `diff_file` from the returned JSON. Set
      `changed_files` from `files`, `diff_file` from `diff_file`, `pr_head_branch=""`,
@@ -179,6 +180,14 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      changed_files=$(sed -n 's#^diff --git a/.* b/##p' "$diff_file")
      pr_head_branch=$(gh pr view <pr_number> --json headRefName -q .headRefName)
      scope_description="PR <pr_number>"
+     ```
+     `gh pr diff` can come back empty even when the PR has changes. When `$diff_file` is
+     empty, diff the PR's refs locally instead:
+     ```bash
+     pr_base_branch=$(gh pr view <pr_number> --json baseRefName -q .baseRefName)
+     git fetch -q origin "$pr_base_branch" "$pr_head_branch"
+     git diff "origin/$pr_base_branch...origin/$pr_head_branch" > "$diff_file"
+     changed_files=$(sed -n 's#^diff --git a/.* b/##p' "$diff_file")
      ```
 
    For file-path inputs where the diff may be empty (e.g. unmodified files explicitly
