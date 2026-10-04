@@ -29,9 +29,10 @@ Ask ONE question at a time, skipping any whose answer is already in the argument
 
 Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/kit/scripts/kit-scaffold.sh" probe --dir "<target>" --name <name>` and resolve the result, one question per problem:
 
-- `nonempty: true` → choose another path or name. Never scaffold over existing files.
+- `nonempty: true` → the path holds a file or a non-empty folder; choose another path or name. Never scaffold over existing files.
 - `inside_repo: true` → warn that the kit will sit inside `<repo_root>` as an embedded repository, and ask: keep it there, or move it (suggest `<repo_root>/../<name>`)?
 - `name_taken: true` → a plugin with that name is already installed, so the slash namespace would clash; suggest a suffixed name.
+- `name_taken: null` → installed plugins couldn't be listed; say so in one line and proceed.
 - `git_identity: false` → note that the final commit will need `git config user.name` / `user.email`; proceed.
 
 ## Phase 2 — Scaffold
@@ -90,7 +91,7 @@ For each skill chosen for drafting, one at a time, follow `<KIT>/skills/write-sk
 
 | Condition | Handling |
 |-----------|----------|
-| Target exists and is non-empty | Never scaffold over it; ask for another path or name. |
+| Target is a file, or a non-empty folder | Never scaffold over it; ask for another path or name. |
 | Target is inside another git repo | Warn about the embedded repo; ask whether to keep it there or move it. |
 | No git identity configured | Leave every file written, skip the commit, and give the user the two `git config` commands. |
 | Material is unreadable (private URL, scanned PDF) | Say so, ask the user to paste or export the text, and keep going without it. |
