@@ -10,7 +10,7 @@
 
 All test setup state must be collected into a single context object (e.g. `testCtx`, `ctx`, `TestCtx`). It must be initialized before each test via a dedicated initializer — a factory function, constructor, or equivalent. Setup variables must not be declared individually and scattered across the describe/test scope.
 
-The factory function (e.g. `createTestCtx`) or equivalent initializer MUST be defined at the end of the test file, after all `describe`/`it` blocks.
+The factory function (e.g. `createTestCtx`) or equivalent initializer MUST be defined at the end of the test file, after all `describe`/`it` blocks. An existing test file that already places its setup differently keeps its own layout — see **Precedence** in `dev.md`.
 
 **Why:** scattered setup variables are easy to forget to reinitialize, which causes state to bleed between tests (safety). A single context object is one place to look for all setup state (readability), and a consistent pattern across suites makes tests easier to navigate and review (uniformity). Placing the factory at the bottom keeps the test logic prominent and the setup details out of the way.
 
