@@ -51,7 +51,7 @@ Check the draft, fixing every gap:
 - [ ] The description starts with "Use when…" and names trigger situations, not internals.
 - [ ] A banner is printed before any substantive work.
 - [ ] An `## Edge Cases & Errors` table is present.
-- [ ] The path rule holds: the Grep tool finds no occurrence of the literal `<KIT_SRC>` path in `<KIT_SRC>/skills/<name>/SKILL.md`.
+- [ ] The path rule holds: the Grep tool finds neither the kit's absolute path (the **Source repo** value) nor the placeholder string `<KIT_SRC>` in `<KIT_SRC>/skills/<name>/SKILL.md`.
 
 Then register the skill:
 
@@ -69,4 +69,4 @@ Finish by pointing at **Picking up changes** in `<KIT_SRC>/README.md`.
 | Idea overlaps an existing kit skill | Say which one; ask whether to extend it or write a separate skill (one question). |
 | Still ambiguous after five questions | Draft with best guesses and mark them `<!-- TODO: clarify -->`. |
 | The skill needs a fact only the user has | Ask it now, and if it is shared across skills, offer to add it to the main context via update-context. |
-| `git commit` fails (no git identity) | Leave the files written and tell the user the one `git config` command to run. |
+| `git commit` fails (no git identity) | Leave the files written and tell the user the two `git config` commands to run (`user.name`, `user.email`). |
