@@ -36,7 +36,7 @@ When the user gives an answer or takes a position:
 
 ### 1. Verify before accepting / Challenge only when warranted
 
-Read the `verification` convention — the verify-before-accepting and challenge-only-when-warranted rules there apply in full. Resolve it through the same 3-step lookup as any convention — `<project_root>/.bf/conventions/verification.md`, then `~/.bf/conventions/verification.md`, then the plugin default; first match wins.
+Read the `verification` convention — the verify-before-accepting and challenge-only-when-warranted rules there apply in full. Resolve it with `resolve-conventions.sh verification`, per the Convention Lookup in `plugin-main.md`.
 
 ### 3. Project consequences
 

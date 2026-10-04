@@ -1,27 +1,28 @@
 #!/usr/bin/env bash
 # Resolve named conventions through the 3-step lookup in plugin-main.md, first match wins:
-# <project_root>/.bf/conventions, then ~/.bf/conventions, then the plugin's conventions/.
+# <project_root>/.bf/conventions, then ~/.bf/conventions, then the plugin's conventions/
+# (tier order lives in convention-tiers.sh).
 #
 # Usage: resolve-conventions.sh <name> [<name>...]     e.g. resolve-conventions.sh dev testing git
 # Output: one JSON object mapping each name to the winning absolute path, or null when no tier
 #         has it — {"dev":"/abs/dev.md","testing":null}
-# Errors: {"error":"usage"} + exit 2 when no name is given.
-set -uo pipefail
+# Errors: {"error":...,"detail":...} + exit 1 — usage, jq_missing.
+set -euo pipefail
 
-[ $# -gt 0 ] || { printf '{"error":"usage","detail":"resolve-conventions.sh <name>..."}\n'; exit 2; }
+command -v jq >/dev/null 2>&1 || { printf '{"error":"jq_missing","detail":"jq not installed"}\n'; exit 1; }
+[ $# -gt 0 ] || { jq -cn '{error:"usage", detail:"resolve-conventions.sh <name>..."}'; exit 1; }
 
-plugin_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
-project_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+# shellcheck source=convention-tiers.sh
+source "$(dirname "${BASH_SOURCE[0]}")/convention-tiers.sh"
 
-json_str() { printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"; }
+dirs=()
+while IFS=$'\t' read -r _ dir; do dirs+=("$dir"); done < <(convention_tiers)
 
-out=
 for name in "$@"; do
   name=${name%.md}
-  path=null
-  for dir in ${project_root:+"$project_root/.bf/conventions"} "$HOME/.bf/conventions" "$plugin_root/conventions"; do
-    if [ -f "$dir/$name.md" ]; then path=$(json_str "$dir/$name.md"); break; fi
+  path=
+  for dir in "${dirs[@]}"; do
+    if [ -f "$dir/$name.md" ]; then path="$dir/$name.md"; break; fi
   done
-  out="$out${out:+,}$(json_str "$name"):$path"
-done
-printf '{%s}\n' "$out"
+  jq -cn --arg n "$name" --arg p "$path" '{($n): (if $p == "" then null else $p end)}'
+done | jq -cs 'add'

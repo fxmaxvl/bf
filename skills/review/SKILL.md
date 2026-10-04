@@ -91,7 +91,7 @@ When `dry_run=true`, skip every Agent spawn and exit before Phase 1 work begins.
 
 Steps:
 
-1. Resolve conventions exactly as Phase 1 does — perform the 3-step lookup for `code-review`, `dev`, `testing`, `architecture` — but do **not** read the file bodies. Capture only the resolved absolute paths.
+1. Resolve conventions exactly as Phase 1 does — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture` — but do **not** read the file bodies. Capture only the resolved absolute paths.
 2. Print this block (plain text, not in a code fence):
 
    ```
@@ -122,15 +122,13 @@ Steps:
 
 ### Resolve conventions
 
-Resolve each convention using the 3-step lookup from `plugin-main.md`:
+Resolve all four conventions in one call, per the Convention Lookup in `plugin-main.md`:
 
-1. `<project_root>/.bf/conventions/<name>.md`
-2. `~/.bf/conventions/<name>.md`
-3. `${CLAUDE_PLUGIN_ROOT}/conventions/<name>.md`
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" code-review dev testing architecture
+```
 
-Resolve: `code-review`, `dev`, `testing`, `architecture`.
-
-Record the four resolved absolute paths. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
+Read the four absolute paths from the JSON; a `null` is the "Convention file missing" edge case. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
 
 ### Resolve scope and changed_files
 
@@ -687,7 +685,7 @@ List remaining concerns by ID and label if any exist.
 |-----------|----------|
 | Not a git repository | Print "Not a git repository. Exiting." and stop. |
 | `<project_root>/.bf` not writable | Fall back to `~/.bf/reviews/` for `reports_dir`. Warn the user. |
-| Convention file missing (all 3 lookup paths absent) | Print "Convention file not found: <last-looked-up path>. This may be a plugin install issue." and stop. |
+| Convention file missing (`resolve-conventions.sh` returns `null` for it) | Print "Convention file not found: <name>. This may be a plugin install issue." and stop. |
 | `--focus` names a lens not in the lens table | Ask which valid lens was meant. When unattended, run the full review with `focus_label` = `full (assumed — unknown lens <name>)`. |
 | Unclear whether text is scope or focus | Ask, with the full review recommended. When unattended, run the full review with `focus_label` = `full (assumed — <reason>)`. |
 
