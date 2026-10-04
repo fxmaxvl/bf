@@ -2,7 +2,7 @@
 
 ## Testing
 
-- Follow the test context pattern from `testing.md`. In Python: declare a `TestCtx` dataclass or use a module-level `create_test_ctx` factory that constructs and returns all setup state; call it in a `pytest` fixture scoped to the test function. Place the factory/fixture at the end of the file, after all test classes and functions.
+- Follow the test context pattern from `testing.md`. In Python: declare a `TestCtx` dataclass or use a module-level `create_test_ctx` factory that constructs and returns all setup state; call it in a `pytest` fixture scoped to the test function. Place the factory/fixture at the end of the file, after all test classes and functions, unless an existing file already places it elsewhere (see **Precedence** in `dev.md`).
 
 ```python
 import pytest
