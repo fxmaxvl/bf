@@ -375,9 +375,9 @@ Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
 
 1. **Record start timestamp:** `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" audit_started_at=$(date -u +%s)` — state survives across orchestrator turns.
 2. **Spawn three named Agents concurrently in a single tool-use block** per the **Parallel Fan-Out** convention in `plugin-main.md` (all model: opus). Name each so it shows on the fleet board:
-   - `complexity-gate`: contents of `feature/complexity-gate/SKILL.md`
-   - `consistency-gate`: contents of `feature/consistency-gate/SKILL.md`
-   - `review-impl`: contents of `feature/review-impl/SKILL.md`
+   - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent
+   - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent
+   - `review-impl`: dispatch `feature/review-impl/SKILL.md` as an Agent
    IMPORTANT: all three must be in the SAME assistant message so they execute in parallel, and the fan-out is atomic — wait for all three to return before proceeding. Do not chain them, and do not have them message each other.
 3. **Record end timestamp:** after all three return, log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (parallel)"`, reading `audit_started_at` from state.
 4. Check all three reports:

@@ -30,17 +30,21 @@ Read the appropriate feature context for filtering relevant TODOs:
 
 ### 1. Find TODOs introduced by this branch
 
-Use `git diff <base>...HEAD` to get the actual diff, where `<base>` is the `base` field that
-`changed-packages.sh` reports — a remote-tracking ref. Never a bare local branch name: a local
-`master` sitting behind its remote inflates the diff with everything merged upstream since, so
-pre-existing TODOs get attributed to this branch. Only consider lines that were **added or modified** by this branch (lines starting with `+` in the diff). Cross-reference against `changed_files` from `changed-packages.sh` to confirm scope. This ensures pre-existing TODOs in touched files are excluded.
+List them in one call — the branch diff never needs to enter the conversation:
 
-Search the added/modified lines for `TODO` comments (case-insensitive).
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/added-todos.sh" <base> <changed_files...>
+```
 
-For each match, capture:
-- **File path** and **line number**
-- **Comment text** (the rest of the line after `TODO`)
-- **Context** — the surrounding code (2 lines above and below)
+`<base>` is the `base` field that `changed-packages.sh` reports — a remote-tracking ref. Never a bare
+local branch name: a local `master` sitting behind its remote inflates the diff with everything
+merged upstream since, so pre-existing TODOs get attributed to this branch. Pass `changed_files`
+from `changed-packages.sh` to keep the search in scope; an empty `changed_files` makes the script search the whole branch diff.
+
+The script returns `[{file, line, text, context}]`: only lines this branch **added or modified**
+that mention `TODO` as a standalone word (case-insensitive), with up to 2 lines of context above and below, so
+pre-existing TODOs in touched files are already excluded. An empty array means there is nothing to
+collect.
 
 ### 2. Assess feature relevance
 

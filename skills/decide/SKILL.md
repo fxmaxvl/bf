@@ -102,7 +102,7 @@ In standalone mode: print the verdict to the conversation only. Do not write to 
 
 ## Behavioral constraints
 
-Read the `verification` convention — the evidence and verification rules there apply in full. Resolve it through the same 3-step lookup as any convention — `<project_root>/.bf/conventions/verification.md`, then `~/.bf/conventions/verification.md`, then the plugin default; first match wins.
+Read the `verification` convention — the evidence and verification rules there apply in full. Resolve it with `resolve-conventions.sh verification`, per the Convention Lookup in `plugin-main.md`.
 
 - **One question max.** If you need more than one clarification, make your best judgment on the rest and flag it as `low` confidence.
 - **Always end with a verdict.** Never leave open options and no call.

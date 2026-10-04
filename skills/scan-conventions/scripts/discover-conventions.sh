@@ -5,19 +5,28 @@
 
 set -euo pipefail
 
-PROJECT_ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
-USER_DIR="$HOME/.bf/conventions"
-PROJECT_DIR="${PROJECT_ROOT:+$PROJECT_ROOT/.bf/conventions}"
+# shellcheck source=convention-tiers.sh
+source "$(dirname "${BASH_SOURCE[0]}")/convention-tiers.sh"
 
-declare -A seen
+PROJECT_DIR=""
+USER_DIR=""
+while IFS=$'\t' read -r tier dir; do
+  case "$tier" in
+    project) PROJECT_DIR="$dir" ;;
+    user) USER_DIR="$dir" ;;
+  esac
+done < <(convention_tiers "${1:-}")
+
+# A newline-delimited list rather than `declare -A`, which macOS /bin/bash 3.2 lacks.
+seen=$'\n'
 results=()
 
 add_file() {
   local path="$1" tier="$2"
   local filename
   filename="$(basename "$path")"
-  [[ -n "${seen[$filename]+_}" ]] && return
-  seen["$filename"]=1
+  [[ "$seen" == *$'\n'"$filename"$'\n'* ]] && return
+  seen+="$filename"$'\n'
   local first_heading
   first_heading="$(grep -m1 '^#' "$path" 2>/dev/null || echo "")"
   results+=("{\"filename\":$(printf '%s' "$filename" | python3 -c 'import sys,json;print(json.dumps(sys.stdin.read()))'),\"tier\":\"$tier\",\"first_heading\":$(printf '%s' "$first_heading" | python3 -c 'import sys,json;print(json.dumps(sys.stdin.read()))'),\"path\":$(printf '%s' "$path" | python3 -c 'import sys,json;print(json.dumps(sys.stdin.read()))')}")
