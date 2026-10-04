@@ -28,15 +28,18 @@ Print banner (plain text, not in a code block):
 Resolve the scope in one call — do not derive diffs by hand:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" "$ARGUMENTS"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-untracked "$ARGUMENTS"
 ```
 
-It returns `{root, mode, file_count, added, removed, files[]}`. `mode` is `working` (uncommitted),
+It returns `{root, mode, file_count, added, removed, files[]}`. `mode` is `working` (uncommitted, brand-new untracked files included),
 `branch`, `range`, or `paths`. With an empty target and a clean tree, `working` finds nothing and the
 script falls through to `branch` — a full `merge-base…HEAD` diff — so an empty invocation after
 committing assesses the whole branch rather than reporting nothing to do. If `error` is `not_a_git_repo`, print `Not a git repository. Exiting.`
 and stop. If `file_count` is `0`, print `STATUS: NOTHING_TO_ASSESS` and stop — spawn nothing, read
 nothing.
+
+After changing `scripts/scope.sh`, run `scripts/scope-smoke.sh` — it exits non-zero when a scope
+case regresses. The script is shared with `bf:review` and `bf:walkthrough`.
 
 Print one line: `Scope: <mode> — <file_count> file(s), +<added>/-<removed>`.
 

@@ -182,13 +182,17 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      scope_description="PR <pr_number>"
      ```
      `gh pr diff` can come back empty even when the PR has changes. When `$diff_file` is
-     empty, diff the PR's refs locally instead:
+     empty, fetch the base branch and the PR head into explicit refs — the PR ref works for
+     fork PRs, and an explicit base ref resolves even in a clone whose fetch refspec leaves
+     `origin/<base>` alone — and resolve the range through `scope.sh`:
      ```bash
      pr_base_branch=$(gh pr view <pr_number> --json baseRefName -q .baseRefName)
-     git fetch -q origin "$pr_base_branch" "$pr_head_branch"
-     git diff "origin/$pr_base_branch...origin/$pr_head_branch" > "$diff_file"
-     changed_files=$(sed -n 's#^diff --git a/.* b/##p' "$diff_file")
+     git fetch -q origin "+$pr_base_branch:refs/bf/pr-<pr_number>-base" "+pull/<pr_number>/head:refs/bf/pr-<pr_number>"
+     scope=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff "refs/bf/pr-<pr_number>-base...refs/bf/pr-<pr_number>")
      ```
+     Then read `files` and `diff_file` from `$scope` as the non-PR case does. If the fetch
+     fails, print the git error and stop — a failed fetch is an error, never an empty scope
+     or `NOTHING_TO_REVIEW`.
 
    For file-path inputs where the diff may be empty (e.g. unmodified files explicitly
    listed), fall back to the literal paths from `$ARGUMENTS` for `changed_files`.

@@ -82,15 +82,18 @@ gh pr checks <pr> --json name,bucket
 ```
 
 If the bot's check has `bucket: "pending"`, wait for it with gh's own loop rather than a hand-rolled
-one, then re-run the fetch above:
+one — under the same consent rule as the `wait-for-review.sh` wait above (run without asking when
+`$ARGUMENTS` contains `--wait`, otherwise ask once) — then re-run the fetch above:
 
 ```bash
 gh pr checks <pr> --watch --interval 30 > /dev/null
 ```
 
 `--watch` has no timeout of its own and waits on every check, so run it with a 600000 ms Bash
-timeout. If it is still running at that point, stop it and handle it as the `timeout` row above. If
-the check is not pending, the status post is the result — continue with the fetch.
+timeout. If it is still running at that point, stop it and re-run `gh pr checks <pr> --json name,bucket`:
+an unrelated slow job can outlast the bound while the bot's check has already finished. Only if the
+bot's check is still pending, handle it as the `timeout` row above. If the check is not pending, the
+status post is the result — continue with the fetch.
 
 With nothing actionable and no in-progress marker, print `STATUS: NO_OPEN_COMMENTS` and stop —
 read nothing, spawn nothing.

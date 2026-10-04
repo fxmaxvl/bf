@@ -20,8 +20,8 @@
 #                       diff_file is a handoff buffer, not a generated artifact: it is left for
 #                       the OS temp reaper, and no caller is expected to delete it.
 #   --with-untracked  → in the working and paths modes, also diff untracked, non-ignored files
-#                       against /dev/null. The working mode skips `.bf/`, which holds skill
-#                       artifacts rather than the change under review.
+#                       against /dev/null. Both modes skip `.bf/`, which holds skill artifacts
+#                       rather than the change under review.
 set -uo pipefail
 
 root=$(git rev-parse --show-toplevel 2>/dev/null) || { printf '{"error":"not_a_git_repo"}\n'; exit 0; }
@@ -35,14 +35,19 @@ while :; do
   esac
 done
 target="${1:-}"
-untracked=
+untracked_spec=()
 
 # `git diff --no-index` exits 1 whenever the files differ, so its status is not an error signal.
+# NUL-delimited listing keeps names with spaces or non-ASCII bytes intact; every `git diff` here
+# sets core.quotePath=false so a non-ASCII name stays unquoted in the `diff --git` header. Names
+# with `"`, `\` or control characters are still C-quoted there, and the header-matching sed/awk
+# below drops them.
 untracked_diff() {
+  [ "${#untracked_spec[@]}" -gt 0 ] || return 0
   local f
-  while IFS= read -r f; do
-    [ -n "$f" ] && git diff --no-index "$@" -- /dev/null "$f" 2>/dev/null
-  done <<< "$untracked"
+  while IFS= read -r -d '' f; do
+    git -c core.quotePath=false diff --no-index "$@" -- /dev/null "$f" 2>/dev/null
+  done < <(git ls-files -z --others --exclude-standard -- "${untracked_spec[@]}" 2>/dev/null)
   return 0
 }
 
@@ -51,28 +56,26 @@ base_ref() {
   git merge-base HEAD "$head" 2>/dev/null || git rev-parse HEAD~1 2>/dev/null
 }
 
-# diff_args records the resolved target once per mode, so the optional `git diff -w` pass below
-# reuses the same resolution instead of restating the mode logic.
+# diff_args and untracked_spec record the resolved target once per mode, so the optional
+# `git diff -w` pass below reuses the same resolution instead of restating the mode logic.
 if [ -z "$target" ]; then
-  mode=working; diff_args=(HEAD); diff=$(git diff "${diff_args[@]}" 2>/dev/null)
-  if [ "$with_untracked" = 1 ]; then
-    untracked=$(git ls-files --others --exclude-standard -- . ':(exclude).bf' 2>/dev/null)
-    diff=$(printf '%s\n%s' "$diff" "$(untracked_diff)" | sed '/./,$!d')
-  fi
-  if [ -z "$diff" ]; then
-    untracked=
-    mode=branch; diff_args=("$(base_ref)"...HEAD); diff=$(git diff "${diff_args[@]}" 2>/dev/null)
-  fi
+  mode=working; diff_args=(HEAD); diff=$(git -c core.quotePath=false diff "${diff_args[@]}" 2>/dev/null)
+  [ "$with_untracked" = 1 ] && untracked_spec=(. ':(exclude).bf')
 elif [ "$target" = "branch" ]; then
-  mode=branch; diff_args=("$(base_ref)"...HEAD); diff=$(git diff "${diff_args[@]}" 2>/dev/null)
+  mode=branch; diff_args=("$(base_ref)"...HEAD); diff=$(git -c core.quotePath=false diff "${diff_args[@]}" 2>/dev/null)
 elif git rev-parse --verify --quiet "$target" >/dev/null 2>&1 || [[ "$target" == *..* ]]; then
-  mode=range; diff_args=("$target"); diff=$(git diff "${diff_args[@]}" 2>/dev/null)
+  mode=range; diff_args=("$target"); diff=$(git -c core.quotePath=false diff "${diff_args[@]}" 2>/dev/null)
 else
-  mode=paths; diff_args=(HEAD -- $target); diff=$(git diff "${diff_args[@]}" 2>/dev/null)
-  if [ "$with_untracked" = 1 ]; then
-    untracked=$(git ls-files --others --exclude-standard -- $target 2>/dev/null)
-    diff=$(printf '%s\n%s' "$diff" "$(untracked_diff)" | sed '/./,$!d')
-  fi
+  mode=paths; diff_args=(HEAD -- $target); diff=$(git -c core.quotePath=false diff "${diff_args[@]}" 2>/dev/null)
+  [ "$with_untracked" = 1 ] && untracked_spec=($target ':(exclude).bf')
+fi
+
+if [ "${#untracked_spec[@]}" -gt 0 ]; then
+  diff=$(printf '%s\n%s' "$diff" "$(untracked_diff)" | sed '/./,$!d')
+fi
+if [ "$mode" = working ] && [ -z "$diff" ]; then
+  mode=branch; diff_args=("$(base_ref)"...HEAD); untracked_spec=()
+  diff=$(git -c core.quotePath=false diff "${diff_args[@]}" 2>/dev/null)
 fi
 
 files=$(printf '%s' "$diff" | sed -n 's#^diff --git a/.* b/##p')
@@ -93,7 +96,7 @@ if [ "$with_diff" = 1 ]; then
   # An errored -w pass must stay distinguishable from "every file is whitespace-only": both
   # produce no hunks, and the second branch below would then drop every file from the caller's
   # tour. Capture the status separately and, on a real failure, mark nothing whitespace-only.
-  ws_diff=$(git diff -w "${diff_args[@]}" 2>/dev/null); ws_rc=$?
+  ws_diff=$(git -c core.quotePath=false diff -w "${diff_args[@]}" 2>/dev/null); ws_rc=$?
   ws_diff=$(printf '%s\n%s' "$ws_diff" "$(untracked_diff -w)")
   ws_hunked=$(printf '%s\n' "$ws_diff" | awk '
     /^diff --git a\// { f=$0; sub(/^diff --git a\/.* b\//, "", f); next }
