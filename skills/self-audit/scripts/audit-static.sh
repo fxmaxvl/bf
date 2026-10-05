@@ -31,7 +31,14 @@ done
 
 TMP=$(mktemp) || die mktemp_failed ""
 MISSING=$(mktemp) || die mktemp_failed ""
-trap 'rm -f "$TMP" "$MISSING"' EXIT
+KIT_DIR=$(mktemp -d) || die mktemp_failed ""
+trap 'rm -f "$TMP" "$MISSING"; rm -rf "$KIT_DIR"' EXIT
+
+# Kit templates are rendered into a generated kit, where ${CLAUDE_PLUGIN_ROOT}
+# is the kit's root, so their refs resolve against a scratch scaffold of one.
+KIT_ROOT="$KIT_DIR/kit"
+bash "$ROOT/skills/kit/scripts/kit-scaffold.sh" create --dir "$KIT_ROOT" \
+  --name audit-probe --description "audit probe" >/dev/null 2>&1 || KIT_ROOT=""
 
 TS_ASK="${TYPESAFE_ASK:-$(dirname "$0")/../../typesafe/scripts/typesafe-ask.sh}"
 # Refs that survived the denylist and do not exist on disk. Each is either a
@@ -150,10 +157,14 @@ done < <(cd "$ROOT/skills" && for d in */; do [ -f "${d}SKILL.md" ] && printf '%
 # ---- reference integrity (every SKILL.md, including nested sub-skills) ------
 while IFS= read -r f; do
   rel=${f#"$ROOT/"}
+  case "$rel" in
+    skills/kit/templates/*) ref_root=$KIT_ROOT ;;
+    *) ref_root=$ROOT ;;
+  esac
   # ${CLAUDE_PLUGIN_ROOT}/... references
   while IFS= read -r ref; do
-    [ -n "$ref" ] || continue
-    [ -e "$ROOT/$ref" ] || emit_id "broken-ref:$rel:$ref" broken-ref high "$rel" "" \
+    [ -n "$ref" ] && [ -n "$ref_root" ] || continue
+    [ -e "$ref_root/$ref" ] || emit_id "broken-ref:$rel:$ref" broken-ref high "$rel" "" \
       "references \`\${CLAUDE_PLUGIN_ROOT}/$ref\` which does not exist" "code-quality"
   done < <(grep -o '\${CLAUDE_PLUGIN_ROOT}/[A-Za-z0-9._/-]*' "$f" 2>/dev/null \
            | sed 's|\${CLAUDE_PLUGIN_ROOT}/||' | sed 's|[./]*$||' | sort -u)
@@ -209,7 +220,7 @@ while IFS= read -r name; do
 done < <(grep -o -E '`/bf:[a-z0-9-]+' "$README" 2>/dev/null | sed 's|`/bf:||' | sort -u)
 
 jq -s --arg root "$ROOT" --argjson ns "$N_SKILLS" --argjson nsc "$N_SCRIPTS" \
-  --argjson sup "$N_SUPPRESSED" \
+  --argjson sup "$N_SUPPRESSED" --arg kit_root "$KIT_ROOT" \
   '{root:$root, counts:{skills:$ns, scripts:$nsc, findings:length},
     findings:(sort_by(if .severity=="high" then 0 elif .severity=="medium" then 1 else 2 end)),
     notes:(["static checks only; token-frugality and convention-drift judgment come from the analysis pass in SKILL.md"]
@@ -218,4 +229,5 @@ jq -s --arg root "$ROOT" --argjson ns "$N_SKILLS" --argjson nsc "$N_SCRIPTS" \
          # reproducible from the repo alone, and a diff between two runs has to
          # be explainable.
          then ["\($sup) missing sub-skill ref(s) suppressed as illustrative prose by TypeSafe; re-run with boosting off (/bf:typesafe off) to see them"]
-         else [] end))}' "$TMP"
+         else [] end)
+      + (if $kit_root == "" then ["kit-scaffold.sh create failed, so ${CLAUDE_PLUGIN_ROOT} refs in skills/kit/templates/ were not checked"] else [] end))}' "$TMP"
