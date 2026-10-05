@@ -48,6 +48,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:gather <feature or PRD>` | Utility | Iterative requirements gathering and versioned PRD distillation across sessions | You have a fuzzy PRD and need to track open questions, scope a POC, and build a versioned source of truth |
 | `/bf:research <topic>` | Utility | Decision-oriented researcher: clarifies usecase → issue → focus, gathers cited evidence, produces an Options + Recommendation report | You need prior art, library comparison, or decision support before building — and want a cited report saved to `.bf/research/` |
 | `/bf:teach <topic>` | Utility | Stateful multi-session tutor: mission-grounded HTML lessons, reference docs, learning records, resources, and a glossary in a per-topic workspace, plus an optional learning profile that tailors lesson delivery | You want to deliberately learn a topic over time, not just get a one-off explanation |
+| `/bf:onboard-project [role or first task]` | Utility | Surveys the repo and generates a complete bf:teach onboarding course in one run — purpose, domain, architecture, stack, data, APIs, dependencies, config, testing, delivery, ops, workflow, first task | You just joined a project and want the whole codebase taught end to end, then continued with `/bf:teach` |
 
 ## Getting started
 
