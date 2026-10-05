@@ -24,17 +24,15 @@ Review the implementation by comparing what was built against the plan and requi
 
 - **Full mode** (`mode` = `"full"`): Compare against the `## Spec` block in `paths.spec` (= `paths.session_log`) and the `## Plan` block in `paths.plan` (= same file).
 - **Quick mode** (`mode` = `"quick"`): No spec exists. Compare against the `## QA` block in `paths.qa` (= `paths.temp`) and the `## Plan` block in `paths.plan`.
+- **Micro mode** (`mode` = `"micro"`): No spec or plan exists. Compare against the `## QA` block in `paths.qa` (= `paths.temp`) only.
 
 Use the Block Reading Pattern from `plugin-main.md` to extract each block.
 
 ## Review Criteria
 
 ### 1. Feature completeness
-- The spec's `## Functional Requirements` section is the authoritative list. Extract it from `paths.session_log` using the Block Reading Pattern from `plugin-main.md`:
-  ```bash
-  bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.session_log> --block "## Functional Requirements"
-  ```
-- For each requirement in that section, verify it is implemented by checking the actual code
+- The authoritative list of requirements comes from the input already read above: in full mode, the **Functional requirements** bullet inside the `## Spec` block (it is a bullet, not a `##` header of its own); in quick and micro mode, the `## QA` block.
+- For each requirement in that list, verify it is implemented by checking the actual code
 - Flag any requirement that is missing or partially implemented
 
 ### 2. Dev conventions

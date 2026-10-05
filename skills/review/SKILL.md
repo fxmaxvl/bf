@@ -91,7 +91,7 @@ When `dry_run=true`, skip every Agent spawn and exit before Phase 1 work begins.
 
 Steps:
 
-1. Resolve conventions exactly as Phase 1 does — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture` — but do **not** read the file bodies. Capture only the resolved absolute paths.
+1. Resolve conventions exactly as Phase 1 does — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture`, plus one `host-rules.sh` call — but do **not** read the file bodies. Capture only the resolved absolute paths.
 2. Print this block (plain text, not in a code fence):
 
    ```
@@ -104,6 +104,7 @@ Steps:
      - dev:         <resolved path or "MISSING">
      - testing:     <resolved path or "MISSING">
      - architecture: <resolved path or "MISSING">
+   Host repository rules: <one path per line from host_rules, or "none">
    Agents that would be spawned (skipped in dry-run):
      - review Agent        (model: opus) — Phase 1 parallel batch
      - complexity-gate Agent (model: opus) — Phase 1 parallel batch
@@ -129,6 +130,14 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.
 ```
 
 Read the four absolute paths from the JSON; a `null` is the "Convention file missing" edge case. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
+
+Then list the host repository's own rule files the same way — paths only, never bodies:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/host-rules.sh"
+```
+
+It prints a JSON array of absolute paths (`[]` when the repo has none). If it prints an `error` object instead, print its `detail`, continue with `host_rules = none`, and do not stop the review. Pass the paths to the review Agent (Prompt A) and the re-review Agent as `host_rules`; how they rank against the bf conventions is set in the Code Review Convention.
 
 ### Resolve scope and changed_files
 
@@ -268,6 +277,8 @@ Read each of these files and apply it strictly:
 - Architecture: <resolved absolute path to architecture.md>
 - Code review: <resolved absolute path to code-review.md>
 
+Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
+
 ## Scope
 
 The review scope has already been resolved by the orchestrating skill.
@@ -374,7 +385,7 @@ Proceed with scan mode using these paths.
 Read <resolved absolute path to skills/feature/consistency-gate/SKILL.md> and follow it.
 ```
 
-Dispatch the enabled Agents in a **single message** (all model: opus), so they run in parallel. Wait for all of them to return.
+Dispatch the enabled Agents in a **single message** (all model: opus) per the **Parallel Fan-Out** convention in `plugin-main.md`, so they run in parallel. Name each so it shows on the fleet board: `review` (Prompt A), `complexity-gate` (Prompt B), `consistency-gate` (Prompt C). Wait for all of them to return.
 
 ### Clean up temp state
 
@@ -644,7 +655,7 @@ Applied: <N> fix(es)
 Re-run `/bf:review --focus <focus_lenses>` to re-check the gates.
 ```
 
-Otherwise the re-review keeps the original focus, so a focused first pass never widens into a full review.
+Otherwise the re-review keeps the original focus, so a focused first pass never widens into a full review. The one exception is the check on lines the fix itself touched (step 3 of the prompt below), because a fix can break a rule outside the focus it was made for.
 
 Print (plain text): `→ Re-reviewing post-fix (cycle <N>) with opus…`
 
@@ -662,14 +673,23 @@ Read each of these files and apply it strictly:
 - Architecture: <resolved absolute path to architecture.md>
 - Code review: <resolved absolute path to code-review.md>
 
+Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
+
 ## Files to Re-review
 <one path per line from changed_files>
+
+## What the Fix Changed
+<the selected concern blocks passed to the fix Agent, then the fix Agent's returned summary>
 
 ## Instructions
 
 1. Read the full current content of each file using the Read tool.
-2. Apply the checks in these sections of the Code Review Convention: <the § numbers and names in focus_categories>. <When focused, add: "Do not check or report on any other category.">
-3. Produce the same report format as before (# Code Review Report … ## Review Metadata), with `- Focus: <focus_label>` in the header, `<status_suffix>` on the STATUS line, and section headers only for the categories above.
+2. Apply the checks in these sections of the Code Review Convention: <the § numbers and names in focus_categories>. <When focused, add: "Do not check or report on any other category, except as step 3 requires.">
+3. Whatever the focus, check every line the fix touched (per "What the Fix Changed") against these rules, and report anything the fix introduced labelled `[new]`:
+   - the **Comments** rule in <absolute path to ${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md>;
+   - the style rule in the Dev convention — the change matches the surrounding code's style and formatting;
+   - the host repository rules listed above.
+4. Produce the same report format as before (# Code Review Report … ## Review Metadata), with `- Focus: <focus_label>` in the header, `<status_suffix>` on the STATUS line, and section headers only for the categories above, plus any category a `[new]` finding from step 3 falls under.
    For changed_files in Review Metadata, repeat the same file list.
 ```
 
@@ -699,6 +719,7 @@ List remaining concerns by ID and label if any exist.
 | Not a git repository | Print "Not a git repository. Exiting." and stop. |
 | `<project_root>/.bf` not writable | Fall back to `~/.bf/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (`resolve-conventions.sh` returns `null` for it) | Print "Convention file not found: <name>. This may be a plugin install issue." and stop. |
+| `host-rules.sh` prints an `error` object (`not_a_git_repo`, `jq_missing`) | Print `detail`, continue with `host_rules = none`. Do not stop the review. |
 | `--focus` names a lens not in the lens table | Ask which valid lens was meant. When unattended, run the full review with `focus_label` = `full (assumed — unknown lens <name>)`. |
 | Unclear whether text is scope or focus | Ask, with the full review recommended. When unattended, run the full review with `focus_label` = `full (assumed — <reason>)`. |
 

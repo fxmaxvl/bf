@@ -225,7 +225,7 @@ Print banner: `── micro | Finalize ─────────────�
      [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
      [--jira-url <jira.ticket_url>]           # only if jira.enabled
    ```
-   The script stages (excluding `.bf/sessions/`), commits if there are changes, pushes, creates the PR, and outputs the PR URL.
+   The script stages (excluding `.bf/`, except `.bf/conventions/`), commits if there are changes, pushes, creates the PR, and outputs the PR URL.
 6. If `jira.enabled`:
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`

@@ -40,8 +40,7 @@ untracked_spec=()
 # `git diff --no-index` exits 1 whenever the files differ, so its status is not an error signal.
 # NUL-delimited listing keeps names with spaces or non-ASCII bytes intact; every `git diff` here
 # sets core.quotePath=false so a non-ASCII name stays unquoted in the `diff --git` header. Names
-# with `"`, `\` or control characters are still C-quoted there, and the header-matching sed/awk
-# below drops them.
+# with `"`, `\` or control characters are still C-quoted there; hdr_name below unquotes them.
 untracked_diff() {
   [ "${#untracked_spec[@]}" -gt 0 ] || return 0
   local f
@@ -78,12 +77,47 @@ if [ "$mode" = working ] && [ -z "$diff" ]; then
   diff=$(git -c core.quotePath=false diff "${diff_args[@]}" 2>/dev/null)
 fi
 
-files=$(printf '%s' "$diff" | sed -n 's#^diff --git a/.* b/##p')
+name_awk='
+BEGIN { for (k = 1; k < 32; k++) ctl[sprintf("%c", k)] = k }
+function octal(s, j,   k, n) {
+  n = 0
+  for (k = 0; k < 3; k++) n = n * 8 + substr(s, j + k, 1)
+  return n
+}
+function hdr_name(line,   i, j, s, c, out) {
+  if (line !~ /"$/) { sub(/^diff --git .* b\//, "", line); return line }
+  for (i = length(line) - 3; i > 0; i--) if (substr(line, i, 4) == " \"b/") break
+  s = substr(line, i + 4, length(line) - i - 4); out = ""
+  for (j = 1; j <= length(s); j++) {
+    c = substr(s, j, 1)
+    if (c != "\\") { out = out c; continue }
+    c = substr(s, ++j, 1)
+    # git writes bytes 7..13 as \a \b \t \n \v \f \r, in that order
+    if (c ~ /[abtnvfr]/) out = out sprintf("%c", index("abtnvfr", c) + 6)
+    else if (c ~ /[0-7]/) { out = out sprintf("%c", octal(s, j)); j += 2 }
+    else out = out c
+  }
+  return out
+}
+function json_str(s,   i, c, out) {
+  out = ""
+  for (i = 1; i <= length(s); i++) {
+    c = substr(s, i, 1)
+    if (c == "\\" || c == "\"") out = out "\\" c
+    else if (c < " ") out = out sprintf("\\u%04x", ctl[c])
+    else out = out c
+  }
+  return out
+}
+'
+
+# Names are JSON-escaped once, here, so every list below holds one single-line string per file.
+files=$(printf '%s' "$diff" | awk "$name_awk"'/^diff --git / { print json_str(hdr_name($0)) }')
 n=$(printf '%s' "$files" | grep -c . || true)
 added=$(printf '%s' "$diff" | grep -c '^+[^+]' || true)
 removed=$(printf '%s' "$diff" | grep -c '^-[^-]' || true)
 
-json_list() { printf '%s' "$1" | grep . | sed 's/"/\\"/g; s/^/"/; s/$/"/' | paste -sd, -; }
+json_list() { printf '%s' "$1" | grep . | sed 's/^/"/; s/$/"/' | paste -sd, -; }
 
 extra=
 if [ "$with_diff" = 1 ]; then
@@ -98,8 +132,8 @@ if [ "$with_diff" = 1 ]; then
   # tour. Capture the status separately and, on a real failure, mark nothing whitespace-only.
   ws_diff=$(git -c core.quotePath=false diff -w "${diff_args[@]}" 2>/dev/null); ws_rc=$?
   ws_diff=$(printf '%s\n%s' "$ws_diff" "$(untracked_diff -w)")
-  ws_hunked=$(printf '%s\n' "$ws_diff" | awk '
-    /^diff --git a\// { f=$0; sub(/^diff --git a\/.* b\//, "", f); next }
+  ws_hunked=$(printf '%s\n' "$ws_diff" | awk "$name_awk"'
+    /^diff --git / { f = json_str(hdr_name($0)); next }
     /^@@/ { if (f != "" && !seen[f]++) print f }')
   if [ "$ws_rc" != 0 ]; then
     whitespace_only=
@@ -109,8 +143,8 @@ if [ "$with_diff" = 1 ]; then
     whitespace_only=$(printf '%s\n' "$files" | grep . || true)
   fi
 
-  hunks=$(awk '
-    /^diff --git a\// { f=$0; sub(/^diff --git a\/.* b\//, "", f); gsub(/"/, "\\\"", f); idx=0; next }
+  hunks=$(awk "$name_awk"'
+    /^diff --git / { f = json_str(hdr_name($0)); idx=0; next }
     /^@@/ { n++; cur=n; hf[n]=f; hi[n]=++idx; hl[n]=NR; add[n]=0; rem[n]=0; next }
     cur && /^\+[^+]/ { add[cur]++ }
     cur && /^-[^-]/  { rem[cur]++ }

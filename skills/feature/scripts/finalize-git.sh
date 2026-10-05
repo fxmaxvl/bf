@@ -48,10 +48,14 @@ if [[ -n "$JIRA_URL" ]]; then
     BODY="${BODY}"$'\n\n'"Jira: ${JIRA_URL}"
 fi
 
-# Stage everything except .bf/sessions, commit if anything is staged
-DIRTY=$(git status --porcelain | grep -v '^??' || true)
-if [[ -n "$DIRTY" ]]; then
-    git add -A -- ':!.bf/sessions'
+# .bf/ holds workflow artifacts, never part of the change, except .bf/conventions/ — the project
+# convention tier, which is shared through the repo. An exclude pathspec cannot be re-included, so
+# that tier is staged on its own.
+DIRTY=$(git status --porcelain -- . ':!.bf')
+CONVENTIONS_DIRTY=$(git status --porcelain -- .bf/conventions)
+if [[ -n "$DIRTY" || -n "$CONVENTIONS_DIRTY" ]]; then
+    [[ -z "$DIRTY" ]] || git add -A -- . ':!.bf'
+    [[ -z "$CONVENTIONS_DIRTY" ]] || git add -A -- .bf/conventions
     STAGED=$(git diff --cached --name-only)
     if [[ -n "$STAGED" ]]; then
         git commit -m "$COMMIT_MSG"

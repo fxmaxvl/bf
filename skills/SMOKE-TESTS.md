@@ -8,3 +8,7 @@ each prints one PASS/FAIL line per case and exits non-zero on any failure. Run t
 |---|---|
 | `skills/feature/scripts/added-todos-smoke.sh` | `added-todos.sh` |
 | `skills/scan-conventions/scripts/resolve-conventions-smoke.sh` | `resolve-conventions.sh`, `convention-tiers.sh`, `discover-conventions.sh` |
+| `skills/coherence/scripts/scope-smoke.sh` | `scope.sh` |
+| `skills/scan-conventions/scripts/host-rules-smoke.sh` | `host-rules.sh` |
+| `skills/feature/scripts/finalize-git-smoke.sh` | `finalize-git.sh` |
+| `skills/self-audit/scripts/audit-static-smoke.sh` | `audit-static.sh` (kit-template reference check) |
