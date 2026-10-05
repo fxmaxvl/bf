@@ -374,7 +374,7 @@ Proceed with scan mode using these paths.
 Read <resolved absolute path to skills/feature/consistency-gate/SKILL.md> and follow it.
 ```
 
-Dispatch the enabled Agents in a **single message** (all model: opus), so they run in parallel. Wait for all of them to return.
+Dispatch the enabled Agents in a **single message** (all model: opus) per the **Parallel Fan-Out** convention in `plugin-main.md`, so they run in parallel. Name each so it shows on the fleet board: `review` (Prompt A), `complexity-gate` (Prompt B), `consistency-gate` (Prompt C). Wait for all of them to return.
 
 ### Clean up temp state
 
