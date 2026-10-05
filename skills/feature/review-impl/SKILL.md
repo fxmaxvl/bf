@@ -24,6 +24,7 @@ Review the implementation by comparing what was built against the plan and requi
 
 - **Full mode** (`mode` = `"full"`): Compare against the `## Spec` block in `paths.spec` (= `paths.session_log`) and the `## Plan` block in `paths.plan` (= same file).
 - **Quick mode** (`mode` = `"quick"`): No spec exists. Compare against the `## QA` block in `paths.qa` (= `paths.temp`) and the `## Plan` block in `paths.plan`.
+- **Micro mode** (`mode` = `"micro"`): No spec or plan exists. Compare against the `## QA` block in `paths.qa` (= `paths.temp`) only.
 
 Use the Block Reading Pattern from `plugin-main.md` to extract each block.
 

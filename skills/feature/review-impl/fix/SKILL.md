@@ -20,6 +20,7 @@ Extract the `## Implementation Review` block from `paths.impl_report` (= `paths.
 **Mode-aware context:**
 - **Full mode** (`mode` = `"full"`): Extract the `## Spec` block from `paths.spec` (= `paths.session_log`) and the `## Plan` block from `paths.plan` (= same file).
 - **Quick mode** (`mode` = `"quick"`): No spec exists. Extract the `## QA` block from `paths.qa` (= `paths.temp`) and the `## Plan` block from `paths.plan` (= `paths.session_log`).
+- **Micro mode** (`mode` = `"micro"`): No spec or plan exists. Extract only the `## QA` block from `paths.qa` (= `paths.temp`).
 
 Implement fixes for every concern listed in the report. For each concern:
 - If it's a missing feature: implement it
