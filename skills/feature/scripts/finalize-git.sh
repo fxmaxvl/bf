@@ -49,7 +49,7 @@ if [[ -n "$JIRA_URL" ]]; then
 fi
 
 # Stage everything except .bf/sessions, commit if anything is staged
-DIRTY=$(git status --porcelain | grep -v '^??' || true)
+DIRTY=$(git status --porcelain)
 if [[ -n "$DIRTY" ]]; then
     git add -A -- ':!.bf/sessions'
     STAGED=$(git diff --cached --name-only)
