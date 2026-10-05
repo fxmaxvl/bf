@@ -12,7 +12,7 @@ Ask the user 2-5 focused questions to clarify scope and approach for a small cha
 
 ## Questions to ask
 
-Ask questions one at a time, building on previous answers. Focus on:
+Ask questions one at a time, building on previous answers. A topic below may list two prompts — ask them in separate turns, never together. Focus on:
 
 1. **Scope boundaries** — What exactly should change? What should NOT change?
 2. **Edge cases** — Are there tricky scenarios to handle?
