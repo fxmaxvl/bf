@@ -15,7 +15,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"
 
 This gives you `slug`, `build_timestamp`, `artifacts_dir`, and `paths.*`.
 
-Read the task instruction from `paths.qa`.
+Read the task instruction from the `## QA` block of `paths.qa` — `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.qa> --block "## QA"`.
 
 Before writing any code, read the `dev`, `testing` and `git` conventions.
 
