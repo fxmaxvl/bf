@@ -19,7 +19,7 @@ Before starting the loop, read these once:
 - the `dev` convention (resolved via the lookup in `plugin-main.md`) — code style and quality rules
 - the `testing` convention — test requirements
 - the `git` convention — commit message format
-- `paths.plan` in full — overview, quality gates, dependency graph, and step structure. You will NOT re-read the full plan inside the loop.
+- the `## Plan` and `## Quality Gates` blocks from `paths.plan` (Block Reading Pattern from `plugin-main.md`) — overview, dependency graph, step structure, and the test and lint commands. You will NOT re-read the plan inside the loop.
 - the `## Context` block from `paths.session_log` (Block Reading Pattern from `plugin-main.md`), if present and not `STATUS: NONE` — use the reuse candidates and local conventions it documents when implementing each todo item.
 
 Repeat the following loop until no unchecked items remain — do not wait for user approval between iterations:
@@ -28,7 +28,7 @@ Repeat the following loop until no unchecked items remain — do not wait for us
 1. Open the file at `paths.todo` and pick the **first unchecked item** (one item only).
 2. Work from the matching `### Prompt N:` section of the plan **already in context** — extract the
    step number N from the todo item (e.g., "Step 3: ..." → N=3) and use that section. Do not re-read
-   or re-slice `paths.plan`; it was read in full before the loop.
+   or re-slice `paths.plan`; its blocks were read before the loop.
 3. Carefully plan your approach before touching any code — think through edge cases, dependencies, and impact on existing code.
 4. Implement the item — write robust, readable code, add tests, verify tests pass.
 5. Mark the item as checked (`- [x]`) in the todo file immediately after completing it.
