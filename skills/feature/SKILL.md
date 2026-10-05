@@ -17,7 +17,7 @@ All build artifacts (spec, plan, todo, backlog, build-state.json) live in `<proj
 
 ## Sub-skill Resolution
 
-Phase sub-skills (brainstorm, plan, do-todo, etc.) are **not registered** with the Skill tool and cannot be invoked via `Skill(name)`. Always locate them by their SKILL.md path. Top-level skills (`bf:feature`, `bf:quick`) ARE registered and CAN be invoked via `Skill(name)` — see the handoff section.
+Phase sub-skills (brainstorm, plan, do-todo, etc.) are **not registered** with the Skill tool and cannot be invoked via `Skill(name)`. Always locate them by their SKILL.md path. Top-level skills (`bf:feature`, `bf:quick`) ARE registered and CAN be invoked via `Skill(name)`.
 
 **The sub-skill's SKILL.md must be read before that phase executes — by whoever executes it: the orchestrator for an inline phase, the spawned agent for an Agent phase.** Never skip it and proceed directly to writing code or running commands. The sub-skill files contain the authoritative instructions for each phase — ignoring them causes missed quality gates, wrong outputs, and broken flows.
 
