@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke check for scope.sh untracked-file handling, run against a throwaway repo.
+# Smoke check for scope.sh untracked-file and quoted-name handling, run against a throwaway repo.
 #
 # Usage: scope-smoke.sh
 # Contract: exits 0 when every case passes, 1 otherwise; prints one PASS/FAIL line per case.
@@ -58,5 +58,20 @@ check "paths: names an untracked file" $ok
 out=$(bash "$scope" --with-diff --with-untracked .)
 ok=0; has "$out" .bf/x.md && ok=1; has "$out" n.txt || ok=1
 check "paths: '.' skips .bf" $ok
+
+# git C-quotes these names in the `diff --git` header even with core.quotePath=false.
+new_repo
+tab=$(printf 't\tab.txt'); ctl=$(printf 'c\001tl.txt')
+echo q > 'q"x.txt'; git add . && git commit -qm quoted
+echo change >> 'q"x.txt'; echo t > "$tab"; echo c > "$ctl"; echo b > 'b\s.txt'
+out=$(bash "$scope" --with-diff --with-untracked)
+ok=0
+for f in 'q"x.txt' "$tab" "$ctl" 'b\s.txt'; do
+  has "$out" "$f" || ok=1
+  jq -e --arg f "$f" '[.hunks[] | select(.file == $f)] | length == 1' <<< "$out" >/dev/null || ok=1
+  jq -e --arg f "$f" '.whitespace_only_files | index($f) == null' <<< "$out" >/dev/null || ok=1
+done
+jq -e '.file_count == (.files | length)' <<< "$out" >/dev/null || ok=1
+check "working: quoted, tab, control-byte and backslash names keep files, hunks and file_count" $ok
 
 exit $fail
