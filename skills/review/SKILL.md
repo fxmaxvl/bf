@@ -655,7 +655,7 @@ Applied: <N> fix(es)
 Re-run `/bf:review --focus <focus_lenses>` to re-check the gates.
 ```
 
-Otherwise the re-review keeps the original focus, so a focused first pass never widens into a full review.
+Otherwise the re-review keeps the original focus, so a focused first pass never widens into a full review. The one exception is the check on lines the fix itself touched (step 3 of the prompt below), because a fix can break a rule outside the focus it was made for.
 
 Print (plain text): `→ Re-reviewing post-fix (cycle <N>) with opus…`
 
@@ -678,11 +678,18 @@ Host repository rules (apply as the Code Review Convention describes): <one path
 ## Files to Re-review
 <one path per line from changed_files>
 
+## What the Fix Changed
+<the selected concern blocks passed to the fix Agent, then the fix Agent's returned summary>
+
 ## Instructions
 
 1. Read the full current content of each file using the Read tool.
-2. Apply the checks in these sections of the Code Review Convention: <the § numbers and names in focus_categories>. <When focused, add: "Do not check or report on any other category.">
-3. Produce the same report format as before (# Code Review Report … ## Review Metadata), with `- Focus: <focus_label>` in the header, `<status_suffix>` on the STATUS line, and section headers only for the categories above.
+2. Apply the checks in these sections of the Code Review Convention: <the § numbers and names in focus_categories>. <When focused, add: "Do not check or report on any other category, except as step 3 requires.">
+3. Whatever the focus, check every line the fix touched (per "What the Fix Changed") against these rules, and report anything the fix introduced labelled `[new]`:
+   - the **Comments** rule in <absolute path to ${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md> — no narration, banner or divider comments, no comments that restate code or cite the review that produced them;
+   - the style rule in the Dev convention — the change matches the surrounding code's style and formatting;
+   - the host repository rules listed above.
+4. Produce the same report format as before (# Code Review Report … ## Review Metadata), with `- Focus: <focus_label>` in the header, `<status_suffix>` on the STATUS line, and section headers only for the categories above, plus any category a `[new]` finding from step 3 falls under.
    For changed_files in Review Metadata, repeat the same file list.
 ```
 
