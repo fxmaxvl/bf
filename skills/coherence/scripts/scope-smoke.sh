@@ -61,17 +61,17 @@ check "paths: '.' skips .bf" $ok
 
 # git C-quotes these names in the `diff --git` header even with core.quotePath=false.
 new_repo
-tab=$(printf 't\tab.txt'); ctl=$(printf 'c\001tl.txt')
+tab=$(printf 't\tab.txt'); ctl=$(printf 'c\001tl.txt'); nl=$(printf 'n\nl.txt')
 echo q > 'q"x.txt'; git add . && git commit -qm quoted
-echo change >> 'q"x.txt'; echo t > "$tab"; echo c > "$ctl"; echo b > 'b\s.txt'
+echo change >> 'q"x.txt'; echo t > "$tab"; echo c > "$ctl"; echo l > "$nl"; echo b > 'b\s.txt'
 out=$(bash "$scope" --with-diff --with-untracked)
 ok=0
-for f in 'q"x.txt' "$tab" "$ctl" 'b\s.txt'; do
+for f in 'q"x.txt' "$tab" "$ctl" "$nl" 'b\s.txt'; do
   has "$out" "$f" || ok=1
   jq -e --arg f "$f" '[.hunks[] | select(.file == $f)] | length == 1' <<< "$out" >/dev/null || ok=1
   jq -e --arg f "$f" '.whitespace_only_files | index($f) == null' <<< "$out" >/dev/null || ok=1
 done
 jq -e '.file_count == (.files | length)' <<< "$out" >/dev/null || ok=1
-check "working: quoted, tab, control-byte and backslash names keep files, hunks and file_count" $ok
+check "working: quoted, tab, control-byte, newline and backslash names keep files, hunks and file_count" $ok
 
 exit $fail
