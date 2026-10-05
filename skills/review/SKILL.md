@@ -137,7 +137,7 @@ Then list the host repository's own rule files the same way — paths only, neve
 bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/host-rules.sh"
 ```
 
-It prints a JSON array of absolute paths (`[]` when the repo has none). Pass them to every review Agent as `host_rules`; how they rank against the bf conventions is set in the Code Review Convention.
+It prints a JSON array of absolute paths (`[]` when the repo has none). If it prints an `error` object instead, print its `detail`, continue with `host_rules = none`, and do not stop the review. Pass the paths to the review Agent (Prompt A) and the re-review Agent as `host_rules`; how they rank against the bf conventions is set in the Code Review Convention.
 
 ### Resolve scope and changed_files
 
@@ -686,7 +686,7 @@ Host repository rules (apply as the Code Review Convention describes): <one path
 1. Read the full current content of each file using the Read tool.
 2. Apply the checks in these sections of the Code Review Convention: <the § numbers and names in focus_categories>. <When focused, add: "Do not check or report on any other category, except as step 3 requires.">
 3. Whatever the focus, check every line the fix touched (per "What the Fix Changed") against these rules, and report anything the fix introduced labelled `[new]`:
-   - the **Comments** rule in <absolute path to ${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md> — no narration, banner or divider comments, no comments that restate code or cite the review that produced them;
+   - the **Comments** rule in <absolute path to ${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md>;
    - the style rule in the Dev convention — the change matches the surrounding code's style and formatting;
    - the host repository rules listed above.
 4. Produce the same report format as before (# Code Review Report … ## Review Metadata), with `- Focus: <focus_label>` in the header, `<status_suffix>` on the STATUS line, and section headers only for the categories above, plus any category a `[new]` finding from step 3 falls under.
@@ -719,6 +719,7 @@ List remaining concerns by ID and label if any exist.
 | Not a git repository | Print "Not a git repository. Exiting." and stop. |
 | `<project_root>/.bf` not writable | Fall back to `~/.bf/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (`resolve-conventions.sh` returns `null` for it) | Print "Convention file not found: <name>. This may be a plugin install issue." and stop. |
+| `host-rules.sh` prints an `error` object (`not_a_git_repo`, `jq_missing`) | Print `detail`, continue with `host_rules = none`. Do not stop the review. |
 | `--focus` names a lens not in the lens table | Ask which valid lens was meant. When unattended, run the full review with `focus_label` = `full (assumed — unknown lens <name>)`. |
 | Unclear whether text is scope or focus | Ask, with the full review recommended. When unattended, run the full review with `focus_label` = `full (assumed — <reason>)`. |
 

@@ -114,9 +114,10 @@ names), and read `replies[]` — a thread may already contain the counter-argume
 answer. Load the conventions the comment touches via the 3-step lookup in `plugin-main.md` (`dev`,
 `code-review`, `testing`, `architecture`, plus anything `/bf:scan-conventions` surfaces), and the
 host repository's own rule files — `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/host-rules.sh"`
-lists them; the Code Review Convention says which wins when they disagree with bf's. A
-reviewer's stylistic preference that contradicts a project convention loses to the convention, and
-that is the argument to make in the reply.
+lists them (on an `error` object, print its `detail` and carry on without host rules); the Code
+Review Convention says which wins when they disagree with bf's. A reviewer's stylistic preference
+that contradicts a project convention loses to the convention, and that is the argument to make in
+the reply.
 
 Group comments that make the same point across files, and triage the group once. Reviewers repeat
 themselves; so do bots. **A group is one verdict over many threads, never one thread standing in for
@@ -300,6 +301,7 @@ has unpushed fixes, so the reviewer is looking at replies that reference code th
 | Condition | Handling |
 |-----------|----------|
 | `gh` missing or unauthenticated | The script returns `gh_missing` / `gh_unauthenticated`. Print `detail` and stop — `gh` is a stated bf requirement |
+| `host-rules.sh` prints an `error` object | Print `detail`, continue without host rules. Do not stop |
 | No PR for the current branch | `no_pr`. Ask for a PR number or URL — one question |
 | `counts.actionable` is `0`, no review in flight | `STATUS: NO_OPEN_COMMENTS` and stop. Do not go looking for feedback elsewhere |
 | `counts.actionable` is `0` but a review is still running | Wait via `wait-for-review.sh` (see the fetch step), then act on its `status` |
