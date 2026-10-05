@@ -36,5 +36,5 @@ Repeat the following loop until no unchecked items remain — do not wait for us
 3. Carefully plan your approach before touching any code — think through edge cases, dependencies, and impact on existing code.
 4. Implement the item — write robust, readable code, add tests, verify tests pass.
 5. Mark the item as checked (`- [x]`) immediately after completing it: Read `paths.todo` with `offset` at the line number from step 1 and `limit: 1`, then Edit that line.
-6. Commit your changes following the `git` convention (resolved via the lookup in `plugin-main.md`). Use `feat:` for new functionality, `fix:` for bug corrections within the feature. Do **not** stage anything in `.bf/sessions/`.
+6. Commit your changes following the `git` convention (resolved via the lookup in `plugin-main.md`). Use `feat:` for new functionality, `fix:` for bug corrections within the feature. Do **not** stage anything in `.bf/` except `.bf/conventions/`.
 7. Go back to step 1.
