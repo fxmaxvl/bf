@@ -8,7 +8,7 @@ Review the **full context** of changed code — not just the diff. Read the surr
 
 ## 1. Development conventions check
 
-Read `./dev.md` and verify the changes comply with every rule. Key things to flag:
+Read the `dev` convention (resolved via the Convention Lookup in `plugin-main.md`) and verify the changes comply with every rule. Key things to flag:
 
 - Code style, naming, and patterns inconsistent with the existing codebase
 - Changes larger in scope than the task requires (unrelated modifications)
@@ -21,11 +21,11 @@ Read `./dev.md` and verify the changes comply with every rule. Key things to fla
 
 ## 2. Testing conventions check
 
-Read `./testing.md` and verify the changes comply with every rule. Key things to flag:
+Read the `testing` convention (resolved via the Convention Lookup in `plugin-main.md`) and verify the changes comply with every rule. Key things to flag:
 
 - Missing tests for the implemented functionality
 - Missing unit, integration, or end-to-end tests (all three are required — no exceptions)
-- Tests written after the implementation instead of before (TDD violation — see `./dev.md` for the full TDD process)
+- Tests written after the implementation instead of before (TDD violation — see the `dev` convention for the full TDD process)
 - Test output that is not pristine (unexpected logs, warnings, or errors not explicitly asserted)
 - Tests that ignore or swallow logs/error output instead of asserting on them
 
@@ -53,7 +53,7 @@ Read the surrounding code — the file, the module, and related components — b
 
 - Logic placed in the wrong layer or abstraction level (e.g., business logic leaking into UI or data layer)
 - New code that duplicates something that already exists elsewhere in the codebase
-- Inconsistency with the architectural patterns already in use (read `./architecture.md`)
+- Inconsistency with the architectural patterns already in use — read the `architecture` convention, resolved via the Convention Lookup in `plugin-main.md`
 - Abstractions introduced prematurely for a single use case (YAGNI)
 - Missing abstractions where similar logic appears more than twice (DRY)
 - Classes, modules, or functions doing more than one thing (SRP violation)
