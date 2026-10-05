@@ -10,7 +10,7 @@ bf enforces a structured workflow between you and Claude: clarify the idea first
 
 **Three modes:**
 - **Full** — for new features: brainstorm → spec → design review → plan → execute → verify → PR
-- **Quick** — for bugfixes and small changes: refine → plan → execute → verify → PR
+- **Quick** — for bugfixes and small changes: refine → research → plan → execute → verify → audit → review → PR
 - **Micro** — for focused refactors: clarify only if needed, execute with complexity and quality guards
 
 Also includes a standalone design tool (`/bf:design`) for producing shareable system design documents — useful before any code is written, or when you need to align with teammates first.
