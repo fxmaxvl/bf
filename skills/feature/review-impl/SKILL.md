@@ -30,11 +30,8 @@ Use the Block Reading Pattern from `plugin-main.md` to extract each block.
 ## Review Criteria
 
 ### 1. Feature completeness
-- The spec's `## Functional Requirements` section is the authoritative list. Extract it from `paths.session_log` using the Block Reading Pattern from `plugin-main.md`:
-  ```bash
-  bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.session_log> --block "## Functional Requirements"
-  ```
-- For each requirement in that section, verify it is implemented by checking the actual code
+- The authoritative list of requirements comes from the input already read above: in full mode, the **Functional requirements** bullet inside the `## Spec` block (it is a bullet, not a `##` header of its own); in quick and micro mode, the `## QA` block.
+- For each requirement in that list, verify it is implemented by checking the actual code
 - Flag any requirement that is missing or partially implemented
 
 ### 2. Dev conventions
