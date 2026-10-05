@@ -32,7 +32,7 @@ Otherwise, use `$ARGUMENTS` as the idea and begin with the first question below.
 
 Ask 6–8 questions in the order that makes sense for the specific idea. The list below gives the topic areas and their purpose — adapt the phrasing to the actual idea. Stop earlier if the design space is clearly well-defined and further questions would be splitting hairs.
 
-Suggested areas, in rough order:
+Suggested areas, in rough order. Most areas list more than one prompt — they are alternatives to pick from, not a batch: ask one question per turn and never put an area's prompts in the same message.
 
 1. **Problem framing / actors** — Who uses this? What problem are they facing today? Who else is affected?
 2. **Systems and services involved** — Which existing services, APIs, databases, or third-party integrations are in scope?
