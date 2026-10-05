@@ -78,7 +78,13 @@ if [ "$mode" = working ] && [ -z "$diff" ]; then
 fi
 
 name_awk='
-function hdr_name(line,   i, j, k, n, s, c, out) {
+BEGIN { for (k = 1; k < 32; k++) ctl[sprintf("%c", k)] = k }
+function octal(s, j,   k, n) {
+  n = 0
+  for (k = 0; k < 3; k++) n = n * 8 + substr(s, j + k, 1)
+  return n
+}
+function hdr_name(line,   i, j, s, c, out) {
   if (line !~ /"$/) { sub(/^diff --git .* b\//, "", line); return line }
   for (i = length(line) - 3; i > 0; i--) if (substr(line, i, 4) == " \"b/") break
   s = substr(line, i + 4, length(line) - i - 4); out = ""
@@ -88,17 +94,17 @@ function hdr_name(line,   i, j, k, n, s, c, out) {
     c = substr(s, ++j, 1)
     # git writes bytes 7..13 as \a \b \t \n \v \f \r, in that order
     if (c ~ /[abtnvfr]/) out = out sprintf("%c", index("abtnvfr", c) + 6)
-    else if (c ~ /[0-7]/) { n = 0; for (k = 0; k < 3; k++) n = n * 8 + substr(s, j + k, 1); j += 2; out = out sprintf("%c", n) }
+    else if (c ~ /[0-7]/) { out = out sprintf("%c", octal(s, j)); j += 2 }
     else out = out c
   }
   return out
 }
-function json_str(s,   i, k, c, out) {
+function json_str(s,   i, c, out) {
   out = ""
   for (i = 1; i <= length(s); i++) {
     c = substr(s, i, 1)
     if (c == "\\" || c == "\"") out = out "\\" c
-    else if (c < " ") { for (k = 1; k < 32 && sprintf("%c", k) != c; k++); out = out sprintf("\\u%04x", k) }
+    else if (c < " ") out = out sprintf("\\u%04x", ctl[c])
     else out = out c
   }
   return out
