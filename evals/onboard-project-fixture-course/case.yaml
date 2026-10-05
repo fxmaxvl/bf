@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: onboard-project-fixture-course
+description: "bf:onboard-project on a two-service fixture repo writes a complete bf:teach workspace: mission, resources, glossary, notes, course map, lessons and references, no learning-records, the survey and lesson writers fan out, and verify reports no broken links"
+tags: [onboard-project, teach]
+context:
+  scaffold_script: scaffold.sh
