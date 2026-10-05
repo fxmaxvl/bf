@@ -109,10 +109,13 @@ def read_output(root, state):
     print(json.dumps({
         'slug':            slug,
         'build_timestamp': ts,
+        'idea':            state.get('idea'),
         'mode':            state['mode'],
         'phase':           state['phase'],
         'phase_status':    state['phase_status'],
         'parallel_audit':  state.get('parallel_audit', False),
+        'collect_todos':   state.get('collect_todos'),
+        'audit_started_at': state.get('audit_started_at'),
         'artifacts_dir':   adir,
         'artifact_prefix': prefix,
         'paths':           artifact_paths(adir, prefix),
