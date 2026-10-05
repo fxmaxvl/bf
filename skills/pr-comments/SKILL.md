@@ -112,7 +112,9 @@ snapshot from when the comment was written and `outdated: true` means the lines 
 For each comment: read the file around `line` (or, for `issue`/`review` comments, the files the body
 names), and read `replies[]` — a thread may already contain the counter-argument or the author's own
 answer. Load the conventions the comment touches via the 3-step lookup in `plugin-main.md` (`dev`,
-`code-review`, `testing`, `architecture`, plus anything `/bf:scan-conventions` surfaces). A
+`code-review`, `testing`, `architecture`, plus anything `/bf:scan-conventions` surfaces), and the
+host repository's own rule files — `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/host-rules.sh"`
+lists them; the Code Review Convention says which wins when they disagree with bf's. A
 reviewer's stylistic preference that contradicts a project convention loses to the convention, and
 that is the argument to make in the reply.
 

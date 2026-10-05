@@ -4,6 +4,8 @@ When reviewing code, you MUST check compliance with the relevant convention docs
 
 Review the **full context** of changed code — not just the diff. Read the surrounding file, related modules, and how the change fits into the existing structure before forming conclusions.
 
+**Host repository rules.** When the review is handed the repository's own rule files (`AGENTS.md`, `CLAUDE.md`, `REVIEW.md`, `CONTRIBUTING.md`, `.agents/instructions/`), apply them alongside every check below — they are what the repository's own reviewers enforce. Where a host rule and a bf convention disagree, the host rule wins, unless that convention comes from `.bf/conventions/` or `~/.bf/conventions/` (an override the user chose for bf on purpose). Name each such conflict in the concern it affects, saying which source was applied.
+
 ---
 
 ## 1. Development conventions check

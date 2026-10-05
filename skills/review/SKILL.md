@@ -91,7 +91,7 @@ When `dry_run=true`, skip every Agent spawn and exit before Phase 1 work begins.
 
 Steps:
 
-1. Resolve conventions exactly as Phase 1 does — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture` — but do **not** read the file bodies. Capture only the resolved absolute paths.
+1. Resolve conventions exactly as Phase 1 does — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture`, plus one `host-rules.sh` call — but do **not** read the file bodies. Capture only the resolved absolute paths.
 2. Print this block (plain text, not in a code fence):
 
    ```
@@ -104,6 +104,7 @@ Steps:
      - dev:         <resolved path or "MISSING">
      - testing:     <resolved path or "MISSING">
      - architecture: <resolved path or "MISSING">
+   Host repository rules: <one path per line from host_rules, or "none">
    Agents that would be spawned (skipped in dry-run):
      - review Agent        (model: opus) — Phase 1 parallel batch
      - complexity-gate Agent (model: opus) — Phase 1 parallel batch
@@ -129,6 +130,14 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.
 ```
 
 Read the four absolute paths from the JSON; a `null` is the "Convention file missing" edge case. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
+
+Then list the host repository's own rule files the same way — paths only, never bodies:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/host-rules.sh"
+```
+
+It prints a JSON array of absolute paths (`[]` when the repo has none). Pass them to every review Agent as `host_rules`; how they rank against the bf conventions is set in the Code Review Convention.
 
 ### Resolve scope and changed_files
 
@@ -267,6 +276,8 @@ Read each of these files and apply it strictly:
 - Testing: <resolved absolute path to testing.md>
 - Architecture: <resolved absolute path to architecture.md>
 - Code review: <resolved absolute path to code-review.md>
+
+Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
 
 ## Scope
 
@@ -661,6 +672,8 @@ Read each of these files and apply it strictly:
 - Testing: <resolved absolute path to testing.md>
 - Architecture: <resolved absolute path to architecture.md>
 - Code review: <resolved absolute path to code-review.md>
+
+Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
 
 ## Files to Re-review
 <one path per line from changed_files>
