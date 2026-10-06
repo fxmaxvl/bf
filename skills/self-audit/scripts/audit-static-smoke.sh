@@ -24,6 +24,13 @@ kit_findings='[.findings[]|select(.check=="broken-ref" and (.path|startswith("sk
 
 eq "untouched copy: no kit-template broken-ref" "$(audit | jq -c "$kit_findings")" '[]'
 
+sub_findings='[.findings[]|select(.check=="broken-subskill-ref" and .path=="skills/zz-probe/SKILL.md")|.audit_id]'
+mkdir -p "$copy/skills/zz-probe"
+printf 'See `<KIT>/skills/gone/SKILL.md` and `gone-skill/sub/SKILL.md`.\n' > "$copy/skills/zz-probe/SKILL.md"
+eq "placeholder-rooted ref exempt, bare missing ref flagged" "$(audit | jq -c "$sub_findings")" \
+  '["broken-subskill-ref:skills/zz-probe/SKILL.md:gone-skill/sub/SKILL.md"]'
+rm -r "$copy/skills/zz-probe"
+
 tpl=skills/kit/templates/skills/adopt-skill/SKILL.md
 sed 's|/context/main.md|/context/mian.md|' "$copy/$tpl" > "$copy/$tpl.new" && mv "$copy/$tpl.new" "$copy/$tpl"
 eq "typo'd template ref is reported" "$(audit | jq -c "$kit_findings")" "[\"broken-ref:$tpl:context/mian.md\"]"

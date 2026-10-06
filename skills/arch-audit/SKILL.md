@@ -57,7 +57,7 @@ of, what it depends on, and the findings that are visible at the whole-system le
 
 ## Phase 2 — Branch fan-out
 
-Spawn one agent per top-level unit, **all in a single message**, named `arch:<unit>` so the run is
+Spawn one agent per top-level unit, **all in a single message**, named `arch-<unit>` so the run is
 legible on the fleet board. Wait for every one before continuing — the fan-out is atomic, per the
 **Parallel Fan-Out** convention. Agents must not message each other.
 

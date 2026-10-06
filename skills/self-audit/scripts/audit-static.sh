@@ -169,11 +169,13 @@ while IFS= read -r f; do
   done < <(grep -o '\${CLAUDE_PLUGIN_ROOT}/[A-Za-z0-9._/-]*' "$f" 2>/dev/null \
            | sed 's|\${CLAUDE_PLUGIN_ROOT}/||' | sed 's|[./]*$||' | sort -u)
   # bare sub-skill references like `feature/verify/SKILL.md`. Documentation
-  # placeholders (`path/to/SKILL.md`) are exempted by their leading segment --
+  # placeholders (`path/to/SKILL.md`) are exempted by their leading segment, and
+  # refs rooted at a `<PLACEHOLDER>/` point into some other tree (a generated kit) --
   # anything else missing is flagged, including a ref to a skill that never
   # existed, which is the breakage most worth catching.
   while IFS= read -r ref; do
     [ -n "$ref" ] || continue
+    case "$ref" in '<'*) continue ;; esac
     ref=${ref#skills/}
     case "${ref%%/*}" in path|to|name|example|foo|bar|your|my) continue ;; esac
     # Deferred: the optional judgment pass below decides which of these are
@@ -181,7 +183,7 @@ while IFS= read -r f; do
     [ -e "$ROOT/skills/$ref" ] || printf '%s\t%s\t%s\n' "$rel" "$ref" \
       "$(grep -m1 -F "$ref" "$f" 2>/dev/null | tr '\t' ' ' | cut -c1-200)" >>"$MISSING"
   done < <(grep -v 'CLAUDE_PLUGIN_ROOT' "$f" 2>/dev/null \
-           | grep -o -E '[a-z0-9][a-z0-9-]*(/[a-z0-9-]+)+/SKILL\.md' | sort -u)
+           | grep -o -E '(<[A-Za-z_-]+>/)?[a-z0-9][a-z0-9-]*(/[a-z0-9-]+)+/SKILL\.md' | sort -u)
 done < <(find "$ROOT/skills" -name SKILL.md -type f | sort)
 
 # ---- broken sub-skill refs, minus anything judged illustrative -------------
