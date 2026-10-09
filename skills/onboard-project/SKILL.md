@@ -7,7 +7,7 @@ disable-model-invocation: true
 # A run spawns ~7 survey agents plus lesson writers and a persistent workspace — only an explicit
 # /bf:onboard-project should start that, matching bf:teach's command-only guard.
 argument-hint: "[your role or first task, e.g. 'backend dev, will own payments' — empty to be asked]"
-allowed-tools: Read, Write, Edit, Grep, Glob, Agent, WebSearch, WebFetch, Bash(git *), Bash(bash *), Bash(mkdir *), Bash(cp *), Bash(open *), Bash(rtk *)
+allowed-tools: Read, Write, Edit, Grep, Glob, Agent, SendMessage, TaskStop, WebSearch, WebFetch, Bash(git *), Bash(bash *), Bash(mkdir *), Bash(cp *), Bash(open *), Bash(rtk *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
@@ -102,6 +102,8 @@ Split the syllabus into contiguous batches of no more than 4 lessons. Spawn one 
 
 Like the survey agents, each writer's final act is its one-line result to `team-lead`.
 
+**Check for silent writers.** A writer that is running but has staged nothing blocks the run with no signal, and silence never wakes the orchestrator. So each time a writer reports or goes idle, Glob `<facts_dir>/staging/lessons/<first>-*.html` for every batch that has not reported yet. When a batch's first lesson is still missing, send its writer one `SendMessage` asking for its status. If the next check still finds nothing, stop the writer with `TaskStop` first, because a slow writer left running would overwrite its replacement's files. Then re-spawn it or write its batch inline. Either one is that writer's single retry under **Edge Cases**.
+
 Writers follow `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md` for lesson and reference design, with these overrides:
 
 - Use the syllabus-assigned number and filename. Never scan the directory and increment.
@@ -149,6 +151,7 @@ Print the workspace path, the lesson and reference counts, any skipped areas, an
 | Argument already states role or task | Skip the mission question. |
 | Area absent (e.g. no DB, no CI) | Skip its lesson, list it in the course map and in MISSION's Out of scope. |
 | `units.mode` is `dir` | Architecture lessons say the topology was inferred from directories, not build units. |
+| Lesson writer running but silent | Phase 4's silent-writer check: one message, then stop it and retry once. |
 | Survey or lesson agent fails or writes nothing | Re-spawn that one agent once. If it fails again, mark its lessons missing in the course map. Never present a partial course as complete. |
 | Repo docs contradict the code | Teach what the code does, cite both sides, and add the discrepancy to NOTES.md as a question for the team. |
 | Secrets found in tracked config | Never copy the values into lessons, fact sheets, `NOTES.md` or `RESOURCES.md`. Name the file and the variable only. |
