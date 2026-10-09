@@ -30,7 +30,7 @@ Parse the topic from the argument. If no topic is given, ask ONE question: what 
 
 Teaching content is **personal and cross-project**, so the workspace is **always user-global** — never the project-first `.bf/` lookup. Putting HTML lessons and learning material into a work repo's `.bf/` would scatter personal study material across codebases.
 
-- Workspace root: **`~/.bf/teach/<topic-slug>/`** — always, regardless of cwd or git repo.
+- Workspace root: **`~/.bf/teach/<slug>/`** — always, regardless of cwd or git repo.
 - This skill also does **not** use plugin-main's session-log/temp two-file layout (that pattern is for one-shot workflow skills). Each topic gets its own persistent directory instead.
 - One file lives a level **above** the per-topic dirs, at the teach root: `~/.bf/teach/LEARNING-PROFILE.md`. It is **user-global and shared across every topic** — how a person learns is a property of the learner, not the subject — so it is deliberately not stored per slug. See [./LEARNING-PROFILE-FORMAT.md](./LEARNING-PROFILE-FORMAT.md) and Phase 1.5.
 
@@ -42,9 +42,9 @@ Workspace layout inside `~/.bf/teach/<slug>/`:
 | `RESOURCES.md` | Curated high-trust sources + communities. See [./RESOURCES-FORMAT.md](./RESOURCES-FORMAT.md). |
 | `GLOSSARY.md` | Canonical, opinionated terminology. See [./GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md). |
 | `NOTES.md` | Scratchpad for **topic-specific** teaching notes (e.g. "for Rust, skip the borrow-checker theory — they get it"). For cross-topic learning style, use `LEARNING-PROFILE.md` instead. |
-| `lessons/NNNN-<slug>.html` | The primary teaching unit — one self-contained lesson. |
-| `reference/NNNN-<slug>.html` | Compressed reusable knowledge, designed for quick review. |
-| `learning-records/NNNN-<slug>.md` | ADR-style insights that steer future sessions. See [./LEARNING-RECORD-FORMAT.md](./LEARNING-RECORD-FORMAT.md). |
+| `lessons/NNNN-<lesson-slug>.html` | The primary teaching unit — one self-contained lesson. |
+| `reference/NNNN-<lesson-slug>.html` | Compressed reusable knowledge, designed for quick review. |
+| `learning-records/NNNN-<record-slug>.md` | ADR-style insights that steer future sessions. See [./LEARNING-RECORD-FORMAT.md](./LEARNING-RECORD-FORMAT.md). |
 
 One file lives **at the teach root**, a level above the per-topic directories — it is shared across all topics, not scoped to a slug:
 
@@ -107,11 +107,11 @@ Before `RESOURCES.md` is well-populated, your priority is finding high-trust sou
 
 ## Phase 5 — Produce the lesson (the primary output)
 
-A lesson is the main thing you produce — the unit in which knowledge and skills reach the user. Write it to `lessons/NNNN-<slug>.html` following the lesson rules in [./LESSON-FORMAT.md](./LESSON-FORMAT.md). Carry the Phase 1.5 learning profile into the lesson per that file's profile rule.
+A lesson is the main thing you produce — the unit in which knowledge and skills reach the user. Write it to `lessons/NNNN-<lesson-slug>.html` following the lesson rules in [./LESSON-FORMAT.md](./LESSON-FORMAT.md). Carry the Phase 1.5 learning profile into the lesson per that file's profile rule.
 
 ## Phase 6 — Reference + glossary upkeep
 
-Extract reusable knowledge into `reference/NNNN-<slug>.html` per the reference rules in [./LESSON-FORMAT.md](./LESSON-FORMAT.md). Promote terms into `GLOSSARY.md` per [./GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md), under the glossary promotion rule in [./LESSON-FORMAT.md](./LESSON-FORMAT.md): only once the user demonstrably understands a term, and once it is in the glossary, adhere to it everywhere.
+Extract reusable knowledge into `reference/NNNN-<lesson-slug>.html` per the reference rules in [./LESSON-FORMAT.md](./LESSON-FORMAT.md). Promote terms into `GLOSSARY.md` per [./GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md), under the glossary promotion rule in [./LESSON-FORMAT.md](./LESSON-FORMAT.md): only once the user demonstrably understands a term, and once it is in the glossary, adhere to it everywhere.
 
 ## Phase 7 — Acquiring wisdom
 
@@ -119,7 +119,7 @@ Wisdom comes from real-world interaction. When a question needs real-world judgm
 
 ## Phase 8 — Record learning
 
-Write a `learning-records/NNNN-<slug>.md` per [./LEARNING-RECORD-FORMAT.md](./LEARNING-RECORD-FORMAT.md) when ANY of these is true:
+Write a `learning-records/NNNN-<record-slug>.md` per [./LEARNING-RECORD-FORMAT.md](./LEARNING-RECORD-FORMAT.md) when ANY of these is true:
 
 1. The user demonstrated genuine, non-trivial understanding (evidence of correct use, not mere exposure).
 2. The user disclosed prior knowledge ("I already know X") — record it and the depth claimed.

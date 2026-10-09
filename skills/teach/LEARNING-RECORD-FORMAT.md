@@ -24,7 +24,7 @@ Only include these when they add genuine value. Most records won't need them.
 
 ## Numbering
 
-Scan `learning-records/` for the highest existing number and increment by one. The `slug` names the record's topic; other skills read it to tell which topics a workspace already covers.
+Scan `learning-records/` for the highest existing number and increment by one. The filename's slug (`<record-slug>`) names what the record is about, never the workspace; other skills read it to tell what a workspace already covers.
 
 ## When to write a learning record
 

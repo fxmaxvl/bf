@@ -24,7 +24,7 @@ Print banner (plain text):
 
 **Workspace location (a named exception in plugin-main).** The lesson is written to `~/.bf/teach/<slug>/`, where `bf:teach` expects it, so that `/bf:teach <slug>` can continue it.
 
-**Terms.** A *subject* is a teach workspace (`~/.bf/teach/<slug>/`): a language, a practice, or a concept area. A *topic* is this lesson's narrower slice of a subject.
+**Terms.** A *subject* is a teach workspace (`~/.bf/teach/<slug>/`; bf:teach calls it the topic): a language, a practice, or a concept area. A *topic* here is this lesson's narrower slice of a subject, and its slug is the `<lesson-slug>` in lesson filenames.
 
 **Match by meaning.** Slugs are lossy (`python` and `python-programming` are one subject), so compare what two names mean, never the strings. Every "match" below uses this rule.
 
@@ -54,7 +54,7 @@ Never copy secret values (name the variable only) and generalize internal identi
 1. `mkdir -p ~/.bf/teach` and `ls` the workspace directories.
 2. Assign every candidate a subject slug by match by meaning; no match proposes a new slug. English proposes `english` and is matched like any other subject.
 3. For an existing workspace, N is its lesson count per the Numbering rules in `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md`.
-4. Covered check, only for candidates with an existing workspace: compare the topic by meaning against that workspace's lesson topic slugs (the `<slug>` of `NNNN-<slug>.html`, per LESSON-FORMAT's Numbering rules) and its `learning-records/` topic slugs (the `<slug>` of `NNNN-<slug>.md`, per `${CLAUDE_PLUGIN_ROOT}/skills/teach/LEARNING-RECORD-FORMAT.md`). A match marks the entry `(covered)`. It stays pickable and sorts after every uncovered entry. A candidate headed for a new workspace is never covered.
+4. Covered check, only for candidates with an existing workspace: compare the topic by meaning against that workspace's `<lesson-slug>`s (from `NNNN-<lesson-slug>.html`, per LESSON-FORMAT's Numbering rules) and its `<record-slug>`s (from `learning-records/NNNN-<record-slug>.md`, per `${CLAUDE_PLUGIN_ROOT}/skills/teach/LEARNING-RECORD-FORMAT.md`). A match marks the entry `(covered)`. It stays pickable and sorts after every uncovered entry. A candidate headed for a new workspace is never covered.
 
 ## Phase 3 — Menu (one question)
 
@@ -91,7 +91,7 @@ A part of the topic with no good source goes under `## Gaps` in `RESOURCES.md`, 
 
 ## Phase 6 — Write the lesson
 
-Write one self-contained HTML lesson per `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md`, short and quickly completable, shaped by the profile from Phase 1 when it is active. Run `mkdir -p <workspace>/lessons <workspace>/reference` first, for every workspace. Path: `lessons/NNNN-<topic-slug>.html`, numbered per LESSON-FORMAT's Numbering rules.
+Write one self-contained HTML lesson per `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md`, short and quickly completable, shaped by the profile from Phase 1 when it is active. Run `mkdir -p <workspace>/lessons <workspace>/reference` first, for every workspace. Path: `lessons/NNNN-<lesson-slug>.html`, numbered per LESSON-FORMAT's Numbering rules.
 
 Sections, in order:
 
@@ -105,7 +105,7 @@ Sections, in order:
 
 Link the lesson to its cheat sheet and to the previous lesson when one exists. Code written for the lesson follows the `dev`, `typescript` and `python` conventions, resolved with `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" dev typescript python`; snippets quoted from the session are exempt and labelled as quoted.
 
-Write the cheat sheet at `reference/NNNN-<topic-slug>.html` per LESSON-FORMAT's reference rules. Number it per LESSON-FORMAT's Numbering rules.
+Write the cheat sheet at `reference/NNNN-<lesson-slug>.html` per LESSON-FORMAT's reference rules. Number it per LESSON-FORMAT's Numbering rules.
 
 Then the workspace files:
 
