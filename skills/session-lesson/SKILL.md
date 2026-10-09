@@ -88,3 +88,27 @@ Every pick yields a `(topic, slug)`. If `<slug>/MISSION.md` exists, read it to g
 Continue with WebSearch and WebFetch for high-trust sources on this topic only. Knowledge comes from these sources, never from parametric memory. Record them in `RESOURCES.md` per `${CLAUDE_PLUGIN_ROOT}/skills/teach/RESOURCES-FORMAT.md`: Knowledge and Wisdom groups, every entry annotated. Create the file if it is missing; otherwise append under the right group without duplicating a listed entry. Pick one primary resource.
 
 A part of the topic with no good source goes under `## Gaps` in `RESOURCES.md`, and the lesson marks that part as omitted rather than filling it from memory.
+
+## Phase 6 — Write the lesson
+
+Write one self-contained HTML lesson per `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md`, short and quickly completable, shaped by the profile from Phase 1 when it is active. Path: `lessons/NNNN-<topic-slug>.html`, where NNNN is the highest existing number + 1 (starting at `0001`). Check immediately before writing that the path does not exist; if it does, re-scan and take the next number. Never overwrite.
+
+Sections, in order:
+
+1. **Why this, now**: where it came up in the session.
+2. **Theory with examples**: every claim linked to a `RESOURCES.md` source. Put the main language beside the target language only when Phase 3 resolved it; otherwise use the target language alone.
+3. **Quiz**: in-browser and self-checking; answer options equal in word count and, where possible, character count.
+4. **Practice task** fitted to the topic: port a snippet, a LeetCode-style problem in that stack, a research-grounded exercise for a non-language topic, or for English a rewrite of the user's own sentences. Follow it with a collapsed `<details>` reference solution.
+5. **Primary resource** callout.
+6. **Further reading**: links drawn from `RESOURCES.md`.
+7. **Teacher reminder**: follow-up questions are welcome, and `/bf:teach <slug>` continues the workspace, including a review of their solution.
+
+Link the lesson to its cheat sheet and to the previous lesson when one exists. Code written for the lesson follows the `dev`, `typescript` and `python` conventions, resolved with `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" dev typescript python`; snippets quoted from the session are exempt and labelled as quoted.
+
+Write the cheat sheet at `reference/NNNN-<topic-slug>.html` per LESSON-FORMAT's reference rules. Number it by scanning `reference/` on its own, with the same exists-check.
+
+Then the workspace files:
+
+- New workspace: `GLOSSARY.md` with only a header per `${CLAUDE_PLUGIN_ROOT}/skills/teach/GLOSSARY-FORMAT.md`.
+- `NOTES.md`: create it if missing, otherwise append: the date, the session topic, and candidate glossary terms for teach to promote later. Leave an existing `GLOSSARY.md` alone.
+- Never write `learning-records/`, and never promote glossary terms.
