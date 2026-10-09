@@ -74,7 +74,7 @@ If `tracked_files` < 50, do the survey inline instead. Fanning out over a tiny r
 
 ## Phase 3 — Syllabus
 
-Read every fact sheet and write `<facts_dir>/syllabus.md`: an ordered list of lessons, numbered `0001` upwards in curriculum order. Each entry gives the slug, a one-line objective tied to the mission, its source fact sheet(s), and the reference doc it feeds. Fix every number here, before anyone writes a lesson, so that parallel writers can't collide.
+Read every fact sheet and write `<facts_dir>/syllabus.md`: an ordered list of lessons, numbered `0001` upwards in curriculum order. Each entry gives the `<lesson-slug>` (what the lesson covers, never the workspace; see LESSON-FORMAT's Numbering rules), a one-line objective tied to the mission, its source fact sheet(s), and the reference doc it feeds. Fix every number here, before anyone writes a lesson, so that parallel writers can't collide.
 
 - Skip an area only when its fact sheet says `absent`. Record the skip, and why, for the course map.
 - Every area that applies gets at least one lesson. Split an area into several lessons when one would exceed teach's "short and quickly completable" rule. In a monorepo, give each top-level unit its own architecture lesson, up to 8 units, and group the rest.

@@ -1,6 +1,6 @@
 ---
 name: session-lesson
-description: "Use when a working session is ending and you want to study what it taught you — 'make me a lesson from this session', 'what should I learn from today'. Mines the live conversation for tech topics and your own repeated English mistakes, offers a short menu, and writes one bf:teach lesson with a cheat sheet. For one topic learned over many sessions use bf:teach; for a whole-repo course use bf:onboard-project."
+description: "Use when a working session is ending and you want to study what it taught you — 'make me a lesson from this session', 'what should I learn from today'. Mines the live conversation for tech topics and your own repeated English mistakes, offers a short menu, and writes one bf:teach lesson with a cheat sheet. For one subject learned over many sessions use bf:teach; for a whole-repo course use bf:onboard-project."
 model: opus
 # Reading a long session, ranking what mattered, and grading the user's English are judgment-heavy.
 disable-model-invocation: true
@@ -12,7 +12,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, Bash(mkdir *)
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
 
-Turn this working session into one small study lesson, in `bf:teach`'s workspace format, so `/bf:teach <subject>` can continue it later.
+Turn this working session into one small study lesson, in `bf:teach`'s workspace format, so `/bf:teach <slug>` can continue it later.
 
 ## On Invocation
 
