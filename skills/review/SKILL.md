@@ -605,6 +605,7 @@ Read <resolved absolute path to dev.md> and apply it.
 - You are running in the main working tree rooted at `<project_root>`. Do NOT create or use a git worktree. Do NOT checkout a different directory. Edit source files directly using their absolute paths under `<project_root>`.
 - Apply each fix in place. Every write must target a file listed in the `## Changed Files` block above.
 - Do not commit or push anything.
+- If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence in `changed_files`; list any outside it in your summary.
 - If a fix cannot be applied cleanly (e.g. the code has moved), add a TODO comment:
   `// TODO(bf:review): <concern ID> — <brief description of what needs manual fixing>`
 - Return a brief summary: which concerns were applied, which were deferred with a TODO.

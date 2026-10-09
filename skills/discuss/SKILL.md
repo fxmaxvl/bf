@@ -4,7 +4,7 @@ description: Thoughtful Q&A dialogue about a question or topic. Use when the use
 disable-model-invocation: true
 argument-hint: [question or topic]
 model: opus
-allowed-tools: Read, Grep, Glob
+allowed-tools: Read, Grep, Glob, Bash(bash *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.

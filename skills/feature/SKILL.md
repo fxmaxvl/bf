@@ -337,6 +337,8 @@ Print banner: `── feature | Verify ─────────────�
 
 Print banner: `── feature | Audit Stack ───────────────────────────────`
 
+**Out-of-scope fixes (applies here and in Phase 5).** If a fix needs a file outside `changed_files`, or a path the spec or plan said not to touch, restate that in one line before dispatching the fix agent (see **Restate a wide effect** in `plugin-main.md`). Then append a `## Decisions` entry to `paths.session_log` recording the user's ruling (Block Writing Pattern, accumulate), and name the extra files in the fix prompt. A scope change recorded at the moment it is made is not later flagged by review-impl as an unexplained violation.
+
 **Branch on `parallel_audit`** (read from build-state.json via `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` (no args) which prints the persisted `parallel_audit` from build-state.json — do NOT use `--read-config` here, which would re-read config.json and ignore the init-time snapshot):
 
 ### If `parallel_audit` is `false` (default — sequential)
@@ -360,7 +362,7 @@ Run up to 3 scan → fix cycles (complexity & consistency):
 4. If overall STATUS is `BLOCK`:
    - Show the blocked issues from both reports to the user
    - Ask: "Should I fix these issues?"
-   - If yes: spawn a fix agent (model: sonnet) with this prompt: "Read the `## Complexity Report` and `## Consistency Report` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each issue under Blocked Issues in either report, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
+   - If yes: spawn a fix agent (model: sonnet) with this prompt: "Read the `## Complexity Report` and `## Consistency Report` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each issue under Blocked Issues in either report, apply the prescribed fix. Do not modify any file outside `changed_files`. If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence in `changed_files`; list any outside it in your summary. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
      Then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: tell the user "Max fix cycles reached — please review the blocked issues manually" and stop
@@ -393,7 +395,7 @@ Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
 7. If `BLOCK`:
    - Show blocked issues + review-impl concerns to the user.
    - Ask: "Should I fix these issues?"
-   - If yes: spawn ONE fix agent (model: sonnet) with prompt: "Read the `## Complexity Report`, `## Consistency Report` and `## Implementation Review` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each blocked issue and each review-impl concern, apply the prescribed fix. Stay within `changed_files`. Follow the `dev` convention." Then go back to step 1 (next cycle).
+   - If yes: spawn ONE fix agent (model: sonnet) with prompt: "Read the `## Complexity Report`, `## Consistency Report` and `## Implementation Review` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each blocked issue and each review-impl concern, apply the prescribed fix. Stay within `changed_files`. If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence in `changed_files`; list any outside it in your summary. Follow the `dev` convention." Then go back to step 1 (next cycle).
    - If no:
      ```
      bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
@@ -421,7 +423,7 @@ Run up to 3 analyze → fix cycles:
 4. If output is `CONCERN`:
    - Show the concerns to the user
    - Ask: "Should I fix these concerns?"
-   - If yes: dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), then go back to step 1
+   - If yes: dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), applying the out-of-scope rule from Phase 4.75 first, then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (sequential)"`, reading `audit_started_at` from state. Then tell the user "Max review cycles reached — please review the implementation manually" and stop
 5. ```

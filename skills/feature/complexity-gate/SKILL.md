@@ -127,14 +127,14 @@ Findings present:
 
 STATUS: BLOCK | ADVISORY
 
-## Blocked Issues (introduced this session — must resolve before proceeding)
+### Blocked Issues (introduced this session — must resolve before proceeding)
 
-### <Root Cause> / <Symptom> — <Red Flag Name>
+#### <Root Cause> / <Symptom> — <Red Flag Name>
 - `<file>:<line>` — <what was observed> — **Fix:** <prescription from COMPLEXITY.md>
 
-## Advisory Issues (pre-existing or design risk)
+### Advisory Issues (pre-existing or design risk)
 
-### <Root Cause> / <Symptom> — <Red Flag Name>
+#### <Root Cause> / <Symptom> — <Red Flag Name>
 - `<file>:<line or spec section>` — <what was observed> — **Suggestion:** <prescription from COMPLEXITY.md>
 ```
 

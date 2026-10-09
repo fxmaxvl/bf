@@ -7,7 +7,7 @@ disable-model-invocation: true
 # DELIBERATE: a loose phrase must NOT start a write into the user's teach workspaces — this fires
 # only on explicit /bf:session-lesson, matching bf:teach and bf:onboard-project.
 argument-hint: "[optional focus, e.g. 'python' or 'english']"
-allowed-tools: Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, Bash(mkdir *), Bash(ls *), Bash(open *), Bash(rtk *), Bash(bash *)
+allowed-tools: Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, Bash(mkdir *), Bash(ls *), Bash(open *), Bash(rtk *), Bash(bash *), Bash(type *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
@@ -104,6 +104,8 @@ Sections, in order:
 7. **Teacher reminder**: follow-up questions are welcome, and `/bf:teach <slug>` continues the workspace, including a review of their solution.
 
 Link the lesson to its cheat sheet and to the previous lesson when one exists. Code written for the lesson follows the `dev`, `typescript` and `python` conventions, resolved with `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" dev typescript python`; snippets quoted from the session are exempt and labelled as quoted.
+
+For a lesson about a CLI tool, run `type <cmd>` before writing examples. When a shell function or alias stands in for the tool (e.g. `grep` wrapping ripgrep), say so in the lesson, and have the practice task call the real binary by its full path.
 
 Write the cheat sheet at `reference/NNNN-<reference-slug>.html`, reusing the lesson's `<lesson-slug>` as its `<reference-slug>`, per LESSON-FORMAT's reference rules. Number it per LESSON-FORMAT's Numbering rules.
 
