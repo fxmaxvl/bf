@@ -48,3 +48,10 @@ If the context begins with a summary of earlier conversation, analyze the summar
 - Keep the user's own sentences as wrong → corrected examples for the lesson.
 
 Never copy secret values (name the variable only) and generalize internal identifiers unless the lesson needs them.
+
+## Phase 2 — Assign workspaces, mark covered
+
+1. `mkdir -p ~/.bf/teach` and `ls` the workspace directories.
+2. Assign every candidate a subject slug by match by meaning; no match proposes a new slug. English proposes `english` and is matched like any other subject.
+3. For an existing workspace, N is the count of `lessons/[0-9][0-9][0-9][0-9]-*.html` excluding `0000-*` (an onboarding course map is not a lesson).
+4. Covered check, only for candidates with an existing workspace: compare the topic by meaning against that workspace's lesson filename slugs (number and extension stripped) and its `learning-records/` filename slugs. A match marks the entry `(covered)`. It stays pickable and sorts after every uncovered entry. A candidate headed for a new workspace is never covered.
