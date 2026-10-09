@@ -53,8 +53,8 @@ Never copy secret values (name the variable only) and generalize internal identi
 
 1. `mkdir -p ~/.bf/teach` and `ls` the workspace directories.
 2. Assign every candidate a subject slug by match by meaning; no match proposes a new slug. English proposes `english` and is matched like any other subject.
-3. For an existing workspace, N is its lesson count per LESSON-FORMAT's Numbering rules.
-4. Covered check, only for candidates with an existing workspace: compare the topic by meaning against that workspace's lesson topic slugs (the `<slug>` of `NNNN-<slug>.html`, per LESSON-FORMAT's Numbering rules) and its `learning-records/` filename slugs. A match marks the entry `(covered)`. It stays pickable and sorts after every uncovered entry. A candidate headed for a new workspace is never covered.
+3. For an existing workspace, N is its lesson count per the Numbering rules in `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md`.
+4. Covered check, only for candidates with an existing workspace: compare the topic by meaning against that workspace's lesson topic slugs (the `<slug>` of `NNNN-<slug>.html`, per LESSON-FORMAT's Numbering rules) and its `learning-records/` topic slugs (the `<slug>` of `NNNN-<slug>.md`, per `${CLAUDE_PLUGIN_ROOT}/skills/teach/LEARNING-RECORD-FORMAT.md`). A match marks the entry `(covered)`. It stays pickable and sorts after every uncovered entry. A candidate headed for a new workspace is never covered.
 
 ## Phase 3 — Menu (one question)
 
@@ -134,5 +134,5 @@ Typically 3–4 turns (menu → pick → optional confirmation → lesson); the 
 | Lesson or cheat-sheet path already exists | Numbering rules (Phase 6) |
 | Fewer than 3 candidates, or none | Phase 3 |
 | Compaction preamble | Phase 1 heuristic; Phase 3 note |
-| Main language unknown | Phase 3 |
+| Main language unknown | Target language alone (Phase 6; resolved in Phase 3) |
 | Platform is not darwin | Print the path, no opener (Phase 7) |
