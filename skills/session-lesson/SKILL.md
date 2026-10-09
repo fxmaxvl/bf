@@ -112,3 +112,27 @@ Then the workspace files:
 - New workspace: `GLOSSARY.md` with only a header per `${CLAUDE_PLUGIN_ROOT}/skills/teach/GLOSSARY-FORMAT.md`.
 - `NOTES.md`: create it if missing, otherwise append: the date, the session topic, and candidate glossary terms for teach to promote later. Leave an existing `GLOSSARY.md` alone.
 - Never write `learning-records/`, and never promote glossary terms.
+
+## Phase 7 — Hand off
+
+Print the lesson and cheat-sheet paths, plus the `-2` note if one applied. If the environment context says the platform is darwin, offer to `open` the lesson as the one question of the turn; on any other platform just print the path. Note that `/bf:teach <slug>` continues the workspace. Then stop.
+
+Typically 3–4 turns (menu → pick → optional confirmation → lesson); the single invalid-reply re-ask counts within this.
+
+## Edge Cases & Errors
+
+| Situation | Behavior |
+|-----------|----------|
+| Free-typed topic, `none`, invalid reply | Phase 3 |
+| `(covered)` pick | Allowed; run the normal pipeline and make the lesson a deeper or different slice of the topic |
+| `N → …` override, `N, compare with <lang>` | Phase 3; a workspace without `MISSION.md` goes through Phase 4 |
+| Edited slug collides | Phase 4 |
+| `RESOURCES.md` missing in an existing workspace | Create it (Phase 5) |
+| `NOTES.md` missing | Create it (Phase 6) |
+| No usable source, or WebSearch unavailable | Phase 4: say so, stop, write nothing |
+| Only some parts sourced | Phase 5: `## Gaps`, omitted parts marked in the lesson |
+| Lesson or cheat-sheet path already exists | Re-scan, take the next number (Phase 6) |
+| Fewer than 3 candidates, or none | Phase 3 |
+| Compaction preamble | Phase 1 heuristic; Phase 3 note |
+| Main language unknown | Target language alone, unless the menu reply named one (Phase 3) |
+| Platform is not darwin | Print the path, no opener (Phase 7) |
