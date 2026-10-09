@@ -4,7 +4,7 @@ description: "Decisive decision oracle — analyzes a question, considers option
 argument-hint: "[question or decision prompt]"
 model: opus
 disable-model-invocation: true
-allowed-tools: Read, Edit, Grep, Glob, Bash(git *)
+allowed-tools: Read, Edit, Grep, Glob, Bash(git *), Bash(bash *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
