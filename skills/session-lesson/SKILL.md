@@ -62,7 +62,7 @@ Show 3–5 numbered entries, uncovered first, covered last. Each entry: the topi
 
 Workspace matching is fuzzy like teach's, but without its confirmation question: the `N → …` reply corrects a wrong match.
 
-If the profile names no main language and a language topic is on the menu, add one optional line to this same question: reply e.g. `2, compare with ts` to get side-by-side examples.
+If neither the profile nor the session shows the user's main language and a language topic is on the menu, add one optional line to this same question: reply e.g. `2, compare with ts` to get side-by-side examples.
 
 Replies:
 
@@ -79,9 +79,9 @@ At the end of this step resolve the user's main language once: the reply's `comp
 
 Every pick yields a `(topic, slug)`. If `<slug>/MISSION.md` exists, read it to ground the lesson and never edit it. If it is missing (a new or partial workspace), follow steps 2–3.
 
-1. Run the first research query for the topic with WebSearch before any question or file write; it doubles as the availability probe. If WebSearch is denied or offline, tell the user and stop. If it finds no usable source, say so and stop. Either way nothing is written.
+1. Run the first research query for the topic with WebSearch before any question or file write; it doubles as the availability probe. If WebSearch is denied or offline, tell the user and stop. If the initial searches find nothing usable at all, say so and stop. Either way nothing is written.
 2. Ask one combined question: "Workspace `<slug>`, mission: `<draft>`. Confirm, or edit either." The draft Why is the concrete outcome the user is working toward in the session (e.g. "Ship a Python data pipeline"), never the occasion. Accept an edit as-is, with no second round. An edited slug that collides with an existing workspace is that workspace when the meaning matches (leave its `MISSION.md` untouched); when the meaning clearly differs use `<slug>-2` and say so at hand-off.
-3. `mkdir -p <workspace>/lessons <workspace>/reference`, then write `MISSION.md` per `${CLAUDE_PLUGIN_ROOT}/skills/teach/MISSION-FORMAT.md` before any other workspace file. Why is the confirmed line, Success looks like is 1–3 abilities from the session, Constraints come from an active profile or stay minimal, Out of scope holds only what the user said they do not want, never the unpicked topics.
+3. `mkdir -p <workspace>`, then write `MISSION.md` per `${CLAUDE_PLUGIN_ROOT}/skills/teach/MISSION-FORMAT.md` before any other workspace file. Why is the confirmed line, Success looks like is 1–3 abilities from the session, Constraints come from an active profile or stay minimal, Out of scope holds only what the user said they do not want, never the unpicked topics.
 
 ## Phase 5 — Research
 
@@ -91,7 +91,7 @@ A part of the topic with no good source goes under `## Gaps` in `RESOURCES.md`, 
 
 ## Phase 6 — Write the lesson
 
-Write one self-contained HTML lesson per `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md`, short and quickly completable, shaped by the profile from Phase 1 when it is active. Path: `lessons/NNNN-<topic-slug>.html`, numbered per LESSON-FORMAT's Numbering rules.
+Write one self-contained HTML lesson per `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md`, short and quickly completable, shaped by the profile from Phase 1 when it is active. Run `mkdir -p <workspace>/lessons <workspace>/reference` first, for every workspace. Path: `lessons/NNNN-<topic-slug>.html`, numbered per LESSON-FORMAT's Numbering rules.
 
 Sections, in order:
 
