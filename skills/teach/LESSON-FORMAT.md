@@ -2,9 +2,17 @@
 
 Lessons live in `lessons/NNNN-<slug>.html` and references in `reference/NNNN-<slug>.html` under the teaching workspace (`~/.bf/teach/<slug>/`). A lesson is the main thing `bf:teach` produces — the unit in which knowledge and skills reach the user. A reference is the compressed essence of lessons, built for quick review.
 
+## Numbering
+
+- `lessons/` and `reference/` are numbered independently: `NNNN` = highest existing + 1, starting at `0001`.
+- Immediately before writing, check the path doesn't exist; if it does, take the next number. Never overwrite.
+- `0000-*` files (e.g. an onboarding course map) are not lessons; exclude them from lesson counts.
+- The `<slug>` in `NNNN-<slug>.html` is the lesson's topic slug, so other skills can read topics from filenames.
+- Courses with a fixed syllabus (`bf:onboard-project`) use its assigned numbers instead of scanning.
+
 ## Lesson
 
-Write **one self-contained HTML file** per lesson. Scan the directory for the highest number and increment it.
+Write **one self-contained HTML file** per lesson, numbered per [Numbering](#numbering).
 
 - **Beautiful.** Clean, readable Tufte-style typography and layout — the user returns to these to review, and they should print well.
 - **Short and quickly completable.** Working memory is small; stay within it. But each lesson must deliver one tangible win, tied to the mission and inside the ZPD.

@@ -53,8 +53,8 @@ Never copy secret values (name the variable only) and generalize internal identi
 
 1. `mkdir -p ~/.bf/teach` and `ls` the workspace directories.
 2. Assign every candidate a subject slug by match by meaning; no match proposes a new slug. English proposes `english` and is matched like any other subject.
-3. For an existing workspace, N is the count of `lessons/[0-9][0-9][0-9][0-9]-*.html` excluding `0000-*` (an onboarding course map is not a lesson).
-4. Covered check, only for candidates with an existing workspace: compare the topic by meaning against that workspace's lesson filename slugs (number and extension stripped) and its `learning-records/` filename slugs. A match marks the entry `(covered)`. It stays pickable and sorts after every uncovered entry. A candidate headed for a new workspace is never covered.
+3. For an existing workspace, N is its lesson count per LESSON-FORMAT's Numbering rules.
+4. Covered check, only for candidates with an existing workspace: compare the topic by meaning against that workspace's lesson topic slugs (the `<slug>` of `NNNN-<slug>.html`, per LESSON-FORMAT's Numbering rules) and its `learning-records/` filename slugs. A match marks the entry `(covered)`. It stays pickable and sorts after every uncovered entry. A candidate headed for a new workspace is never covered.
 
 ## Phase 3 — Menu (one question)
 
@@ -91,7 +91,7 @@ A part of the topic with no good source goes under `## Gaps` in `RESOURCES.md`, 
 
 ## Phase 6 — Write the lesson
 
-Write one self-contained HTML lesson per `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md`, short and quickly completable, shaped by the profile from Phase 1 when it is active. Path: `lessons/NNNN-<topic-slug>.html`, where NNNN is the highest existing number + 1 (starting at `0001`). Check immediately before writing that the path does not exist; if it does, re-scan and take the next number. Never overwrite.
+Write one self-contained HTML lesson per `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md`, short and quickly completable, shaped by the profile from Phase 1 when it is active. Path: `lessons/NNNN-<topic-slug>.html`, numbered per LESSON-FORMAT's Numbering rules.
 
 Sections, in order:
 
@@ -105,7 +105,7 @@ Sections, in order:
 
 Link the lesson to its cheat sheet and to the previous lesson when one exists. Code written for the lesson follows the `dev`, `typescript` and `python` conventions, resolved with `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" dev typescript python`; snippets quoted from the session are exempt and labelled as quoted.
 
-Write the cheat sheet at `reference/NNNN-<topic-slug>.html` per LESSON-FORMAT's reference rules. Number it by scanning `reference/` on its own, with the same exists-check.
+Write the cheat sheet at `reference/NNNN-<topic-slug>.html` per LESSON-FORMAT's reference rules. Number it per LESSON-FORMAT's Numbering rules.
 
 Then the workspace files:
 
@@ -131,8 +131,8 @@ Typically 3–4 turns (menu → pick → optional confirmation → lesson); the 
 | `NOTES.md` missing | Create it (Phase 6) |
 | No usable source, or WebSearch unavailable | Phase 4: say so, stop, write nothing |
 | Only some parts sourced | Phase 5: `## Gaps`, omitted parts marked in the lesson |
-| Lesson or cheat-sheet path already exists | Re-scan, take the next number (Phase 6) |
+| Lesson or cheat-sheet path already exists | Numbering rules (Phase 6) |
 | Fewer than 3 candidates, or none | Phase 3 |
 | Compaction preamble | Phase 1 heuristic; Phase 3 note |
-| Main language unknown | Target language alone, unless the menu reply named one (Phase 3) |
+| Main language unknown | Phase 3 |
 | Platform is not darwin | Print the path, no opener (Phase 7) |
