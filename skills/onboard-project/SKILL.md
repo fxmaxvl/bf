@@ -7,7 +7,7 @@ disable-model-invocation: true
 # A run spawns ~7 survey agents plus lesson writers and a persistent workspace — only an explicit
 # /bf:onboard-project should start that, matching bf:teach's command-only guard.
 argument-hint: "[your role or first task, e.g. 'backend dev, will own payments' — empty to be asked]"
-allowed-tools: Read, Write, Edit, Grep, Glob, Agent, WebSearch, WebFetch, Bash(git *), Bash(bash *), Bash(mkdir *), Bash(open *), Bash(rtk *)
+allowed-tools: Read, Write, Edit, Grep, Glob, Agent, SendMessage, TaskStop, WebSearch, WebFetch, Bash(git *), Bash(bash *), Bash(mkdir *), Bash(cp *), Bash(open *), Bash(rtk *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
@@ -28,7 +28,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/onboard-project/scripts/onboard-probe.sh" ini
 
 It returns `root`, `repo`, `sha`, `slug`, `fresh_slug`, `workspace`, `workspace_exists`, `similar_workspaces`, `facts_dir`, `profile_status`, `tracked_files`, `units` (arch-audit's `detect-units.sh` at the root), and `signals`: a `{count, sample}` per area (docs, manifests, data, apis, ci, infra, config, tests).
 
-**Workspace location (a named exception in plugin-main).** The course is written to `~/.bf/teach/<slug>/`, where `bf:teach` expects it, so that `/bf:teach <slug>` can continue it. Intermediate fact sheets go under the project's `.bf/` (`facts_dir`), because they only feed the later phases.
+**Workspace location (a named exception in plugin-main).** The course is written to `~/.bf/teach/<slug>/`, where `bf:teach` expects it, so that `/bf:teach <slug>` can continue it. Intermediate fact sheets go under the project's `.bf/` (`facts_dir`), because they only feed the later phases. Lesson writers stage their pages there too, and Phase 5 copies them into the workspace.
 
 **Never overwrite a course.** If the first `init` shows `workspace_exists` true or a non-empty `similar_workspaces`, ask one question: continue the existing course with `/bf:teach <slug>` (stop here), or build a fresh one and leave the old one untouched. For a fresh course, re-run `init <fresh_slug>` and use its output from then on, ignoring `similar_workspaces` because the old course always appears there.
 
@@ -44,7 +44,7 @@ The mission decides **depth and emphasis**. It never decides **coverage**: every
 
 If `profile_status` is `active`, read `~/.bf/teach/LEARNING-PROFILE.md` and pass it to the lesson writers. Never run teach's profile interview here. That would be a second question, and the profile is optional.
 
-Then run `mkdir -p "<facts_dir>" "<workspace>/lessons" "<workspace>/reference"`.
+Then run `mkdir -p "<facts_dir>/staging/lessons" "<facts_dir>/staging/reference" "<workspace>/lessons" "<workspace>/reference"`.
 
 ## Phase 2 — Survey (parallel fan-out)
 
@@ -98,9 +98,11 @@ Split the syllabus into contiguous batches of no more than 4 lessons. Spawn one 
 - `MISSION.md` and `RESOURCES.md`
 - the profile, if one is active
 - every lesson and reference filename in the syllabus, for cross-links
-- the paths `<workspace>/lessons/` and `<workspace>/reference/`
+- the paths `<facts_dir>/staging/lessons/` and `<facts_dir>/staging/reference/`. They are inside the repo, so a writer running in its own pane never stops on a permission prompt for a path outside the working directory that nobody is watching. Writers never write to `<workspace>`.
 
 Like the survey agents, each writer's final act is its one-line result to `team-lead`.
+
+**Check for silent writers.** A writer that is running but has staged nothing blocks the run with no signal, and silence never wakes the orchestrator. So each time a writer reports or goes idle, Glob `<facts_dir>/staging/lessons/<first>-*.html` for every batch that has not reported yet. When a batch's first lesson is still missing, send its writer one `SendMessage` asking for its status. If the next check still finds nothing, stop the writer with `TaskStop` first, because a slow writer left running would overwrite its replacement's files. Then re-spawn it or write its batch inline. Either one is that writer's single retry under **Edge Cases**.
 
 Writers follow `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md` for lesson and reference design, with these overrides:
 
@@ -114,7 +116,13 @@ Writers follow `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md` for lesson 
 
 ## Phase 5 — Assemble
 
-Write the rest of the workspace files that bf:teach expects:
+Copy the staged pages into the workspace:
+
+```bash
+cp -R "<facts_dir>/staging/." "<workspace>/"
+```
+
+Then write the rest of the workspace files that bf:teach expects:
 
 - `lessons/0000-course-map.html`: the mission, every lesson and reference in order with its objective, the skipped areas with the reason for each, and `Generated from <repo>@<sha> on <date>`.
 - `GLOSSARY.md`: a header only. Teach promotes a term only once the learner understands it, and a generated course can't show that.
@@ -143,6 +151,7 @@ Print the workspace path, the lesson and reference counts, any skipped areas, an
 | Argument already states role or task | Skip the mission question. |
 | Area absent (e.g. no DB, no CI) | Skip its lesson, list it in the course map and in MISSION's Out of scope. |
 | `units.mode` is `dir` | Architecture lessons say the topology was inferred from directories, not build units. |
+| Lesson writer running but silent | Phase 4's silent-writer check: one message, then stop it and retry once. |
 | Survey or lesson agent fails or writes nothing | Re-spawn that one agent once. If it fails again, mark its lessons missing in the course map. Never present a partial course as complete. |
 | Repo docs contradict the code | Teach what the code does, cite both sides, and add the discrepancy to NOTES.md as a question for the team. |
 | Secrets found in tracked config | Never copy the values into lessons, fact sheets, `NOTES.md` or `RESOURCES.md`. Name the file and the variable only. |

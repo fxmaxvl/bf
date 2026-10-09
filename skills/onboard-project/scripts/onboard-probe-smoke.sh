@@ -80,6 +80,14 @@ HTML
 eq "single-quoted href, src and query/fragment handled" "$(probe verify "$ws" | jq -c .broken_links)" \
   '["lessons/0001-intro.html -> ../img/a.png?v=2","lessons/0001-intro.html -> 0002-gone.html#x","lessons/0001-intro.html -> app.js"]'
 
+cat > "$ws/lessons/0001-intro.html" <<'HTML'
+<PRE class="x"><code>&lt;a href="quoted-pre.html"&gt;
+&lt;img src="quoted.png"&gt;</code></PRE> <a href="0003-real-gone.html">n</a>
+<p>Set <code>href="inline-code.html"</code> and <code>src='x.js'</code>.</p>
+HTML
+eq "quoted pre/code excerpts are not links, real ones still checked" "$(probe verify "$ws" | jq -c .broken_links)" \
+  '["lessons/0001-intro.html -> 0003-real-gone.html"]'
+
 lessonless=$tmp/.bf/teach/no-lessons
 mkdir -p "$lessonless"
 (probe verify "$lessonless" 2>&1) > "$tmp/nl.out" && rc=0 || rc=$?
