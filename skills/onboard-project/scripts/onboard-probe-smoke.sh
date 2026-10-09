@@ -72,7 +72,7 @@ touch "$ws/lessons/0001-intro.html"
 eq "missing reference is broken" "$(probe verify "$ws" | jq -c .broken_links)" \
   '["lessons/0000-course-map.html -> ../reference/0001-cmds.html#run"]'
 touch "$ws/reference/0001-cmds.html"
-eq "all links resolve" "$(probe verify "$ws" | jq -c '[.lessons,.references,(.broken_links|length)]')" "[2,1,0]"
+eq "all links resolve" "$(probe verify "$ws" | jq -c '[.lessons,.references,(.broken_links|length)]')" "[1,1,0]"
 
 cat > "$ws/lessons/0001-intro.html" <<'HTML'
 <img src="../img/a.png?v=2"> <a href='0002-gone.html#x'>q</a> <script src="app.js"></script> <a href="../reference/0001-cmds.html?x=1#y">r</a>

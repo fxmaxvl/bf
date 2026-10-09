@@ -43,7 +43,7 @@ Workspace layout inside `~/.bf/teach/<slug>/`:
 | `GLOSSARY.md` | Canonical, opinionated terminology. See [./GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md). |
 | `NOTES.md` | Scratchpad for **topic-specific** teaching notes (e.g. "for Rust, skip the borrow-checker theory — they get it"). For cross-topic learning style, use `LEARNING-PROFILE.md` instead. |
 | `lessons/NNNN-<lesson-slug>.html` | The primary teaching unit — one self-contained lesson. |
-| `reference/NNNN-<lesson-slug>.html` | Compressed reusable knowledge, designed for quick review. |
+| `reference/NNNN-<reference-slug>.html` | Compressed reusable knowledge, designed for quick review. |
 | `learning-records/NNNN-<record-slug>.md` | ADR-style insights that steer future sessions. See [./LEARNING-RECORD-FORMAT.md](./LEARNING-RECORD-FORMAT.md). |
 
 One file lives **at the teach root**, a level above the per-topic directories — it is shared across all topics, not scoped to a slug:
@@ -111,7 +111,7 @@ A lesson is the main thing you produce — the unit in which knowledge and skill
 
 ## Phase 6 — Reference + glossary upkeep
 
-Extract reusable knowledge into `reference/NNNN-<lesson-slug>.html` per the reference rules in [./LESSON-FORMAT.md](./LESSON-FORMAT.md). Promote terms into `GLOSSARY.md` per [./GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md), under the glossary promotion rule in [./LESSON-FORMAT.md](./LESSON-FORMAT.md): only once the user demonstrably understands a term, and once it is in the glossary, adhere to it everywhere.
+Extract reusable knowledge into `reference/NNNN-<reference-slug>.html` per the reference rules in [./LESSON-FORMAT.md](./LESSON-FORMAT.md). Promote terms into `GLOSSARY.md` per [./GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md), under the glossary promotion rule in [./LESSON-FORMAT.md](./LESSON-FORMAT.md): only once the user demonstrably understands a term, and once it is in the glossary, adhere to it everywhere.
 
 ## Phase 7 — Acquiring wisdom
 

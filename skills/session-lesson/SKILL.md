@@ -105,12 +105,12 @@ Sections, in order:
 
 Link the lesson to its cheat sheet and to the previous lesson when one exists. Code written for the lesson follows the `dev`, `typescript` and `python` conventions, resolved with `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" dev typescript python`; snippets quoted from the session are exempt and labelled as quoted.
 
-Write the cheat sheet at `reference/NNNN-<lesson-slug>.html` per LESSON-FORMAT's reference rules. Number it per LESSON-FORMAT's Numbering rules.
+Write the cheat sheet at `reference/NNNN-<reference-slug>.html`, reusing the lesson's `<lesson-slug>` as its `<reference-slug>`, per LESSON-FORMAT's reference rules. Number it per LESSON-FORMAT's Numbering rules.
 
 Then the workspace files:
 
 - New workspace: `GLOSSARY.md` with only a header per `${CLAUDE_PLUGIN_ROOT}/skills/teach/GLOSSARY-FORMAT.md`.
-- `NOTES.md`: create it if missing, otherwise append: the date, the session topic, and candidate glossary terms for teach to promote later. Leave an existing `GLOSSARY.md` alone.
+- `NOTES.md`: create it if missing, otherwise append: the date, the lesson's topic and `<lesson-slug>`, and candidate glossary terms for teach to promote later. Leave an existing `GLOSSARY.md` alone.
 - Never write `learning-records/`, and never promote glossary terms.
 
 ## Phase 7 — Hand off
