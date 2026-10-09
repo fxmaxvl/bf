@@ -82,3 +82,9 @@ Every pick yields a `(topic, slug)`. If `<slug>/MISSION.md` exists, read it to g
 1. Run the first research query for the topic with WebSearch before any question or file write; it doubles as the availability probe. If WebSearch is denied or offline, tell the user and stop. If it finds no usable source, say so and stop. Either way nothing is written.
 2. Ask one combined question: "Workspace `<slug>`, mission: `<draft>`. Confirm, or edit either." The draft Why is the concrete outcome the user is working toward in the session (e.g. "Ship a Python data pipeline"), never the occasion. Accept an edit as-is, with no second round. An edited slug that collides with an existing workspace is that workspace when the meaning matches (leave its `MISSION.md` untouched); when the meaning clearly differs use `<slug>-2` and say so at hand-off.
 3. `mkdir -p <workspace>/lessons <workspace>/reference`, then write `MISSION.md` per `${CLAUDE_PLUGIN_ROOT}/skills/teach/MISSION-FORMAT.md` before any other workspace file. Why is the confirmed line, Success looks like is 1–3 abilities from the session, Constraints come from an active profile or stay minimal, Out of scope holds only what the user said they do not want, never the unpicked topics.
+
+## Phase 5 — Research
+
+Continue with WebSearch and WebFetch for high-trust sources on this topic only. Knowledge comes from these sources, never from parametric memory. Record them in `RESOURCES.md` per `${CLAUDE_PLUGIN_ROOT}/skills/teach/RESOURCES-FORMAT.md`: Knowledge and Wisdom groups, every entry annotated. Create the file if it is missing; otherwise append under the right group without duplicating a listed entry. Pick one primary resource.
+
+A part of the topic with no good source goes under `## Gaps` in `RESOURCES.md`, and the lesson marks that part as omitted rather than filling it from memory.
