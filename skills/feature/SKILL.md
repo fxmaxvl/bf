@@ -337,6 +337,8 @@ Print banner: `── feature | Verify ─────────────�
 
 Print banner: `── feature | Audit Stack ───────────────────────────────`
 
+**Out-of-scope fixes (applies here and in Phase 5).** If a fix needs a file outside `changed_files`, or a path the spec or plan said not to touch, restate that in one line before dispatching the fix agent (see **Restate a wide effect** in `plugin-main.md`). Then append a `## Decisions` entry to `paths.session_log` recording the user's ruling (Block Writing Pattern, accumulate), and name the extra files in the fix prompt. A scope change recorded at the moment it is made is not later flagged by review-impl as an unexplained violation.
+
 **Branch on `parallel_audit`** (read from build-state.json via `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` (no args) which prints the persisted `parallel_audit` from build-state.json — do NOT use `--read-config` here, which would re-read config.json and ignore the init-time snapshot):
 
 ### If `parallel_audit` is `false` (default — sequential)
@@ -421,7 +423,7 @@ Run up to 3 analyze → fix cycles:
 4. If output is `CONCERN`:
    - Show the concerns to the user
    - Ask: "Should I fix these concerns?"
-   - If yes: dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), then go back to step 1
+   - If yes: dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), applying the out-of-scope rule from Phase 4.75 first, then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (sequential)"`, reading `audit_started_at` from state. Then tell the user "Max review cycles reached — please review the implementation manually" and stop
 5. ```
