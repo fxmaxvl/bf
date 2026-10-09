@@ -86,7 +86,7 @@ case "${1:-init}" in
       done <<< "$(grep -oE "(href|src)=(\"[^\"]+\"|'[^']+')" "$page" | sed -E "s/^(href|src)=[\"']//;s/[\"']\$//" | grep -vE '^(https?:|mailto:|#|file:|data:|//)' || true)"
     done
     jq -nc \
-      --argjson lessons "$(find "$ws/lessons" -name '*.html' | wc -l | tr -d ' ')" \
+      --argjson lessons "$(find "$ws/lessons" -name '*.html' ! -name '0000-*' | wc -l | tr -d ' ')" \
       --argjson references "$( (find "$ws/reference" -name '*.html' 2>/dev/null || true) | wc -l | tr -d ' ')" \
       --argjson broken "$(printf '%s\n' "${broken[@]:-}" | json_lines)" \
       '{lessons:$lessons, references:$references, broken_links:$broken}'

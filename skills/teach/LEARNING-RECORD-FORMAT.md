@@ -1,6 +1,6 @@
 # Learning Record Format
 
-Learning records live in `~/.bf/teach/<slug>/learning-records/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc. Create the directory lazily — only when the first record is written.
+Learning records live in `~/.bf/teach/<slug>/learning-records/` and use sequential numbering: `0001-<record-slug>.md`, `0002-<record-slug>.md`, etc. Create the directory lazily — only when the first record is written.
 
 They are the teaching equivalent of ADRs: they capture non-obvious lessons, key insights, and stated prior knowledge that will steer future sessions. They are used to calculate the zone of proximal development.
 
@@ -24,7 +24,7 @@ Only include these when they add genuine value. Most records won't need them.
 
 ## Numbering
 
-Scan `learning-records/` for the highest existing number and increment by one.
+Scan `learning-records/` for the highest existing number and increment by one. The filename's slug (`<record-slug>`) names what the record is about, never the workspace; other skills read it to tell what a workspace already covers.
 
 ## When to write a learning record
 

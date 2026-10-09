@@ -1,10 +1,18 @@
 # Lesson & Reference Format
 
-Lessons live in `lessons/NNNN-<slug>.html` and references in `reference/NNNN-<slug>.html` under the teaching workspace (`~/.bf/teach/<slug>/`). A lesson is the main thing `bf:teach` produces — the unit in which knowledge and skills reach the user. A reference is the compressed essence of lessons, built for quick review.
+Lessons live in `lessons/NNNN-<lesson-slug>.html` and references in `reference/NNNN-<reference-slug>.html` under the teaching workspace (`~/.bf/teach/<slug>/`). `<slug>` always names the workspace; `<lesson-slug>` names what one lesson covers; `<reference-slug>` names what one reference covers, which may be an area several lessons feed. A lesson is the main thing `bf:teach` produces — the unit in which knowledge and skills reach the user. A reference is the compressed essence of lessons, built for quick review.
+
+## Numbering
+
+- `lessons/` and `reference/` are numbered independently: `NNNN` = highest existing + 1, starting at `0001`.
+- Immediately before writing, check the path doesn't exist; if it does, take the next number. Never overwrite.
+- `0000-*` files (e.g. an onboarding course map) are not lessons; exclude them from lesson counts.
+- `<lesson-slug>` and `<reference-slug>` name what the file covers, never the workspace, so other skills can read covered material from filenames.
+- Courses with a fixed syllabus (`bf:onboard-project`) use its assigned numbers instead of scanning.
 
 ## Lesson
 
-Write **one self-contained HTML file** per lesson. Scan the directory for the highest number and increment it.
+Write **one self-contained HTML file** per lesson, numbered per [Numbering](#numbering).
 
 - **Beautiful.** Clean, readable Tufte-style typography and layout — the user returns to these to review, and they should print well.
 - **Short and quickly completable.** Working memory is small; stay within it. But each lesson must deliver one tangible win, tied to the mission and inside the ZPD.
@@ -21,7 +29,7 @@ Write **one self-contained HTML file** per lesson. Scan the directory for the hi
 
 ## Reference
 
-Extract reusable knowledge — syntax, algorithms, flowcharts, pose sequences, glossaries — into `reference/NNNN-<slug>.html`. References are the compressed essence of lessons, designed for quick review; unlike lessons, they *will* be revisited.
+Extract reusable knowledge — syntax, algorithms, flowcharts, pose sequences, glossaries — into `reference/NNNN-<reference-slug>.html`. References are the compressed essence of lessons, designed for quick review; unlike lessons, they *will* be revisited.
 
 ## Glossary promotion
 
