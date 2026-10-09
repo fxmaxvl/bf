@@ -3,7 +3,8 @@
 # repo signals that decide which curriculum areas exist — one call instead of dozens of globs.
 # Usage:
 #   onboard-probe.sh init [slug]        # slug defaults to "<repo>-onboarding"; always slugified
-#   onboard-probe.sh verify <workspace> # lists lesson/reference links whose target file is missing
+#   onboard-probe.sh verify <workspace> # lists lesson/reference links whose target file is missing,
+#                                       # ignoring href=/src= quoted inside <pre>/<code>
 # Output: single-line JSON.
 set -euo pipefail
 
@@ -13,6 +14,9 @@ teach_root="$HOME/.bf/teach"
 
 slugify() { tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//'; }
 json_lines() { { grep . || true; } | jq -R . | jq -sc .; }
+
+# Lessons quote repo HTML inside <pre>/<code>; its href=/src= text is an excerpt, not a link.
+strip_quoted_code() { perl -0777 -pe 's{<(pre|code)\b.*?</\1\s*>}{}gis' "$1"; }
 
 # Lists are capped so a monorepo with 4k protos doesn't flood the context; counts stay exact.
 signal() {
@@ -83,7 +87,7 @@ case "${1:-init}" in
         target=${target%%\?*}
         [ -z "$target" ] && continue
         [ -f "$dir/$target" ] || broken+=("${page#"$ws"/} -> $href")
-      done <<< "$(grep -oE "(href|src)=(\"[^\"]+\"|'[^']+')" "$page" | sed -E "s/^(href|src)=[\"']//;s/[\"']\$//" | grep -vE '^(https?:|mailto:|#|file:|data:|//)' || true)"
+      done <<< "$(strip_quoted_code "$page" | grep -oE "(href|src)=(\"[^\"]+\"|'[^']+')" | sed -E "s/^(href|src)=[\"']//;s/[\"']\$//" | grep -vE '^(https?:|mailto:|#|file:|data:|//)' || true)"
     done
     jq -nc \
       --argjson lessons "$(find "$ws/lessons" -name '*.html' ! -name '0000-*' | wc -l | tr -d ' ')" \
