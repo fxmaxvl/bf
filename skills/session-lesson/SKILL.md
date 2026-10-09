@@ -55,3 +55,22 @@ Never copy secret values (name the variable only) and generalize internal identi
 2. Assign every candidate a subject slug by match by meaning; no match proposes a new slug. English proposes `english` and is matched like any other subject.
 3. For an existing workspace, N is the count of `lessons/[0-9][0-9][0-9][0-9]-*.html` excluding `0000-*` (an onboarding course map is not a lesson).
 4. Covered check, only for candidates with an existing workspace: compare the topic by meaning against that workspace's lesson filename slugs (number and extension stripped) and its `learning-records/` filename slugs. A match marks the entry `(covered)`. It stays pickable and sorts after every uncovered entry. A candidate headed for a new workspace is never covered.
+
+## Phase 3 — Menu (one question)
+
+Show 3–5 numbered entries, uncovered first, covered last. Each entry: the topic, one line on where it came up, and `→ ~/.bf/teach/<slug>/ (existing, N lessons)` or `(new)`. The English entry is one entry like any other, anchored by frequency ("article omission — seen 3× this session") and ranked struggle-first by that frequency. Add the compaction note when Phase 1 flagged it: topics from early in the session may be missing, and the English analysis covers only messages after the summary. Fewer than 3 candidates: show what remains. None: say nothing new is worth a lesson and stop.
+
+Workspace matching is fuzzy like teach's, but without its confirmation question: the `N → …` reply corrects a wrong match.
+
+If the profile names no main language and a language topic is on the menu, add one optional line to this same question: reply e.g. `2, compare with ts` to get side-by-side examples.
+
+Replies:
+
+- `N` picks entry N.
+- `N → new` or `N → <slug>` picks it and overrides its workspace (`new` proposes a slug; an existing `<slug>` is used as-is).
+- `N, compare with <lang>` picks it and names the main language for side-by-side examples.
+- A free-typed topic is a pick; assign its workspace per Phase 2.
+- `none`, cancel or the like ends with one line and no files written.
+- An invalid reply re-shows the menu once; a second one ends the run cleanly.
+
+At the end of this step resolve the user's main language once: the reply's `compare with`, else the profile, else what the session shows, else unknown. Later phases only use it.
