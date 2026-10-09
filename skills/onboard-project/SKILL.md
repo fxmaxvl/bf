@@ -7,7 +7,7 @@ disable-model-invocation: true
 # A run spawns ~7 survey agents plus lesson writers and a persistent workspace — only an explicit
 # /bf:onboard-project should start that, matching bf:teach's command-only guard.
 argument-hint: "[your role or first task, e.g. 'backend dev, will own payments' — empty to be asked]"
-allowed-tools: Read, Write, Edit, Grep, Glob, Agent, WebSearch, WebFetch, Bash(git *), Bash(bash *), Bash(mkdir *), Bash(open *), Bash(rtk *)
+allowed-tools: Read, Write, Edit, Grep, Glob, Agent, WebSearch, WebFetch, Bash(git *), Bash(bash *), Bash(mkdir *), Bash(cp *), Bash(open *), Bash(rtk *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
@@ -28,7 +28,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/onboard-project/scripts/onboard-probe.sh" ini
 
 It returns `root`, `repo`, `sha`, `slug`, `fresh_slug`, `workspace`, `workspace_exists`, `similar_workspaces`, `facts_dir`, `profile_status`, `tracked_files`, `units` (arch-audit's `detect-units.sh` at the root), and `signals`: a `{count, sample}` per area (docs, manifests, data, apis, ci, infra, config, tests).
 
-**Workspace location (a named exception in plugin-main).** The course is written to `~/.bf/teach/<slug>/`, where `bf:teach` expects it, so that `/bf:teach <slug>` can continue it. Intermediate fact sheets go under the project's `.bf/` (`facts_dir`), because they only feed the later phases.
+**Workspace location (a named exception in plugin-main).** The course is written to `~/.bf/teach/<slug>/`, where `bf:teach` expects it, so that `/bf:teach <slug>` can continue it. Intermediate fact sheets go under the project's `.bf/` (`facts_dir`), because they only feed the later phases. Lesson writers stage their pages there too, and Phase 5 copies them into the workspace.
 
 **Never overwrite a course.** If the first `init` shows `workspace_exists` true or a non-empty `similar_workspaces`, ask one question: continue the existing course with `/bf:teach <slug>` (stop here), or build a fresh one and leave the old one untouched. For a fresh course, re-run `init <fresh_slug>` and use its output from then on, ignoring `similar_workspaces` because the old course always appears there.
 
@@ -44,7 +44,7 @@ The mission decides **depth and emphasis**. It never decides **coverage**: every
 
 If `profile_status` is `active`, read `~/.bf/teach/LEARNING-PROFILE.md` and pass it to the lesson writers. Never run teach's profile interview here. That would be a second question, and the profile is optional.
 
-Then run `mkdir -p "<facts_dir>" "<workspace>/lessons" "<workspace>/reference"`.
+Then run `mkdir -p "<facts_dir>/staging/lessons" "<facts_dir>/staging/reference" "<workspace>/lessons" "<workspace>/reference"`.
 
 ## Phase 2 — Survey (parallel fan-out)
 
@@ -98,7 +98,7 @@ Split the syllabus into contiguous batches of no more than 4 lessons. Spawn one 
 - `MISSION.md` and `RESOURCES.md`
 - the profile, if one is active
 - every lesson and reference filename in the syllabus, for cross-links
-- the paths `<workspace>/lessons/` and `<workspace>/reference/`
+- the paths `<facts_dir>/staging/lessons/` and `<facts_dir>/staging/reference/`. They are inside the repo, so a writer running in its own pane never stops on a permission prompt for a path outside the working directory that nobody is watching. Writers never write to `<workspace>`.
 
 Like the survey agents, each writer's final act is its one-line result to `team-lead`.
 
@@ -114,7 +114,13 @@ Writers follow `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md` for lesson 
 
 ## Phase 5 — Assemble
 
-Write the rest of the workspace files that bf:teach expects:
+Copy the staged pages into the workspace:
+
+```bash
+cp -R "<facts_dir>/staging/." "<workspace>/"
+```
+
+Then write the rest of the workspace files that bf:teach expects:
 
 - `lessons/0000-course-map.html`: the mission, every lesson and reference in order with its objective, the skipped areas with the reason for each, and `Generated from <repo>@<sha> on <date>`.
 - `GLOSSARY.md`: a header only. Teach promotes a term only once the learner understands it, and a generated course can't show that.
