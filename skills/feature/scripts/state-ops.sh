@@ -34,24 +34,27 @@ def git_root():
         sys.exit(1)
     return r.stdout.strip()
 
+PARALLEL_AUDIT_DEFAULT = True
+
 def read_config():
     """Read ~/.bf/config.json and return resolved feature flags.
 
     Returns a dict with at least {'parallel_audit': bool}.
-    Defaults all flags to False if the file is missing, malformed, or the key is absent.
+    Each flag takes its default when the file is missing, malformed, or the key is absent;
+    an explicit `"parallel_audit": false` opts out of the concurrent audit stack.
     """
     config_path = os.path.expanduser('~/.bf/config.json')
     try:
         with open(config_path) as f:
             data = json.load(f)
         return {
-            'parallel_audit': bool(data.get('parallel_audit', False)),
+            'parallel_audit': bool(data.get('parallel_audit', PARALLEL_AUDIT_DEFAULT)),
         }
     except FileNotFoundError:
-        return {'parallel_audit': False}
+        return {'parallel_audit': PARALLEL_AUDIT_DEFAULT}
     except (json.JSONDecodeError, OSError) as e:
         print(f"Warning: could not read {config_path}: {e}", file=sys.stderr)
-        return {'parallel_audit': False}
+        return {'parallel_audit': PARALLEL_AUDIT_DEFAULT}
 
 def set_nested(obj, dotted_key, value):
     keys = dotted_key.split('.')
@@ -113,7 +116,7 @@ def read_output(root, state):
         'mode':            state['mode'],
         'phase':           state['phase'],
         'phase_status':    state['phase_status'],
-        'parallel_audit':  state.get('parallel_audit', False),
+        'parallel_audit':  state.get('parallel_audit', PARALLEL_AUDIT_DEFAULT),
         'collect_todos':   state.get('collect_todos'),
         'audit_started_at': state.get('audit_started_at'),
         'artifacts_dir':   adir,
@@ -189,7 +192,7 @@ if args and args[0] == '--init':
             'pending_questions': None,
         },
         'collect_todos': None,
-        'parallel_audit': read_config().get('parallel_audit', False),
+        'parallel_audit': read_config()['parallel_audit'],
         'artifacts': {'spec': None, 'plan': None, 'todo': None, 'backlog': None},
         'created_at': iso_now,
         'updated_at': iso_now,
