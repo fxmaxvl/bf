@@ -59,7 +59,7 @@ Do **not** run the test suite — `verify` already ran it before this phase. If 
 
 ## Output
 
-Append a report to `paths.impl_report` (= `paths.temp`) using `paths.block_impl_report` (`## Implementation Review`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`.
+Write the report to `paths.impl_report` (= `paths.temp`) by piping its body — everything below the `## Implementation Review` header — into `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/write-block.sh" <paths.temp> --block "## Implementation Review"`; the gates may write the same file concurrently, so never hand-edit it.
 
 If all criteria pass:
 

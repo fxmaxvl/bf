@@ -155,6 +155,14 @@ To write an artifact block:
 
 Do **not** overwrite the entire file — other blocks may already be present.
 
+A **regenerate** block whose file other agents may be writing at the same time — the gate reports in `paths.temp` — must go through the script instead of a hand edit. It replaces or appends the block anchored on its header line under an exclusive lock, so concurrent writers never cut off each other's blocks:
+
+```bash
+printf '%s' "$body" | bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/write-block.sh" <paths.<artifact>> --block "<paths.block_<artifact>>"
+```
+
+The body is everything below the header and must not contain a `## ` line.
+
 The available convention names and when to use each:
 
 | Action | Convention name |

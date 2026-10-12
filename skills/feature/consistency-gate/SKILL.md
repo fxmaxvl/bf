@@ -114,7 +114,7 @@ Apply all six lenses. STATUS follows the code-scan severity rules (BLOCK/ADVISOR
 
 ## Report Format
 
-Write the report to `paths.consistency_report` (= `paths.temp`) using `## Consistency Report` as the block header (Block Writing Pattern from `plugin-main.md`). In standalone mode: print to conversation only, do not write to file.
+Write the report to `paths.consistency_report` (= `paths.temp`) by piping its body — everything below the `## Consistency Report` header — into `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/write-block.sh" <paths.temp> --block "## Consistency Report"`; other gates write the same file concurrently, so never hand-edit it. In standalone mode: print to conversation only, do not write to file.
 
 No findings:
 

@@ -50,7 +50,7 @@ For each finding, cite the spec section and explain the complexity risk it intro
 
 All findings in this mode are `ADVISORY`. STATUS is `ADVISORY` or `PASS`.
 
-Append the report to `paths.complexity_report` (= `paths.temp`) using `paths.block_complexity_report` (`## Complexity Report`) as the block header (Block Writing Pattern from `plugin-main.md`). Display the report in the conversation.
+Write the report to `paths.complexity_report` (= `paths.temp`) by piping its body — everything below the `## Complexity Report` header — into `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/write-block.sh" <paths.temp> --block "## Complexity Report"`; other gates write the same file concurrently, so never hand-edit it. Display the report in the conversation.
 
 ---
 
@@ -69,7 +69,7 @@ For each finding, cite the step or plan section and explain the complexity risk.
 
 All findings in this mode are `ADVISORY`. STATUS is `ADVISORY` or `PASS`.
 
-Append the report to `paths.complexity_report` (= `paths.temp`) using `paths.block_complexity_report` (`## Complexity Report`) as the block header (Block Writing Pattern from `plugin-main.md`). Display the report in the conversation.
+Write the report to `paths.complexity_report` (= `paths.temp`) by piping its body — everything below the `## Complexity Report` header — into `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/write-block.sh" <paths.temp> --block "## Complexity Report"`; other gates write the same file concurrently, so never hand-edit it. Display the report in the conversation.
 
 ---
 
@@ -106,7 +106,7 @@ Focus on structural signals, not style preferences:
 
 Overall STATUS escalates: `PASS` → `ADVISORY` → `BLOCK`.
 
-Append the report to `paths.complexity_report` (= `paths.temp`) using `paths.block_complexity_report` (`## Complexity Report`) as the block header (Block Writing Pattern from `plugin-main.md`). Display the report in the conversation.
+Write the report to `paths.complexity_report` (= `paths.temp`) by piping its body — everything below the `## Complexity Report` header — into `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/write-block.sh" <paths.temp> --block "## Complexity Report"`; other gates write the same file concurrently, so never hand-edit it. Display the report in the conversation.
 
 ---
 
