@@ -19,7 +19,7 @@ Before starting the loop, read these once:
 - the `dev` convention (resolved via the lookup in `plugin-main.md`) — code style and quality rules
 - the `testing` convention — test requirements
 - the `git` convention — commit message format
-- the project's custom conventions — run `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/discover-conventions.sh"` and read each listed file that applies to the files the plan touches. The consistency gate holds the diff to these rules, so a violation you skip here comes back as a fix-and-rescan cycle.
+- the project's custom conventions — run `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/discover-conventions.sh"` and read each listed file that applies to the files the plan touches. A violation you skip here is one the gates and review-impl can flag as drift, and each one costs a fix-and-rescan cycle.
 - the `## Plan` and `## Quality Gates` blocks from `paths.plan` (Block Reading Pattern from `plugin-main.md`) — overview, dependency graph, step structure, and the test and lint commands. You will NOT re-read the plan inside the loop.
 - the `## Context` block from `paths.session_log` (Block Reading Pattern from `plugin-main.md`), if present and not `STATUS: NONE` — use the reuse candidates and local conventions it documents when implementing each todo item.
 

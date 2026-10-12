@@ -81,22 +81,22 @@ Print the banner as plain text (not in a code block). Do this before any other w
 - `[GATE]` — stops and waits for user approval
 - `⇄ fix` — per-cycle "fix these concerns?" stop inside review loops
 
-**Full mode** (default):
+**Full mode** (`parallel_audit=false`):
 ```
 init → brainstorm → [auto] review-design ⇄ fix → [auto] research → [auto] plan → [GATE] execute → [auto] verify → [auto] complexity+consistency ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
 ```
 
-**Full mode** (`parallel_audit=true`):
+**Full mode** (default — `parallel_audit=true`):
 ```
 init → brainstorm → [auto] review-design ⇄ fix → [auto] research → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
 ```
 
-**Quick mode** (invoked via `/bf:feature --quick`):
+**Quick mode** (invoked via `/bf:feature --quick`, `parallel_audit=false`):
 ```
 init → refine → [auto] research → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] complexity+consistency ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```
 
-**Quick mode** (`parallel_audit=true`):
+**Quick mode** (default — `parallel_audit=true`):
 ```
 init → refine → [auto] research → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```

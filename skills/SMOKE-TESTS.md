@@ -12,5 +12,6 @@ each prints one PASS/FAIL line per case and exits non-zero on any failure. Run t
 | `skills/scan-conventions/scripts/host-rules-smoke.sh` | `host-rules.sh` |
 | `skills/feature/scripts/finalize-git-smoke.sh` | `finalize-git.sh` |
 | `skills/feature/scripts/write-block-smoke.sh` | `write-block.sh` |
+| `skills/feature/scripts/state-ops-smoke.sh` | `state-ops.sh` (`parallel_audit` resolution) |
 | `skills/self-audit/scripts/audit-static-smoke.sh` | `audit-static.sh` (kit-template reference check) |
 | `skills/onboard-project/scripts/onboard-probe-smoke.sh` | `onboard-probe.sh` |

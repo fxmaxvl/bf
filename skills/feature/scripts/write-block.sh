@@ -10,8 +10,9 @@
 #                   whole, so "## Spec" never matches "## Specification".
 #
 # The block body is read from stdin and must not contain a `## ` line — the
-# next `## ` ends a block. A present block is replaced in place (regenerate
-# write mode); an absent one is appended. Every other block stays byte-identical.
+# next `## ` ends a block. A present block is replaced in place; an absent one
+# is appended. Every other block stays byte-identical. Regenerate write mode only:
+# an accumulate block written through this would be replaced, not extended.
 
 set -euo pipefail
 
@@ -34,14 +35,12 @@ fi
 
 mkdir -p "$(dirname "$FILE")"
 
-# The heredoc below is python's stdin, so the body travels by environment.
-BLOCK_BODY="$(cat)" python3 - "$FILE" "$BLOCK_HEADER" << 'EOF'
+python3 -c "$(cat << 'EOF'
 import fcntl
-import os
 import sys
 
 path, header = sys.argv[1], sys.argv[2]
-body = os.environ['BLOCK_BODY'].strip('\n')
+body = sys.stdin.read().strip('\n')
 if any(line.startswith('## ') for line in body.splitlines()):
     sys.exit("Error: block body contains a '## ' line, which would split the block")
 block = f"{header}\n\n{body}\n" if body else f"{header}\n"
@@ -66,3 +65,4 @@ with open(path, 'a+') as f:
     f.truncate()
     f.write(out)
 EOF
+)" "$FILE" "$BLOCK_HEADER"
