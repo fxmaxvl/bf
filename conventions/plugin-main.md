@@ -155,6 +155,16 @@ To write an artifact block:
 
 Do **not** overwrite the entire file — other blocks may already be present.
 
+**Concurrent writes.** A **regenerate** block whose file other agents may be writing at the same time — the gate reports in `paths.temp` — must go through the script instead of a hand edit. It replaces or appends the block anchored on its header line under an exclusive lock, so concurrent writers never cut off each other's blocks. Pass the body as a heredoc in the same call, so the command starts with `bash` and the body never depends on shell state from an earlier call:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/write-block.sh" <paths.<artifact>> --block "<paths.block_<artifact>>" <<'BLOCK'
+<body>
+BLOCK
+```
+
+The body is everything below the header and must not contain a `## ` line. Readers do not take the lock, so read these blocks only after every writer has returned — which the atomic fan-out in **Parallel Fan-Out** already guarantees.
+
 The available convention names and when to use each:
 
 | Action | Convention name |

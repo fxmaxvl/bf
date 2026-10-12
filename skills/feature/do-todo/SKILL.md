@@ -19,6 +19,7 @@ Before starting the loop, read these once:
 - the `dev` convention (resolved via the lookup in `plugin-main.md`) — code style and quality rules
 - the `testing` convention — test requirements
 - the `git` convention — commit message format
+- the project's custom conventions — run `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/discover-conventions.sh"` and read each listed file that applies to the files the plan touches. A violation you skip here is one the gates and review-impl can flag as drift, and each one costs a fix-and-rescan cycle.
 - the `## Plan` and `## Quality Gates` blocks from `paths.plan` (Block Reading Pattern from `plugin-main.md`) — overview, dependency graph, step structure, and the test and lint commands. You will NOT re-read the plan inside the loop.
 - the `## Context` block from `paths.session_log` (Block Reading Pattern from `plugin-main.md`), if present and not `STATUS: NONE` — use the reuse candidates and local conventions it documents when implementing each todo item.
 
@@ -38,3 +39,9 @@ Repeat the following loop until no unchecked items remain — do not wait for us
 5. Mark the item as checked (`- [x]`) immediately after completing it: Read `paths.todo` with `offset` at the line number from step 1 and `limit: 1`, then Edit that line.
 6. Commit your changes following the `git` convention (resolved via the lookup in `plugin-main.md`). Use `feat:` for new functionality, `fix:` for bug corrections within the feature. Do **not** stage anything in `.bf/` except `.bf/conventions/`.
 7. Go back to step 1.
+
+**Before handing off** — once the loop has stopped, check your own diff before verify and the gates see it:
+
+1. List the session's files: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/changed-packages.sh"` — use `changed_files`.
+2. Read the diff of those files and check every changed line against the `dev` and `testing` conventions and the custom conventions read above — for example comment rules, docstring and signature layout, type hints, naming, banned tokens, and any spec IDs left in code or comments.
+3. Fix each violation in place, rerun the plan's test command, and commit with `fix:`. If there were none, commit nothing.

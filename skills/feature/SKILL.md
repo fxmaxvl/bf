@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(bas
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
 
-Orchestrate the full development workflow for a feature. Manage state via `.bf/sessions/build-state.json` and delegate to existing skills with approval gates between each phase. When `parallel_audit` is enabled in `~/.bf/config.json`, the post-verify audit stack (complexity-gate + consistency-gate + review-impl) runs as three concurrent Agent calls instead of sequentially.
+Orchestrate the full development workflow for a feature. Manage state via `.bf/sessions/build-state.json` and delegate to existing skills with approval gates between each phase. By default the post-verify audit stack (complexity-gate + consistency-gate + review-impl) runs as three concurrent Agent calls; `"parallel_audit": false` in `~/.bf/config.json` runs it sequentially instead.
 
 ## Artifacts Directory
 
@@ -81,22 +81,22 @@ Print the banner as plain text (not in a code block). Do this before any other w
 - `[GATE]` — stops and waits for user approval
 - `⇄ fix` — per-cycle "fix these concerns?" stop inside review loops
 
-**Full mode** (default):
+**Full mode** (`parallel_audit=false`):
 ```
 init → brainstorm → [auto] review-design ⇄ fix → [auto] research → [auto] plan → [GATE] execute → [auto] verify → [auto] complexity+consistency ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
 ```
 
-**Full mode** (`parallel_audit=true`):
+**Full mode** (default — `parallel_audit=true`):
 ```
 init → brainstorm → [auto] review-design ⇄ fix → [auto] research → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready + todos?] finalize (commit/push/ticket) → collect-todos? → cleanup → done
 ```
 
-**Quick mode** (invoked via `/bf:feature --quick`):
+**Quick mode** (invoked via `/bf:feature --quick`, `parallel_audit=false`):
 ```
 init → refine → [auto] research → [auto] plan (from Q&A) → [GATE] execute → [auto] verify → [auto] complexity+consistency ⇄ fix → [auto] review-impl ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```
 
-**Quick mode** (`parallel_audit=true`):
+**Quick mode** (default — `parallel_audit=true`):
 ```
 init → refine → [auto] research → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```
@@ -159,7 +159,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
   [--gh-issue 42]                          # only if GitHub issue detected
 ```
 
-   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `false`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently.
+   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `true`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently.
 
 6. **Stub the session log.** Immediately after `state-ops.sh --init`, create `paths.session_log` with empty block headers so the file is visible from the start of the session:
 
@@ -341,7 +341,7 @@ Print banner: `── feature | Audit Stack ────────────
 
 **Branch on `parallel_audit`** (read from build-state.json via `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` (no args) which prints the persisted `parallel_audit` from build-state.json — do NOT use `--read-config` here, which would re-read config.json and ignore the init-time snapshot):
 
-### If `parallel_audit` is `false` (default — sequential)
+### If `parallel_audit` is `false` (opt-out — sequential)
 
 **Record start timestamp** before the first scan cycle — store it in state, where it survives across orchestrator turns:
 
@@ -371,7 +371,7 @@ Run up to 3 scan → fix cycles (complexity & consistency):
    ```
 6. Proceed immediately to Phase 5 (no approval gate)
 
-### If `parallel_audit` is `true` (concurrent fan-out)
+### If `parallel_audit` is `true` (default — concurrent fan-out)
 
 Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
 
