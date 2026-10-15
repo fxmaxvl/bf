@@ -1,0 +1,33 @@
+model {
+  user = person 'User'
+  shop = system 'Shop' {
+    web = container 'Web' {
+      cart = component 'Cart'
+    }
+    api = container 'API' {
+      orders = component 'Orders'
+    }
+    db = database 'DB'
+    events = queue 'Events' {
+      #tbd
+      description 'from: Proposed design. Open question: which service consumes these events?'
+    }
+  }
+  user -> shop.web 'browses'
+  shop.web -> shop.api 'calls'
+  shop.api -> shop.db 'reads and writes'
+  shop.api -> shop.events 'publishes'
+}
+views {
+  view index {
+    include *
+  }
+  view shop of shop {
+    include *
+  }
+  dynamic view checkout {
+    user -> shop.web 'opens'
+    shop.web -> shop.api 'POST /orders'
+    shop.api -> shop.db 'insert'
+  }
+}

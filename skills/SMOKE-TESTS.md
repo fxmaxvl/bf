@@ -15,3 +15,4 @@ each prints one PASS/FAIL line per case and exits non-zero on any failure. Run t
 | `skills/feature/scripts/state-ops-smoke.sh` | `state-ops.sh` (`parallel_audit` resolution) |
 | `skills/self-audit/scripts/audit-static-smoke.sh` | `audit-static.sh` (kit-template reference check) |
 | `skills/onboard-project/scripts/onboard-probe-smoke.sh` | `onboard-probe.sh` |
+| `skills/visualize/scripts/visualize-smoke.sh` | `viz-paths.sh`, `resolve-spec.sh`, `install-likec4.sh`, `classify-output.sh`, `c4-facts.sh`, `build.sh` (the install and real-build cases need the network and print SKIP offline) |

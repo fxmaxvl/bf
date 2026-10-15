@@ -1,0 +1,6 @@
+[2m13:25:10.239[0m [1m[32mINFO [0m [1m[36mlikec4.lang[0m [2mlayout[22m wasm
+[2m13:25:10.243[0m [1m[32mINFO [0m [1m[36mlikec4.lang[0m [2mworkspace:[22m /WS/model
+[2m13:25:10.389[0m [1m[32mINFO [0m [1m[36mlikec4.lang[0m [2mworkspace:[22m found 1 source files
+[2m13:25:10.463[0m [1m[32mINFO [0m [1m[36mlikec4.c4:validate[0m [32m✓ Valid[39m[2m (1 files)[22m
+[2m13:25:10.463[0m [1m[32mINFO [0m [1m[36mlikec4.c4:validate[0m [32mvalidate 225ms[39m
+Sequence view does not support nested actors

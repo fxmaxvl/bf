@@ -210,7 +210,12 @@ Print banner: `── design | Handoff ─────────────�
       names, auth schemes, API keys) before sharing externally.
       ```
 
-   d. End the session.
+   d. Then print one line:
+      ```
+      Next: /bf:visualize <absolute path> for an interactive drill-down view.
+      ```
+
+   e. End the session.
 
 3. **If YES:**
 

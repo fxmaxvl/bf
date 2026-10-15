@@ -1,0 +1,44 @@
+specification {
+  element person {
+    style {
+      shape person
+      color amber
+    }
+  }
+  element system {
+    style {
+      color primary
+    }
+  }
+  element container {
+    style {
+      color blue
+    }
+  }
+  element component {
+    style {
+      color sky
+    }
+  }
+  element database {
+    style {
+      shape storage
+      color green
+    }
+  }
+  element queue {
+    style {
+      shape queue
+      color indigo
+    }
+  }
+  element external {
+    style {
+      color gray
+      opacity 40%
+    }
+  }
+  tag tbd {
+    color #8B8B8B
+  }
+}

@@ -1,0 +1,33 @@
+// Copy to <project>/.bf/conventions/visualize-spec.c4 or ~/.bf/conventions/visualize-spec.c4.
+// bf:visualize loads it next to the base spec, so it ADDS kinds.
+// Redefining a base kind (person, system, container, component, database, queue, external)
+// is a hard error: the build stops and asks you to fix this file.
+specification {
+  element prime_app {
+    style {
+      color blue
+    }
+  }
+  element kafka_topic {
+    style {
+      shape queue
+      color indigo
+    }
+  }
+  element sdl_entity {
+    style {
+      shape storage
+      color green
+    }
+  }
+  element rpc {
+    style {
+      color sky
+    }
+  }
+  element spi {
+    style {
+      color amber
+    }
+  }
+}

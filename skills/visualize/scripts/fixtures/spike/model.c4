@@ -1,0 +1,25 @@
+specification {
+  element system
+  element container
+  element component
+}
+model {
+  user = system 'User'
+  shop = system 'Shop' {
+    web = container 'Web' { cart = component 'Cart' }
+    api = container 'API' { orders = component 'Orders' }
+    db = container 'DB'
+  }
+  user -> shop.web 'browses'
+  shop.web.cart -> shop.api.orders 'places order'
+  shop.api.orders -> shop.db 'writes'
+}
+views {
+  view index { include * }
+  view shop of shop { include * }
+  dynamic view checkout {
+    user -> shop.web 'opens'
+    shop.web.cart -> shop.api.orders 'POST /orders'
+    shop.api.orders -> shop.db 'insert'
+  }
+}

@@ -1,0 +1,36 @@
+[2m13:25:07.700[0m [1m[32mINFO [0m [1m[36mlikec4.lang[0m [2mlayout[22m wasm
+[2m13:25:07.704[0m [1m[32mINFO [0m [1m[36mlikec4.lang[0m [2mworkspace:[22m /WS/model
+[2m13:25:07.856[0m [1m[32mINFO [0m [1m[36mlikec4.lang[0m [2mworkspace:[22m found 1 source files
+[2m13:25:07.856[0m [1m[32mINFO [0m [1m[36mlikec4.c4:build[0m [36mlikec4 app root[39m [2m/NPX/node_modules/likec4/__app__[22m
+[2m13:25:07.856[0m [1m[32mINFO [0m [1m[36mlikec4.c4:build[0m [36moutDir[39m [2mn3out[22m
+[2m13:25:07.930[0m [1m[32mINFO [0m [1m[36mlikec4.c4:build[0m [2mworkspace:[22m [32m✓ all views layouted[39m
+[2m13:25:07.944[0m [1m[32mINFO [0m [1m[36mlikec4.c4:build[0m vite v8.3.2 building client environment for production...
+transforming...
+[2m13:25:08.044[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:rpc[39m
+[2m13:25:08.044[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:puml[39m
+[2m13:25:08.045[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:mmd[39m
+[2m13:25:08.045[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:model[39m
+[2m13:25:08.045[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:app-config[39m
+[2m13:25:08.045[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:d2[39m
+[2m13:25:08.046[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:projects[39m
+[2m13:25:08.046[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:icons[39m
+[2m13:25:08.046[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:drawio[39m
+[2m13:25:08.046[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:dot[39m
+[2m13:25:08.092[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:puml/[39m[95mdefault[39m
+[2m13:25:08.094[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:d2/[39m[95mdefault[39m
+[2m13:25:08.095[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:mmd/[39m[95mdefault[39m
+[2m13:25:08.096[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:dot/[39m[95mdefault[39m
+[2m13:25:08.102[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:drawio/[39m[95mdefault[39m
+[2m13:25:08.110[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:model/[39m[95mdefault[39m
+[2m13:25:08.112[0m [1m[32mINFO [0m [1m[36mlikec4.vite[0m [2mgenerating [22m[35mlikec4:icons/[39m[95mdefault[39m
+✓ 92 modules transformed.
+rendering chunks...
+[2m13:25:08.421[0m [1m[32mINFO [0m [1m[36mlikec4.c4:build[0m [plugin vite:singlefile] 
+[2m13:25:08.423[0m [1m[32mINFO [0m [1m[36mlikec4.c4:build[0m [plugin vite:singlefile] Inlining: index-DzCQ-neR.js
+[2m13:25:08.425[0m [1m[32mINFO [0m [1m[36mlikec4.c4:build[0m [plugin vite:singlefile] Inlining: style-Dj-ymYso.css
+[2m13:25:08.434[0m [1m[32mINFO [0m [1m[36mlikec4.c4:build[0m [plugin vite:singlefile] NOTE: asset not inlined: favicon-CeB0sGK2.svg
+computing gzip size...
+[2m13:25:08.468[0m [1m[32mINFO [0m [1m[36mlikec4.c4:build[0m n3out/favicon-CeB0sGK2.svg      0.59 kB │ gzip:   0.31 kB
+n3out/index.html            2,987.98 kB │ gzip: 976.84 kB
+[2m13:25:08.468[0m [1m[32mINFO [0m [1m[36mlikec4.c4:build[0m ✓ built in 524ms
+Sequence view does not support nested actors

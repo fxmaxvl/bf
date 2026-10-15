@@ -1,0 +1,7 @@
+specification {
+  element prime_app {
+    style {
+      color blue
+    }
+  }
+}

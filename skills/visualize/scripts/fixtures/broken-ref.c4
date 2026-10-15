@@ -1,0 +1,3 @@
+model { a = system 'A'
+ a -> ghost 'x' }
+views { view index { include * } }

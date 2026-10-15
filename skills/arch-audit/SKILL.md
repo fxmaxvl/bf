@@ -98,9 +98,10 @@ write the result to the `doc` path from `run-state.sh paths`. Print that path, t
 counts, and the highest-severity findings.
 
 Then offer one handoff (one question, per plugin-main.md): `/bf:feature` to act on a finding,
-`/bf:adr-writer` to record a decision the audit exposed, or nothing. **This skill never edits
-code** — ranking findings against each other requires that none has been acted on yet, and editing
-mid-descent would invalidate the layers already described.
+`/bf:adr-writer` to record a decision the audit exposed, `/bf:visualize <doc>` for an interactive
+drill-down of the system, or nothing. **This skill never edits code** — ranking findings against each
+other requires that none has been acted on yet, and editing mid-descent would invalidate the layers
+already described.
 
 ## Layer sections
 
