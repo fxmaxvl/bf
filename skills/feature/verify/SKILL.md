@@ -32,6 +32,8 @@ Use `test_commands` from `detect-stack.sh`. If monorepo, apply `scope_template` 
 
 Run the full test suite (all tests in scope, not just changed files — the goal is to ensure nothing is broken).
 
+**Output-filtering shell wrappers.** Token-saving proxies (e.g. `rtk`, often wired in through a command-rewrite hook) can summarise or reshape runner output. That hides the failure markers and per-test lines this skill parses, and a summarised "0 failed" can read as green. If output looks condensed or reformatted, or a wrapper is installed, re-run through its raw passthrough, e.g. `rtk proxy <test command>`, which keeps the exit code. Decide pass or fail from the raw run's exit code and output, never from the summary.
+
 **If the test suite fails to load (setup-stage failure):**
 1. Detect markers in the Jest output indicating a pre-test-execution failure — e.g., `TSError`, `SyntaxError`, or `Cannot find module` whose stack trace originates from a path referenced by `globalSetup`, `globalTeardown`, `setupFiles`, or `setupFilesAfterEach` (the suite collapsed before any test file ran). The same principle applies to other runners with suite-level setup hooks. When Jest emits its own setup-phase failure label (e.g. `● Test suite failed to run` followed by a setup-hook path), treat that as an equivalent signal.
 2. Identify the failing setup file path from the stack trace.
