@@ -102,6 +102,12 @@ Split the syllabus into contiguous batches of no more than 4 lessons. Spawn one 
 
 Like the survey agents, each writer's final act is its one-line result to `team-lead`.
 
+**Watch for a silent writer.** A writer that is running but stuck sends no message, so nothing wakes you, and the whole course waits on it. Right after the spawn, start a background `sleep 600`; it wakes you when it exits. On waking, check every writer that has not yet reported:
+
+- **If it has no file in `<workspace>/lessons/` that starts with its batch's first number, it is stalled.** Message it once by name, and start one more background `sleep 300`.
+- **If it is still silent after that, stop it.** Then re-spawn its batch, or write the batch inline. Re-spawning uses the one re-spawn allowed in the edge-case table.
+- **If its first file exists, it is working.** Leave it be.
+
 Writers follow `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md` for lesson and reference design, with these overrides:
 
 - Use the syllabus-assigned number and filename. Never scan the directory and increment.
@@ -144,5 +150,6 @@ Print the workspace path, the lesson and reference counts, any skipped areas, an
 | Area absent (e.g. no DB, no CI) | Skip its lesson, list it in the course map and in MISSION's Out of scope. |
 | `units.mode` is `dir` | Architecture lessons say the topology was inferred from directories, not build units. |
 | Survey or lesson agent fails or writes nothing | Re-spawn that one agent once. If it fails again, mark its lessons missing in the course map. Never present a partial course as complete. |
+| Lesson writer still running but silent past the stall check | Follow **Watch for a silent writer** in Phase 4: message it once, then stop it and re-spawn its batch or write it inline. |
 | Repo docs contradict the code | Teach what the code does, cite both sides, and add the discrepancy to NOTES.md as a question for the team. |
 | Secrets found in tracked config | Never copy the values into lessons, fact sheets, `NOTES.md` or `RESOURCES.md`. Name the file and the variable only. |
