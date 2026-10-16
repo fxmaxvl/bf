@@ -1,0 +1,8 @@
+[2m13:25:11.597[0m [1m[32mINFO [0m [1m[36mlikec4.lang[0m [2mlayout[22m wasm
+[2m13:25:11.602[0m [1m[32mINFO [0m [1m[36mlikec4.lang[0m [2mworkspace:[22m /WS/bad
+[2m13:25:11.744[0m [1m[32mINFO [0m [1m[36mlikec4.lang[0m [2mworkspace:[22m found 1 source files
+[2m13:25:11.792[0m [1m[32mINFO [0m [1m[36mlikec4.c4:validate[0m [32mvalidate 195ms[39m
+[2m13:25:11.744[0m [1m[31mERROR[0m [1m[36mlikec4[0m Invalid /WS/bad/model.c4
+    [2mLine 2: [22m[31mCould not resolve reference to Referenceable named 'ghost'.[39m
+    [2mLine 2: [22m[31mTarget not resolved[39m
+[2m13:25:11.792[0m [1m[31mERROR[0m [1m[36mlikec4.c4:validate[0m [31m[31m✗ Invalid[31m[2m (1 files, 2 errors)[22m[39m

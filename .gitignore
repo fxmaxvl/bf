@@ -6,3 +6,4 @@
 .idea/
 __pycache__/
 evals/results/
+.bf/visualize/

@@ -1,0 +1,25 @@
+// bf:visualize: FAILED VALIDATION — see diagnostics from the last run; fix and re-run /bf:visualize
+// view ghost of x
+model {
+  /* old = container 'Old' */
+  shop = system 'Shop' {
+    note = component 'Note' {
+      description 'a #tbd tag and a view fake, plus http://x and a quote \' inside'
+    }
+    jobs = queue 'Jobs' {
+      #tbd
+    }
+  }
+  shop.note -> shop.jobs 'enqueues'
+}
+views {
+  view index {
+    include *
+  }
+  view shop of shop {
+    include *
+  }
+  dynamic view checkout {
+    shop.note -> shop.jobs 'enqueue'
+  }
+}

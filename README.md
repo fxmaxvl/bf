@@ -29,6 +29,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:discuss <question>` | Oracle | Open dialogue to explore a question before committing to a direction | You're not ready to decide yet — you want to think out loud first |
 | `/bf:consilium <question>` | Oracle | 3-critic council: one answers, two challenge from opposing angles, majority wins | The decision is high-stakes or contested and one opinion isn't enough |
 | `/bf:design <idea>` | Utility | Shareable system-design doc with diagrams, via interactive Q&A | You need a design artifact — standalone, no git or PR involved |
+| `/bf:visualize <doc>` | Utility | Turns an arch-audit or design doc into an interactive LikeC4 drill-down (context → container → component, plus request-flow views) in one local HTML file | You want to explore a system's structure instead of reading about it |
 | `/bf:adr-writer [title]` | Utility | Interactive Q&A to draft a numbered ADR citing only tracked source files | You need to record an architecture decision as a real project doc |
 | `/bf:review [--focus <lens>] [PR# \| files]` | Utility | Code review against bf conventions and the complexity gate; `--focus` (or asking for an angle) runs only that lens's checks | Before merging — or whenever you want a second set of eyes |
 | `/bf:coherence [scope]` | Utility | Checks whether a change left the code it touched coherent, against the guidelines' breakage kinds | Right after editing existing code — the fast counterpart to `/bf:review` |
