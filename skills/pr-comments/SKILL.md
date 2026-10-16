@@ -267,9 +267,21 @@ before the gate — this is the text that gets published under the user's name.
 
 ## Phase 5 — Closing gate
 
-Ask exactly ONE question over the whole batch, then wait:
+Ask exactly ONE question over the whole batch, then wait. Which form depends on two checks:
+- `git status --porcelain` lists the files Phase 3 changed;
+- `git branch --show-current` equals the fetch result's `head`.
+
+If both hold, offer the push with it, naming the branch, the file count and the order:
+
+> Commit and push the fixes to `<head>` (<F> files), then post <N> replies and resolve <M> threads — or post only and push later?
+
+Otherwise (no fixes, or a different branch is checked out), only posting is possible:
 
 > Post <N> replies and resolve <M> threads?
+
+On **commit and push**, follow the `git` convention:
+- Stage only the files Phase 3 changed, and commit them.
+- `git push`, and post only after the push succeeds. If it fails, stop before posting: replies would point at code the reviewer cannot see. Report the push error, and leave the replies for a rerun.
 
 Never one question per comment: it breaks the one-question rule and is unusable at fifteen comments.
 `/bf:autopilot pr-comments <args>` is the hands-off path.
@@ -293,8 +305,9 @@ entries in the triage file, and name any `failed` entry with its detail rather t
 batch as done. If the user declines the gate, the triage file and the fixes stay — nothing was
 published, and a rerun picks up from the file.
 
-Committing and pushing the fixes is not part of this skill. Say in one line that the working tree
-has unpushed fixes, so the reviewer is looking at replies that reference code they cannot see yet.
+When the user chose post only, or the push option was not offered while fixes exist, say in one line
+that the working tree has unpushed fixes. The reviewer is looking at replies that reference code they
+cannot see yet.
 
 ## Edge Cases & Errors
 
