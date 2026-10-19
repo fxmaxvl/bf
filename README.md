@@ -52,6 +52,121 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:onboard-project [role or first task]` | Utility | Surveys the repo and generates a complete bf:teach onboarding course in one run — purpose, domain, architecture, stack, running it locally, data, APIs, dependencies, config, testing, delivery, ops, workflow, first task | You just joined a project and want the whole codebase taught end to end, then continued with `/bf:teach` |
 | `/bf:session-lesson [optional focus]` | Utility | Mines this session for study topics — tech, or your own repeated English mistakes — and writes one bf:teach lesson with a cheat sheet | At the end of a working session, to keep what it taught you |
 
+## Workflow scenarios
+
+The table above lists what each skill does on its own. In practice you chain them: one skill's
+output is the next one's input. Every arrow below is a real handoff. Each skill either offers the
+next step, or writes an artifact the next skill reads. You type each command; nothing chains silently.
+
+### Ship a feature from a vague idea
+
+```text
+/bf:research <topic>       cited Options + Recommendation report in .bf/research/
+/bf:consilium <question>   3-critic council settles the contested call the report surfaced
+/bf:feature <idea>         brainstorm → spec → review-design → plan → [you approve] → execute
+                           → verify → audit stack → review → commit, push, PR
+/bf:walkthrough            tour the hunks that carried a decision, while you still remember why
+```
+
+Use `/bf:decide` instead of `/bf:consilium` when one opinion is enough. Skip research when you
+already know the prior art.
+
+### Align on requirements before anyone writes code
+
+```text
+/bf:gather <PRD or idea>   versioned requirements doc, open questions tracked across sessions
+/bf:design <feature>       shareable system-design doc with diagrams (no git, no PR)
+/bf:visualize <design-doc> optional: interactive drill-down to show the team
+/bf:feature <feature>      builds from the settled docs instead of brainstorming from scratch
+```
+
+Choose this when other people have to agree first, or the idea spans more than one session. If you
+only want to think out loud, use `/bf:discuss` and go straight to `/bf:feature`.
+
+### Understand an unfamiliar codebase and draw it
+
+```text
+/bf:arch-audit [scope]     layer-by-layer document of every build unit, plus structural findings
+/bf:visualize <audit-doc>  LikeC4 drill-down (context → container → component), one local HTML file
+/bf:adr-writer <title>     record a decision the audit exposed, citing only tracked files
+/bf:feature <finding>      act on the finding worth fixing first
+```
+
+arch-audit never edits code, so findings stay comparable. Use `/bf:onboard-project` instead
+if the goal is to learn the repo, not to judge it.
+
+### Join a new project (or onboard a teammate)
+
+```text
+/bf:onboard-project <role or first task>   full course: domain, architecture, stack, run locally, ops…
+/bf:teach <slug>                           continue the course: questions, deeper lessons, glossary
+/bf:session-lesson                         after a real work session, turn what it taught into a lesson
+```
+
+Hand a teammate the generated workspace. `/bf:teach` picks up from there. For a single topic rather
+than a whole repo, start directly with `/bf:teach <topic>`.
+
+### Fix a regression
+
+```text
+/bf:bug-fix <symptoms>     parallel root-cause hunt → decide-gated fix → sibling sweep, no prompts
+/bf:coherence              did the fix leave the code it touched coherent?
+/bf:review                 full pre-merge review; then commit and open the PR yourself
+```
+
+bug-fix stops at a summary and does not commit. If you would rather steer each phase and have the PR
+opened for you, use `/bf:quick <fix>`.
+
+### Work through PR review feedback
+
+```text
+/bf:review --focus security <PR#>   optional: your own focused pass before reviewers arrive
+/bf:pr-comments <PR#>               judge every comment: fix the whole class, argue back, or defer.
+                                    Contested ones escalate to the council. One approved batch.
+/bf:gh                              file the deferred items as an issue so they aren't lost
+```
+
+Use this when comments come from people or bots and some are wrong. Fixing them blindly costs more
+than triaging them.
+
+### Prove an idea before committing to it
+
+```text
+/bf:poc <idea>             interview → brief → smallest working build → smoke run; no git
+/bf:feature <BRIEF.md>     graduate it: the brief seeds the real feature
+```
+
+Choose this over `/bf:feature` when the question is "can this work at all?" rather than "how should
+we build it?".
+
+### Pick up a stale issue
+
+```text
+/bf:gh                     pick an issue, or verify one: re-checks each item against the code
+                           → hands only the still-open items to /bf:quick or /bf:feature
+/bf:walkthrough            read back what changed before you merge
+```
+
+Verify first when the issue is old: some items are often already fixed. For a one-file cleanup that
+doesn't need an issue, `/bf:micro <change>` runs refactor → guards → PR.
+
+### Keep the plugin healthy
+
+```text
+/bf:session-summary        end of session; optionally files skill-improvement suggestions as an issue
+/bf:self-audit             sweep skills, scripts and conventions for drift; file findings as issues
+/bf:self-heal              score the backlog, argue for the top 3, fix them, ship one PR
+```
+
+Run self-audit on a schedule and self-heal whenever the backlog grows. Extending bf is a different
+job: use `/bf:write-skill` or `/bf:onboard-skill <url>`.
+
+### Hands-off
+
+Any of `feature`, `quick`, `micro`, `review` or `design` can run under `/bf:autopilot`, for example
+`/bf:autopilot quick fix the flaky retry test`. The decide/consilium oracles answer every question the
+workflow would have asked you, and you read the decisions in the session log afterwards.
+
 ## Getting started
 
 ### Add the marketplace
