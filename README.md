@@ -161,6 +161,20 @@ doesn't need an issue, `/bf:micro <change>` runs refactor → guards → PR.
 Run self-audit on a schedule and self-heal whenever the backlog grows. Extending bf is a different
 job: use `/bf:write-skill` or `/bf:onboard-skill <url>`.
 
+### Build your own plugin for a domain
+
+```text
+/bf:kit <what it's for>          interview → your materials → skill roster → drafted skills, as a
+                                 standalone, git-initialised plugin outside bf
+/<kit>:update-context <change>   refine its context, or add notes, docs and URLs to its knowledge
+/<kit>:write-skill               no argument: draft the next skill from the kit's BACKLOG.md
+/<kit>:adopt-skill <url | path>  pull an existing skill into the kit and adapt it
+```
+
+Choose this when the skills serve a subject, such as a course, a role or a recurring kind of
+work, rather than bf itself. The kit grows on its own afterwards, so extend it with its own skills,
+not `/bf:kit`.
+
 ### Hands-off
 
 Any of `feature`, `quick`, `micro`, `review` or `design` can run under `/bf:autopilot`, for example
