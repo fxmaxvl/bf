@@ -5,6 +5,9 @@
 #   onboard-probe.sh init [slug]        # slug defaults to "<repo>-onboarding"; always slugified
 #   onboard-probe.sh verify <workspace> # lists lesson/reference links whose target file is missing;
 #                                       # links quoted inside <pre>/<code> are sample text, not links
+#   onboard-probe.sh promote <staging> <workspace>
+#                                       # copies staged lessons/ and reference/ pages into the workspace;
+#                                       # never overwrites, so an existing page is a conflict, not copied
 # Output: single-line JSON.
 set -euo pipefail
 
@@ -91,6 +94,25 @@ case "${1:-init}" in
       --argjson references "$( (find "$ws/reference" -name '*.html' 2>/dev/null || true) | wc -l | tr -d ' ')" \
       --argjson broken "$(printf '%s\n' "${broken[@]:-}" | json_lines)" \
       '{lessons:$lessons, references:$references, broken_links:$broken}'
+    ;;
+  promote)
+    staging=${2:?usage: onboard-probe.sh promote <staging> <workspace>}
+    ws=${3:?usage: onboard-probe.sh promote <staging> <workspace>}
+    [ -d "$staging" ] || { jq -nc --arg s "$staging" '{error:"no_staging_dir", staging:$s}'; exit 1; }
+    copied=(); conflicts=()
+    for sub in lessons reference; do
+      [ -d "$staging/$sub" ] || continue
+      mkdir -p "$ws/$sub"
+      for f in "$staging/$sub"/*; do
+        [ -f "$f" ] || continue
+        rel="$sub/$(basename "$f")"
+        if [ -e "$ws/$rel" ]; then conflicts+=("$rel"); else cp "$f" "$ws/$rel" && copied+=("$rel"); fi
+      done
+    done
+    jq -nc \
+      --argjson copied "$(printf '%s\n' "${copied[@]:-}" | json_lines)" \
+      --argjson conflicts "$(printf '%s\n' "${conflicts[@]:-}" | json_lines)" \
+      '{copied:$copied, conflicts:$conflicts}'
     ;;
   *)
     echo '{"error":"unknown_command"}'; exit 1

@@ -91,6 +91,16 @@ eq "links quoted in pre/code are ignored, real ones still checked" "$(probe veri
 
 lessonless=$tmp/.bf/teach/no-lessons
 mkdir -p "$lessonless"
+st=$tmp/staging; pws=$tmp/promoted
+mkdir -p "$st/lessons" "$st/reference" "$pws/lessons"
+echo new > "$st/lessons/0001-a.html"; echo new > "$st/reference/0001-r.html"; echo new > "$st/lessons/0002-b.html"
+echo keep > "$pws/lessons/0002-b.html"
+eq "promote copies staged pages and reports a conflict" "$(probe promote "$st" "$pws" | jq -c '[.copied,.conflicts]')" \
+  '[["lessons/0001-a.html","reference/0001-r.html"],["lessons/0002-b.html"]]'
+eq "promote never overwrites an existing page" "$(cat "$pws/lessons/0002-b.html"):$(cat "$pws/reference/0001-r.html")" "keep:new"
+(probe promote "$tmp/no-such-staging" "$pws" 2>&1) > "$tmp/ns.out" && rc=0 || rc=$?
+eq "promote without a staging dir errors" "$rc:$(jq -r .error "$tmp/ns.out")" "1:no_staging_dir"
+
 (probe verify "$lessonless" 2>&1) > "$tmp/nl.out" && rc=0 || rc=$?
 eq "verify without lessons dir errors" "$rc:$(jq -r .error "$tmp/nl.out")" "1:no_lessons_dir"
 (probe bogus 2>&1) > "$tmp/uc.out" && rc=0 || rc=$?
