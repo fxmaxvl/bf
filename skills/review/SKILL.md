@@ -489,6 +489,16 @@ STATUS: <PASS | ADVISORY | BLOCK>
 
 Omit the section body if STATUS is PASS.
 
+### Merge shared root causes
+
+The agents run independently, so one defect can come back as a C*, an X* and a Y*. Before escalating, merge concerns from **different** sections that describe the same root cause. Two concerns share one only when both hold:
+- they point at the same file and overlapping lines (or the same spec section);
+- one fix resolves both.
+
+The same line with two different defects is not a match. Neither is the same defect class in different places.
+
+For each match, keep the first ID in C → X → Y order as the primary. Append `(also <ids>)` to its line and give it the higher severity. Replace each other entry's body with `→ merged into <primary>`, so its ID still appears in the report. Phase 3 lists primaries only, and selecting a merged ID selects its primary. The summary's `Concerns:` counts leave merged entries out.
+
 ### Escalate overall STATUS
 
 If any C*, X*, or Y* concern exists, or if `review_failed=true`, set overall STATUS to CONCERN.
@@ -524,7 +534,7 @@ Print: "No concerns found. Report saved at `<report_path>`." and exit.
 
 **Step 1 — Selection question**
 
-Print a one-line summary of each concern:
+Print a one-line summary of each concern, primaries only:
 
 ```
 C1 [must-fix]        src/foo.ts:42 — <problem description>
