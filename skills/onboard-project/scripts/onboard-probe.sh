@@ -3,7 +3,8 @@
 # repo signals that decide which curriculum areas exist — one call instead of dozens of globs.
 # Usage:
 #   onboard-probe.sh init [slug]        # slug defaults to "<repo>-onboarding"; always slugified
-#   onboard-probe.sh verify <workspace> # lists lesson/reference links whose target file is missing
+#   onboard-probe.sh verify <workspace> # lists lesson/reference links whose target file is missing;
+#                                       # links quoted inside <pre>/<code> are sample text, not links
 # Output: single-line JSON.
 set -euo pipefail
 
@@ -83,7 +84,7 @@ case "${1:-init}" in
         target=${target%%\?*}
         [ -z "$target" ] && continue
         [ -f "$dir/$target" ] || broken+=("${page#"$ws"/} -> $href")
-      done <<< "$(grep -oE "(href|src)=(\"[^\"]+\"|'[^']+')" "$page" | sed -E "s/^(href|src)=[\"']//;s/[\"']\$//" | grep -vE '^(https?:|mailto:|#|file:|data:|//)' || true)"
+      done <<< "$(perl -0777 -pe 's{<(pre|code)\b[^>]*>.*?</\1>}{}gis' "$page" | grep -oE "(href|src)=(\"[^\"]+\"|'[^']+')" | sed -E "s/^(href|src)=[\"']//;s/[\"']\$//" | grep -vE '^(https?:|mailto:|#|file:|data:|//)' || true)"
     done
     jq -nc \
       --argjson lessons "$(find "$ws/lessons" -name '*.html' ! -name '0000-*' | wc -l | tr -d ' ')" \
