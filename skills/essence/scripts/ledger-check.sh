@@ -5,57 +5,66 @@
 # Usage: ledger-check.sh <ledger.json>
 # Ledger shape:
 #   {"budget": 3, "intent": "...", "candidates": [
-#     {"id":"C1","claim":"...","locator":"## Goals","bucket":"vital","absorbs":["C4"]},
+#     {"id":"C1","claim":"...","locator":"## Goals","bucket":"vital"},
 #     {"id":"C2","claim":"...","locator":"## Security","bucket":"non_negotiable"},
 #     {"id":"C3","claim":"...","locator":"## Ideas","bucket":"parked","reason":"..."},
 #     {"id":"C4","claim":"...","locator":"## Goals","bucket":"merged","into":"C1"}]}
+# Rules: candidates is a non-empty array of objects; id, claim and locator are non-empty strings
+# and ids are unique; bucket is vital, non_negotiable, parked or merged; parked needs a reason;
+# merged needs `into` naming a vital candidate; budget is an integer >= 1; intent is a non-empty
+# string; vital count <= budget; at least one vital unless every candidate is non_negotiable.
 # This checks accounting only. Whether a merged claim survives in its target's wording is the
 # model's check, not this script's.
 #
 # Output: {"ok":bool,"counts":{vital,non_negotiable,parked,merged,total},"errors":[...]}
-#   exit 0 when ok, 1 when not; {"error":...} + exit 1 when the ledger cannot be read.
+#   exit 0 when ok, 1 when not. Wrong types become errors entries, never a crash.
+#   {"error":"no_jq"|"not_found"|"bad_json"|"bad_ledger","detail":...} + exit 1 when the ledger
+#   cannot be checked at all.
 set -uo pipefail
 
-die() { printf '{"error":"%s","detail":"%s"}\n' "$1" "$2"; exit 1; }
-command -v jq >/dev/null || die no_jq "jq is required"
+command -v jq >/dev/null || { printf '{"error":"no_jq","detail":"jq is required"}\n'; exit 1; }
+die() { jq -cn --arg e "$1" --arg d "$2" '{error:$e,detail:$d}'; exit 1; }
 [ -f "${1-}" ] || die not_found "ledger file: ${1-<none>}"
 jq -e 'type == "object"' "$1" >/dev/null 2>&1 || die bad_json "$1 is not a JSON object"
 
 result=$(jq '
-  (.candidates // []) as $c
+  def str: type == "string" and length > 0;
+  def buckets: ["vital","non_negotiable","parked","merged"];
+  (.candidates) as $raw
+  | (if ($raw | type) == "array" then $raw else [] end) as $arr
+  | ($arr | map(select(type == "object"))) as $c
   | ($c | map(select(.bucket == "vital"))) as $vital
-  | ($vital | map(.id)) as $vital_ids
-  | def nonempty(f): (f // "" | tostring | length) > 0;
-  [
-    (if ($c | length) == 0 then "no candidates" else empty end),
-    (if (.budget | type) != "number" or .budget < 1 then "budget must be a positive integer" else empty end),
-    ($c | group_by(.id)[] | select(length > 1) | "duplicate id \(.[0].id)"),
-    ($c[] | select(nonempty(.id) | not) | "candidate without id: \(.claim // "?")"),
-    ($c[] | select(nonempty(.claim) | not) | "\(.id): empty claim"),
-    ($c[] | select(nonempty(.locator) | not) | "\(.id): no source locator"),
-    ($c[] | select(.bucket as $b | ["vital","non_negotiable","parked","merged"] | index($b) | not)
-          | "\(.id): bucket must be vital, non_negotiable, parked or merged (got \(.bucket // "none"))"),
-    ($c[] | select(.bucket == "parked" and (nonempty(.reason) | not)) | "\(.id): parked without a reason"),
-    ($c[] | select(.bucket == "merged") as $m
-          | if ($vital_ids | index($m.into)) == null then "\($m.id): merged into \($m.into // "nothing"), which is not vital"
-            elif ([$vital[] | select(.id == $m.into) | (.absorbs // []) | index($m.id)] | first) == null
-            then "\($m.id): \($m.into) does not list it in absorbs"
-            else empty end),
-    ($vital[] as $v | ($v.absorbs // [])[] as $a
-          | if ([$c[] | select(.id == $a and .bucket == "merged" and .into == $v.id)] | length) == 0
-            then "\($v.id): absorbs \($a), which is not merged into it" else empty end),
-    (if ($vital | length) == 0 and ($c | map(select(.bucket == "non_negotiable")) | length) == 0
-     then "no vital direction or non-negotiable kept" else empty end),
-    (if (.budget | type) == "number" and ($vital | length) > .budget
-     then "\($vital | length) vital directions exceed the budget of \(.budget)" else empty end)
+  | ($vital | map(.id | select(str))) as $vital_ids
+  | def n(b): [$c[] | select(.bucket == b)] | length;
+    {vital: n("vital"), non_negotiable: n("non_negotiable"), parked: n("parked"),
+     merged: n("merged"), total: ($c | length)} as $counts
+  | (.budget | type == "number" and . >= 1 and . == floor) as $budget_ok
+  | [
+    (if ($raw | type) != "array" or ($raw | length) == 0 then "candidates must be a non-empty array" else empty end),
+    ($arr | to_entries[] | select(.value | type != "object") | "candidate #\(.key + 1) is not an object"),
+    ($arr | to_entries[] | select(.value | type == "object")
+      | .value as $x
+      | (if ($x.id | str) then $x.id else "candidate #\(.key + 1)" end) as $l
+      | (if ($x.id | str | not) then "\($l): id must be a non-empty string" else empty end),
+        (if ($x.claim | str | not) then "\($l): claim must be a non-empty string" else empty end),
+        (if ($x.locator | str | not) then "\($l): no source locator" else empty end),
+        (if ($x.bucket | type) != "string" or (buckets | index($x.bucket)) == null
+         then "\($l): bucket must be vital, non_negotiable, parked or merged (got \($x.bucket | tojson))" else empty end),
+        (if $x.bucket == "parked" and ($x.reason | str | not) then "\($l): parked without a reason" else empty end),
+        (if $x.bucket == "merged"
+         then if ($x.into | type) != "string" then "\($l): merged without an into id"
+              elif ($vital_ids | index($x.into)) == null then "\($l): merged into \($x.into), which is not vital"
+              else empty end
+         else empty end)),
+    ($c | map(.id | select(str)) | group_by(.)[] | select(length > 1) | "duplicate id \(.[0])"),
+    (if $budget_ok | not then "budget must be an integer >= 1" else empty end),
+    (if (.intent | str | not) then "intent must be a non-empty string" else empty end),
+    (if $budget_ok and $counts.vital > .budget
+     then "\($counts.vital) vital directions exceed the budget of \(.budget)" else empty end),
+    (if ($raw | type) == "array" and ($raw | length) > 0 and $counts.vital == 0 and $counts.non_negotiable < $counts.total
+     then "no vital direction kept" else empty end)
   ] as $errors
-  | {ok: ($errors | length == 0),
-     counts: {vital: ($vital | length),
-              non_negotiable: ($c | map(select(.bucket == "non_negotiable")) | length),
-              parked: ($c | map(select(.bucket == "parked")) | length),
-              merged: ($c | map(select(.bucket == "merged")) | length),
-              total: ($c | length)},
-     errors: $errors}
+  | {ok: ($errors | length == 0), counts: $counts, errors: $errors}
 ' "$1") || die bad_ledger "jq could not evaluate $1"
 
 printf '%s\n' "$result"
