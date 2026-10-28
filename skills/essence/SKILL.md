@@ -44,6 +44,7 @@ Present, then ask one question and wait:
 > **Essential intent:** <sentence — done when …> *(from: <locator> | derived)*
 > **Non-negotiables carried through regardless of score:** <list with locators, or "none stated">
 > **Budget:** <budget> vital directions
+> **Candidates (<total>):** <C1 short title> · <C2 short title> · … — grouped by locator when there are more than 10
 >
 > Is this the intent to cut against? Accept it, or tell me what to change.
 
