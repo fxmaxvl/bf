@@ -159,6 +159,11 @@ Before finishing, verify each item. Fix any gap before marking done.
 - [ ] **Banner printed on invocation** — skill prints `── bf:<name> ──…` as plain text (not in a code block) before doing any substantive work.
 - [ ] **Edge cases listed** — at least a stub `## Edge Cases & Errors` table covering the most obvious failure modes.
 - [ ] **Run once on a real input** — invoke the skill end to end on one real artifact (a real doc, branch or repo, not a fixture) before handing it to review. Structural checks pass on a skill that is still awkward to use; one real run surfaces that before review cycles are spent polishing its text. Note what the run changed, or that it changed nothing.
+- [ ] **Free-form arguments reach scripts intact** — if the skill hands its arguments (paths, `#N`, URLs) to a script, pass them on stdin through a quoted heredoc (`<<'BF_ARGS'` … `BF_ARGS`), never on the command line: the arguments are substituted into the text before the shell parses it, so a space splits a path, `#123` becomes a comment, and a quote — even inside `"$ARGUMENTS"` — breaks the command. Write smoke cases for a path with spaces, parentheses, a quote and a leading `#` in the same change that adds the script. The check below must print `clean`:
+
+```bash
+grep -nE 'bash .*\$ARGUMENTS' <new-skill-dir>/SKILL.md || echo "clean"
+```
 - [ ] **No foreign path namespaces** — a skill drafted from another plugin's file carries its path literals across silently. Run the check below; every hit must become `${CLAUDE_PLUGIN_ROOT}/...` or a path the skill documents as deliberately external.
 
 ```bash
