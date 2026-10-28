@@ -158,6 +158,7 @@ Before finishing, verify each item. Fix any gap before marking done.
 - [ ] **Parallel fan-out follows the convention** — if the skill spawns multiple sub-agents to work the same task in parallel, they are named (fleet-board legible), spawned in one message, awaited atomically, and do not message each other, per the **Parallel Fan-Out** section of `plugin-main.md`.
 - [ ] **Banner printed on invocation** — skill prints `── bf:<name> ──…` as plain text (not in a code block) before doing any substantive work.
 - [ ] **Edge cases listed** — at least a stub `## Edge Cases & Errors` table covering the most obvious failure modes.
+- [ ] **Run once on a real input** — invoke the skill end to end on one real artifact (a real doc, branch or repo, not a fixture) before handing it to review. Structural checks pass on a skill that is still awkward to use; one real run surfaces that before review cycles are spent polishing its text. Note what the run changed, or that it changed nothing.
 - [ ] **No foreign path namespaces** — a skill drafted from another plugin's file carries its path literals across silently. Run the check below; every hit must become `${CLAUDE_PLUGIN_ROOT}/...` or a path the skill documents as deliberately external.
 
 ```bash
