@@ -6,7 +6,8 @@
 #   --all    -> include already-resolved threads and threads we already answered
 #
 # Output (stdout, single JSON object):
-#   {pr, url, title, head_sha, viewer, base, threads[], notes[], counts{}}
+#   {pr, url, title, head_sha, last_bot_review, viewer, base, threads[], notes[], counts{}}
+#     last_bot_review = {author, sha, submitted_at} of the newest review by a bot, or null
 #     threads[] = {kind, thread_id, comment_id, file, line, side, outdated,
 #                  resolved, author, is_bot, body, replies[], diff_hunk,
 #                  answered_by_viewer}
@@ -61,7 +62,7 @@ query($owner:String!,$repo:String!,$num:Int!){
         author{login __typename} body createdAt
       }}
       reviews(first:100){nodes{
-        author{login __typename} body state submittedAt
+        author{login __typename} body state submittedAt commit{oid}
       }}
       reviewThreads(first:100){nodes{
         id isResolved isOutdated path line originalLine diffSide
@@ -142,6 +143,13 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
         | select(.changeType != "DELETED")
         | {path: .path, additions: .additions, deletions: .deletions, change_type: .changeType} ] ) as $files
 
+  | ( [ $pr.reviews.nodes[] | select((.author.__typename // "") == "Bot") ]
+      | sort_by(.submittedAt // "") | last
+      | if . == null then null
+        else {author: (.author.login // "unknown"), sha: (.commit.oid // null), submitted_at: .submittedAt} end
+    ) as $bot_review
+  | ($pr.commits.nodes[0].commit.oid // null) as $head_sha
+
   | ($threads + $issues + $reviews) as $every
   | ( if $all then $every
       else [ $every[] | select(.resolved == false and .answered_by_viewer == false) ]
@@ -151,7 +159,8 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
       pr: $pr.number,
       url: $pr.url,
       title: $pr.title,
-      head_sha: ($pr.commits.nodes[0].commit.oid // null),
+      head_sha: $head_sha,
+      last_bot_review: $bot_review,
       viewer: $me,
       base: $pr.baseRefName,
       head: $pr.headRefName,
@@ -175,6 +184,9 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
             | if ($a > 0 and ($all|not)) then "\($a) thread(s) already answered by \($me) skipped — rerun with --all to include" else empty end ),
           ( ([ $open[] | select(.outdated) ] | length) as $o
             | if $o > 0 then "\($o) actionable thread(s) are outdated — the code they point at has moved" else empty end ),
+          ( if ($bot_review != null and $bot_review.sha != null and $head_sha != null and $bot_review.sha != $head_sha)
+            then "\($bot_review.author) last reviewed \($bot_review.sha[0:7]), not the head \($head_sha[0:7]) — a re-review of the latest push may still be running"
+            else empty end ),
           ( if (($pr.files.totalCount // 0) > 100)
             then "PR touches \($pr.files.totalCount) files; only the first 100 are listed — the sibling-instance search surface is incomplete"
             else empty end ) ]

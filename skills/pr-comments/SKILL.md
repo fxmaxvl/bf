@@ -34,7 +34,9 @@ Fetch everything in one call — never assemble threads from separate `gh` queri
 bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/fetch-pr-comments.sh" "$ARGUMENTS"
 ```
 
-It returns `{pr, url, title, head_sha, viewer, base, head, threads[], files[], counts{}, notes[]}`.
+It returns `{pr, url, title, head_sha, last_bot_review, viewer, base, head, threads[], files[], counts{}, notes[]}`.
+`last_bot_review` is `{author, sha, submitted_at}` of the newest bot review, or `null`; when its `sha`
+is not `head_sha`, `notes[]` says so — the comments may be the previous review's, not the current head's.
 `files[]` is the PR's changed files as `{path, additions, deletions, change_type}` with `DELETED`
 ones dropped — that list is the search surface for Phase 3's generalization pass, so do not rebuild
 it with `git diff` against a guessed base. Each
@@ -310,6 +312,9 @@ The result is `{posted, resolved, skipped, failed, results[]}`. Report it as-is:
 entries in the triage file, and name any `failed` entry with its detail rather than reporting the
 batch as done. If the user declines the gate, the triage file and the fixes stay — nothing was
 published, and a rerun picks up from the file.
+
+When the fixes were pushed, add one line: the push starts a new review on most review bots, so
+rerun once it finishes — a rerun before then can show no open comments, or the previous review's.
 
 When the user answered `no push`, or the push option was not offered while fixes exist, say in one line
 that the working tree has unpushed fixes. The reviewer is looking at replies that reference code they
