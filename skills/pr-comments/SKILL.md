@@ -271,13 +271,19 @@ Ask exactly ONE question over the whole batch, then wait. Which form depends on 
 - `git status --porcelain` lists the files Phase 3 changed;
 - `git branch --show-current` equals the fetch result's `head`.
 
+Posting a reply and resolving its thread are separate outward-facing actions, so the gate names
+both. Above the question, list the <M> threads that would resolve, one line each: triage id and
+`file:line`. Approving the replies must never resolve a thread the user did not see on that list.
+
 If both hold, offer the push with it, naming the branch, the file count and the order:
 
-> Commit and push the fixes to `<head>` (<F> files), then post <N> replies and resolve <M> threads — or post only and push later?
+> Commit and push the fixes to `<head>` (<F> files), then post <N> replies and resolve the <M> threads listed above? Reply `yes`, or add `no push` (post now, push later) and/or `no resolve` (post the replies, leave every thread open).
 
 Otherwise (no fixes, or a different branch is checked out), only posting is possible:
 
-> Post <N> replies and resolve <M> threads?
+> Post <N> replies and resolve the <M> threads listed above? Reply `yes`, `no resolve` (post the replies, leave every thread open), or `no`.
+
+On `no resolve`, every plan entry gets `resolve: false`, whatever its verdict.
 
 On **commit and push**, follow the `git` convention:
 - Stage only the files Phase 3 changed, and commit them.
@@ -295,7 +301,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/post-replies.sh" <plan.js
 `plan.json` is an array of `{kind, thread_id, reply, resolve}` in triage order — write it under
 `.bf/pr-comments/`. **One entry per thread, not per triage row.** A grouped row fans back out here:
 each `thread_id` it carries gets its own entry, so every reviewer reads the answer on the thread
-they wrote and every thread resolves. The replies may be near-identical — that is fine, and far
+they wrote and every approved thread resolves. The replies may be near-identical — that is fine, and far
 better than a thread left open because another thread answered for it. `resolve: true` only for verified `accept`/`accept-different` entries on `kind:
 thread`; the script skips resolution on `issue` and `review` entries, which have no thread. Add
 `--dry-run` to print what would be sent without sending it.
@@ -305,7 +311,7 @@ entries in the triage file, and name any `failed` entry with its detail rather t
 batch as done. If the user declines the gate, the triage file and the fixes stay — nothing was
 published, and a rerun picks up from the file.
 
-When the user chose post only, or the push option was not offered while fixes exist, say in one line
+When the user answered `no push`, or the push option was not offered while fixes exist, say in one line
 that the working tree has unpushed fixes. The reviewer is looking at replies that reference code they
 cannot see yet.
 
