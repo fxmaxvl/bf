@@ -44,7 +44,7 @@ Rewrite the prose only. Do not change these:
 - front-matter, and heading text that other links anchor to
 - quoted material from other sources
 
-Keep the meaning. Do not add a fact, and do not drop one. If a passage states no fact, flag it in the summary. Do not invent content to fill it.
+Keep the meaning. Do not add a fact, and do not drop one. If a passage states no fact, remove it, and remove its heading if the section is then empty. Name it in the summary so the author can restore it from git. Do not leave it as it was, and do not invent content to fill it.
 
 If the text already passes the self-lint, leave it as it is. Second-language and terse technical prose get minimal edits.
 

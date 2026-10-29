@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: plain-rewrite-guide
+description: "/bf:plain rewrites a sloppy doc under the prose convention: no em dashes, semicolons, contractions or banned words in prose, while code, the URL and every fact survive"
+tags: [plain, prose]
+context:
+  scaffold_script: scaffold.sh
