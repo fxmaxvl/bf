@@ -51,6 +51,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:research <topic>` | Utility | Decision-oriented researcher: clarifies usecase → issue → focus, gathers cited evidence, produces an Options + Recommendation report | You need prior art, library comparison, or decision support before building — and want a cited report saved to `.bf/research/` |
 | `/bf:essence [top N] <doc>` | Utility | One Essentialism pass over a finished research report, PRD or spec: locks one essential intent with you, keeps at most N vital directions (default 3), carries hard constraints through, and parks the rest with a reason, in a distilled copy | A doc has grown noisy and you want only the directions that matter before you build from it |
 | `/bf:teach <topic>` | Utility | Stateful multi-session tutor: mission-grounded HTML lessons, reference docs, learning records, resources, and a glossary in a per-topic workspace, plus an optional learning profile that tailors lesson delivery | You want to deliberately learn a topic over time, not just get a one-off explanation |
+| `/bf:onboard-project-brief [path]` | Utility | One-page orientation to the repo in a single cheap pass, no questions — what it does, main blocks, stack, glossary, key commands, where to look first; written to `.bf/onboard-brief/` | You want the gist of a project fast, before deciding whether you need the full course |
 | `/bf:onboard-project [role or first task]` | Utility | Surveys the repo and generates a complete bf:teach onboarding course in one run — purpose, domain, architecture, stack, running it locally, data, APIs, dependencies, config, testing, delivery, ops, workflow, first task | You just joined a project and want the whole codebase taught end to end, then continued with `/bf:teach` |
 | `/bf:session-lesson [optional focus]` | Utility | Mines this session for study topics — tech, or your own repeated English mistakes — and writes one bf:teach lesson with a cheat sheet | At the end of a working session, to keep what it taught you |
 
@@ -100,6 +101,7 @@ if the goal is to learn the repo, not to judge it.
 ### Join a new project (or onboard a teammate)
 
 ```text
+/bf:onboard-project-brief [path]           step 0: a one-page brief, no questions
 /bf:onboard-project <role or first task>   full course: domain, architecture, stack, run locally, ops…
 /bf:teach <slug>                           continue the course: questions, deeper lessons, glossary
 /bf:session-lesson                         after a real work session, turn what it taught into a lesson

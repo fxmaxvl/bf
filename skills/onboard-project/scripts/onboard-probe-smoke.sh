@@ -138,6 +138,101 @@ git init -q "$short"
 eq "short repo name does not match substring workspaces" \
   "$(cd "$short" && HOME=$tmp bash "$script" init | jq -c .similar_workspaces)" '["API-guide"]'
 
+bp() { local d=$1; shift; (cd "$d" && HOME=$tmp bash "$script" brief "$@"); }
+bperr() { local d=$1; shift; (bp "$d" "$@" 2>&1) > "$tmp/bp.out" && rc=0 || rc=$?; echo "$rc:$(jq -r .error "$tmp/bp.out")"; }
+
+b=$(bp "$repo")
+eq "brief identity fields" "$(jq -r '[.repo,.path,.output_name]|join("|")' <<<"$b")" "My_Shop||my-shop.md"
+eq "brief output_path is absolute under the repo" "$(jq -r .output_path <<<"$b")" "$(cd "$repo" && pwd -P)/.bf/onboard-brief/my-shop.md"
+eq "brief sha is the short HEAD" "$(jq -r .sha <<<"$b")" "$(git -C "$repo" rev-parse --short HEAD)"
+eq "brief tracked_files is exact" "$(jq -r .tracked_files <<<"$b")" "6"
+eq "brief omits the course-workspace fields" \
+  "$(jq -c '[has("slug"),has("workspace"),has("fresh_slug"),has("similar_workspaces"),has("facts_dir"),has("profile_status")]|unique' <<<"$b")" "[false]"
+eq "brief . is a whole-repo run" "$(bp "$repo" . | jq -r '[.path,.output_name]|join("|")')" "|my-shop.md"
+eq "brief .. from a subdirectory is a whole-repo run" "$(bp "$repo/src" .. | jq -r '[.path,.output_name]|join("|")')" "|my-shop.md"
+eq "brief with no path from a subdirectory is a whole-repo run" "$(bp "$repo/src" | jq -r '[.path,.output_name,.tracked_files]|join("|")')" "|my-shop.md|6"
+b=$(bp "$repo/src" ../db)
+eq "brief relative path from a subdirectory" "$(jq -r '[.path,.output_name,.tracked_files]|join("|")' <<<"$b")" "db|my-shop--db.md|1"
+mkdir -p "$repo/#odd dir's (x)" && echo x > "$repo/#odd dir's (x)/f.txt" && git -C "$repo" add -A >/dev/null
+odd="#odd dir's (x)"
+eq "brief - reads a metacharacter path from stdin" \
+  "$(cd "$repo" && printf '%s\n' "$odd" | HOME=$tmp bash "$script" brief - | jq -r '[.path,.tracked_files]|join("|")')" "$odd|1"
+eq "brief - with empty stdin is a whole-repo run" "$(cd "$repo/src" && printf '\n' | HOME=$tmp bash "$script" brief - | jq -r '[.path,.output_name]|join("|")')" "|my-shop.md"
+git -C "$repo" rm -rq --cached "#odd dir's (x)" && rm -rf "$repo/#odd dir's (x)"
+eq "brief path outside the repo is rejected" "$(bperr "$repo" /)" "1:path_outside_repo"
+eq "brief missing path is rejected" "$(bperr "$repo" nope)" "1:not_a_directory"
+
+rk=$tmp/rank
+mkdir -p "$rk/api" "$rk/Docs"
+touch "$rk/api/package.json" "$rk/Docs/README.md" "$rk/package.json" "$rk/README.md"
+git init -q "$rk" && git -C "$rk" add -A
+b=$(bp "$rk")
+eq "brief ranks root manifests first" "$(jq -r '.signals.manifests.sample[0]' <<<"$b")" "package.json"
+eq "brief ranks the root README first" "$(jq -r '.signals.docs.sample[0]' <<<"$b")" "README.md"
+eq "brief keeps signal counts exact" "$(jq -c '[.signals.manifests.count,.signals.docs.count]' <<<"$b")" "[2,2]"
+eq "brief reports all eight signals" "$(jq -c '.signals|keys' <<<"$b")" '["apis","ci","config","data","docs","infra","manifests","tests"]'
+
+eq "brief dir-mode fallback reports layout dir" "$(bp "$repo" | jq -r '[.units.mode,.layout,.units.count]|join("|")')" "dir|dir|3"
+
+big=$tmp/big
+mkdir -p "$big/tool1" "$big/tool2" "$big/svc2/g1/u1" "$big/svc2/g1/u2"
+touch "$big/tool1/package.json" "$big/tool2/package.json" "$big/svc2/g1/u1/package.json" "$big/svc2/g1/u2/package.json"
+for i in $(seq -w 1 35); do mkdir -p "$big/svc/s$i"; touch "$big/svc/s$i/package.json"; done
+git init -q "$big" && git -C "$big" add -A
+b=$(bp "$big")
+eq "brief build mode counts every unit and caps the sample" \
+  "$(jq -c '[.units.mode,.units.count,(.units.sample|length),(.units.shown|length)]' <<<"$b")" '["build",39,30,8]'
+eq "brief by_top_dir sums to the exact count" "$(jq -c '(.units.by_top_dir|[.[]]|add) == .units.count' <<<"$b")" "true"
+eq "brief buckets depth-1 units under (top-level)" "$(jq -c .units.by_top_dir <<<"$b")" '{"(top-level)":2,"svc":35,"svc2":2}'
+eq "brief groups subtract the shown units and omit empty groups" \
+  "$(jq -c '.units.groups|map({dir,remaining})' <<<"$b")" '[{"dir":"svc","remaining":29},{"dir":"svc2","remaining":2}]'
+eq "brief group examples come from sample[8:30], at most 3" \
+  "$(jq -c '.units.groups|map(.examples)' <<<"$b")" '[["s07","s08","s09"],[]]'
+eq "brief build layout starts the agent past 30 units" "$(jq -c '[.layout,.needs_agent]' <<<"$b")" '["build",true]'
+eq "brief by_top_dir keys are repo-root-relative" "$(bp "$big" svc2 | jq -c '[.units.count,.units.by_top_dir,(.units.groups|map(.dir)),.units.sample[0].path]')" '[2,{"svc2/g1":2},[],"svc2/g1/u1"]'
+eq "brief scoped tracked_files counts the subtree" "$(bp "$big" svc | jq -c '[.tracked_files,.units.by_top_dir]')" '[35,{"(top-level)":35}]'
+
+ci=$tmp/ci
+mkdir -p "$ci/.github/workflows" "$ci/app"
+touch "$ci/.github/workflows/build.yml" "$ci/app/package.json"
+git init -q "$ci" && git -C "$ci" add -A
+eq "brief scoped run still reports root CI from the whole repo" "$(bp "$ci" app | jq -c '[.tracked_files,.signals.ci.count,.signals.ci.sample[0]]')" '[1,1,".github/workflows/build.yml"]'
+
+many=$tmp/many
+mkdir -p "$many/pile"
+(cd "$many/pile" && seq 1 2001 | sed 's/^/f/' | xargs touch)
+git init -q "$many" && git -C "$many" add -A
+eq "brief no agent past 2000 files when there are no groups" "$(bp "$many" | jq -c '[.tracked_files,.units.count,.needs_agent]')" "[2001,1,false]"
+
+flat=$tmp/flat
+mkdir -p "$flat" && touch "$flat/package.json" "$flat/main.js"
+git init -q "$flat" && git -C "$flat" add -A
+eq "brief flat repo" "$(bp "$flat" | jq -c '[.layout,.units.count,.needs_agent]')" '["flat",0,false]'
+empty=$tmp/empty
+git init -q "$empty"
+eq "brief empty repo" "$(bp "$empty" | jq -c '[.layout,.tracked_files,.sha]')" '["empty",0,"none"]'
+single=$tmp/single
+mkdir -p "$single/app" && touch "$single/app/package.json"
+git init -q "$single" && git -C "$single" add -A
+eq "brief single build unit" "$(bp "$single" | jq -c '[.layout,.units.mode,.units.count]')" '["single","build",1]'
+
+hot=$tmp/hot
+mkdir -p "$hot/src/a" "$hot/src/b" "$hot/docs" "$hot/d1" "$hot/d2" "$hot/d3" "$hot/d4" "$hot/d5"
+touch "$hot/src/a/x" "$hot/src/a/y" "$hot/src/b/z" "$hot/docs/q" "$hot/rootfile" "$hot/d1/f" "$hot/d2/f" "$hot/d3/f" "$hot/d4/f" "$hot/d5/f"
+git init -q "$hot" && git -C "$hot" add -A
+git -C "$hot" -c user.email=smoke@example.com -c user.name=smoke commit -q -m one
+echo more > "$hot/src/a/x" && git -C "$hot" add -A
+git -C "$hot" -c user.email=smoke@example.com -c user.name=smoke commit -q -m two
+eq "brief hot_dirs is a capped top-level array ordered by files touched" "$(bp "$hot" | jq -c .hot_dirs)" '["src/a","d1","d2","d3","d4"]'
+eq "brief hot_dirs is repo-root-relative" "$(bp "$hot" src | jq -c .hot_dirs)" '["src/a","src/b"]'
+gone=$tmp/gone
+mkdir -p "$gone/old/x" "$gone/new" && touch "$gone/old/x/f" "$gone/old/x/g" "$gone/new/h"
+git init -q "$gone" && git -C "$gone" add -A
+git -C "$gone" -c user.email=smoke@example.com -c user.name=smoke commit -q -m one
+git -C "$gone" rm -rq old && git -C "$gone" -c user.email=smoke@example.com -c user.name=smoke commit -q -m two
+eq "brief hot_dirs skips directories no longer in the tree" "$(bp "$gone" | jq -c .hot_dirs)" '["new"]'
+eq "brief hot_dirs is empty without commits" "$(bp "$empty" | jq -c .hot_dirs)" "[]"
+
 (cd "$tmp" && HOME=$tmp bash "$script" init >/dev/null 2>&1) && rc=0 || rc=$?
 eq "outside a repo fails" "$rc" "1"
 
