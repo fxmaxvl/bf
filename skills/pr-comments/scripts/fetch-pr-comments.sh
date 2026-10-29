@@ -6,11 +6,13 @@
 #   --all    -> include already-resolved threads and threads we already answered
 #
 # Output (stdout, single JSON object):
-#   {pr, url, title, head_sha, last_bot_review, viewer, base, threads[], notes[], counts{}}
-#     last_bot_review = {author, sha, submitted_at} of the newest review by a bot, or null
+#   {pr, url, title, head_sha, last_bot_review, viewer, base, head, threads[], files[], notes[], counts{}}
+#     head_sha = the PR's headRefOid
+#     last_bot_review = {author, sha, submitted_at} of the newest review by a bot other than the
+#                       viewer (from the newest 100 reviews), or null
 #     threads[] = {kind, thread_id, comment_id, file, line, side, outdated,
 #                  resolved, author, is_bot, body, replies[], diff_hunk,
-#                  answered_by_viewer}
+#                  answered_by_viewer}   (kind "review" entries also carry `state`)
 #     files[]   = {path, additions, deletions, change_type} — the PR's changed files,
 #                 DELETED ones excluded; this is the search surface for sibling instances
 #       kind: "thread" (line-anchored, resolvable) | "issue" (PR-level) | "review" (review summary body)
@@ -54,14 +56,14 @@ query($owner:String!,$repo:String!,$num:Int!){
   viewer{login}
   repository(owner:$owner,name:$repo){
     pullRequest(number:$num){
-      number url title
+      number url title headRefOid
       baseRefName headRefName
       commits(last:1){nodes{commit{oid}}}
       files(first:100){totalCount nodes{path additions deletions changeType}}
       comments(first:100){nodes{
         author{login __typename} body createdAt
       }}
-      reviews(first:100){nodes{
+      reviews(last:100){totalCount nodes{
         author{login __typename} body state submittedAt commit{oid}
       }}
       reviewThreads(first:100){nodes{
@@ -143,12 +145,12 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
         | select(.changeType != "DELETED")
         | {path: .path, additions: .additions, deletions: .deletions, change_type: .changeType} ] ) as $files
 
-  | ( [ $pr.reviews.nodes[] | select((.author.__typename // "") == "Bot") ]
+  | ( [ $pr.reviews.nodes[] | select((.author.__typename // "") == "Bot" and (.author.login // "") != $me) ]
       | sort_by(.submittedAt // "") | last
       | if . == null then null
         else {author: (.author.login // "unknown"), sha: (.commit.oid // null), submitted_at: .submittedAt} end
     ) as $bot_review
-  | ($pr.commits.nodes[0].commit.oid // null) as $head_sha
+  | ($pr.headRefOid // $pr.commits.nodes[0].commit.oid // null) as $head_sha
 
   | ($threads + $issues + $reviews) as $every
   | ( if $all then $every
@@ -186,6 +188,9 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
             | if $o > 0 then "\($o) actionable thread(s) are outdated — the code they point at has moved" else empty end ),
           ( if ($bot_review != null and $bot_review.sha != null and $head_sha != null and $bot_review.sha != $head_sha)
             then "\($bot_review.author) last reviewed \($bot_review.sha[0:7]), not the head \($head_sha[0:7]) — a re-review of the latest push may still be running"
+            else empty end ),
+          ( if (($pr.reviews.totalCount // 0) > 100)
+            then "PR has \($pr.reviews.totalCount) reviews; only the newest 100 were fetched — older review bodies are not listed"
             else empty end ),
           ( if (($pr.files.totalCount // 0) > 100)
             then "PR touches \($pr.files.totalCount) files; only the first 100 are listed — the sibling-instance search surface is incomplete"

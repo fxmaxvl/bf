@@ -35,13 +35,13 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/fetch-pr-comments.sh" "$A
 ```
 
 It returns `{pr, url, title, head_sha, last_bot_review, viewer, base, head, threads[], files[], counts{}, notes[]}`.
-`last_bot_review` is `{author, sha, submitted_at}` of the newest bot review, or `null`; when its `sha`
+`last_bot_review` is `{author, sha, submitted_at}` of the newest bot review (not the viewer, among the newest 100 reviews), or `null`; when its `sha`
 is not `head_sha`, `notes[]` says so — the comments may be the previous review's, not the current head's.
 `files[]` is the PR's changed files as `{path, additions, deletions, change_type}` with `DELETED`
 ones dropped — that list is the search surface for Phase 3's generalization pass, so do not rebuild
 it with `git diff` against a guessed base. Each
 `threads[]` entry is `{kind, thread_id, comment_id, file, line, side, outdated, resolved, author,
-is_bot, body, replies[], diff_hunk, answered_by_viewer}`, where `kind` is:
+is_bot, body, replies[], diff_hunk, answered_by_viewer}` (`review` entries also carry `state`), where `kind` is:
 
 | `kind` | What it is | Resolvable |
 |--------|-----------|------------|
@@ -57,8 +57,11 @@ feedback.
 On `{"error": ...}`: print `detail` and stop.
 
 If `counts.actionable` is `0`, check whether a review is still running — a bot's "started
-reviewing" status post, or any returned body that reads as a review-in-progress marker. If one is
-there the run is early, not done:
+reviewing" status post, any returned body that reads as a review-in-progress marker, or a `notes[]`
+line saying the bot last reviewed an older commit than the head (`last_bot_review.sha` !=
+`head_sha`). If one is there the run is early, not done — though a stale-review note only means a
+re-review may come, and some bots never re-review on push, which is why the wait follows the
+consent rule below rather than running automatically:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/wait-for-review.sh" "$ARGUMENTS" --timeout 600
@@ -279,7 +282,7 @@ both. Above the question, list the <M> threads that would resolve, one line each
 
 If both hold, offer the push with it, naming the branch, the file count and the order:
 
-> Commit and push the fixes to `<head>` (<F> files), then post <N> replies and resolve the <M> threads listed above? Reply `yes`, or add `no push` (post now, push later) and/or `no resolve` (post the replies, leave every thread open).
+> Commit and push the fixes to `<head>` (<F> files), then post <N> replies and resolve the <M> threads listed above? Reply `yes`, or add `no push` (post now, push later) and/or `no resolve` (post the replies, leave every thread open), or `no` (decline: post nothing).
 
 Otherwise (no fixes, or a different branch is checked out), only posting is possible:
 
@@ -292,7 +295,7 @@ On **commit and push**, follow the `git` convention:
 - `git push`, and post only after the push succeeds. If it fails, stop before posting: replies would point at code the reviewer cannot see. Report the push error, and leave the replies for a rerun.
 
 Never one question per comment: it breaks the one-question rule and is unusable at fifteen comments.
-`/bf:autopilot pr-comments <args>` is the hands-off path.
+There is no hands-off path: `/bf:autopilot` does not route `pr-comments`, so this batch always waits for your answer.
 
 On approval, write the plan and post it in one call:
 
