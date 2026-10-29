@@ -50,6 +50,7 @@ Also includes a standalone design tool (`/bf:design`) for producing shareable sy
 | `/bf:gather <feature or PRD>` | Utility | Iterative requirements gathering and versioned PRD distillation across sessions | You have a fuzzy PRD and need to track open questions, scope a POC, and build a versioned source of truth |
 | `/bf:research <topic>` | Utility | Decision-oriented researcher: clarifies usecase → issue → focus, gathers cited evidence, produces an Options + Recommendation report | You need prior art, library comparison, or decision support before building — and want a cited report saved to `.bf/research/` |
 | `/bf:essence [top N] <doc>` | Utility | One Essentialism pass over a finished research report, PRD or spec: locks one essential intent with you, keeps at most N vital directions (default 3), carries hard constraints through, and parks the rest with a reason, in a distilled copy | A doc has grown noisy and you want only the directions that matter before you build from it |
+| `/bf:plain <file \| text> [strict \| flavored]` | Utility | Rewrites existing prose into plain technical English (ASD-STE100) under the `prose` convention. It uses short active sentences and removes marketing words and em dashes. Code and identifiers stay untouched | A README, PR description, or error message reads like AI slop and you want it plain |
 | `/bf:teach <topic>` | Utility | Stateful multi-session tutor: mission-grounded HTML lessons, reference docs, learning records, resources, and a glossary in a per-topic workspace, plus an optional learning profile that tailors lesson delivery | You want to deliberately learn a topic over time, not just get a one-off explanation |
 | `/bf:onboard-project-brief [path]` | Utility | One-page orientation to the repo in a single cheap pass, no questions — what it does, main blocks, stack, glossary, key commands, where to look first; written to `.bf/onboard-brief/` | You want the gist of a project fast, before deciding whether you need the full course |
 | `/bf:onboard-project [role or first task]` | Utility | Surveys the repo and generates a complete bf:teach onboarding course in one run — purpose, domain, architecture, stack, running it locally, data, APIs, dependencies, config, testing, delivery, ops, workflow, first task | You just joined a project and want the whole codebase taught end to end, then continued with `/bf:teach` |
@@ -242,6 +243,7 @@ claude --plugin-dir ./path/to/bf
 The `conventions/` directory contains language- and action-specific guidelines Claude reads before acting:
 
 - `guidelines.md` — behavioral guardrails; unconditional, applies to every phase of every skill
+- `prose.md` — plain technical English (ASD-STE100) for all prose bf writes for people. Unconditional. Excludes code and model-facing files
 - `dev.md` — writing and modifying code
 - `testing.md` — writing and modifying tests
 - `git.md` — commit messages (Conventional Commits)
