@@ -1,6 +1,6 @@
 ---
 name: onboard-project
-description: "Use when someone is joining a new project and wants to get up to speed on its repo or monorepo — 'onboard me onto this project', 'I just joined this team, teach me this codebase', 'build me an onboarding course for this repo'. Surveys the repository and generates a complete bf:teach course in one run — purpose and domain, architecture, stack and build, running it locally, data, APIs, dependencies, config, testing, delivery, ops, workflow and where to start — every lesson at once, no 'what next' loop. For structural findings about a system use bf:arch-audit; for one topic learned over many sessions use bf:teach."
+description: "Use when someone is joining a new project and wants to get up to speed on its repo or monorepo — 'I just joined this team, teach me this codebase', 'build me an onboarding course for this repo'. Command-only — plain asks like 'onboard me' or 'what does this repo do' go to bf:onboard-project-brief. Surveys the repository and generates a complete bf:teach course in one run — purpose and domain, architecture, stack and build, running it locally, data, APIs, dependencies, config, testing, delivery, ops, workflow and where to start — every lesson at once, no 'what next' loop. For structural findings about a system use bf:arch-audit; for one topic learned over many sessions use bf:teach."
 model: opus
 # Multi-phase: survey fan-out, syllabus synthesis across every area, then lesson fan-out.
 disable-model-invocation: true
