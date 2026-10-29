@@ -34,12 +34,14 @@ Fetch everything in one call — never assemble threads from separate `gh` queri
 bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/fetch-pr-comments.sh" "$ARGUMENTS"
 ```
 
-It returns `{pr, url, title, head_sha, viewer, base, head, threads[], files[], counts{}, notes[]}`.
+It returns `{pr, url, title, head_sha, last_bot_review, viewer, base, head, threads[], files[], counts{}, notes[]}`.
+`last_bot_review` is `{author, sha, submitted_at}` of the newest bot review (not the viewer, among the newest 100 reviews), or `null`; when its `sha`
+is not `head_sha`, `notes[]` says so — the comments may be the previous review's, not the current head's.
 `files[]` is the PR's changed files as `{path, additions, deletions, change_type}` with `DELETED`
 ones dropped — that list is the search surface for Phase 3's generalization pass, so do not rebuild
 it with `git diff` against a guessed base. Each
 `threads[]` entry is `{kind, thread_id, comment_id, file, line, side, outdated, resolved, author,
-is_bot, body, replies[], diff_hunk, answered_by_viewer}`, where `kind` is:
+is_bot, body, replies[], diff_hunk, answered_by_viewer}` (`review` entries also carry `state`), where `kind` is:
 
 | `kind` | What it is | Resolvable |
 |--------|-----------|------------|
@@ -55,8 +57,11 @@ feedback.
 On `{"error": ...}`: print `detail` and stop.
 
 If `counts.actionable` is `0`, check whether a review is still running — a bot's "started
-reviewing" status post, or any returned body that reads as a review-in-progress marker. If one is
-there the run is early, not done:
+reviewing" status post, any returned body that reads as a review-in-progress marker, or a `notes[]`
+line saying the bot last reviewed an older commit than the head (`last_bot_review.sha` !=
+`head_sha`). If one is there the run is early, not done — though a stale-review note only means a
+re-review may come, and some bots never re-review on push, which is why the wait follows the
+consent rule below rather than running automatically:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/wait-for-review.sh" "$ARGUMENTS" --timeout 600
@@ -271,20 +276,26 @@ Ask exactly ONE question over the whole batch, then wait. Which form depends on 
 - `git status --porcelain` lists the files Phase 3 changed;
 - `git branch --show-current` equals the fetch result's `head`.
 
+Posting a reply and resolving its thread are separate outward-facing actions, so the gate names
+both. Above the question, list the <M> threads that would resolve, one line each: triage id and
+`file:line`. Approving the replies must never resolve a thread the user did not see on that list.
+
 If both hold, offer the push with it, naming the branch, the file count and the order:
 
-> Commit and push the fixes to `<head>` (<F> files), then post <N> replies and resolve <M> threads — or post only and push later?
+> Commit and push the fixes to `<head>` (<F> files), then post <N> replies and resolve the <M> threads listed above? Reply `yes`, or add `no push` (post now, push later) and/or `no resolve` (post the replies, leave every thread open), or `no` (decline: post nothing).
 
 Otherwise (no fixes, or a different branch is checked out), only posting is possible:
 
-> Post <N> replies and resolve <M> threads?
+> Post <N> replies and resolve the <M> threads listed above? Reply `yes`, `no resolve` (post the replies, leave every thread open), or `no`.
+
+On `no resolve`, every plan entry gets `resolve: false`, whatever its verdict.
 
 On **commit and push**, follow the `git` convention:
 - Stage only the files Phase 3 changed, and commit them.
 - `git push`, and post only after the push succeeds. If it fails, stop before posting: replies would point at code the reviewer cannot see. Report the push error, and leave the replies for a rerun.
 
 Never one question per comment: it breaks the one-question rule and is unusable at fifteen comments.
-`/bf:autopilot pr-comments <args>` is the hands-off path.
+There is no hands-off path: `/bf:autopilot` does not route `pr-comments`, so this batch always waits for your answer.
 
 On approval, write the plan and post it in one call:
 
@@ -295,7 +306,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/post-replies.sh" <plan.js
 `plan.json` is an array of `{kind, thread_id, reply, resolve}` in triage order — write it under
 `.bf/pr-comments/`. **One entry per thread, not per triage row.** A grouped row fans back out here:
 each `thread_id` it carries gets its own entry, so every reviewer reads the answer on the thread
-they wrote and every thread resolves. The replies may be near-identical — that is fine, and far
+they wrote and every approved thread resolves. The replies may be near-identical — that is fine, and far
 better than a thread left open because another thread answered for it. `resolve: true` only for verified `accept`/`accept-different` entries on `kind:
 thread`; the script skips resolution on `issue` and `review` entries, which have no thread. Add
 `--dry-run` to print what would be sent without sending it.
@@ -305,7 +316,10 @@ entries in the triage file, and name any `failed` entry with its detail rather t
 batch as done. If the user declines the gate, the triage file and the fixes stay — nothing was
 published, and a rerun picks up from the file.
 
-When the user chose post only, or the push option was not offered while fixes exist, say in one line
+When the fixes were pushed, add one line: the push starts a new review on most review bots, so
+rerun once it finishes — a rerun before then can show no open comments, or the previous review's.
+
+When the user answered `no push`, or the push option was not offered while fixes exist, say in one line
 that the working tree has unpushed fixes. The reviewer is looking at replies that reference code they
 cannot see yet.
 

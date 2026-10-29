@@ -18,3 +18,4 @@ each prints one PASS/FAIL line per case and exits non-zero on any failure. Run t
 | `skills/visualize/scripts/visualize-smoke.sh` | `viz-paths.sh`, `resolve-spec.sh`, `install-likec4.sh`, `classify-output.sh`, `c4-facts.sh`, `build.sh` (the install and real-build cases need the network and print SKIP offline) |
 | `skills/bug-hunt/scripts/bug-hunt-smoke.sh` | `hunt-init.sh`, `findings.sh` |
 | `skills/essence/scripts/essence-smoke.sh` | `essence-init.sh`, `ledger-check.sh` |
+| `skills/feature/scripts/report-template-smoke.sh` | `## <Name> Report` / `## <Name> Review` examples in every SKILL.md: sub-sections stay `###` or deeper, so `read-block.sh` reads the whole block |
