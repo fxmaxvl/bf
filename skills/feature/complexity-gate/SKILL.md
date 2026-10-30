@@ -83,7 +83,7 @@ For each red flag in COMPLEXITY.md, scan using Grep and Read. For each finding, 
 - File path and line number
 - Which red flag it matches (exact name from COMPLEXITY.md)
 - Which root cause and symptom it maps to
-- Whether the file is in `changed_files` (determines severity)
+- Whether the session's diff introduced or worsened it (determines severity): read the file's hunks with `git diff $(git merge-base <base> HEAD) -- <file>`, where `<base>` is the `base` field from `changed-packages.sh`. That diff includes uncommitted work.
 - The prescribed fix from COMPLEXITY.md
 
 ### What to look for
@@ -100,8 +100,8 @@ Focus on structural signals, not style preferences:
 
 ### Severity
 
-- **BLOCK** — red flag in a file listed in `changed_files`. New complexity introduced this session.
-- **ADVISORY** — red flag in a file outside `changed_files`.
+- **BLOCK** — red flag that the session's diff introduced or made worse.
+- **ADVISORY** — red flag that was there before the session and the diff did not make worse, in any file, inside or outside `changed_files`.
 - **PASS** — no red flags found.
 
 Overall STATUS escalates: `PASS` → `ADVISORY` → `BLOCK`.
