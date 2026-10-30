@@ -44,10 +44,11 @@ It returns `{mode, base, files, file_count, diff_file, lenses, hunters, hunters_
 |----|------|--------------------------|
 | `logic` | Logic & boundaries — off-by-one, wrong conditions, unhandled edge input | any non-trivial code (almost always on) |
 | `errors` | Error handling & silent failures — swallowed errors, wrong fallbacks, missing cleanup | I/O, external calls, try/catch, retries |
-| `concurrency` | Concurrency & async — races, unawaited promises, shared mutable state, ordering | async code, threads, queues, handlers, caches |
+| `concurrency` | Concurrency, ordering & staleness — races, unawaited promises, shared mutable state, ordering, values captured too early, a cached snapshot used after a change, the wrong source of truth | async code, threads, queues, handlers, or state read once and reused later (caches, snapshots, checkouts) |
 | `data` | Data integrity — lost updates, partial writes, bad migrations, coercion | DB access, schemas, serialization, migrations |
 | `security` | Security — injection, authz gaps, secrets, unsafe input handling | request handlers, auth, shell/SQL/HTML building |
-| `contracts` | Contract mismatches — callers and callees disagreeing on shape, units, nullability | changes spanning modules or public APIs |
+| `contracts` | Contract mismatches — callers and callees disagreeing on shape, units, nullability, or a doc, comment, header or example that no longer matches behavior | changes spanning modules or public APIs |
+| `flow` | Flow — trace each entry point or instruction path end to end, including control flow in prompts and SKILL.md files: dead branches, gates with no exit, routes that never fire, state handed between steps. It owns path continuity across steps. The "entry points" starting point for repeat hunters only says where a hunter begins. | multi-step paths: orchestrators, pipelines, handlers that chain calls, skill or prompt files with phases or gates |
 
 - `lenses` set → use exactly those. Otherwise read the file list (and `diff_file` in branch mode) and pick **2–6** that fit; a CSS-only diff gets no `concurrency` hunter.
 - `hunters` set → that many hunters. When it exceeds the lens count, extra hunters repeat lenses with a different starting point (entry points, error paths, data layer, integration seams), assigned by you, never chosen by the hunter. Hard cap: 6 hunters, not configurable; when `hunters_capped`, say so.

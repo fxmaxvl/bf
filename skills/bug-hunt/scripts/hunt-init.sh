@@ -12,7 +12,7 @@
 # Errors: {"error":"<code>","detail":"..."} on stdout, exit 1.
 set -uo pipefail
 
-LENSES="logic errors concurrency data security contracts"
+LENSES="logic errors concurrency data security contracts flow"
 CAP=6
 
 here=$(cd "$(dirname "$0")" && pwd)

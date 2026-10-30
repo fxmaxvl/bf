@@ -32,6 +32,8 @@ out=$(bash "$init" --repo --repro)
 check "repo: every tracked file, repro flag" "$(q "$out" '.mode == "repo" and .file_count == 2 and .repro == true')"
 out=$(bash "$init" --hunters 9 --lenses security,logic,security)
 check "overrides: hunters capped at 6, lenses deduped" "$(q "$out" '.hunters == 6 and .hunters_capped and .lenses == ["security","logic"]')"
+out=$(bash "$init" --lenses flow)
+check "flow lens is accepted" "$(q "$out" '.lenses == ["flow"]')"
 out=$(bash "$init" --lenses bogus)
 check "bad lens is an error" "$(q "$out" '.error == "unknown_lens"')"
 out=$(bash "$init" --repo lib)
