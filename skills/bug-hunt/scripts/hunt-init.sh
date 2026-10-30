@@ -12,6 +12,7 @@
 #   diff_file (branch and pr only),
 #   lenses (validated override or null), hunters (override or null), hunters_capped, repro,
 #   run_dir (created; holds hunters/ and verifiers/), report_path (collision-free), slug.
+# -h, --help prints this text on stdout and exits 0.
 # Errors: {"error":"<code>","detail":"..."} on stdout, exit 1.
 set -uo pipefail
 
@@ -21,6 +22,11 @@ CAP=6
 here=$(cd "$(dirname "$0")" && pwd)
 scope="$here/../../coherence/scripts/scope.sh"
 die() { printf '{"error":"%s","detail":"%s"}\n' "$1" "$2"; exit 1; }
+# The header comment is the usage text, so the two cannot drift. Help is checked before the git
+# check, so it works outside a repository.
+for arg in "$@"; do
+  case "$arg" in -h|--help) awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"; exit 0 ;; esac
+done
 command -v jq >/dev/null || die no_jq "jq is required"
 root=$(git rev-parse --show-toplevel 2>/dev/null) || die not_a_git_repo "run inside a git repository"
 cd "$root" || exit 1
@@ -37,7 +43,7 @@ while [ $# -gt 0 ]; do
     --pr) pr="${2-}"; shift 2 ;;
     --pr=*) pr="${1#*=}"; shift ;;
     --) shift; while [ $# -gt 0 ]; do paths+=("$1"); shift; done ;;
-    -*) die unknown_flag "$1" ;;
+    -*) die unknown_flag "$1 (run with --help for usage)" ;;
     *) paths+=("$1"); shift ;;
   esac
 done
