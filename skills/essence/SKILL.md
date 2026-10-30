@@ -41,7 +41,7 @@ Draft the **essential intent**: one sentence naming the single outcome the docum
 
 Present, then ask one question and wait:
 
-> **Essential intent:** <sentence — done when …> *(from: <locator> | derived)*
+> **Essential intent:** <sentence, done when …> *(from: <locator> | derived)*
 > **Non-negotiables carried through regardless of score:** <list with locators, or "none stated">
 > **Budget:** <budget> vital directions
 > **Candidates (<total>):** <C1 short title> · <C2 short title> · … — grouped by locator when there are more than 10
@@ -82,11 +82,11 @@ Write `out_path`. Its first line must be the marker below, exactly: it is how a 
 **Source:** <source> · **Date:** <YYYY-MM-DD> · **Kept:** <vital> of <total> (+<non_negotiable> non-negotiable)
 
 ## Essential intent
-> <sentence — done when …>
+> <sentence, done when …>
 
 ## The vital few
 ### 1. <direction, short>
-<the direction in the doc's words, condensed> *(from: <locator>; merged: <ids or —>)*
+<the direction in the doc's words, condensed> *(from: <locator>, merged: <ids or none>)*
 
 ## Non-negotiables
 - <claim> *(from: <locator>)*

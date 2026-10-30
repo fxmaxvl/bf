@@ -169,7 +169,7 @@ Otherwise, run up to 3 scan → fix cycles:
      "Read the `## Complexity Report` block with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## Complexity Report\"`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
      Then go back to step 1.
    - If no (user accepts as-is): proceed to step 5.
-   - If this was already the 3rd cycle: tell the user "Max complexity fix cycles reached — please review the blocked issues manually" and stop.
+   - If this was already the 3rd cycle: tell the user "Max complexity fix cycles reached. Review the blocked issues manually." and stop.
 5. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=review-impl phase_status=in_progress
    ```
@@ -189,7 +189,7 @@ Run up to 3 analyze → fix cycles:
    - Ask: "Should I fix these concerns?"
    - If yes: dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), then go back to step 1.
    - If no (user accepts as-is): proceed to step 5.
-   - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review manually" and stop.
+   - If this was already the 3rd cycle: tell the user "Max review cycles reached. Review the changes manually." and stop.
 5. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
    ```

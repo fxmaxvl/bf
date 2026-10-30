@@ -61,8 +61,8 @@ Entered instead of Phase 1 when Mode detection selects amend mode. Reuses the cr
    - **Unambiguous** (`title_hint` is empty): if `adrs` is empty, tell the user there are no existing ADRs to amend and ask one question — "No existing ADRs found. Create a new one instead?"
      - **Yes** — enter Phase 1 at step 1; `title_hint` is empty, so it will ask for a title.
      - **No** — stop.
-     Otherwise, if `selector` is non-empty and matches exactly one entry, use that entry. If `selector` is empty, or matches zero or multiple entries, present a numbered list, one `NNNN — Title` per line, and ask one question: "Which ADR do you want to amend?"
-   - **Candidate** (`title_hint` is non-empty): if `selector` matches exactly one entry (by number, path, or title as above), use that entry and discard `title_hint` — this is now amend mode. If it matches **multiple** entries, present the same numbered `NNNN — Title` list as the unambiguous path and ask "Which ADR do you want to amend?" — do not offer to create a new one when ADRs plausibly match. If it matches **zero** entries (including when `adrs` is empty), strip the leading `AMEND:` marker (case-insensitive) and any leading whitespace from `title_hint` — keep the rest of the text unmodified (e.g. `AMEND: deprecate README.md` → `deprecate README.md`) — then ask one confirming question using the stripped value: "No ADR matches `<selector>`. Create a new ADR titled `<stripped title_hint>` instead?"
+     Otherwise, if `selector` is non-empty and matches exactly one entry, use that entry. If `selector` is empty, or matches zero or multiple entries, present a numbered list, one `NNNN: Title` per line, and ask one question: "Which ADR do you want to amend?"
+   - **Candidate** (`title_hint` is non-empty): if `selector` matches exactly one entry (by number, path, or title as above), use that entry and discard `title_hint` — this is now amend mode. If it matches **multiple** entries, present the same numbered `NNNN: Title` list as the unambiguous path and ask "Which ADR do you want to amend?" — do not offer to create a new one when ADRs plausibly match. If it matches **zero** entries (including when `adrs` is empty), strip the leading `AMEND:` marker (case-insensitive) and any leading whitespace from `title_hint` — keep the rest of the text unmodified (e.g. `AMEND: deprecate README.md` → `deprecate README.md`) — then ask one confirming question using the stripped value: "No ADR matches `<selector>`. Create a new ADR titled `<stripped title_hint>` instead?"
      - **Yes** — abandon amend mode, enter Phase 1 at step 1 using the **stripped** `title_hint` as the title. The marker must never reach the drafted document.
      - **No** — stop.
 4. Read the selected ADR file in full.
@@ -137,7 +137,7 @@ Accepted
 
 ## Considered Options
 
-- **<Option>** — <why it was passed over>
+- **<Option>**: <why it was passed over>
   (repeat per option from Phase 1, step 3)
 
 ## Consequences
@@ -146,7 +146,7 @@ Accepted
 
 ## Related Code
 
-- `<path>` — <one-line note>
+- `<path>`: <one-line note>
   (only tracked paths verified in Phase 3; omit this section entirely if none)
 ```
 
@@ -178,7 +178,7 @@ Show the user the absolute path and the rendered content. Ask one question:
 | `$ARGUMENTS` is a create-mode title that legitimately begins `Amend:` (e.g. `AMEND: CI/CD pipeline ownership`, `Amend: retention policy for event logs`, `AMEND: deprecate README.md`) | Mode detection does not discard the title on a free-text remainder. Any remainder that isn't a bare 1–4 digit number and doesn't match the ADR-filename shape (`<NNNN>-<slug>.md`, optionally path-prefixed) enters amend mode as a *candidate*, with `title_hint` kept as the full `$ARGUMENTS` — this includes remainders that merely end in `.md` without a 4-digit prefix. If the candidate resolves to zero ADRs, the `AMEND:` marker (case-insensitive) and any leading whitespace are stripped from `title_hint` first, and the confirming question below is asked using the stripped value; on yes, Phase 1 proceeds with the **stripped** `title_hint` as the title — the marker never reaches the drafted document. If it resolves to multiple, the numbered picker is shown instead (see below) — no title is lost either way. |
 | Amend mode (unambiguous form — bare digits or a remainder matching the ADR-filename shape): no existing ADRs found (`adrs` is empty) | Offer to create one instead — one question; on yes, enter Phase 1 at step 1 (`title_hint` is empty, so it asks). |
 | Amend mode (unambiguous form): selector matches zero or multiple ADRs | Fall back to the picker rather than guessing; show the numbered list and ask which one. |
-| Amend mode (candidate form — free-text remainder not matching the ADR-filename shape): selector matches multiple ADRs | Present the same numbered `NNNN — Title` list as the unambiguous path and ask which one — do not offer to create a new ADR when entries plausibly match. |
+| Amend mode (candidate form — free-text remainder not matching the ADR-filename shape): selector matches multiple ADRs | Present the same numbered `NNNN: Title` list as the unambiguous path and ask which one — do not offer to create a new ADR when entries plausibly match. |
 | Amend mode (candidate form): selector matches zero ADRs | Strip the `AMEND:` marker (case-insensitive) and any leading whitespace from `title_hint`, keeping the rest of the text intact, then ask one confirming question: "No ADR matches `<selector>`. Create a new ADR titled `<stripped title_hint>` instead?" **Yes** — proceed to create mode with the stripped title. **No** — stop. No numbered picker is shown (nothing matched), but the mode switch itself is never silent. |
 | Amend mode: selected ADR file has no parsable `# ` title | Read the file body anyway; refer to it by its filename/number in conversation. |
 | Amend mode: the amendment contradicts the recorded decision, or the user answers "supersede" to step 5's third question | Surface this to the user. Superseding is a manual two-step, not a single-pass mode of this skill: (1) run create mode for the successor decision first, deriving its path; then (2) amend the predecessor ADR's `## Status` to `Superseded by <path of the new ADR>` using that path, adding a small `## Amendment` section per step 6 alongside it. |

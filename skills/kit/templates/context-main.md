@@ -12,6 +12,10 @@ Every skill in this kit reads this file first and applies it throughout.
 - **Ask rather than assume** when the answer changes what gets produced.
 - **Restate a wide effect before acting on it** — overwriting a file, deleting, publishing — in one line.
 
+## Prose
+
+Read `${CLAUDE_PLUGIN_ROOT}/context/prose.md` and apply it to every piece of prose a skill writes for people: chat replies, reports, documents, and the sample output inside skill files. It does not govern code or the instructions in skill files. A skill's fixed structure (headings, table columns, keys) wins over it. When a skill spawns an agent whose output reaches people, add one line to the agent's prompt: "Apply the rules in `${CLAUDE_PLUGIN_ROOT}/context/prose.md` to all prose you return."
+
 ## Purpose
 
 <!-- What this kit exists to do, and the outcome a good run produces. -->
@@ -40,6 +44,6 @@ Reference material lives in `knowledge/`, next to the `context/` folder holding 
 
 <!-- One line per skill: `/{{KIT_NAME}}:<skill>` — when to use it. Kept current by write-skill and adopt-skill. -->
 
-- `/{{KIT_NAME}}:write-skill` — add a new skill to this kit, or pick one up from `BACKLOG.md`.
+- `/{{KIT_NAME}}:write-skill` — add a new skill to this kit, or take one from `BACKLOG.md`.
 - `/{{KIT_NAME}}:adopt-skill` — adapt a skill from elsewhere into this kit.
-- `/{{KIT_NAME}}:update-context` — revise this context, or add material to `knowledge/`.
+- `/{{KIT_NAME}}:update-context` — revise this context or `context/prose.md`, or add material to `knowledge/`.

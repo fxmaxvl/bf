@@ -82,7 +82,7 @@ If the user cancels, leave `poc_dir` and the partial brief in place, say where t
 ## Path to production
 ```
 
-The **Shortcuts** section must always contain "No automated tests — verified by a smoke run only", plus every mock and hard-code from **Real vs faked**.
+The **Shortcuts** section must always contain "No automated tests. Only a smoke run checks this POC.", plus every mock and hard-code from **Real vs faked**.
 
 ## Phase 2 — Brief Check
 

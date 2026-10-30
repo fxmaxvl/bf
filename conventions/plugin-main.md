@@ -17,8 +17,10 @@ file, it is not conditional — it governs every phase of every skill.
 Read `prose.md` (resolved via the 3-step Convention Lookup below) at the start of any skill run
 and apply it to every piece of prose written for people: chat replies, `.bf/` artifacts, commit and
 PR text, ADRs, docs, and code comments. It is always on and has no toggle. It does not govern code
-or model-facing instruction files (`SKILL.md`, conventions, agent prompts), and a skill's fixed
-output format wins over it. Apply it silently.
+or the instructions in model-facing files (`SKILL.md`, conventions, agent prompts). It does govern
+the sample output and output templates inside those files, because the model copies them. A skill's
+fixed structure (headings, block headers, keys, banners, parsed literals) wins over it. Apply it
+silently.
 
 Sub-agents do not read this file. When a skill spawns an agent whose output reaches people, add one
 line to the agent's prompt: "Apply the rules in `<resolved path of prose.md>` to all prose you return."

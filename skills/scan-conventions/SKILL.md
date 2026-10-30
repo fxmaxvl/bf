@@ -60,7 +60,7 @@ Print the result as a structured block:
 
 Relevant ({N} of {total} scanned):
 
-- **{filename}** ({tier}) — {relevance_reason}
+- **{filename}** ({tier}): {relevance_reason}
   Path: {path}
 ```
 
@@ -83,6 +83,6 @@ For **helper use** (called by another skill): return the structured block so the
 | `discover-conventions.sh` exits non-zero | Print warning with error output; treat as empty result and continue. |
 | No git repo in cwd | Script falls back to empty `PROJECT_ROOT`; only user tier (`~/.bf/conventions/`) is scanned. |
 | `python3` not in PATH | Print warning "discovery script requires python3"; treat as empty result. |
-| Convention file is unreadable | Skip it; note filename in output as "(unreadable — skipped)". |
+| Convention file is unreadable | Skip it; note filename in output as "(unreadable, skipped)". |
 | No task description and git context empty | Include all discovered files (no filter applied). |
 | Same filename in both tiers | Project tier wins (handled by script via dedup). |

@@ -79,7 +79,7 @@ STATUS: CONCERN
 ### Concerns
 
 #### <Criterion name>
-- <file path>:<line> — <specific concern and what needs to change>
+- <file path>:<line>: <specific concern and what needs to change>
 
 #### <Criterion name>
 - <specific concern>

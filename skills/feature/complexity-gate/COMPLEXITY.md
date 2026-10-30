@@ -17,7 +17,7 @@ Code that cannot be understood or modified in isolation.
 | **Information leakage** | A design decision (e.g., data format, storage layout) is reflected in two or more modules that must change together | Consolidate behind a single module using information hiding |
 | **Temporal coupling** | Module A must be called or initialized before module B, with nothing enforcing the order | Make ordering explicit via return value that carries required state, or eliminate the ordering requirement |
 | **Pass-through methods** | A method does nothing except forward its arguments to another method with a similar signature | Eliminate the intermediary or deepen the abstraction |
-| **Change amplification** | A single logical change requires edits in 5+ unrelated files | Extract a shared abstraction; consolidate the scattered decision into one place |
+| **Change amplification** | A single logical change requires edits in 5+ unrelated files | Extract a shared abstraction. Move the scattered decision into one place |
 | **Conjoined methods** | Two methods only work correctly when called in a specific sequence or share hidden mutable state | Merge them or make the dependency explicit in the interface |
 | **Shallow modules** | A module's interface is nearly as complex as its implementation — it adds little abstraction | Merge into the caller, or deepen it by pulling more implementation detail behind the interface |
 
@@ -26,11 +26,11 @@ Important information is not obvious.
 
 | Red Flag | How to detect | Fix |
 |----------|--------------|-----|
-| **Non-obvious side effects** | A method modifies state beyond what its name or signature implies | Rename to reflect behavior; extract the side effect to a separate, clearly-named method |
-| **Implicit preconditions** | A function silently misbehaves with certain inputs, with no enforcement or documentation | Validate at the boundary; document the precondition in a comment explaining why it exists |
-| **Inconsistency** | The same concept has different names, formats, or representations in different parts of the codebase | Standardize — pick one name/shape and apply it everywhere |
-| **Missing non-obvious comments** | A constraint, invariant, or workaround is present in the code but unexplained | Add a comment explaining WHY — not what the code does, but why it must be this way |
-| **Special-case proliferation** | Multiple `if/else` or `switch` branches handle edge cases that could be expressed as a uniform rule | Define the general rule; absorb edge cases into it or push them to the boundary |
+| **Non-obvious side effects** | A method modifies state beyond what its name or signature implies | Rename the method to match its behavior. Move the side effect to a separate method with a clear name |
+| **Implicit preconditions** | A function silently misbehaves with certain inputs, with no enforcement or documentation | Validate at the boundary. Document the precondition in a comment that explains why it exists |
+| **Inconsistency** | The same concept has different names, formats, or representations in different parts of the codebase | Pick one name or shape and use it everywhere |
+| **Missing non-obvious comments** | A constraint, invariant, or workaround is present in the code but unexplained | Add a comment that explains why the code must be this way |
+| **Special-case proliferation** | Multiple `if/else` or `switch` branches handle edge cases that could be expressed as a uniform rule | Define the general rule. Absorb edge cases into it or move them to the boundary |
 
 ---
 

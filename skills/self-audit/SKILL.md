@@ -72,7 +72,7 @@ Print the grouped findings with counts, then ask (one question only):
 
 File **one issue per category**, not per finding — `/bf:self-heal` selects across items inside issues, and a backlog of single-finding issues defeats its ranking.
 
-Title: `audit: <category> — <n> findings`. Label: `audit` (check `gh label list`; create with `gh label create "audit" --repo <owner/repo>` if absent).
+Title: `audit: <category>, <n> findings`. Label: `audit` (check `gh label list`; create with `gh label create "audit" --repo <owner/repo>` if absent).
 
 Each finding becomes one `### ` section. Use headings, not bullets — `self-heal`'s harvester segments on either, but headings give it clean item titles instead of a truncated first sentence:
 

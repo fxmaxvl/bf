@@ -23,8 +23,11 @@ done
 [ -n "$DIR" ] || { echo '{"error":"no_dir","detail":"pass --dir <target>"}'; exit 1; }
 
 TEMPLATES="$(cd "$(dirname "$0")/../templates" && pwd)"
+# The kit is standalone, so it gets its own copy of whichever prose.md wins the lookup.
+PROSE=$(bash "$(dirname "$0")/../../scan-conventions/scripts/resolve-conventions.sh" prose 2>/dev/null \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin).get("prose") or "")' 2>/dev/null || true)
 
-MODE="$MODE" DIR="$DIR" NAME="$NAME" DESC="$DESC" TEMPLATES="$TEMPLATES" python3 - <<'PY'
+MODE="$MODE" DIR="$DIR" NAME="$NAME" DESC="$DESC" TEMPLATES="$TEMPLATES" PROSE="$PROSE" python3 - <<'PY'
 import json, os, re, subprocess, sys
 
 mode, templates = os.environ["MODE"], os.environ["TEMPLATES"]
@@ -98,6 +101,12 @@ def create():
     for src, dst in layout.items():
         with open(os.path.join(templates, src)) as f:
             write(dst, render(f.read()))
+
+    prose = os.environ.get("PROSE") or os.path.join(templates, "..", "..", "..", "conventions", "prose.md")
+    if not os.path.isfile(prose):
+        return {"error": "no_prose_convention", "detail": prose, "files": written}
+    with open(prose) as f:
+        write("context/prose.md", f.read())
 
     author = {"name": git("config", "user.name") or "local"}
     write(".claude-plugin/plugin.json", json.dumps(

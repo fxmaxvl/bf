@@ -72,7 +72,7 @@ Key rules:
 
 ### 5. Report
 
-- If **no items found**: tell the user "No TODOs or workarounds found in the implementation. Clean!"
+- If **no items found**: tell the user "The scan found no TODOs or workarounds in the implementation."
 - If **items found**: tell the user how many were found, show the summary table, and confirm the backlog was saved
 
 ## Output

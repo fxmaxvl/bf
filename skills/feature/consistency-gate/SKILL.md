@@ -133,11 +133,11 @@ STATUS: BLOCK | ADVISORY
 
 ### BLOCK — must resolve before proceeding
 
-- `<file>:<line or spec section>` — **<Lens>** — <what was observed> — **Fix:** <concrete correction>
+- `<file>:<line or spec section>`, **<Lens>**: <what was observed>. **Fix:** <concrete correction>
 
 ### ADVISORY — inconsistency detected (pre-existing or design risk)
 
-- `<file>:<line or spec section>` — **<Lens>** — <what was observed> — **Suggestion:** <concrete correction>
+- `<file>:<line or spec section>`, **<Lens>**: <what was observed>. **Suggestion:** <concrete correction>
 ```
 
 Omit sections with no entries.
@@ -152,5 +152,5 @@ Do **not** modify any source files. Do **not** ask the user questions. The calle
 |-----------|----------|
 | No active session and no `$ARGUMENTS` | Print: "consistency-gate: no target. Pass a file path, block reference, or text as an argument." Then stop. |
 | `changed_files` is empty in verify mode | STATUS: PASS with note "No changed files detected." |
-| Target artifact is empty or unreadable | STATUS: ADVISORY with note "Target could not be read: `<path>`." |
+| Target artifact is empty or unreadable | STATUS: ADVISORY with note "Cannot read the target: `<path>`." |
 | Standalone target is pasted text with no codebase context | Apply Naming, Effectiveness, Goal alignment lenses only; note the other lenses were skipped (no surrounding code). |

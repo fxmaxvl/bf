@@ -59,7 +59,7 @@ A focus narrows the review to one or more angles. It is exclusive: only the chec
 - `focus_categories`: the union of their review-agent categories; for a full review, all five.
 - `run_review`: true when `focus_categories` is non-empty.
 - `run_complexity` / `run_consistency`: true when any chosen lens lists that gate; both true for a full review.
-- `focus_label`: `full` for a full review, otherwise the comma-joined `focus_lenses`. When an unattended run fell back, use `full (assumed — <short reason>)`.
+- `focus_label`: `full` for a full review, otherwise the comma-joined `focus_lenses`. When an unattended run fell back, use `full (assumed: <short reason>)`.
 - `status_suffix`: empty for a full review, otherwise ` (focus: <focus_lenses>)`. Every STATUS line this skill writes for the review report ends with it, e.g. `STATUS: PASS (focus: quality)`. A focused pass is never a full pre-PR check.
 
 ### Compute report paths
@@ -95,7 +95,7 @@ Steps:
 2. Print this block (plain text, not in a code fence):
 
    ```
-   bf:review — dry-run
+   bf:review dry-run
    Scope: <scope description: "current branch diff vs origin/HEAD" if the scope text is empty, else the scope text left after flags and focus are stripped>
    Focus: <focus_label>
    Report would be written to: <report_path>
@@ -106,16 +106,16 @@ Steps:
      - architecture: <resolved path or "MISSING">
    Host repository rules: <one path per line from host_rules, or "none">
    Agents that would be spawned (skipped in dry-run):
-     - review Agent        (model: opus) — Phase 1 parallel batch
-     - complexity-gate Agent (model: opus) — Phase 1 parallel batch
-     - consistency-gate Agent (model: opus) — Phase 1 parallel batch
-   All <N> dispatched in a single message; results aggregated in Phase 2.
+     - review Agent        (model: opus), Phase 1 parallel batch
+     - complexity-gate Agent (model: opus), Phase 1 parallel batch
+     - consistency-gate Agent (model: opus), Phase 1 parallel batch
+   All <N> dispatched in a single message. Phase 2 aggregates the results.
    Interactive phases that would follow (skipped in dry-run):
      - Phase 3 fix selection
      - Phase 4 fix apply + re-review
    ```
 
-   List only the agents whose `run_review` / `run_complexity` / `run_consistency` is true. Do not name the others, not even as skipped. When only one agent would run, replace the "All <N> dispatched" line with "Dispatched alone; results aggregated in Phase 2."
+   List only the agents whose `run_review` / `run_complexity` / `run_consistency` is true. Do not name the others, not even as skipped. When only one agent would run, replace the "All <N> dispatched" line with "Dispatched alone. Phase 2 aggregates the results."
 
 3. Exit. Do not proceed to Phase 1.
 
@@ -328,19 +328,19 @@ STATUS: PASS<status_suffix> | CONCERN<status_suffix>
 ## Concerns
 
 ### Dev Conventions
-- **C1** [must-fix] `file:line` — <problem> — Suggested: <fix>
+- **C1** [must-fix] `file:line`: <problem>. Suggested: <fix>
 
 ### Testing
-- **C2** [must-fix] `file:line` — <problem> — Suggested: <fix>
+- **C2** [must-fix] `file:line`: <problem>. Suggested: <fix>
 
 ### Security
-- **C3** [must-fix] `file:line` — <problem> — Suggested: <fix>
+- **C3** [must-fix] `file:line`: <problem>. Suggested: <fix>
 
 ### Code Structure & Fit
-- **C4** [should-consider] `file:line` — <problem> — Suggested: <fix>
+- **C4** [should-consider] `file:line`: <problem>. Suggested: <fix>
 
 ### Readability & Quality
-- **C5** [should-consider] `file:line` — <problem> — Suggested: <fix>
+- **C5** [should-consider] `file:line`: <problem>. Suggested: <fix>
 
 <List only the section headers for the categories in focus_categories.>
 
@@ -428,7 +428,7 @@ Extract `changed_files` (authoritative list): the pre-computed `changed_files` f
 Extract `pr_head_branch`: read the `pr_head_branch:` line from `## Review Metadata`. If absent, use the pre-computed `pr_head_branch` from Phase 1.
 
 If the review Agent failed or returned output that does not start with `# Code Review Report`:
-- Print: `⚠ Review Agent failed — results from the gates that ran are still available.`
+- Print: `⚠ Review Agent failed. Results from the gates that ran are still available.`
 - Set `review_failed=true`.
 - Do not write `$report_path`. Proceed to merge complexity and consistency findings only.
 
@@ -466,7 +466,7 @@ Append to the report at `$report_path`:
 STATUS: <PASS | ADVISORY | BLOCK>
 
 ### <Root Cause / Red Flag>
-- **X1** [must-fix | should-consider] `file:line` — <observation> — Suggested: <fix>
+- **X1** [must-fix | should-consider] `file:line`: <observation>. Suggested: <fix>
 ```
 
 Omit the section body if STATUS is PASS.
@@ -484,7 +484,7 @@ Append to the report at `$report_path`:
 STATUS: <PASS | ADVISORY | BLOCK>
 
 ### <Lens>
-- **Y1** [must-fix | should-consider] `file:line or spec section` — <observation> — Suggested: <fix>
+- **Y1** [must-fix | should-consider] `file:line or spec section`: <observation>. Suggested: <fix>
 ```
 
 Omit the section body if STATUS is PASS.
@@ -520,7 +520,7 @@ Report: <report_path>
 
 On the `Concerns:` line, list counts only for the parts that ran.
 
-If `review_failed=true`, also print: `⚠ Review Agent failed — code concerns (C*) are not available. Fix selection in Phase 3 is limited to X* and Y* findings.`
+If `review_failed=true`, also print: `⚠ Review Agent failed. Code concerns (C*) are not available. Fix selection in Phase 3 is limited to X* and Y* findings.`
 
 ## Phase 3 — Fix Selection
 
@@ -537,10 +537,10 @@ Print: "No concerns found. Report saved at `<report_path>`." and exit.
 Print a one-line summary of each concern, primaries only:
 
 ```
-C1 [must-fix]        src/foo.ts:42 — <problem description>
-C2 [should-consider] src/bar.ts:8 — <problem description>
-X1 [must-fix]        src/baz.ts:15 — <complexity finding>
-Y1 [should-consider] src/qux.ts:3 — <consistency finding>
+C1 [must-fix]        src/foo.ts:42: <problem description>
+C2 [should-consider] src/bar.ts:8: <problem description>
+X1 [must-fix]        src/baz.ts:15: <complexity finding>
+Y1 [should-consider] src/qux.ts:3: <consistency finding>
 ```
 
 Then ask (one question only):
@@ -562,7 +562,7 @@ Set `selected_concerns` to the validated list.
 **Mark what was not selected.** Every concern left out — including all of them when the answer was `none`, empty, or never given — gets `[deferred]` appended to its label line in the saved report, so a concern that was seen and passed over is distinguishable from one nobody ruled on:
 
 ```
-- **C4** [should-consider] [deferred] `file:line` — <problem> — Suggested: <fix>
+- **C4** [should-consider] [deferred] `file:line`: <problem>. Suggested: <fix>
 ```
 
 If nothing was selected, print "No fixes requested. <N> concern(s) marked `[deferred]` in the report at `<report_path>`." and exit. Never exit leaving concerns unlabelled.
@@ -587,7 +587,7 @@ git fetch origin "$pr_head_branch"
 git checkout "$pr_head_branch"
 ```
 
-If checkout fails, tell the user: "Could not check out PR branch `<pr_head_branch>`. Fixes cannot be applied automatically — address the concerns manually." and exit Phase 4.
+If checkout fails, tell the user: "Could not check out PR branch `<pr_head_branch>`. bf:review cannot apply the fixes automatically. Address the concerns manually." and exit Phase 4.
 
 ### Spawn fix Agent (model: sonnet)
 
@@ -617,7 +617,7 @@ Read <resolved absolute path to dev.md> and apply it.
 - Do not commit or push anything.
 - If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence in `changed_files`; list any outside it in your summary.
 - If a fix cannot be applied cleanly (e.g. the code has moved), add a TODO comment:
-  `// TODO(bf:review): <concern ID> — <brief description of what needs manual fixing>`
+  `// TODO(bf:review): <concern ID>: <brief description of what needs manual fixing>`
 - Return a brief summary: which concerns were applied, which were deferred with a TODO.
 ```
 
@@ -634,7 +634,7 @@ This gives you `test_commands`. If `test_commands` is non-empty:
 1. Run each test command. Capture stdout+stderr combined. Note the exit code.
 2. If all commands exit 0: proceed to the re-review cycle below.
 3. If any command exits non-zero:
-   a. Print (plain text): `⚠ Tests failed after fix — running correction loop…`
+   a. Print (plain text): `⚠ Tests failed after fix. Starting the correction loop…`
    b. Spawn a correction Agent (model: sonnet) with this prompt:
       ```
       The fix you applied caused test failures. Fix only the failing test assertions.
@@ -652,7 +652,7 @@ This gives you `test_commands`. If `test_commands` is non-empty:
       - Return a brief summary of what you changed.
       ```
    c. After the correction Agent returns, run the test commands once more.
-   d. If still failing: print `⚠ Tests still failing after correction. Proceeding to re-review; manual test fixes may be needed.` — then proceed anyway. Do not loop more than once.
+   d. If still failing: print `⚠ Tests still fail after correction. Starting the re-review. The tests may need manual fixes.` — then proceed anyway. Do not loop more than once.
 
 If `test_commands` is empty: skip this step and proceed directly to the re-review cycle.
 
@@ -731,8 +731,8 @@ List remaining concerns by ID and label if any exist.
 | `<project_root>/.bf` not writable | Fall back to `~/.bf/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (`resolve-conventions.sh` returns `null` for it) | Print "Convention file not found: <name>. This may be a plugin install issue." and stop. |
 | `host-rules.sh` prints an `error` object (`not_a_git_repo`, `jq_missing`) | Print `detail`, continue with `host_rules = none`. Do not stop the review. |
-| `--focus` names a lens not in the lens table | Ask which valid lens was meant. When unattended, run the full review with `focus_label` = `full (assumed — unknown lens <name>)`. |
-| Unclear whether text is scope or focus | Ask, with the full review recommended. When unattended, run the full review with `focus_label` = `full (assumed — <reason>)`. |
+| `--focus` names a lens not in the lens table | Ask which valid lens was meant. When unattended, run the full review with `focus_label` = `full (assumed: unknown lens <name>)`. |
+| Unclear whether text is scope or focus | Ask, with the full review recommended. When unattended, run the full review with `focus_label` = `full (assumed: <reason>)`. |
 
 ### Phase 1 — Parallel batch
 

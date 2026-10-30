@@ -42,8 +42,8 @@ Use this decision tree, in order:
 2. If schemas resolve successfully: use `create_view` (and optionally `export_to_excalidraw`) to produce at least one diagram. Embed the returned shareable link in the doc. A descriptive caption is **mandatory** immediately above or below every diagram link.
 
 3. If `ToolSearch` returns no matches, OR if any Excalidraw call fails mid-generation: switch to Mermaid for **all** diagrams in the doc. Do not mix Excalidraw links and Mermaid blocks in the same document. Add a note at the top of the Diagrams section:
-   - If never available: "Diagrams rendered in Mermaid — Excalidraw not available at generation time."
-   - If it failed mid-generation: "Diagrams rendered in Mermaid — Excalidraw encountered an error mid-generation."
+   - If never available: "Diagrams use Mermaid. Excalidraw was not available at generation time."
+   - If it failed mid-generation: "Diagrams use Mermaid. Excalidraw failed during generation."
 
 4. Mermaid diagrams go in ` ```mermaid ` fenced code blocks.
 

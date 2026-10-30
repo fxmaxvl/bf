@@ -48,10 +48,10 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/quality-gate/SKILL.md` and follow it 
 
 If a monorepo is detected **and** the feature touches more than one package, append a `## Deployment` block to `paths.deployment` (= `paths.session_log`) covering:
 
-- **Affected packages** — list each package with a one-line description of what changes
-- **Deploy order** — if packages depend on each other (e.g., proto/API package must deploy before consumers), document the required sequence
-- **Coordination notes** — anything that requires timing or cross-team coordination (e.g., "session-service must be deployed before chatbot-service or attachment fields will be ignored")
-- **Rollback notes** — if any change is hard to roll back (schema migrations, proto field additions), call it out
+- **Affected packages**: list each package with a one-line description of what changes
+- **Deploy order**: if packages depend on each other (e.g., proto/API package must deploy before consumers), document the required sequence
+- **Coordination notes**: anything that requires timing or cross-team coordination (e.g., "deploy session-service before chatbot-service, or chatbot-service ignores the attachment fields")
+- **Rollback notes**: if any change is hard to roll back (schema migrations, proto field additions), call it out
 
 If the feature touches only one package, skip this file entirely — no empty deployment docs.
 

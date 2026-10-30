@@ -40,7 +40,7 @@ Run the full test suite (all tests in scope, not just changed files — the goal
 3. Cross-reference that file with `changed_files` from `changed-packages.sh`.
 4. **If the setup file is NOT in `changed_files`:**
    - Treat as a **pre-existing environment failure** — it existed before this feature branch.
-   - Report: "Pre-existing environment failure: globalSetup error in `<file>` — not modified by this feature, skipping and continuing to lint."
+   - Report: "Pre-existing environment failure: globalSetup error in `<file>`. This feature did not change that file, so I skip it and continue to lint."
    - Proceed to Step 3 without waiting for a response.
 5. **If the setup file IS in `changed_files`:**
    - Treat as an in-scope failure — fall through to the per-test failure handling below (fix the setup file, re-run, repeat until green).
@@ -55,7 +55,7 @@ Run the full test suite (all tests in scope, not just changed files — the goal
 4. **If the failing test is in a file NOT in `changed_files`:**
    - Treat this as a **pre-existing failure** — it existed before this feature branch
    - **Do NOT attempt to fix it**, even if the fix looks obvious
-   - Report to the user: "Pre-existing test failure detected: `[test name / file]`. This file was not changed by this feature — the failure likely predates this branch. Skipping and continuing."
+   - Report to the user: "Pre-existing test failure: `[test name / file]`. This feature did not change this file, so the failure probably predates this branch. I skip it and continue."
    - Proceed to lint without waiting for a response
 
 All tests in scope must be green (or explicitly skipped by user) before proceeding.

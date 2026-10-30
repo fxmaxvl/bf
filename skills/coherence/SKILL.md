@@ -41,7 +41,7 @@ nothing.
 After changing `scripts/scope.sh`, run `scripts/scope-smoke.sh` — it exits non-zero when a scope
 case regresses. The script is shared with `bf:review` and `bf:walkthrough`.
 
-Print one line: `Scope: <mode> — <file_count> file(s), +<added>/-<removed>`.
+Print one line: `Scope: <mode>, <file_count> file(s), +<added>/-<removed>`.
 
 ## Phase 1 — Load the standard
 
@@ -78,10 +78,10 @@ Print findings in exactly two buckets, most severe first. Cite `file:line` for e
 
 ```
 MUST FIX (change made it broken)
-  <file:line> — <kind>: <what broke, and the smallest fix>
+  <file:line>, <kind>: <what broke, and the smallest fix>
 
 NOTED (pre-existing, not worsened)
-  <file:line> — <kind>: <what it is>
+  <file:line>, <kind>: <what it is>
 ```
 
 Close with one of:

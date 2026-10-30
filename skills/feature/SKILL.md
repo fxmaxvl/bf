@@ -132,7 +132,7 @@ Print banner: `── feature | Init ──────────────�
 
 Use the `init-probe.sh` output from On Invocation (do **not** re-run it).
 
-0. **Check for a dirty working tree.** Run `git status --short`. If there are modified or untracked files, summarize them (group by status: modified / untracked / staged) and ask: "Your working tree has uncommitted changes — stash them before starting, or continue with them in scope?" Wait for the answer before proceeding. If the user chooses to stash, run `git stash push -m "pre-session stash"` and confirm.
+0. **Check for a dirty working tree.** Run `git status --short`. If there are modified or untracked files, summarize them (group by status: modified / untracked / staged) and ask: "Your working tree has uncommitted changes. Do you want to stash them before we start, or keep them in scope?" Wait for the answer before proceeding. If the user chooses to stash, run `git stash push -m "pre-session stash"` and confirm.
 
 1. **Determine slug:**
    - If `gh_issue` is not null: set slug to `gh-<gh_issue>-<short-description>` (e.g., `gh-12-token-refresh`)
@@ -144,7 +144,7 @@ Use the `init-probe.sh` output from On Invocation (do **not** re-run it).
 
 2. **Branch selection** — use `current_branch`, `main_branch`, and `is_main` from `init-probe.sh`:
    - If `is_main` is `true`: create and checkout `feat/<slug>`
-   - If `is_main` is `false`: ask the user — "You're currently on `<current_branch>`. Do you want to continue working here, or create a new branch `feat/<slug>` from `<main_branch>`?"
+   - If `is_main` is `false`: ask the user — "You are on `<current_branch>`. Do you want to continue working here, or create a new branch `feat/<slug>` from `<main_branch>`?"
      - If the user chooses to continue: stay on the current branch; derive slug from branch name (strip `feat/` prefix if present)
      - If the user chooses a new branch: create and checkout `feat/<slug>` from `<main_branch>`
 
@@ -224,7 +224,7 @@ If during brainstorm the user cannot answer a clarifying question and asks to po
 1. Invoke the `jira` skill: `ask-author(jira.ticket_key, questions)` — this tags the ticket author and posts the questions as a comment
 2. Save the questions to `jira.pending_questions` in state
 3. Set `phase_status` to `"waiting_answer"`
-4. Tell the user: "Questions posted to Jira ticket. Run `/bf:feature` again later to check for answers."
+4. Tell the user: "I posted the questions to the Jira ticket. Run `/bf:feature` again later to check for answers."
 
 ### In all cases:
 After the generate agent completes (it appends the `## Spec` block to `paths.session_log`):
@@ -266,7 +266,7 @@ Run up to 3 analyze → fix cycles:
    - Ask: "Should I fix these concerns?"
    - If yes: dispatch `feature/review-design/fix/SKILL.md` as an Agent (model: sonnet), then go back to step 1
    - If no (user accepts as-is): proceed to step 5
-   - If this was already the 3rd cycle: tell the user "Max review cycles reached — please review the spec manually" and stop
+   - If this was already the 3rd cycle: tell the user "Max review cycles reached. Review the spec manually." and stop
 5. Run both gates on the spec in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board, dispatched in one message, both awaited before you proceed (phase is still `review-design` — both skills auto-detect spec advisory mode):
    - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus)
    - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus)
@@ -304,7 +304,7 @@ Print banner: `── feature | Plan ──────────────�
      artifacts.todo="<build_timestamp>-<slug>-session-log.md" \
      phase=execute phase_status=awaiting_approval
    ```
-   - Ask the user: "Plan written. Ready to start execution?"
+   - Ask the user: "I wrote the plan. Are you ready to start execution?"
    - If yes: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress` — proceed to Phase 4
    - If no: **Exit** (re-invoke `/bf:feature` when ready)
 
@@ -365,7 +365,7 @@ Run up to 3 scan → fix cycles (complexity & consistency):
    - If yes: spawn a fix agent (model: sonnet) with this prompt: "Read the `## Complexity Report` and `## Consistency Report` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each issue under Blocked Issues in either report, apply the prescribed fix. Do not modify any file outside `changed_files`. If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence in `changed_files`; list any outside it in your summary. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
      Then go back to step 1
    - If no (user accepts as-is): proceed to step 5
-   - If this was already the 3rd cycle: tell the user "Max fix cycles reached — please review the blocked issues manually" and stop
+   - If this was already the 3rd cycle: tell the user "Max fix cycles reached. Review the blocked issues manually." and stop
 5. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=review-impl phase_status=in_progress
    ```
@@ -405,7 +405,7 @@ Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
      ```
      bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
      ```
-     Log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (parallel)"`, reading `audit_started_at` from state. Then tell the user "Max audit cycles reached — review remaining issues manually" and stop.
+     Log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (parallel)"`, reading `audit_started_at` from state. Then tell the user "Max audit cycles reached. Review the remaining issues manually." and stop.
 
 ## Phase 5 — Review Implementation
 
@@ -425,7 +425,7 @@ Run up to 3 analyze → fix cycles:
    - Ask: "Should I fix these concerns?"
    - If yes: dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), applying the out-of-scope rule from Phase 4.75 first, then go back to step 1
    - If no (user accepts as-is): proceed to step 5
-   - If this was already the 3rd cycle: log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (sequential)"`, reading `audit_started_at` from state. Then tell the user "Max review cycles reached — please review the implementation manually" and stop
+   - If this was already the 3rd cycle: log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (sequential)"`, reading `audit_started_at` from state. Then tell the user "Max review cycles reached. Review the implementation manually." and stop
 5. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
    ```
@@ -478,7 +478,7 @@ Print banner: `── feature | Finalize ─────────────
 6. **If `jira.enabled` is `true`:**
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-7. Tell the user: "PR is up at <pr_url>. Build complete!"
+7. Tell the user: "The PR is open at <pr_url>. The build is complete."
 8. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=collect-todos phase_status=in_progress
    ```

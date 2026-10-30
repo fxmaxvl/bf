@@ -130,12 +130,12 @@ STATUS: BLOCK | ADVISORY
 ### Blocked Issues (introduced this session — must resolve before proceeding)
 
 #### <Root Cause> / <Symptom> — <Red Flag Name>
-- `<file>:<line>` — <what was observed> — **Fix:** <prescription from COMPLEXITY.md>
+- `<file>:<line>`: <what was observed>. **Fix:** <prescription from COMPLEXITY.md>
 
 ### Advisory Issues (pre-existing or design risk)
 
 #### <Root Cause> / <Symptom> — <Red Flag Name>
-- `<file>:<line or spec section>` — <what was observed> — **Suggestion:** <prescription from COMPLEXITY.md>
+- `<file>:<line or spec section>`: <what was observed>. **Suggestion:** <prescription from COMPLEXITY.md>
 ```
 
 Omit sections that have no entries.

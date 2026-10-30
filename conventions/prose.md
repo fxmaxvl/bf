@@ -6,9 +6,10 @@ Adapted from [jjsnack/technical-language-skill](https://github.com/jjsnack/techn
 
 ## Scope
 
-- **Governed:** chat replies, `.bf/` artifacts, commit messages, PR titles and bodies, PR comment replies, ADRs, design docs, READMEs and other human docs, code comments, and user-facing error and log messages in code.
-- **Not governed:** code, identifiers, command syntax, quoted material, and model-facing instruction files (any `SKILL.md`, `conventions/*.md`, agent prompts).
-- **Format wins.** A skill's fixed output format (banners, block headers, tables, JSON) stays as the skill defines it. This convention governs the sentences inside it.
+- **Governed:** all prose written for people. That includes chat replies, generated reports and specs, commit and PR text, decision records, docs, code comments, and user-facing error and log messages in code.
+- **Examples are governed too.** Sample output, output templates, and format lines inside a skill or prompt file are text for people, because the model copies them into its output. Write them under these rules.
+- **Not governed:** code, identifiers, command syntax, quoted material, and the instructions in model-facing files (skill files, conventions, agent prompts).
+- **Format wins.** Structure stays as the skill defines it: headings, block headers, table columns, keys, banners, and any literal a script or another skill parses. This convention governs the words inside that structure.
 - Not for marketing copy, essays, or anything that needs a voice. STE strips voice on purpose.
 
 ## Rules
@@ -36,7 +37,7 @@ SENTENCES
 
 PUNCTUATION
 - No semicolons. Write two sentences.
-- No em dash. Use a comma, a period, or two sentences. (STE permits the em dash. bf removes it because it is a common slop marker.)
+- No em dash. Use a comma, a period, or two sentences. (STE permits the em dash. This convention removes it because it is a common slop marker.)
 
 STRUCTURE
 - One topic per paragraph, at most six sentences. Keep tense and point of view constant inside a paragraph.

@@ -41,7 +41,7 @@ Workspace layout inside `~/.bf/teach/<slug>/`:
 | `MISSION.md` | Why the user is learning this — grounds every decision. See [./MISSION-FORMAT.md](./MISSION-FORMAT.md). |
 | `RESOURCES.md` | Curated high-trust sources + communities. See [./RESOURCES-FORMAT.md](./RESOURCES-FORMAT.md). |
 | `GLOSSARY.md` | Canonical, opinionated terminology. See [./GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md). |
-| `NOTES.md` | Scratchpad for **topic-specific** teaching notes (e.g. "for Rust, skip the borrow-checker theory — they get it"). For cross-topic learning style, use `LEARNING-PROFILE.md` instead. |
+| `NOTES.md` | Scratchpad for **topic-specific** teaching notes (e.g. "for Rust, skip the borrow-checker theory. The user already knows it."). For cross-topic learning style, use `LEARNING-PROFILE.md` instead. |
 | `lessons/NNNN-<lesson-slug>.html` | The primary teaching unit — one self-contained lesson. |
 | `reference/NNNN-<reference-slug>.html` | Compressed reusable knowledge, designed for quick review. |
 | `learning-records/NNNN-<record-slug>.md` | ADR-style insights that steer future sessions. See [./LEARNING-RECORD-FORMAT.md](./LEARNING-RECORD-FORMAT.md). |
