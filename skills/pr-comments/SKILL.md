@@ -272,13 +272,16 @@ before the gate — this is the text that gets published under the user's name.
 
 ## Phase 5 — Closing gate
 
-First confirm the PR is still open, because an automerge can land it while Phase 3 runs:
+**State check.** An automerge can land the PR while Phase 3 runs or while the gate waits for an answer, so run this before the gate asks (each time it asks), and again right before the first commit, push or post:
 
 ```bash
-gh pr view <pr> --json state -q .state
+gh pr view <pr> --json state,baseRefName -q '.state + " " + .baseRefName'
 ```
 
-Anything other than `OPEN` stops the gate before it asks. A push would recreate the deleted branch, and the replies would describe fixes that are not on the base branch. Say the PR is `<state>`, post nothing, and offer to open a follow-up PR from the fixes instead.
+- `OPEN`: continue.
+- No output (the call failed): stop, report the `gh` error, and post nothing. Do not treat a failed call as a closed PR.
+- `MERGED`: stop. Pushing would recreate the deleted branch, and the replies would describe fixes that are not on the base branch. Post nothing, and offer one follow-up instead: carry the Phase 3 changes to a branch off the base (`git stash`, `git fetch origin <baseRefName>`, `git checkout -b <head>-followup origin/<baseRefName>`, `git stash pop`), commit only the Phase 3 files, push, and `gh pr create --base <baseRefName>`. Then post the replies on the original PR with the follow-up PR's link added to each, so the triage file marks them and a rerun does not stop here again.
+- `CLOSED` (not merged): the branch usually still exists. Stop and offer `gh pr reopen <pr>`; after a reopen, run the state check again and continue.
 
 Ask exactly ONE question over the whole batch, then wait. Which form depends on two checks:
 - `git status --porcelain` lists the files Phase 3 changed;
@@ -297,6 +300,8 @@ Otherwise (no fixes, or a different branch is checked out), only posting is poss
 > Post <N> replies and resolve the <M> threads listed above? Reply `yes`, `no resolve` (post the replies, leave every thread open), or `no`.
 
 On `no resolve`, every plan entry gets `resolve: false`, whatever its verdict.
+
+After approval, run the state check again before anything else; the answer may have come long after the question.
 
 On **commit and push**, follow the `git` convention:
 - Stage only the files Phase 3 changed, and commit them.
@@ -350,5 +355,5 @@ cannot see yet.
 | More than ~30 open comments | Group aggressively in Phase 1, triage the groups, and say in the output that comments were grouped. Do not silently drop the tail |
 | A reply fails to post but its thread resolved (or vice versa) | The `results[]` entry shows the split. Report it and leave the triage file unmarked for that entry — a rerun retries only what failed |
 | Reviewer has already replied since the fetch | The rerun's `answered_by_viewer` filter does not cover reviewer replies. On a `failed` post, refetch before retrying so the reply lands in context |
-| PR is merged or closed by the closing gate | Stop before asking: no push, no posts. Name the state and offer a follow-up PR from the fixes |
+| PR is merged or closed at the closing gate, before or after the answer | Follow the state check: `MERGED` offers a follow-up PR off the base, `CLOSED` offers a reopen, a failed call stops with the `gh` error. Never push to the branch of a PR that is not `OPEN`, and post replies on a merged PR only with the follow-up link |
 | User wants to argue with a verdict at the gate | Take the correction, redraft that reply, and re-ask the gate once — the batch stays intact |
