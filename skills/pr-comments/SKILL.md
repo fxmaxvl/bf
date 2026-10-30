@@ -272,6 +272,14 @@ before the gate — this is the text that gets published under the user's name.
 
 ## Phase 5 — Closing gate
 
+First confirm the PR is still open, because an automerge can land it while Phase 3 runs:
+
+```bash
+gh pr view <pr> --json state -q .state
+```
+
+Anything other than `OPEN` stops the gate before it asks. A push would recreate the deleted branch, and the replies would describe fixes that are not on the base branch. Say the PR is `<state>`, post nothing, and offer to open a follow-up PR from the fixes instead.
+
 Ask exactly ONE question over the whole batch, then wait. Which form depends on two checks:
 - `git status --porcelain` lists the files Phase 3 changed;
 - `git branch --show-current` equals the fetch result's `head`.
@@ -342,4 +350,5 @@ cannot see yet.
 | More than ~30 open comments | Group aggressively in Phase 1, triage the groups, and say in the output that comments were grouped. Do not silently drop the tail |
 | A reply fails to post but its thread resolved (or vice versa) | The `results[]` entry shows the split. Report it and leave the triage file unmarked for that entry — a rerun retries only what failed |
 | Reviewer has already replied since the fetch | The rerun's `answered_by_viewer` filter does not cover reviewer replies. On a `failed` post, refetch before retrying so the reply lands in context |
+| PR is merged or closed by the closing gate | Stop before asking: no push, no posts. Name the state and offer a follow-up PR from the fixes |
 | User wants to argue with a verdict at the gate | Take the correction, redraft that reply, and re-ask the gate once — the batch stays intact |
