@@ -27,4 +27,4 @@ Implement the refactoring:
 2. Plan your approach internally — think through edge cases, caller impact, and test changes needed. Do not output this plan.
 3. Make the changes. Keep scope tight: only modify what the instruction describes.
 4. Update or add tests as needed.
-5. Commit following the `git` convention (resolved via the lookup in `plugin-main.md`). Use `refactor:` prefix. Do **not** stage anything in `.bf/` except `.bf/conventions/`.
+5. Commit following the `git` convention (resolved via the lookup in `plugin-main.md`). Use `refactor:` prefix. Stage by path only the files you changed or created, never `git add -A` or `git add .`, which also pick up stray files the session never made. Do **not** stage anything in `.bf/` except `.bf/conventions/`.
