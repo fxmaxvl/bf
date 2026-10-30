@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# changed-packages.sh — List files changed since the base branch, including uncommitted and untracked
-# files outside .bf/, and resolve affected monorepo packages.
+# changed-packages.sh — List files changed since the base branch and resolve affected monorepo packages.
 # Outputs JSON.
 # Usage: bash changed-packages.sh [--base <branch>]
 #   --base   Branch to diff against (default: resolved from origin/HEAD, then main, then master)
@@ -43,19 +42,14 @@ def git_root():
         sys.exit(1)
     return r.stdout.strip()
 
-def git_lines(args, root):
-    r = subprocess.run(['git'] + args, capture_output=True, text=True, cwd=root)
+def changed_files(base, root):
+    r = subprocess.run(
+        ['git', 'diff', f'{base}...HEAD', '--name-only'],
+        capture_output=True, text=True, cwd=root
+    )
     if r.returncode != 0:
         return []
     return [f for f in r.stdout.splitlines() if f.strip()]
-
-def changed_files(base, root):
-    # Gates run before the commit in micro, so uncommitted work must count too. .bf/ holds
-    # workflow artifacts, never part of the change.
-    committed = git_lines(['diff', f'{base}...HEAD', '--name-only'], root)
-    worktree = git_lines(['diff', 'HEAD', '--name-only', '--', '.', ':!.bf'], root)
-    untracked = git_lines(['ls-files', '--others', '--exclude-standard', '--', '.', ':!.bf'], root)
-    return sorted(set(committed + worktree + untracked))
 
 def get_workspaces(root):
     """Return list of workspace directory prefixes (e.g. ['packages/api', 'apps/web'])."""
