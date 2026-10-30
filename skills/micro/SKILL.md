@@ -17,7 +17,7 @@ Sub-skill SKILL.md files are bundled with the plugin. Prepend `${CLAUDE_PLUGIN_R
 
 **Invocation patterns:**
 - **Inline**: Read the SKILL.md and follow its instructions directly in the current conversation.
-- **Agent** (written below as "dispatch `<path>` as an Agent"): do **not** read the SKILL.md yourself. Interpolate its resolved absolute path into the agent's `prompt` and instruct the agent to read that file and follow it — `${CLAUDE_PLUGIN_ROOT}` is expanded by the orchestrator because the agent cannot expand it. Any per-phase overrides go in the prompt alongside the path. Always pass the declared model.
+- **Agent** (written below as "dispatch `<path>` as an Agent"): do **not** read the SKILL.md yourself. Interpolate its resolved absolute path into the agent's `prompt` and instruct the agent to read that file and follow it — `${CLAUDE_PLUGIN_ROOT}` is expanded by the orchestrator because the agent cannot expand it. Any per-phase overrides go in the prompt alongside the path. Always pass the declared model. Add one more line to every agent prompt, including the inline fix-agent prompts below: "Apply the rules in `<prose path>` to code comments and to all prose you return.", where `<prose path>` is the `prose` entry from `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" prose`, resolved once per run.
 
 | Sub-skill | SKILL.md path | Invocation | Model |
 |-----------|---------------|------------|-------|
@@ -166,7 +166,7 @@ Otherwise, run up to 3 scan → fix cycles:
    - Show the blocked issues to the user.
    - Ask: "Should I fix these complexity issues?"
    - If yes: spawn a fix agent (model: sonnet) with this prompt:
-     "Read the `## Complexity Report` block with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## Complexity Report\"`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`)."
+     "Read the `## Complexity Report` block with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## Complexity Report\"`. For each issue under Blocked Issues, apply the prescribed fix. Do not modify any file outside `changed_files`. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`). Apply the rules in `<prose path>` to code comments and to all prose you return."
      Then go back to step 1.
    - If no (user accepts as-is): proceed to step 5.
    - If this was already the 3rd cycle: tell the user "Max complexity fix cycles reached. Review the blocked issues manually." and stop.

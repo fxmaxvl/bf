@@ -91,7 +91,7 @@ When `dry_run=true`, skip every Agent spawn and exit before Phase 1 work begins.
 
 Steps:
 
-1. Resolve conventions exactly as Phase 1 does — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture`, plus one `host-rules.sh` call — but do **not** read the file bodies. Capture only the resolved absolute paths.
+1. Resolve conventions exactly as Phase 1 does — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture`, `prose`, plus one `host-rules.sh` call — but do **not** read the file bodies. Capture only the resolved absolute paths.
 2. Print this block (plain text, not in a code fence):
 
    ```
@@ -104,6 +104,7 @@ Steps:
      - dev:         <resolved path or "MISSING">
      - testing:     <resolved path or "MISSING">
      - architecture: <resolved path or "MISSING">
+     - prose:       <resolved path or "MISSING">
    Host repository rules: <one path per line from host_rules, or "none">
    Agents that would be spawned (skipped in dry-run):
      - review Agent        (model: opus), Phase 1 parallel batch
@@ -123,13 +124,13 @@ Steps:
 
 ### Resolve conventions
 
-Resolve all four conventions in one call, per the Convention Lookup in `plugin-main.md`:
+Resolve all five conventions in one call, per the Convention Lookup in `plugin-main.md`:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" code-review dev testing architecture
+bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" code-review dev testing architecture prose
 ```
 
-Read the four absolute paths from the JSON; a `null` is the "Convention file missing" edge case. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
+Read the five absolute paths from the JSON; a `null` is the "Convention file missing" edge case. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
 
 Then list the host repository's own rule files the same way — paths only, never bodies:
 
@@ -276,6 +277,7 @@ Read each of these files and apply it strictly:
 - Testing: <resolved absolute path to testing.md>
 - Architecture: <resolved absolute path to architecture.md>
 - Code review: <resolved absolute path to code-review.md>
+- Prose (for all prose you return): <resolved absolute path to prose.md>
 
 Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
 
@@ -368,6 +370,8 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 
 Proceed with scan mode using these paths.
 
+Apply the rules in <resolved absolute path to prose.md> to all prose you return.
+
 Read <resolved absolute path to skills/feature/complexity-gate/SKILL.md> and follow it.
 ```
 
@@ -381,6 +385,8 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 <one path per line from changed_files>
 
 Proceed with scan mode using these paths.
+
+Apply the rules in <resolved absolute path to prose.md> to all prose you return.
 
 Read <resolved absolute path to skills/feature/consistency-gate/SKILL.md> and follow it.
 ```
@@ -587,6 +593,8 @@ git fetch origin "$pr_head_branch"
 git checkout "$pr_head_branch"
 ```
 
+Then run the Phase 1 `resolve-conventions.sh` call again and use the new paths in every prompt from here on. A project-tier convention can exist on one branch and not on the other.
+
 If checkout fails, tell the user: "Could not check out PR branch `<pr_head_branch>`. bf:review cannot apply the fixes automatically. Address the concerns manually." and exit Phase 4.
 
 ### Spawn fix Agent (model: sonnet)
@@ -603,6 +611,10 @@ You are applying code fixes identified by a code review.
 ## Dev Convention
 
 Read <resolved absolute path to dev.md> and apply it.
+
+## Prose
+
+Apply the rules in <resolved absolute path to prose.md> to code comments and to all prose you return.
 
 ## Selected Concerns
 <concern block for each selected ID, preserving full text>
@@ -638,6 +650,10 @@ This gives you `test_commands`. If `test_commands` is non-empty:
    b. Spawn a correction Agent (model: sonnet) with this prompt:
       ```
       The fix you applied caused test failures. Fix only the failing test assertions.
+
+      ## Prose
+
+      Apply the rules in <resolved absolute path to prose.md> to code comments and to all prose you return.
 
       ## Test Output
       <captured test output>
@@ -683,6 +699,7 @@ Read each of these files and apply it strictly:
 - Testing: <resolved absolute path to testing.md>
 - Architecture: <resolved absolute path to architecture.md>
 - Code review: <resolved absolute path to code-review.md>
+- Prose (for all prose you return): <resolved absolute path to prose.md>
 
 Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
 
