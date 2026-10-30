@@ -123,13 +123,13 @@ Steps:
 
 ### Resolve conventions
 
-Resolve all four conventions in one call, per the Convention Lookup in `plugin-main.md`:
+Resolve all five conventions in one call, per the Convention Lookup in `plugin-main.md`:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" code-review dev testing architecture
+bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" code-review dev testing architecture prose
 ```
 
-Read the four absolute paths from the JSON; a `null` is the "Convention file missing" edge case. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
+Read the five absolute paths from the JSON; a `null` is the "Convention file missing" edge case. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
 
 Then list the host repository's own rule files the same way — paths only, never bodies:
 
@@ -276,6 +276,7 @@ Read each of these files and apply it strictly:
 - Testing: <resolved absolute path to testing.md>
 - Architecture: <resolved absolute path to architecture.md>
 - Code review: <resolved absolute path to code-review.md>
+- Prose (for all prose you return): <resolved absolute path to prose.md>
 
 Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
 
@@ -368,6 +369,8 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 
 Proceed with scan mode using these paths.
 
+Apply the rules in <resolved absolute path to prose.md> to all prose you return.
+
 Read <resolved absolute path to skills/feature/complexity-gate/SKILL.md> and follow it.
 ```
 
@@ -381,6 +384,8 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 <one path per line from changed_files>
 
 Proceed with scan mode using these paths.
+
+Apply the rules in <resolved absolute path to prose.md> to all prose you return.
 
 Read <resolved absolute path to skills/feature/consistency-gate/SKILL.md> and follow it.
 ```
@@ -604,6 +609,10 @@ You are applying code fixes identified by a code review.
 
 Read <resolved absolute path to dev.md> and apply it.
 
+## Prose
+
+Apply the rules in <resolved absolute path to prose.md> to code comments and to all prose you return.
+
 ## Selected Concerns
 <concern block for each selected ID, preserving full text>
 
@@ -683,6 +692,7 @@ Read each of these files and apply it strictly:
 - Testing: <resolved absolute path to testing.md>
 - Architecture: <resolved absolute path to architecture.md>
 - Code review: <resolved absolute path to code-review.md>
+- Prose (for all prose you return): <resolved absolute path to prose.md>
 
 Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
 

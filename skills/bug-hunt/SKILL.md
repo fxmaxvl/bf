@@ -58,6 +58,7 @@ It returns `{mode, base, files, file_count, diff_file, lenses, hunters, hunters_
 Spawn every hunter in **one message** per **Parallel Fan-Out**: `Agent`, `subagent_type: general-purpose`, `model: opus`, named `hunter-<lens>` (`hunter-<lens>-2` for a repeat). Each prompt carries:
 
 - Its lens row from the table above, its starting point if any, and the scope: `mode`, `base`, the file list, and `diff_file` in branch mode. In branch mode, hunt bugs the change introduces or exposes; read surrounding code as needed.
+- The line "Apply the rules in `<prose path>` to every description and reason you write.", where `<prose path>` is the `prose` entry from `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" prose`, resolved once per run.
 - Rules: read-only — no edits, no commits, no repro writing; stay on its lens; prefer concrete, reproducible bugs over suspicions; cite repo-relative file and line.
 - Output: write `<run_dir>/hunters/<hunter_id>.json` as exactly
   `{"hunter_id","lens","findings":[{"file","line","end_line","severity":"critical|high|medium|low","title","why","repro_hint"}]}` — empty `findings` when nothing solid. Then, as its final act, report `done <hunter_id> <N findings>` to `team-lead`.

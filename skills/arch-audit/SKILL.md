@@ -63,9 +63,11 @@ legible on the fleet board. Wait for every one before continuing — the fan-out
 
 Each agent owns its branch to the bottom and **writes its subtree as finished markdown to
 `<fragments_dir>/<unit>.md`**, returning only a one-line summary. Give it: its unit path, its
-fragment path, the scope text, the finding floor, and the layer-section format. Fragments are what
-make a run resumable and what Phase 3 reads — a subtree that exists only in the orchestrator's
-context is lost the moment the session ends.
+fragment path, the scope text, the finding floor, the layer-section format, and the line "Apply the
+rules in `<prose path>` to all prose in your fragment.", where `<prose path>` is the `prose` entry
+from `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" prose`,
+resolved once per run. Fragments are what make a run resumable and what Phase 3 reads — a subtree
+that exists only in the orchestrator's context is lost the moment the session ends.
 
 A branch agent descends **sequentially** — subagents cannot spawn subagents, so the recursion is
 recursive in structure but not in execution. Its loop, per node:
