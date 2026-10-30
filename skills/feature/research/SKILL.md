@@ -95,7 +95,7 @@ If no usable findings (the codebase is new, the directory doesn't exist yet, or 
 ## Context
 
 STATUS: NONE
-No existing code found adjacent to this feature. Plan from spec/QA only.
+Research found no existing code next to this feature. Plan from the spec or QA only.
 ```
 
 Do **not** ask the user any questions. Do **not** modify any source files — this skill is read-only.

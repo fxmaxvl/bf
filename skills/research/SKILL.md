@@ -66,12 +66,12 @@ BF_PROMPT
 A `false` never forces a question you can plainly see is answered — the judgment only removes questions, it does not add them.
 
 1. **Usecase:** "What are you trying to build or decide?"
-2. **Issue:** "What's the specific problem or question you're investigating?"
+2. **Issue:** "What is the specific problem or question you are investigating?"
 3. **Focus lens** — offer four options:
-   - *external prior art* — how other projects solve this
-   - *internal codebase* — how this codebase already handles it
-   - *library/tool comparison* — which option fits best
-   - *decision support* — pros/cons for a choice about to be made
+   - *external prior art*: how other projects solve this
+   - *internal codebase*: how this codebase already handles it
+   - *library/tool comparison*: which option fits best
+   - *decision support*: pros and cons for a choice you are about to make
 
 If the user's prompt already supplies all three, go straight to Phase 1.
 
@@ -81,9 +81,9 @@ Print a short frame block, then proceed without waiting for approval:
 
 ```
 ## Research Frame
-Deliverable: <the artifact to produce — a report, an overview, a comparison>
+Deliverable: <the artifact to produce: a report, an overview, a comparison>
 Topic: <one sentence>
-Usecase: <what you're building/deciding>
+Usecase: <what you are building or deciding>
 Question: <the specific thing to answer>
 Lens: <external | internal | comparison | decision>
 Success criteria: <what a good answer looks like>

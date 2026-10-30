@@ -41,7 +41,7 @@ Read the resolved SKILL.md in full before proceeding.
 
 Print: `── bf:autopilot | <target_skill> ───────────────────────────────`
 
-When `routed_by` is `typesafe`, follow the banner with one line — `Routed by TypeSafe (confidence <confidence>) — interrupt now and re-run as /bf:autopilot <skill> … to override.` The run is unattended; this line is the only chance to catch a misroute before it spends a whole workflow.
+When `routed_by` is `typesafe`, follow the banner with one line — `Routed by TypeSafe (confidence <confidence>). To override, interrupt now and run /bf:autopilot <skill> … again.` The run is unattended; this line is the only chance to catch a misroute before it spends a whole workflow.
 
 ## Step 2 — Install stop hook
 
@@ -55,14 +55,14 @@ If `install_exit` is non-zero and `install_output` starts with `COLLISION:`:
 - Extract the scope from the output (format: `COLLISION:<scope>:<state-file-path>`).
 - Ask the user (one question): "bf:autopilot is already active in <scope>. Override? (yes/no)"
 - If yes: run `bash "$SKILL_DIR/hooks/install.sh" on --force` and continue.
-- If no: print "Autopilot aborted — existing session preserved." and stop.
+- If no: print "Autopilot aborted. The existing session is unchanged." and stop.
 
 If `install_exit` is non-zero and the output does **not** start with `COLLISION:` — a denied settings write, a blocked Bash call, a usage error — then the bypass did not install. Do not fall through silently: the run would look normal while every gated step still stops for approval, and the user is left to re-invoke the underlying skill by hand.
 
 - Print `install_output`, and say plainly that the permission bypass was not installed, with whatever reason the output gives.
 - Ask the user (one question): "Autopilot could not install its permission bypass. Continue in normal approval-gated mode?"
 - If yes: continue without the bypass and say that steps needing approval will prompt.
-- If no: print "Autopilot aborted — no changes made." and stop.
+- If no: print "Autopilot aborted. It made no changes." and stop.
 
 The bypass is a convenience, not a prerequisite — everything downstream works under approvals, just with prompts.
 
@@ -128,7 +128,7 @@ Then print a compact handoff:
 ── bf:autopilot | Done ───────────────────────────────
 
 Skill: <target_skill>
-Decisions made: <N> (oracle verdicts logged in session log or conversation; note any consilium escalations)
+Decisions made: <N> (the oracle verdicts are in the session log or the conversation. Name any consilium escalations.)
 Low-confidence flags: <list, or "none">
 ```
 

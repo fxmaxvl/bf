@@ -68,7 +68,7 @@ Present a concise table:
 | # | Item (summary) | Status | Evidence |
 |---|----------------|--------|----------|
 | 1 | <short summary> | Resolved | <file:line> |
-| 2 | <short summary> | Open | — |
+| 2 | <short summary> | Open | none |
 | 3 | <short summary> | Partial | <file:line> |
 ```
 
@@ -210,7 +210,7 @@ Example `$ARGUMENTS` for feature:
 ```
 GH-ISSUE:12 Token refresh fails on expired sessions
 
-Session tokens are not being refreshed when they expire, causing 401 errors...
+The app does not refresh session tokens when they expire, so requests fail with 401 errors...
 ```
 
 This gives feature the full context to start the brainstorm phase and track the issue through to PR creation.

@@ -12,7 +12,7 @@ This file has **two mutually exclusive shapes** — an active profile, or a decl
 Status: active
 
 ## How I absorb information best
-{1-3 sentences. The dominant way this person learns — e.g. "by building small things and breaking them," "from worked examples before theory," "by reading the spec end to end first." Concrete over abstract.}
+{1-3 sentences. The main way this person learns, e.g. "by building small things and breaking them," "from worked examples before theory," "by reading the spec end to end first." Concrete over abstract.}
 
 ## Preferences
 - **Theory vs example:** {example-first | theory-first | balanced}
@@ -20,8 +20,8 @@ Status: active
 - **Modality:** {diagrams | prose | code | analogies | step-by-step checklists | …}
 - **Feedback & practice:** {immediate quizzes | open-ended challenges | real-world tasks | spaced recall | …}
 
-## Dislikes / what doesn't work for me
-- {Things that reliably lose this learner — e.g. "walls of unmotivated theory," "toy examples with no real-world tie."}
+## Dislikes / what does not work for me
+- {Things that reliably lose this learner, e.g. "walls of unmotivated theory," "toy examples with no real-world tie."}
 ```
 
 ## Template — declined marker
@@ -33,7 +33,7 @@ When the user declines to create a profile, write this minimal file instead. Its
 
 Status: declined
 
-The user declined to create a learning profile. Proceed without one; do not re-ask on future invocations. Delete this file (or ask explicitly) to re-trigger the interview.
+The user declined to create a learning profile. Proceed without one. Do not ask again on future invocations. Delete this file (or ask explicitly) to re-trigger the interview.
 ```
 
 ## Rules

@@ -41,7 +41,7 @@ Returns `{repo, counts, items[], notes[]}` with every open item segmented and it
 
 Bodies that use neither `### ` headings nor `- **` bullets cannot be split by pattern, so they arrive as one item. With TypeSafe boosting on (`/bf:typesafe`), `boost-segments.py` re-splits exactly those at judged item boundaries and caches the result by body digest, so a later `--item` run slices where this one did. Without it the single-item fallback stands — say so in Phase 2 rather than pretending a lump is one suggestion.
 
-If `counts.items` is 0, print "Backlog is empty — nothing to heal." and exit.
+If `counts.items` is 0, print "Backlog is empty. Nothing to heal." and exit.
 
 ## Phase 2 — Score & Select
 
@@ -110,7 +110,7 @@ If an item cannot be verified, revert its commit, return it to the backlog, and 
 
 1. **ADR check:** apply **ADR Awareness** from `plugin-main.md` against the changed files before pushing.
 2. Push the branch.
-3. Open **one** PR via `gh pr create`, titled `chore: self-heal — <n> backlog items`. Body: one section per item giving the source (`#<issue>` item `<index>`), the ask, what changed, and how it was verified. Link every source issue; add `Closes #N` only for an issue with nothing left to track (see **Items, Not Issues**). Prefer `Closes` over closing by hand — an issue closed before the PR merges claims a fix the tree does not have yet.
+3. Open **one** PR via `gh pr create`, titled `chore: self-heal <n> backlog items`. Body: one section per item giving the source (`#<issue>` item `<index>`), the ask, what changed, and how it was verified. Link every source issue; add `Closes #N` only for an issue with nothing left to track (see **Items, Not Issues**). Prefer `Closes` over closing by hand — an issue closed before the PR merges claims a fix the tree does not have yet.
 4. Per source issue, `gh issue comment` naming which items this PR addressed, which were already satisfied in the tree, and which remain open.
 5. **Before closing any issue, carry its leftovers forward.** Re-read the issue body and list the items this PR did not address. If any remain, either leave the issue open, or — when the issue is being closed anyway — file a fresh issue containing those items *verbatim*, each tagged `_Carried from #<N> item <M>._`, and link it from the closing comment. Closed-issue bodies are only visible by re-reading them, so an item dropped at close time is effectively unrecoverable. Close an issue only once nothing is left in it or its leftovers are carried.
 6. Report the PR url, which items stayed in the backlog, and any carry-forward issue you filed.

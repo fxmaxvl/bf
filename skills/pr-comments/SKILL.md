@@ -103,7 +103,7 @@ status post is the result — continue with the fetch.
 With nothing actionable and no in-progress marker, print `STATUS: NO_OPEN_COMMENTS` and stop —
 read nothing, spawn nothing.
 
-Then print one line: `PR #<pr> "<title>" — <actionable> open comment(s), <bot> from bots`.
+Then print one line: `PR #<pr> "<title>": <actionable> open comment(s), <bot> from bots`.
 
 Resolve the artifact root (2-step lookup in `plugin-main.md`), `mkdir -p` the `.bf/pr-comments/`
 directory under it, and use `<pr>-triage.md` there as the triage file for this run. If it already
@@ -203,9 +203,9 @@ The table:
 ```
 #  file:line                    author         verdict            what happens
 1  src/net/retry.ts:42          babakks        accept             cap comes from config
-2  src/order/service.ts:88      coderabbitai   reject             the guard is unreachable — arg in reply
-3  src/api/handler.ts:12        babakks        accept-different   fix at the caller, not here
-4  src/{a,b}/parse.ts:12,31     babakks ×2     accept             same missing guard — 2 threads
+2  src/order/service.ts:88      coderabbitai   reject             the guard is unreachable, argument in reply
+3  src/api/handler.ts:12        babakks        accept-different   fix it at the caller
+4  src/{a,b}/parse.ts:12,31     babakks ×2     accept             same missing guard, 2 threads
 ```
 Row 4 is a grouped entry: one verdict, two threads, and both thread ids recorded on it.
 

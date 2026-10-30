@@ -58,7 +58,7 @@ Never copy secret values (name the variable only) and generalize internal identi
 
 ## Phase 3 — Menu (one question)
 
-Show 3–5 numbered entries, uncovered first, covered last. Each entry: the topic, one line on where it came up, and `→ ~/.bf/teach/<slug>/ (existing, N lessons)` or `(new)`. The English entry is one entry like any other, anchored by frequency ("article omission — seen 3× this session") and ranked struggle-first by that frequency. Add the compaction note when Phase 1 flagged it: topics from early in the session may be missing, and the English analysis covers only messages after the summary. Fewer than 3 candidates: show what remains. None: say nothing new is worth a lesson and stop.
+Show 3–5 numbered entries, uncovered first, covered last. Each entry: the topic, one line on where it came up, and `→ ~/.bf/teach/<slug>/ (existing, N lessons)` or `(new)`. The English entry is one entry like any other, anchored by frequency ("article omission, seen 3× this session") and ranked struggle-first by that frequency. Add the compaction note when Phase 1 flagged it: topics from early in the session may be missing, and the English analysis covers only messages after the summary. Fewer than 3 candidates: show what remains. None: say nothing new is worth a lesson and stop.
 
 Workspace matching is fuzzy like teach's, but without its confirmation question: the `N → …` reply corrects a wrong match.
 

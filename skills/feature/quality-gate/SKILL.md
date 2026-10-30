@@ -39,7 +39,7 @@ If `monorepo` is `true`, scope test and lint commands to the affected package us
 ```markdown
 ## Quality Gates
 
-- **Tests:** `<test_command>` [(scoped to `<package>` — monorepo)]
+- **Tests:** `<test_command>` [(scoped to `<package>` in the monorepo)]
 - **Lint:** `<lint_command>` [/ auto-fix: `<lint_fix_command>`]
 ```
 

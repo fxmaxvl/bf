@@ -41,7 +41,7 @@ For each source:
 - **PDF, slides, or URL** → read it and write `<KIT_SRC>/knowledge/<slug>.md`: a distilled summary covering the frameworks, models, definitions, and examples the kit's skills would apply, with the source path or URL at the top. Keep the original only if the user asks.
 - **Directory** → list its files and ask which to bring in (one question).
 
-Then add one line per new file to `<KIT_SRC>/knowledge/index.md`: `- [<title>](<file>) — <what it covers, when a skill should read it>`.
+Then add one line per new file to `<KIT_SRC>/knowledge/index.md`: `- [<title>](<file>): <what it covers, when a skill should read it>`.
 
 If a source introduces a framework or term the main context lacks, offer to add it (one question).
 

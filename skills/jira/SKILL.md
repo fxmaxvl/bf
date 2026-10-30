@@ -106,7 +106,7 @@ Example `$ARGUMENTS` for feature:
 ```
 https://<domain>.atlassian.net/browse/PROJ-45 Token refresh fails on expired sessions
 
-Session tokens are not being refreshed when they expire, causing 401 errors...
+The app does not refresh session tokens when they expire, so requests fail with 401 errors...
 ```
 
 This gives feature the full context to start the brainstorm phase and track the ticket through to PR creation.

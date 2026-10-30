@@ -68,7 +68,7 @@ Print banner: `── design | Gather ──────────────
 
    **On cancellation** (gather returns `BFEATURE_DESIGN_CANCELLED`):
    - Delete the temp Q&A file at `qa_path` if it exists.
-   - Print: "Cancelled — no design doc produced."
+   - Print: "Cancelled. The skill did not write a design doc."
    - Exit. Do NOT write a design doc.
 
    **On success** (gather returns `BFEATURE_DESIGN_QA_COMPLETE` with the structured Q&A):
@@ -91,7 +91,7 @@ Print banner: `── design | Gather ──────────────
    - If the Write fails for any reason (disk full, permission denied, sandboxing, etc.), abort immediately with a clear error:
 
      ```
-     Cannot write Q&A transcript to <qa_path> — <reason>. Cannot continue.
+     Cannot write the Q&A transcript to <qa_path>: <reason>. Cannot continue.
      ```
 
      Do NOT silently continue without the transcript.
@@ -128,7 +128,7 @@ Print banner: `── design | Generate (may take 1–2 min) ──────�
 
 6. **Retry once on failure:** If the agent returns an error, produces malformed output, or the output file is not written (or is written but is < 200 bytes as a sanity check), retry the agent call once automatically. On a second failure, abort the session:
    ```
-   Generate failed after one retry: <error summary>. No design doc was written.
+   Generate failed after one retry: <error summary>. The skill did not write a design doc.
    ```
    Do NOT attempt a third retry.
 
@@ -162,7 +162,7 @@ Track a revision counter starting at 0. Increment it on each iterate round.
 
    b. If the revision counter is ≥ 3 (i.e., this is round 3 or later), surface **once per round** before continuing:
       ```
-      We've iterated a few times — would you like to accept as-is or start over from the top?
+      We have iterated a few times. Do you want to accept as-is or start over from the top?
       ```
       Handle three branches:
       - **Accept:** proceed to Phase 4.
@@ -191,7 +191,7 @@ Print banner: `── design | Handoff ─────────────�
 
 1. **Ask one question** (inline, wait for response):
    ```
-   Do you want to kick off /bf:feature with this design as the starting spec?
+   Do you want to start /bf:feature with this design as the starting spec?
    ```
 
 2. **If NO:**
@@ -200,8 +200,8 @@ Print banner: `── design | Handoff ─────────────�
 
    b. Print:
       ```
-      Design doc saved at <absolute path>. It's yours to share —
-      paste into Confluence, link from Jira, whatever works best.
+      Design doc saved at <absolute path>. You can share it.
+      Paste it into Confluence or link it from Jira.
       ```
 
    c. Print the sensitive-data reminder:

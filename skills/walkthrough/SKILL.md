@@ -52,7 +52,7 @@ there are none.
 
 If `file_count` is `0`, print `STATUS: NOTHING_TO_ASSESS` and stop — spawn nothing, read nothing.
 
-Print one line: `Scope: <mode> — <file_count> file(s), +<added>/-<removed>`.
+Print one line: `Scope: <mode>, <file_count> file(s), +<added>/-<removed>`.
 
 ## Phase 1 — Mechanical filter
 
@@ -104,7 +104,7 @@ Excluded *and* demoted hunks feed one collapsed line that **names the files** pl
 
 ```
 Not toured: package-lock.json, src/gen/api.ts, src/net/retry.ts,
-src/net/backoff.ts, src/util/env.ts, docs/api.md — 6 files
+src/net/backoff.ts, src/util/env.ts, docs/api.md (6 files)
 ```
 
 Names, because a count cannot tell a reader that the filter dropped something that mattered and a
@@ -122,8 +122,8 @@ Put inferred decisions in a **separately titled section, hedged throughout**:
 
 ```
 Decisions this change appears to carry
-  Retries look capped deliberately rather than made unbounded — the ceiling is a literal, so
-  the value may still be provisional.
+  Retries look capped on purpose and not left unbounded. The ceiling is a literal, so the
+  value may still be provisional.
 ```
 
 The section boundary carries the provenance structurally, so a guess can never read as a record.
@@ -139,11 +139,11 @@ patience before the first snippet has already failed.
 
 Each snippet, in this fixed shape:
 
-1. **The hunk** — with a couple of lines of context, trimmed to what is needed to follow the point.
-2. **What changed** — one sentence.
-3. **Why** — including the alternative not taken where there was one. That is the one thing a diff
+1. **The hunk**: with a couple of lines of context, trimmed to what is needed to follow the point.
+2. **What changed**: one sentence.
+3. **Why**: including the alternative not taken where there was one. That is the one thing a diff
    can never show, and the reason the tour exists.
-4. **What it affects** — callers or downstream behaviour, only when it is not obvious.
+4. **What it affects**: callers or downstream behaviour, only when it is not obvious.
 
 Then the prompt:
 

@@ -27,6 +27,6 @@ Both install modes load the kit from this directory in place. After you edit a s
 
 | Skill | Kind | What it does |
 |---|---|---|
-| `/{{KIT_NAME}}:write-skill [idea]` | Utility | Author a new skill for this kit, or pick one up from `BACKLOG.md` |
+| `/{{KIT_NAME}}:write-skill [idea]` | Utility | Author a new skill for this kit, or take one from `BACKLOG.md` |
 | `/{{KIT_NAME}}:adopt-skill <url \| path>` | Utility | Adapt an existing skill from elsewhere into this kit |
 | `/{{KIT_NAME}}:update-context [change \| file \| url]` | Utility | Revise the main context, or add material to `knowledge/` |

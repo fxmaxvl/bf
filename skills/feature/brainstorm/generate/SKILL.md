@@ -38,11 +38,11 @@ This step exists to prevent the spec from omitting layers that were identified i
 
 Append a thorough spec to `paths.spec` (= `paths.session_log`) using `paths.block_spec` (`## Spec`) as the block header. Follow the Block Writing Pattern from `plugin-main.md`. Content:
 
-- **Overview** — what this feature does and why
-- **Goals** — what success looks like
-- **Functional requirements** — what the system must do
-- **Non-functional requirements** — performance, security, etc. (if applicable)
-- **Out of scope** — explicit exclusions to prevent scope creep
-- **Implementation notes** — key decisions, constraints, or considerations the planner should know
+- **Overview**: what this feature does and why
+- **Goals**: what success looks like
+- **Functional requirements**: what the system must do
+- **Non-functional requirements**: performance, security, etc. (if applicable)
+- **Out of scope**: explicit exclusions to prevent scope creep
+- **Implementation notes**: key decisions, constraints, or considerations the planner should know
 
 Do **not** commit or push the spec file.

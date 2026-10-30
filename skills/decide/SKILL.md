@@ -79,7 +79,7 @@ Return the verdict in this exact ledger format:
 - B) <option>
 - C) <option> *(if applicable)*
 
-**Verdict:** <A/B/C> — <option label>
+**Verdict:** <A/B/C>: <option label>
 
 **Why:** <1–2 sentences. Cite the specific convention rule, spec section by name/topic, or code pattern. No vague generalities.>
 

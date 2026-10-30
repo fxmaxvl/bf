@@ -122,7 +122,7 @@ Every layer, at every depth, emits the same three parts. Nest the headings to mi
 Every layer is assessed against all of these, with layer-specific judgment on top:
 
 security · consistency · locking and contention · performance gaps · scalability limits ·
-inconsistent behaviour · unfinished or dangling logic flows · unclear intent · layer violations ·
+inconsistent behavior · unfinished or dangling logic flows · unclear intent · layer violations ·
 cross-dependencies · missing isolation around a single data-access point
 
 All findings are **structural** — read from code and system structure. No metrics, traces or

@@ -106,7 +106,7 @@ Show a one-paragraph status summary:
 - Count of open/resolved/blocked questions
 - POC scope (if set)
 
-Ask: "Want to continue where we left off, update the source PRD, or review what we have?"
+Ask: "Do you want to continue from the last session, update the source PRD, or review what we have?"
 
 Branch:
 - **Continue** → Phase 3 (Gather) with existing state loaded.
@@ -172,7 +172,7 @@ Print banner: `── bf:gather | Output ─────────────
    - Count of questions resolved this session / still open
    - POC scope status
 
-4. Ask: "Want to hand off to `/bf:feature` (with this doc as the spec) or `/bf:design` (to produce a system-design doc)?"
+4. Ask: "Do you want to continue in `/bf:feature` (with this doc as the spec) or `/bf:design` (to write a system-design doc)?"
    - **bf:feature** → invoke `Skill("bf:feature", args="<feature name>\n\n(Requirements doc: <absolute path>)")`.
    - **bf:design** → invoke `Skill("bf:design", args="<feature name>\n\n(Requirements doc: <absolute path>)")`.
    - **Neither / not yet** → end session, print the absolute path.
@@ -182,7 +182,7 @@ Print banner: `── bf:gather | Output ─────────────
 | Condition | Handling |
 |-----------|----------|
 | No git repo and `~/.bf/gather/` doesn't exist | Create `~/.bf/gather/<slug>/` with `mkdir -p` |
-| User provides a file path that doesn't exist | Warn and re-ask (one question): "That file wasn't found — paste the content directly?" |
+| User provides a file path that doesn't exist | Warn and re-ask (one question): "I could not find that file. Can you paste the content directly?" |
 | state.json is malformed or missing fields | Warn, show what was parsed, ask if user wants to reset state for this feature |
 | User cancels mid-gather | Flush current state to disk anyway before exiting; confirm path written |
 | Feature slug collision (different feature, same slug) | Show existing feature summary, ask: "Resume this feature, or start a new one with a different name?" |

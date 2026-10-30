@@ -43,7 +43,7 @@ State the effect in one line: *"this creates `<target>` with the kit skeleton an
 bash "${CLAUDE_PLUGIN_ROOT}/skills/kit/scripts/kit-scaffold.sh" create --dir "<target>" --name <name> --description "<purpose, one line>"
 ```
 
-`<KIT>` is `kit_dir` from the output: a plugin skeleton with `context/main.md`, `knowledge/index.md`, `BACKLOG.md`, `README.md`, `.claude-plugin/{plugin,marketplace}.json`, `templates/skill-skeleton.md`, and the utility skills `write-skill`, `adopt-skill`, and `update-context`. An `error` key in the output stops the run: report it and resolve it with one question.
+`<KIT>` is `kit_dir` from the output: a plugin skeleton with `context/main.md`, `context/prose.md` (a copy of the `prose` convention that wins the lookup), `knowledge/index.md`, `BACKLOG.md`, `README.md`, `.claude-plugin/{plugin,marketplace}.json`, `templates/skill-skeleton.md`, and the utility skills `write-skill`, `adopt-skill`, and `update-context`. An `error` key in the output stops the run: report it and resolve it with one question.
 
 The kit's own skills call this directory `<KIT_SRC>`, its **Source repo**. Wherever this skill follows one of them, `<KIT_SRC>` is `<KIT>`.
 
@@ -67,7 +67,7 @@ Ask whether there are materials to ground the kit: notes, slides, templates, art
 
 Propose 3–7 domain skills that follow from the context. For each, give a kebab-case name and one line on when to use it. Fold in any skills the user already named (e.g. for a CTO course: strategy analysis, a strategy plan in the user's format, presentations, a CTO-perspective review). Present the roster and ask for additions, removals, or renames (one question). Repeat until the user accepts it.
 
-Then ask a single multi-select question: **which skills to draft now**. The rest go to `<KIT>/BACKLOG.md` as `- **<name>** — <one line>`.
+Then ask a single multi-select question: **which skills to draft now**. The rest go to `<KIT>/BACKLOG.md` as `- **<name>**: <one line>`.
 
 ## Phase 6 — Draft Skills
 

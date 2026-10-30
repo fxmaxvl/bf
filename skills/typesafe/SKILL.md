@@ -46,10 +46,10 @@ silently.
 | Result | Say |
 |---|---|
 | `on`, `smoke.ok: true` | Boosting is on, the key answered, and name what gets boosted (below). |
-| `on`, `key_present: false` | The key is not in this shell. Tell them to export `$<api_key_env>` and re-run — offer `--key-env <VAR>` if their key lives elsewhere. Nothing was written. |
-| `on`, `smoke.ok: false` with a key | Quote `smoke.detail`. Auth rejected means the key is wrong; a rate limit or timeout means try again. Nothing was written. |
+| `on`, `key_present: false` | The key is not in this shell. Tell them to export `$<api_key_env>` and run it again. If their key is in a different variable, offer `--key-env <VAR>`. Nothing was written. |
+| `on`, `smoke.ok: false` with a key | Quote `smoke.detail`. Auth rejected means the key is wrong. A rate limit or timeout means try again. Nothing was written. |
 | `off` | Boosting is off. State that every call site falls back to its deterministic path, and that the config keeps the key env var name for next time. |
-| `status`, `enabled: true` | Report the smoke result — a stale key shows up here, not mid-run. |
+| `status`, `enabled: true` | Report the smoke result. A stale key shows up here, before a run starts. |
 | `status`, `enabled: false` | Report off, and that `/bf:typesafe on` needs `$<api_key_env>` exported. |
 
 Then, whenever boosting ends up **on**, list what it changes. Keep this list honest — only name
@@ -57,12 +57,12 @@ call sites that actually call the helper today:
 
 | Call site | Without boosting | With boosting |
 |---|---|---|
-| `/bf:self-heal` — `harvest-issues.sh` | An issue body using neither `### ` nor `- **` is one lump item, so it is scored and selected whole | Bodies the sniffer could not split get re-split at judged item boundaries; ids are cached by body digest so the fix pass slices where the scoring pass did |
-| `/bf:self-audit` — `audit-static.sh` | A hardcoded word list (`path`, `foo`, `your`…) guesses which unresolved `x/SKILL.md` refs are prose; the rest are filed as findings | Unresolved refs are judged real-vs-illustrative, and suppressions are counted in `notes[]` so two runs stay explainable |
-| `/bf:feature`, `/bf:micro`, `/bf:review` — `check-report-status.sh` | A report that drifted from `STATUS: X` reads as `NOT_FOUND`, indistinguishable from a missing report — the gate opens silently | The verdict is read out of the prose; an unconfident answer still returns `NOT_FOUND` |
-| `/bf:autopilot` — `route.sh` | Input that does not start with a skill name runs `feature`, so `fix the login bug` pays for a brainstorm | The whole input is routed to feature/quick/micro/review/design by intent; an explicit first word still wins without asking, and an unconfident pick stays `feature` |
-| `/bf:research` — `frame.sh` | Phase 0 asks usecase, issue and lens unless the model decides they are evident; decision-support picks its channel mix in prose | Questions the prompt confidently answers are skipped, a confident lens is inferred (and marked so), a weaker one is offered as the recommended option; decision support gets ranked channels |
-| `/bf:research` — `tag-citations.sh` | The writer tags its own evidence `direct`/`inference`/`doc` | Each quote is checked against its claim; a confident judgment corrects the tag, and a confidently `unsupported` claim is sent back for re-reading — never dropped by the script |
+| `/bf:self-heal` — `harvest-issues.sh` | An issue body with neither `### ` nor `- **` is one lump item, so the scoring and selection treat it as a whole | TypeSafe re-splits the bodies the sniffer could not split, at judged item boundaries. A cache keyed by body digest keeps the ids, so the fix pass slices where the scoring pass did |
+| `/bf:self-audit` — `audit-static.sh` | A hardcoded word list (`path`, `foo`, `your`…) guesses which unresolved `x/SKILL.md` refs are prose. The audit files the rest as findings | TypeSafe judges each unresolved ref as real or illustrative. `notes[]` counts the suppressions, so two runs stay explainable |
+| `/bf:feature`, `/bf:micro`, `/bf:review` — `check-report-status.sh` | A report that drifted from `STATUS: X` reads as `NOT_FOUND`, the same as a missing report. The gate opens without a warning | TypeSafe reads the verdict out of the prose. An unconfident answer still returns `NOT_FOUND` |
+| `/bf:autopilot` — `route.sh` | Input that does not start with a skill name runs `feature`, so `fix the login bug` pays for a brainstorm | TypeSafe routes the whole input to feature/quick/micro/review/design by intent. An explicit first word still wins without a question, and an unconfident pick stays `feature` |
+| `/bf:research` — `frame.sh` | Phase 0 asks usecase, issue and lens unless the model decides they are evident. Decision support picks its channel mix in prose | Phase 0 skips the questions the prompt answers with confidence. It infers a confident lens and marks it, and offers a weaker one as the recommended option. Decision support gets ranked channels |
+| `/bf:research` — `tag-citations.sh` | The writer tags its own evidence `direct`/`inference`/`doc` | TypeSafe checks each quote against its claim. A confident judgment corrects the tag. A claim judged `unsupported` with confidence goes back to the writer to re-read. The script never drops it |
 
 Everything else — `detect-stack.sh`, `scope.sh`, git and GraphQL plumbing — stays deterministic and
 always will. Exact lookups do not want a judgment.
