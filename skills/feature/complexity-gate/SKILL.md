@@ -83,7 +83,9 @@ For each red flag in COMPLEXITY.md, scan using Grep and Read. For each finding, 
 - File path and line number
 - Which red flag it matches (exact name from COMPLEXITY.md)
 - Which root cause and symptom it maps to
-- Whether the session's diff introduced or worsened it (determines severity): read the file's hunks with `git diff $(git merge-base <base> HEAD) -- <file>`, where `<base>` is the `base` field from `changed-packages.sh`. That diff includes uncommitted work.
+- Whether the session's diff introduced or worsened it (determines severity). Read the file's hunks with `git diff $(git merge-base <base> HEAD) -- <file>`, where `<base>` is the `base` field from `changed-packages.sh`. That diff includes uncommitted edits to tracked files.
+  - A file git does not track yet (`git ls-files --error-unmatch <file>` fails) has no hunks, because all of it is new. Every red flag in it was introduced.
+  - With no `base` (the caller passed paths and told you not to run `changed-packages.sh`), or when `git merge-base` fails, do not run the diff. Treat every red flag in a listed file as introduced.
 - The prescribed fix from COMPLEXITY.md
 
 ### What to look for
