@@ -91,7 +91,7 @@ When `dry_run=true`, skip every Agent spawn and exit before Phase 1 work begins.
 
 Steps:
 
-1. Resolve conventions exactly as Phase 1 does — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture`, plus one `host-rules.sh` call — but do **not** read the file bodies. Capture only the resolved absolute paths.
+1. Resolve conventions exactly as Phase 1 does — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture`, `prose`, plus one `host-rules.sh` call — but do **not** read the file bodies. Capture only the resolved absolute paths.
 2. Print this block (plain text, not in a code fence):
 
    ```
@@ -104,6 +104,7 @@ Steps:
      - dev:         <resolved path or "MISSING">
      - testing:     <resolved path or "MISSING">
      - architecture: <resolved path or "MISSING">
+     - prose:       <resolved path or "MISSING">
    Host repository rules: <one path per line from host_rules, or "none">
    Agents that would be spawned (skipped in dry-run):
      - review Agent        (model: opus), Phase 1 parallel batch
@@ -592,6 +593,8 @@ git fetch origin "$pr_head_branch"
 git checkout "$pr_head_branch"
 ```
 
+Then run the Phase 1 `resolve-conventions.sh` call again and use the new paths in every prompt from here on. A project-tier convention can exist on one branch and not on the other.
+
 If checkout fails, tell the user: "Could not check out PR branch `<pr_head_branch>`. bf:review cannot apply the fixes automatically. Address the concerns manually." and exit Phase 4.
 
 ### Spawn fix Agent (model: sonnet)
@@ -647,6 +650,10 @@ This gives you `test_commands`. If `test_commands` is non-empty:
    b. Spawn a correction Agent (model: sonnet) with this prompt:
       ```
       The fix you applied caused test failures. Fix only the failing test assertions.
+
+      ## Prose
+
+      Apply the rules in <resolved absolute path to prose.md> to code comments and to all prose you return.
 
       ## Test Output
       <captured test output>
