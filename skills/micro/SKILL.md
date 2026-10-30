@@ -222,10 +222,12 @@ Print banner: `── micro | Finalize ─────────────�
      --commit-msg "<commit message>" \
      --pr-title "<pr title>" \
      --pr-body "<pr body text>" \
+     [--add <path>]...                        # each file this session created and has not committed \
      [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
      [--jira-url <jira.ticket_url>]           # only if jira.enabled
    ```
-   The script stages (excluding `.bf/`, except `.bf/conventions/`), commits if there are changes, pushes, creates the PR, and outputs the PR URL.
+   The script stages tracked edits, the `--add` files and `.bf/conventions/`, commits if there are changes, pushes, creates the PR, and outputs the PR URL. Build the `--add` list from what this session recorded creating, never from `git status`. Passing every untracked file brings back the stray-file commit this flag exists to stop.
+   **Exit 3** means other untracked files exist outside `.bf/`. The script lists them on stderr and has staged and pushed nothing. Show the list and ask which of them belong to the change (one question). Rerun with `--add` for those, plus `--leave-untracked` when any remain. Under `/bf:autopilot`, rerun with `--leave-untracked` and name the files left out in the final summary. A file the session did not record never goes into the commit unasked.
 6. If `jira.enabled`:
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`

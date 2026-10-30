@@ -34,7 +34,6 @@ Include:
 - Total cost of the session, only if the harness shows it. It usually does not, in which case write "not available" and move on. Never estimate or infer a figure.
 - Efficiency insights.
 - Possible process improvements.
-- The total number of conversation turns, labelled as approximate unless you can count them exactly.
 - Any other interesting observations or highlights.
 
 ## Step 2 — Surface skill/flow improvement candidates
@@ -49,7 +48,7 @@ Good candidates:
 - A convention or instruction that was unclear
 
 Not candidates:
-- Session-specific details (cost, turns, what we built today)
+- Session-specific details (cost, what we built today)
 - Observations about the user's project or code
 
 ## Step 3 — Propose a GitHub issue

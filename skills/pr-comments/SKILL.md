@@ -329,8 +329,32 @@ entries in the triage file, and name any `failed` entry with its detail rather t
 batch as done. If the user declines the gate, the triage file and the fixes stay — nothing was
 published, and a rerun picks up from the file.
 
-When the fixes were pushed, add one line: the push starts a new review on most review bots, so
-rerun once it finishes — a rerun before then can show no open comments, or the previous review's.
+When the fixes were pushed, the push starts a new review on most review bots. Steps after this one,
+such as a merge tag, race that review. Offer to wait for it before reporting done, only when all of
+these hold:
+
+- the push succeeded,
+- `last_bot_review` from the fetch is not `null` (a PR with no review bot would wait for nothing
+  until the timeout),
+- `failed` is `0` in the post result. A thread whose reply did not post is still actionable, and the
+  wait returns `findings` on its first poll without waiting for the new review.
+
+Ask once (one question): "Wait up to 10 minutes for <last_bot_review.author> to review <new head
+sha>?" Skip the question and wait when `$ARGUMENTS` contains `--wait`. On yes, pass the `pr`
+number from the fetch result, never `$ARGUMENTS`, which can carry `--wait`:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/wait-for-review.sh" <pr> --timeout 600
+```
+
+Act on `status`:
+
+- `findings`: the new review has open comments. Report the count and offer a rerun.
+- `review_settled`: the new review has nothing open. Report done.
+- `timeout`: handle as the `timeout` row of the fetch step.
+
+When the wait is not offered or the user declines it, add one line instead: rerun once the bot's
+review finishes. A rerun before then can show no open comments, or the previous review's.
 
 When the user answered `no push`, or the push option was not offered while fixes exist, say in one line
 that the working tree has unpushed fixes. The reviewer is looking at replies that reference code they
