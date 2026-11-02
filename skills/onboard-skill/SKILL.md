@@ -9,7 +9,8 @@ allowed-tools: Read, WebFetch, Bash(gh *), Task
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules including the **one-question-per-turn** rule that governs every interactive phase below.
 
-Steal a skill from an external source, adapt it to bf conventions, and hand it off to `bf:write-skill`.
+Adapt a skill from an external source into a portable Agent Skill by default, then hand it off to
+`bf:write-skill`. Keep host-specific behavior only when the user names that host as the target.
 
 ## On Invocation
 
@@ -22,6 +23,10 @@ Print banner (plain text, not in a code block):
 Parse the argument:
 - **URL** — first token that starts with `http` or `github.com`
 - **Instructions** — everything after the URL (what parts to onboard, what to skip, any naming preference)
+
+If the instructions name a host or explicitly require host-specific behavior, use that as the
+target. Otherwise, target a portable Agent Skill. Do not ask a separate question solely to confirm
+the default.
 
 If either is missing, ask ONE question for the missing piece before proceeding.
 
@@ -53,11 +58,11 @@ Parts to onboard (per instructions):
 Parts to skip:
 - <phase or section>: <reason>
 
-Adaptation gaps (bf convention deltas):
-- Artifact path: <source convention> → .bf/ lookup
-- Convention lookup: <source pattern> → plugin-main.md 3-step lookup
-- Tool availability: <tools used in source not in bf allowed-tools, e.g. octocode>
-- One-question rule: <any phases that batch questions — flag them>
+Adaptation gaps:
+- Host-specific behavior: <tool calls, hooks, model routing, permissions, or invocation rules that do not transfer>
+- Resource paths: <paths that must become skill-relative>
+- Tool availability: <required tools not guaranteed by the Agent Skills format>
+- Interaction: <questions or dialogue behavior that needs adaptation>
 - Other: <anything else that needs changing>
 ```
 
@@ -70,6 +75,9 @@ Synthesize a complete bf design spec from the analysis. This is the spec that wi
 ```
 ## bf:onboard Design Spec — <proposed skill name>
 
+### Target
+<Portable Agent Skill by default, or the explicitly named host>
+
 ### Trigger patterns
 <when should this skill be invoked>
 
@@ -79,14 +87,14 @@ Synthesize a complete bf design spec from the analysis. This is the spec that wi
 ### Phases
 <for each onboarded phase: name, what it does, any tool or convention changes from the source>
 
-### Artifact path
-<where outputs go, using .bf/ convention>
+### Resource paths
+<skill-relative paths for a portable skill; host-specific paths only when that host was requested>
 
-### Allowed tools
-<list>
+### Required capabilities
+<capabilities described without host tool names for a portable skill>
 
-### Model
-<opus | sonnet | haiku — justify if non-default>
+### Host-specific behavior
+<none for a portable skill; otherwise list the named host features and why they are required>
 
 ### Boundaries / when NOT to use
 <lifted or adapted from source, if present>
@@ -106,5 +114,5 @@ Invoke `bf:write-skill` passing the full design spec as the argument. `bf:write-
 | URL is private GitHub and `gh` is unauthenticated | Fall back to WebFetch; if that also fails, ask the user to paste the raw skill content |
 | URL points to a non-SKILL.md file | Proceed — analyze whatever is fetched as the source material |
 | Instructions are too vague to determine what to skip | Pick the most literal interpretation, state the assumption in the analysis block, proceed |
-| Source skill uses tools unavailable in bf (e.g. `octocode`, MCP-specific tools) | Flag in adaptation gaps; propose the closest bf equivalent in the design spec |
+| Source skill uses host-specific features | Flag each gap. For a portable target, preserve the user-facing outcome and replace the host-specific mechanism only when an available cross-agent capability supports it; otherwise describe the limitation in the design spec |
 | Proposed skill name conflicts with an existing skill | Note the conflict in the spec and let `bf:write-skill` handle the overwrite prompt |
