@@ -140,6 +140,8 @@ Each session produces two files:
 | `<prefix>-session-log.md` | `paths.session_log` | Persistent blocks: Spec, Plan, Todo, Backlog, Deployment, Decisions | Spec/Plan/Todo/Backlog/Deployment: **regenerate**. Decisions: **accumulate** |
 | `<prefix>-temp.md` | `paths.temp` | Ephemeral blocks: QA, Design Report, Implementation Review, Complexity Report, Consistency Report | **regenerate** |
 
+`state-ops.sh --init` also writes `<prefix>-untracked-at-start` (`paths.untracked_baseline`): the files that were untracked outside `.bf/` when the session started, which `finalize-git.sh --baseline` uses to keep pre-existing strays out of the commit. `cleanup.sh` deletes it with the temp file.
+
 `paths.spec`, `paths.plan`, etc. are **aliases** — they resolve to the same physical file (`session_log` or `temp`). Use `paths.block_<name>` for the matching block header (e.g. `paths.block_spec` = `## Spec`).
 
 **Write mode** is a property of the block, not a judgment made at the call site:
