@@ -189,6 +189,12 @@ workflow would ask you. You read the decisions in the session log afterwards.
 
 ## Getting started
 
+### Codex
+
+bf is Claude Code-first. An early Codex plugin package lives in [`codex/`](codex/README.md).
+It currently includes the standalone `bf-discuss` skill. The orchestrated workflows still rely on
+Claude Code-specific tools and are not available in Codex yet.
+
 ### Add the marketplace
 
 Register the `bf` marketplace with Claude Code (one-time setup):
