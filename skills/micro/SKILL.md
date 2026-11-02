@@ -222,14 +222,19 @@ Print banner: `── micro | Finalize ─────────────�
      --commit-msg "<commit message>" \
      --pr-title "<pr title>" \
      --pr-body "<pr body text>" \
+     --baseline <paths.untracked_baseline> \
+     [--add <path>]...                        # only on a rerun after exit 3 \
+     [--leave-untracked]                      # only on a rerun after exit 3 \
      [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
      [--jira-url <jira.ticket_url>]           # only if jira.enabled
    ```
-   The script stages (excluding `.bf/`, except `.bf/conventions/`), commits if there are changes, pushes, creates the PR, and outputs the PR URL.
+   The script stages tracked edits, every untracked file made since the session started (anything not in `paths.untracked_baseline`), the `--add` files and `.bf/conventions/`. It commits if there are changes, pushes, creates the PR, and outputs the PR URL.
+   **Exit 3** means files that were already untracked when the session started are still untracked. The script lists them on stderr and has staged and pushed nothing. Show the list and ask which of them belong to the change (one question). Rerun with `--add` for those, plus `--leave-untracked` when any remain. Under `/bf:autopilot`, rerun with `--leave-untracked`: a file that was there before the session never goes into the commit unasked.
+   **Exit 1** with a git error means an `--add` path is missing, ignored, or outside the repo. Nothing was staged. Drop that path and rerun.
 6. If `jira.enabled`:
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-7. Tell the user: "PR is up at <pr_url>. Build complete!"
+7. Tell the user: "PR is up at <pr_url>. Build complete!" When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
 8. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=done phase_status=in_progress
    ```

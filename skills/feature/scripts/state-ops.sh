@@ -9,6 +9,9 @@
 #                     [--jira-key PROJ-123 --jira-url <url>] \
 #                     [--gh-issue 42]          # init: create build-state.json, output paths JSON
 #
+# --init also writes paths.untracked_baseline: the untracked files outside .bf/ at session start,
+# NUL-delimited. finalize-git.sh --baseline reads it to tell files the session created from strays.
+#
 # Update supports dot notation for nested fields:
 #   phase=execute
 #   phase_status=in_progress
@@ -77,6 +80,7 @@ def artifact_paths(adir, prefix):
         # physical files
         'session_log': session_log,
         'temp':        temp,
+        'untracked_baseline': os.path.join(adir, f'{prefix}-untracked-at-start'),
         # persistent artifacts — all in session_log
         'spec':        session_log,
         'plan':        session_log,
@@ -202,6 +206,11 @@ if args and args[0] == '--init':
         json.dump(state, f, indent=2)
 
     prefix = f'{ts}-{slug}'
+    untracked = subprocess.run(
+        ['git', 'ls-files', '-z', '--others', '--exclude-standard', '--', '.', ':!.bf'],
+        cwd=root, capture_output=True, check=True).stdout
+    with open(artifact_paths(adir, prefix)['untracked_baseline'], 'wb') as f:
+        f.write(untracked)
     print(json.dumps({
         'slug':            slug,
         'build_timestamp': ts,

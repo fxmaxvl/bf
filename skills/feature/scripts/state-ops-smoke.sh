@@ -32,4 +32,13 @@ eq "malformed config -> default on" "$(resolve bad '{oops' | tr '\n' ' ')" "True
 eq "malformed config warns on each read" "$(warned bad)" 2
 eq "readable config warns nothing" "$(warned none)$(warned empty)$(warned off)" "000"
 
+
+repo=$tmp/baseline/repo home=$tmp/baseline/home
+mkdir -p "$repo" "$home"
+git -C "$repo" init -q
+mkdir -p "$repo/.bf/x" && echo s > "$repo/stray one.md" && echo b > "$repo/.bf/x/b.md"
+baseline=$(cd "$repo" && HOME=$home bash "$script" --init --slug t --idea x 2>/dev/null |
+    python3 -c 'import json,sys; print(json.load(sys.stdin)["paths"]["untracked_baseline"])')
+eq "init writes the untracked baseline, .bf/ excluded" "$(tr '\0' '\n' < "$baseline")" "stray one.md"
+
 [ "$fails" -eq 0 ]
