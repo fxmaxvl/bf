@@ -1,6 +1,0 @@
-{
-  "name": "bf",
-  "version": "0.1.0",
-  "description": "Structured workflows for building software, starting with a guided discussion skill.",
-  "skills": "./skills/"
-}

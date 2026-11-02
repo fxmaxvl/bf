@@ -191,9 +191,15 @@ workflow would ask you. You read the decisions in the session log afterwards.
 
 ### Codex
 
-bf is Claude Code-first. An early Codex plugin package lives in [`codex/`](codex/README.md).
-It currently includes the standalone `bf-discuss` skill. The orchestrated workflows still rely on
-Claude Code-specific tools and are not available in Codex yet.
+bf's `bf-discuss` skill uses the open Agent Skills format and can be installed in Codex or other
+supported agents with the [`skills` CLI](https://github.com/vercel-labs/skills):
+
+```shell
+npx skills add fxmaxvl/bf --skill bf-discuss --agent codex
+```
+
+The rest of bf's workflows still rely on Claude Code-specific tools and are not available in Codex
+yet. See [multi-vendor support](docs/multi-vendor.md) for the compatibility boundary.
 
 ### Add the marketplace
 
