@@ -23,3 +23,20 @@ When adding support for another host:
    invocation behavior, hooks, and resource paths manually.
 
 This lets users install portable skills independently while bf adds host adapters incrementally.
+
+## Skill catalog status
+
+`bf-discuss` is the only one of 58 skill entries currently ported for cross-agent use. The remaining
+entries are listed here to make the adapter work visible. Listing a skill does not imply compatibility.
+
+| Area | Skills | Status |
+|---|---|---|
+| Discussion | `bf-discuss` | Portable and installable |
+| Design | `design`, `design/gather`, `design/generate` | Needs adapter for sub-skill orchestration and Excalidraw MCP tools |
+| Feature workflow | `feature`, `feature/brainstorm`, `feature/brainstorm/generate`, `feature/collect-todos`, `feature/complexity-gate`, `feature/consistency-gate`, `feature/do-todo`, `feature/plan`, `feature/quality-gate`, `feature/refine`, `feature/research`, `feature/review-design`, `feature/review-design/fix`, `feature/review-impl`, `feature/review-impl/fix`, `feature/verify` | Needs adapter for subagents, skill routing, and plugin paths |
+| Other workflows | `autopilot`, `bug-fix`, `bug-hunt`, `micro`, `micro/execute`, `quick` | Needs adapter for orchestration, hooks, and approval flow |
+| Review and decisions | `coherence`, `consilium`, `decide`, `discuss`, `pr-comments`, `review`, `walkthrough` | Needs adapter for agent delegation, skill routing, or host invocation |
+| Project and knowledge | `gather`, `onboard-project`, `onboard-project-brief`, `session-lesson`, `teach` | Needs adapter for persistent workspaces, host tools, or subagents |
+| GitHub and Jira | `gh`, `jira` | Needs adapter for issue-tracker tools and skill routing |
+| Authoring and setup | `kit`, `kit/templates/skills/adopt-skill`, `kit/templates/skills/update-context`, `kit/templates/skills/write-skill`, `onboard-skill`, `scan-conventions`, `write-skill` | Needs adapter for plugin scaffolding, conventions, and host-specific metadata |
+| Local document workflows | `adr-writer`, `arch-audit`, `essence`, `plain`, `poc`, `research`, `session-summary`, `self-audit`, `self-heal`, `typesafe`, `visualize` | Needs adapter for plugin paths, scripts, configuration, or external integrations |

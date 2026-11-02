@@ -192,15 +192,19 @@ workflow would ask you. You read the decisions in the session log afterwards.
 
 ### Codex
 
-bf's `bf-discuss` skill uses the open Agent Skills format and can be installed in Codex or other
-supported agents with the [`skills` CLI](https://github.com/vercel-labs/skills):
+The Codex plugin manifest points at the full `skills/` catalog. Install bf through the Codex
+plugin directory or load the repository as a local plugin. `bf-discuss` is the only skill ported
+and confirmed portable so far. The other workflows are included for catalog coverage, but still
+need host-specific adaptation before we can claim they work in Codex.
+
+To install only the portable skill in Codex or another supported agent, use the
+[`skills` CLI](https://github.com/vercel-labs/skills):
 
 ```shell
 npx skills add fxmaxvl/bf --skill bf-discuss --agent codex
 ```
 
-The rest of bf's workflows still rely on Claude Code-specific tools and are not available in Codex
-yet. See [multi-vendor support](docs/multi-vendor.md) for the compatibility boundary.
+See [multi-vendor support](docs/multi-vendor.md) for the compatibility status of the full catalog.
 
 ### Add the marketplace
 

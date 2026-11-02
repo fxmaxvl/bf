@@ -1,0 +1,10 @@
+{
+  "name": "bf",
+  "version": "0.1.0",
+  "description": "Structured feature-development workflows and utilities.",
+  "author": {
+    "name": "fxmaxvl",
+    "url": "https://github.com/fxmaxvl"
+  },
+  "skills": "./skills/"
+}
