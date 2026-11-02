@@ -31,17 +31,20 @@ command -v jq >/dev/null || die no_jq "jq is required"
 root=$(git rev-parse --show-toplevel 2>/dev/null) || die not_a_git_repo "run inside a git repository"
 cd "$root" || exit 1
 
-lenses=""; hunters=""; repro=false; repo=0; pr=""; paths=()
+# Without set -e a failed `shift 2` leaves $1 in place, so a flag with no value would loop forever.
+need_value() { [ "$1" -ge 2 ] || die missing_value "$2 needs a value"; }
+
+lenses=""; hunters=""; repro=false; repo=0; pr=""; pr_set=0; paths=()
 while [ $# -gt 0 ]; do
   case "$1" in
-    --lenses) lenses="${2-}"; shift 2 ;;
+    --lenses) need_value $# "$1"; lenses="$2"; shift 2 ;;
     --lenses=*) lenses="${1#*=}"; shift ;;
-    --hunters) hunters="${2-}"; shift 2 ;;
+    --hunters) need_value $# "$1"; hunters="$2"; shift 2 ;;
     --hunters=*) hunters="${1#*=}"; shift ;;
     --repro) repro=true; shift ;;
     --repo) repo=1; shift ;;
-    --pr) pr="${2-}"; shift 2 ;;
-    --pr=*) pr="${1#*=}"; shift ;;
+    --pr) need_value $# "$1"; pr="$2"; pr_set=1; shift 2 ;;
+    --pr=*) pr="${1#*=}"; pr_set=1; shift ;;
     --) shift; while [ $# -gt 0 ]; do paths+=("$1"); shift; done ;;
     -*) die unknown_flag "$1 (run with --help for usage)" ;;
     *) paths+=("$1"); shift ;;
@@ -49,9 +52,15 @@ while [ $# -gt 0 ]; do
 done
 
 [ "$repo" = 1 ] && [ "${#paths[@]}" -gt 0 ] && die conflicting_scope "pass --repo or paths, not both"
-if [ -n "$pr" ]; then
+pr_ref=""
+if [ "$pr_set" = 1 ]; then
   [ "$repo" = 1 ] || [ "${#paths[@]}" -gt 0 ] && die conflicting_scope "pass --pr, --repo or paths, not more than one"
-  pr="${pr%/}"; pr="${pr##*/}"; pr="${pr#\#}"
+  # A URL is passed to gh as .../pull/<n>, so gh resolves the PR in the URL's repo, and a copied
+  # link to a tab (/files) or a comment (#issuecomment-…) still works.
+  case "$pr" in
+    */pull/*) pr_ref=$(printf '%s' "$pr" | sed -E 's#(/pull/[0-9]+).*#\1#'); pr="${pr_ref##*/}" ;;
+    *) pr="${pr#\#}"; pr_ref=$pr ;;
+  esac
   case "$pr" in ''|*[!0-9]*) die bad_pr "--pr takes a PR number or URL" ;; esac
 fi
 
@@ -74,14 +83,19 @@ if [ -n "$hunters" ]; then
 fi
 
 base=null; diff_file=null; pr_json=null
-if [ -n "$pr" ]; then
+if [ "$pr_set" = 1 ]; then
   mode=pr
   command -v gh >/dev/null || die no_gh "gh is required for --pr"
-  info=$(gh pr view "$pr" --json headRefOid,baseRefName 2>/dev/null) || die pr_not_found "gh pr view $pr failed"
+  info=$(gh pr view "$pr_ref" --json headRefOid,headRefName,baseRefName 2>/dev/null) || die pr_not_found "gh pr view $pr_ref failed"
   pr_head=$(jq -r '.headRefOid' <<< "$info")
+  pr_branch=$(jq -r '.headRefName' <<< "$info")
   pr_base=$(jq -r '.baseRefName' <<< "$info")
-  [ "$(git rev-parse HEAD)" = "$pr_head" ] ||
+  if [ "$(git rev-parse HEAD)" != "$pr_head" ]; then
+    # gh pr checkout does not move a local branch that already differs from the PR head.
+    [ "$(git rev-parse --abbrev-ref HEAD)" = "$pr_branch" ] &&
+      die pr_not_checked_out "branch $pr_branch is checked out but HEAD differs from PR #$pr's pushed head (${pr_head:0:12}); push or pull so they match, then retry"
     die pr_not_checked_out "HEAD is not the head of PR #$pr (${pr_head:0:12}); run gh pr checkout $pr, then retry"
+  fi
   git rev-parse --verify --quiet "origin/$pr_base" >/dev/null ||
     die no_base "origin/$pr_base not found; run git fetch origin $pr_base"
   b=$(git merge-base HEAD "origin/$pr_base" 2>/dev/null) || die no_base "cannot find a merge-base with origin/$pr_base"

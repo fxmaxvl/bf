@@ -36,7 +36,7 @@ Translate it to the same flags as standalone (`branch` → no target, `pr <n>` �
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/hunt-init.sh" <flags and targets>
 ```
 
-It returns `{mode, base, files, file_count, diff_file, lenses, hunters, hunters_capped, repro, run_dir, report_path, slug}`, or `{error, detail}` — print the detail and stop. Every later path comes from this result; do not re-derive any of them.
+It returns `{mode, base, pr, files, file_count, diff_file, lenses, hunters, hunters_capped, repro, run_dir, report_path, slug}`, or `{error, detail}` — print the detail and stop. Every later path comes from this result; do not re-derive any of them.
 
 ## Phase 1 — Pick lenses
 
@@ -147,7 +147,7 @@ Record the choice under `## Handoff` in the report before invoking anything. No 
 | Condition | Handling |
 |-----------|----------|
 | `hunt-init.sh` returns `error` | Print the `detail` and stop — `empty_scope` on a clean branch suggests `--repo` or a path. |
-| `hunt-init.sh` returns `pr_not_checked_out` | Print the `detail` and stop. Hunters read the working tree, so hunting a PR that is not checked out reads the wrong code. Do not check it out yourself, because that changes the user's working tree. |
+| `hunt-init.sh` returns `pr_not_checked_out` | Print the `detail` and stop. Hunters read the working tree, so hunting a PR whose head is not checked out reads the wrong code. The detail says whether to run `gh pr checkout` or to push or pull the local branch. Do not do either yourself, because both change the user's working tree or remote. |
 | Running inside a subagent (embedded call from a fanned-out agent) — `Agent` unavailable | Subagents cannot spawn subagents. Return `error: no_fan_out — call bf:bug-hunt from the top-level session` to the caller; never fall back to hunting single-handedly. |
 | Hunter or verifier fails twice | Continue; its lens or batch is a coverage gap in the report. Its findings stay `unverified`. |
 | Every hunter failed | Write the report with only the Coverage section and stop — no verify phase, no handoff. |
