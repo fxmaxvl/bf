@@ -93,19 +93,19 @@ Findings in a batch that failed twice come back `unverified` and are listed unde
 
 ## Phase 5 — Analyze
 
-Input: findings in `final.json` with `surviving: true`. `counts.surviving` below 2 → skip this phase, set no groups, and omit `## Root causes` from the report.
+Input: findings in `final.json` with `surviving: true`. `counts.surviving` below 2 → skip the analyst: write `{"groups":[],"links":[]}` to `<run_dir>/analysis.json` and run `analyze` below.
 
-Spawn one analyst: `Agent`, `general-purpose`, `model: opus`, named `analyst`. It gets every surviving finding from `final.json` (with `why`, `repro_hint`, verifier `note`), the same prose line as the verifiers, and:
+Spawn one analyst: `Agent`, `general-purpose`, `model: opus`, named `analyst`. It gets every surviving finding from `final.json` (with `why`, `repro_hint`, verifier `note`), the same prose line as the hunters with "every description and reason you write" replaced by "every title, root cause, fix direction and note you write", and:
 
 - Task: find relationships between findings. It may re-read code to check that a relationship is real. Read-only on the project.
 - Groups (`G1`, `G2`, …), each finding in at most one, the rest stay singletons:
-  - `duplicate` — one bug reported twice. Name the finding to `keep`.
+  - `duplicate` — one bug reported twice. Name the finding to `keep`. `keep` is for duplicate groups only; omit it elsewhere.
   - `root-cause` — different symptoms, one defect, one fix.
-  - `pattern` — the same mistake in several places, one systemic fix. May list `suspects`: unreported places with the same mistake.
-- Per group: `id`, `kind`, `title`, `root_cause`, `fix_direction` (2–4 sentences, no code), `members` (F ids, at least 2), `locations`.
+  - `pattern` — the same mistake in several places, one systemic fix. May list `suspects`: unreported places with the same mistake. `suspects` is for pattern groups only; omit it elsewhere.
+- `fix_direction` is 2–4 sentences, no code.
 - Links between a G or F id: `{from, to, note, order: "before"|"together"}` where one fix masks, worsens or must land before another.
 - It never changes a verdict, severity or location.
-- Output: write `<run_dir>/analysis.json` as `{"groups":[{"id","kind","title","root_cause","fix_direction","members","locations","keep","suspects":[{"location","note"}]}],"links":[…]}` (`keep` for duplicates only, `suspects` for patterns only), then report `done analyst` to `team-lead` as its final act.
+- Output: write `<run_dir>/analysis.json` as `{"groups":[{"id","kind","title","root_cause","fix_direction","members","keep"?,"suspects"?:[{"location","note"}]}],"links":[…]}`. The validity rules live in the header of `findings.sh`; `analyze` enforces them. Then report `done analyst` to `team-lead` as its final act.
 
 Same wait, duplicate, and retry-once rules as Phase 2. Then:
 
@@ -113,13 +113,13 @@ Same wait, duplicate, and retry-once rules as Phase 2. Then:
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" analyze "<run_dir>"
 ```
 
-It validates `analysis.json` against `final.json`, computes group severity (max member), folds duplicates, and writes `<run_dir>/analyzed.json` (`final.json` plus `groups`, `links`, and per finding `group`, `folded_into`, `also_reported_as`). Any error object or non-zero exit from `analyze` (`invalid_analysis`, `analyze_failed`, `no_analysis`) counts as an analyst failure: retry once, naming the `detail` in the prompt. A second failure → report without groups, note it under `## Coverage`, and use F ids only in the handoff. Analysis never fails the hunt.
+It validates `analysis.json` against `final.json`, computes group severity (max member), folds duplicates, and writes `<run_dir>/analyzed.json` (`final.json` plus `groups`, `links`, and per finding `group`, `folded_into`, `also_reported_as`). Any error object or non-zero exit from `analyze` (`invalid_analysis`, `analyze_failed`, `no_analysis`) counts as an analyst failure: retry once, naming the `detail` in the prompt. A second failure → write `{"groups":[],"links":[]}` to `analysis.json`, run `analyze` again, note the failure under `## Coverage`, and use F ids only in the handoff. Analysis never fails the hunt.
 
 Suspects are `unverified suspect`s: never in the Findings table, and sent to bug-fix only as "also check these spots".
 
 ## Phase 6 — Report
 
-Write `report_path` from `analyzed.json` (`final.json` when analysis was skipped or failed):
+Write `report_path` from `analyzed.json`:
 
 ```markdown
 # Bug hunt: <scope label>
@@ -166,7 +166,7 @@ Print to the conversation: the report path, one line per group (`G1 · <kind> ·
 report_path: <absolute path>
 final_json: <run_dir>/final.json
 counts: <confirmed / refined / pre-existing / rejected / unverified; groups / folded> (verdict counts include folded findings, so folded is a subset)
-analysis_json: <run_dir>/analyzed.json (or none)
+analyzed_json: <run_dir>/analyzed.json
 coverage_gaps: <list or none>
 ```
 
@@ -190,8 +190,8 @@ Record the choice under `## Handoff` in the report before invoking anything. No 
 | `hunt-init.sh` returns `error` | Print the `detail` and stop — `empty_scope` on a clean branch suggests `--repo` or a path. |
 | `hunt-init.sh` returns `pr_not_checked_out` | Print the `detail` and stop. Hunters read the working tree, so hunting a PR whose head is not checked out reads the wrong code. The detail says whether to run `gh pr checkout` or to push or pull the local branch. Do not do either yourself, because both change the user's working tree or remote. |
 | Running inside a subagent (embedded call from a fanned-out agent) — `Agent` unavailable | Subagents cannot spawn subagents. Return `error: no_fan_out — call bf:bug-hunt from the top-level session` to the caller; never fall back to hunting single-handedly. |
-| `counts.surviving` below 2 | Skip Phase 5. No groups, no `## Root causes`, F ids only in the handoff. |
-| Analyst fails twice or `findings.sh analyze` errors twice | Report without groups, note it under Coverage, hand off with F ids only. The hunt does not fail. |
+| `counts.surviving` below 2 | Skip the analyst; run `analyze` on an empty analysis. No groups, no `## Root causes`, F ids only in the handoff. |
+| Analyst fails twice or `findings.sh analyze` errors twice | Run `analyze` on an empty analysis, note it under Coverage, hand off with F ids only. The hunt does not fail. |
 | Hunter or verifier fails twice | Continue; its lens or batch is a coverage gap in the report. Its findings stay `unverified`. |
 | Every hunter failed | Write the report with only the Coverage section and stop — no verify phase, no handoff. |
 | More than 6 directories with findings | `findings.sh merge` packs neighbours into ≤6 batches; never drop findings to fit. |

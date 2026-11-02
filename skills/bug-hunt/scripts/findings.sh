@@ -19,16 +19,24 @@
 #     surviving:true|false on every finding and counts.surviving. Later steps read that flag.
 #   findings.sh analyze <run_dir>
 #     Validates <run_dir>/analysis.json against final.json and writes <run_dir>/analyzed.json.
+#     This header owns the validity rules; the analyst prompt in SKILL.md only gives the field shape.
 #     analysis.json: {groups:[{id:"G1", kind:"duplicate|root-cause|pattern", title, root_cause,
-#       fix_direction, members:[F ids], locations:["file:line"], keep:<F id, duplicate only>,
-#       suspects:[{location, note}] (pattern only, optional)}],
-#       links:[{from, to, note, order:"before|together"}]} with from/to a G id or an F id.
-#     Valid when: every member is a surviving finding (surviving:true in final.json), each group
-#     has >= 2 members, no finding is in two groups, a duplicate group names a kept member, link
-#     endpoints exist and are not folded. Invalid input exits 1 with {error:"invalid_analysis", detail}.
+#       fix_direction, members:[F ids], keep:<F id>, suspects:[{location, note}]}],
+#       links:[{from, to, note, order:"before|together"}]}
+#     Valid when all of these hold; any violation exits 1 with {error:"invalid_analysis", detail}:
+#       shape:   groups and links are arrays of objects; ids, kind, keep, order, members, from and to are
+#                strings (members an array of them); suspects, when present, an array of {location, note}.
+#                A null keep or null or empty suspects counts as absent.
+#       groups:  id matches G<number> and is unique; kind is one of the three; title, root_cause and
+#                fix_direction are non-empty strings; >= 2 members; each member is a surviving finding
+#                (surviving:true in final.json), listed once in its group and in no other group.
+#       keep:    present only on a duplicate group, where it must be one of its members.
+#       suspects: allowed only on a pattern group.
+#       links:   from and to are an existing G id or surviving F id, not a folded duplicate, and differ;
+#                order is before or together; note is a non-empty string.
 #     analyzed.json is final.json plus: groups (each with severity = max member severity and folded
 #     ids), links, per finding group / folded_into / also_reported_as, counts.groups, counts.folded.
-#     A member with no severity counts as low.
+#     A member with no severity counts as low. An empty analysis ({groups:[],links:[]}) is valid.
 set -uo pipefail
 
 die() {
@@ -113,42 +121,67 @@ analyze() {
   local out
   out=$(jq --slurpfile a "$run_dir/analysis.json" "$RANK"'
     def text: type == "string" and length > 0;
-    ($a[0].groups // []) as $gs | ($a[0].links // []) as $ls
-    | (.findings | map({key: .id, value: .}) | from_entries) as $by
-    | [.findings[] | select(.surviving) | .id] as $live
-    | [$gs[] | .id] as $gids
-    | ([$gs[] | select(.kind == "duplicate") | .keep as $k | ((.members // []) - [$k])[]
-        | {key: tostring, value: $k}] | from_entries) as $into
-    | ($into | keys) as $folded
-    | [ ($gs[] | select(((.id // "") | test("^G[0-9]+$")) | not) | "bad group id \(.id)"),
+    def shape_errors($gs; $ls):
+      if ($gs | type) != "array" then ["groups must be an array"]
+      elif ($ls | type) != "array" then ["links must be an array"]
+      else [ ($gs[] | select(type != "object") | "a group is not an object"),
+             ($gs[] | select(type == "object") | . as $g | (
+               (select((.id | type) != "string") | "a group id must be a string"),
+               (select((.members | type) != "array" or any(.members[]; type != "string"))
+                  | "\($g.id): members must be an array of strings"),
+               (select((.kind | type) != "string") | "\($g.id): kind must be a string"),
+               (select((.keep | type) | IN("null", "string") | not) | "\($g.id): keep must be a string"),
+               (select((.suspects // []) | (type != "array")
+                  or any(.[]; type != "object" or (.location | text | not) or (.note | text | not)))
+                  | "\($g.id): suspects must be an array of {location, note}"))),
+             ($ls[] | select(type != "object") | "a link is not an object"),
+             ($ls[] | select(type == "object" and ((.from | type) != "string" or (.to | type) != "string"))
+                | "a link from and to must be strings"),
+             ($ls[] | select(type == "object" and (.order | type) != "string") | "a link order must be a string") ]
+      end;
+    def errors($gs; $ls; $live; $gids; $folded):
+      [ ($gs[] | select(((.id) | test("^G[0-9]+$")) | not) | "bad group id \(.id)"),
         ($gids | group_by(.)[] | select(length > 1) | "duplicate group id \(.[0])"),
         ($gs[] | . as $g | (
-          (select(["duplicate","root-cause","pattern"] | index($g.kind) | not) | "\($g.id): bad kind \($g.kind)"),
-          (select(((.members // []) | length) < 2) | "\($g.id): needs >= 2 members"),
-          ((.members // [])[] | . as $m | select($live | index($m) | not) | "\($g.id): \($m) is not a surviving finding"),
-          ((.members // []) | group_by(.)[] | select(length > 1) | "\($g.id): \(.[0]) is listed twice in \($g.id)"),
-          (select(.kind == "duplicate" and ((.members // []) | index($g.keep) | not)) | "\($g.id): keep must be a member"),
+          (select($g.kind | IN("duplicate","root-cause","pattern") | not) | "\($g.id): bad kind \($g.kind)"),
+          (select(.members | length < 2) | "\($g.id): needs >= 2 members"),
+          (.members[] | . as $m | select($live | index($m) | not) | "\($g.id): \($m) is not a surviving finding"),
+          (.members | group_by(.)[] | select(length > 1) | "\($g.id): \(.[0]) is listed twice in \($g.id)"),
+          (select(.kind == "duplicate" and (.members | any(. == $g.keep) | not)) | "\($g.id): keep must be a member"),
+          (select(.kind != "duplicate" and .keep != null) | "\($g.id): keep is only for duplicate groups"),
+          (select(.kind != "pattern" and ((.suspects // []) | length) > 0) | "\($g.id): suspects are only for pattern groups"),
           (["title","root_cause","fix_direction"][] | select($g[.] | text | not) | "\($g.id): missing \(.)"))),
-        ([$gs[] | (.members // []) | unique[]] | group_by(.)[] | select(length > 1) | "\(.[0]) is in more than one group"),
+        ([$gs[] | .members | unique[]] | group_by(.)[] | select(length > 1) | "\(.[0]) is in more than one group"),
         ($ls[] | . as $l | (
           (["from","to"][] | . as $e | select(($gids + $live) | index($l[$e]) | not) | "link \($e) \($l[$e]) does not exist"),
           (["from","to"][] | . as $e | select($folded | index($l[$e])) | "link \($e) \($l[$e]) is a folded duplicate"),
           (select(.from == .to) | "link joins \(.from) to itself"),
-          (select(["before","together"] | index($l.order) | not) | "link \(.from)->\(.to): bad order \($l.order)"),
-          (select(.note | text | not) | "link \(.from)->\(.to): missing note"))) ] as $errs
-    | if ($errs | length) > 0 then {error: "invalid_analysis", detail: ($errs | join("; "))}
+          (select($l.order | IN("before","together") | not) | "link \(.from)->\(.to): bad order \($l.order)"),
+          (select(.note | text | not) | "link \(.from)->\(.to): missing note"))) ];
+    def apply($gs; $ls; $into):
+      (.findings | map({key: .id, value: .}) | from_entries) as $by
+      | ([$gs[] | .id as $g | (.members[] | {key: ., value: $g})] | from_entries) as $grp
+      | .findings |= map(. as $f
+          | . + {group: ($grp[$f.id] // null)}
+          + (if $into[$f.id] then {folded_into: $into[$f.id]} else {} end)
+          + ([$into | to_entries[] | select(.value == $f.id) | $by[.key] | {id, file, line}] as $also
+             | if ($also | length) > 0 then {also_reported_as: $also} else {} end))
+      | .groups = [$gs[] | . + {severity: ([.members[] | $by[.].severity // "low"] | min_by(rank)),
+                                folded: [.members[] | select($into[.])]}]
+      | .links = $ls
+      | .counts += {groups: ($gs | length), folded: ($into | length)};
+    ($a[0].groups // []) as $gs | ($a[0].links // []) as $ls
+    | (shape_errors($gs; $ls)) as $bad
+    | if ($bad | length) > 0 then {error: "invalid_analysis", detail: ($bad | join("; "))}
       else
-        ([$gs[] | .id as $g | (.members[] | {key: ., value: $g})] | from_entries) as $grp
-        | .findings |= map(. as $f
-            | . + {group: ($grp[$f.id] // null)}
-            + (if $into[$f.id] then {folded_into: $into[$f.id]} else {} end)
-            + ([$into | to_entries[] | select(.value == $f.id) | $by[.key] | {id, file, line}] as $also
-               | if ($also | length) > 0 then {also_reported_as: $also} else {} end))
-        | .groups = [$gs[] | . + {severity: ([.members[] | $by[.].severity // "low"] | min_by(rank)),
-                                  folded: [.members[] | select($into[.])]}]
-        | .links = $ls
-        | .counts += {groups: ($gs | length), folded: ($folded | length)}
-      end' "$run_dir/final.json") || die analyze_failed "jq could not apply analysis.json"
+        [.findings[] | select(.surviving) | .id] as $live
+        | [$gs[] | .id] as $gids
+        | ([$gs[] | select(.kind == "duplicate" and (.keep as $k | .members | any(. == $k))) | .keep as $k | (.members - [$k])[]
+            | {key: ., value: $k}] | from_entries) as $into
+        | errors($gs; $ls; $live; $gids; $into | keys) as $errs
+        | if ($errs | length) > 0 then {error: "invalid_analysis", detail: ($errs | join("; "))}
+          else apply($gs; $ls; $into) end
+      end' "$run_dir/final.json" 2>/dev/null) || die analyze_failed "jq could not apply analysis.json"
   if jq -e 'has("error")' <<< "$out" >/dev/null; then die "$(jq -r .error <<< "$out")" "$(jq -r .detail <<< "$out")"; fi
   echo "$out" > "$run_dir/analyzed.json"
   cat "$run_dir/analyzed.json"
