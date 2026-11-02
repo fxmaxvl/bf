@@ -69,6 +69,48 @@ eq "plain mv -> new path needs --add" "$rc" 3
 finalize --add src/renamed.txt
 eq "rename committed with --add" "$(git show --name-status --format= HEAD | cut -f2- | tr '\t' ' ')" "src/new.txt src/renamed.txt"
 
+echo abs > abs.txt
+logical=${tmp#/private}
+finalize --add "$logical/repo/abs.txt"
+eq "absolute --add path (non-physical form) committed" "$(git show --name-only --format= HEAD)" "abs.txt"
+
+mkdir -p sub && echo s > sub/s.txt && echo top > top.txt && git add top.txt && git commit -qm top
+echo edit >> top.txt
+(cd sub && bash "$script" --commit-msg "feat: x" --pr-title t --pr-body b --add s.txt >/dev/null 2>"$tmp/err")
+eq "run from a subdirectory: relative --add and edits outside it staged" "$(git show --name-only --format= HEAD | sort | paste -sd, -)" "sub/s.txt,top.txt"
+
+echo l > .bf/sessions/log.md
+echo e >> top.txt
+finalize --add .bf/sessions/log.md
+eq "--add under .bf/ skipped" "$(git show --name-only --format= HEAD)" "top.txt"
+eq "--add under .bf/ noted" "$(grep -c 'skipping --add .bf/sessions/log.md' "$tmp/err")" 1
+
+echo ig.txt > .gitignore && git add .gitignore && git commit -qm ignore
+echo i > ig.txt && echo e >> top.txt
+before=$(head_sha)
+rc=0; finalize --add ig.txt || rc=$?
+eq "ignored --add path -> exit 1" "$rc" 1
+eq "ignored --add path -> nothing staged" "$(git diff --cached --name-only)" ""
+rc=0; finalize --add missing.txt || rc=$?
+eq "missing --add path -> exit 1, nothing staged" "$rc $(git diff --cached --name-only)" "1 "
+eq "refused runs made no commit" "$(head_sha)" "$before"
+finalize
+git rm -q --cached .gitignore && rm .gitignore ig.txt && git commit -qm unignore
+
+echo old > old-stray.md
+printf 'old-stray.md\0' > "$tmp/baseline"
+mkdir -p gen && echo g > gen/snap.txt
+rc=0; finalize --baseline "$tmp/baseline" || rc=$?
+eq "baseline: stray from session start -> exit 3" "$rc" 3
+eq "baseline: only the old stray listed" "$(grep -c '^  ' "$tmp/err") $(grep -c '^  old-stray.md$' "$tmp/err")" "1 1"
+finalize --baseline "$tmp/baseline" --leave-untracked
+eq "baseline: file made during the session staged without --add" "$(git show --name-only --format= HEAD)" "gen/snap.txt"
+eq "baseline: old stray left untracked" "$(git ls-files --others --exclude-standard -- old-stray.md)" "old-stray.md"
+echo n2 > n2.txt
+rc=0; finalize --baseline "$tmp/no-such-file" || rc=$?
+eq "missing baseline file -> strict mode, exit 3" "$rc" 3
+rm old-stray.md n2.txt
+
 before=$(head_sha)
 echo r2 > .bf/reviews/r2.md
 mkdir -p .bf/audit && echo a > .bf/audit/a.md
