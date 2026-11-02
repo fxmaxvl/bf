@@ -1,6 +1,6 @@
 ---
 name: bug-hunt
-description: "Use when the user wants a deep bug sweep — 'hunt for bugs', 'find bugs in this branch', 'bug-hunt src/payments', 'what's broken in this repo'. Launches a pool of isolated hunter agents, one bug-class lens each, merges and dedupes their findings, has independent verifiers confirm or reject every one, and reports only what survived. Runtime bugs only; conventions and complexity belong to bf:review. Review-only — never edits code."
+description: "Use when the user wants a deep bug sweep — 'hunt for bugs', 'find bugs in this branch', 'bug-hunt src/payments', 'what's broken in this repo'. Launches a pool of isolated hunter agents, one bug-class lens each, merges and dedupes their findings, has independent verifiers confirm or reject every one, groups the survivors by root cause with fix order, and reports only what survived. Runtime bugs only; conventions and complexity belong to bf:review. Review-only — never edits code."
 model: opus
 disable-model-invocation: false
 argument-hint: "[--lenses <id>[,<id>]] [--hunters N] [--repro] [--pr <n> | --repo | <path>...] — empty hunts the current branch's changes"
@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Grep, Glob, Agent, Skill, Bash(git *), Bash(bash *),
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill, including **one-question-per-turn** and **Parallel Fan-Out**.
 
-You are the **hunt orchestrator**. You never look for bugs yourself and never edit code. You scope the hunt, assign lenses, fan out hunters, merge, fan out verifiers, and report.
+You are the **hunt orchestrator**. You never look for bugs yourself and never edit code. You scope the hunt, assign lenses, fan out hunters, merge, fan out verifiers, analyze survivors together, and report.
 
 ## On Invocation
 
@@ -72,7 +72,7 @@ Wait for every hunter. An idle notification after a report is a duplicate — ig
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" merge "<run_dir>"
 ```
 
-It dedupes on file and anchored line ±2, counts `sources` by distinct hunter (never by lens), drops nothing, and packs directory groups into at most 6 verifier `batches`. Hunters in its `invalid` list are coverage gaps too. Zero findings → skip Phase 4 and report "No findings" with the coverage section.
+It dedupes on file and anchored line ±2, counts `sources` by distinct hunter (never by lens), drops nothing, and packs directory groups into at most 6 verifier `batches`. Hunters in its `invalid` list are coverage gaps too. Zero findings → skip Phases 4 and 5 and report "No findings" with the coverage section.
 
 ## Phase 4 — Verify (parallel fan-out)
 
@@ -91,18 +91,53 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" resolve "<run_d
 
 Findings in a batch that failed twice come back `unverified` and are listed under `failed_batches`. An `unverified` finding is never presented as confirmed.
 
-## Phase 5 — Report
+## Phase 5 — Analyze
 
-Write `report_path` from `final.json`:
+Input: findings in `final.json` with `surviving: true`. `counts.surviving` below 2 → skip the analyst: write `{"groups":[],"links":[]}` to `<run_dir>/analysis.json` and run `analyze` below.
+
+Spawn one analyst: `Agent`, `general-purpose`, `model: opus`, named `analyst`. It gets every surviving finding from `final.json` (with `why`, `repro_hint`, verifier `note`), the same prose line as the hunters with "every description and reason you write" replaced by "every title, root cause, fix direction and note you write", and:
+
+- Task: find relationships between findings. It may re-read code to check that a relationship is real. Read-only on the project.
+- Groups (`G1`, `G2`, …), each finding in at most one, the rest stay singletons:
+  - `duplicate` — one bug reported twice. Name the finding to `keep`. `keep` is for duplicate groups only; omit it elsewhere.
+  - `root-cause` — different symptoms, one defect, one fix.
+  - `pattern` — the same mistake in several places, one systemic fix. May list `suspects`: unreported places with the same mistake. `suspects` is for pattern groups only; omit it elsewhere.
+- `fix_direction` is 2–4 sentences, no code.
+- Links between a G or F id: `{from, to, note, order: "before"|"together"}` where one fix masks, worsens or must land before another.
+- It never changes a verdict, severity or location.
+- Output: write `<run_dir>/analysis.json` as `{"groups":[{"id","kind","title","root_cause","fix_direction","members","keep"?,"suspects"?:[{"location","note"}]}],"links":[…]}`. The validity rules live in the header of `findings.sh`; `analyze` enforces them. Then report `done analyst` to `team-lead` as its final act.
+
+Same wait, duplicate, and retry-once rules as Phase 2. Then:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" analyze "<run_dir>"
+```
+
+It validates `analysis.json` against `final.json`, computes group severity (max member), folds duplicates, and writes `<run_dir>/analyzed.json` (`final.json` plus `groups`, `links`, and per finding `group`, `folded_into`, `also_reported_as`). Any error object or non-zero exit from `analyze` (`invalid_analysis`, `analyze_failed`, `no_analysis`) counts as an analyst failure: retry once, naming the `detail` in the prompt. A second failure → write `{"groups":[],"links":[]}` to `analysis.json`, run `analyze` again, note the failure under `## Coverage`, and use F ids only in the handoff. Analysis never fails the hunt.
+
+Suspects are `unverified suspect`s: never in the Findings table, and sent to bug-fix only as "also check these spots".
+
+## Phase 6 — Report
+
+Write `report_path` from `analyzed.json`:
 
 ```markdown
 # Bug hunt: <scope label>
 
 **Date:** <YYYY-MM-DD> · **Scope:** <mode> (<file_count> files<, vs base>) · **Hunters:** <lenses> · **Run:** <run_dir>
 
+## Root causes
+<only when groups or links exist; one block per group>
+### G1 · <kind> · <title>
+Members: <F ids with locations> · Severity
+**Root cause:** … **Fix direction:** … <**Suspects (unverified):** <locations> for patterns>
+
+### Fix order
+<render whenever links exist, even with no groups; numbered list from links, e.g. "G1 before F4: <note>"; "together" links name both ends>
+
 ## Findings
-| ID | Severity | Location | Verdict | Sources | Summary |
-<confirmed, refined, pre-existing, then unverified — rejected excluded>
+| ID | Severity | Location | Verdict | Group | Sources | Summary |
+<surviving findings, then unverified — rejected and folded ids excluded. Group = G id or —. A kept duplicate's Summary ends "also reported as F7 (file:line)">
 
 ## Details
 ### <ID> <title>
@@ -113,31 +148,37 @@ Severity · Location · Lenses · Verdict
 <one line each: ID, location, verifier note>
 
 ## Coverage
-<lenses run; coverage gaps (failed hunters, invalid output, failed batches); hunters_capped note>
+<lenses run; coverage gaps (failed hunters, invalid output, failed batches); analysis failure ("analysis failed twice: <detail>. No groups."); hunters_capped note>
 
 ## Handoff
-<filled in after Phase 6>
+<filled in after Phase 7>
 ```
 
-Print to the conversation: the report path, the Findings table, and the coverage gaps.
+Folded ids leave the table and have no Details entry of their own. Their location appears under the kept finding's Details and the group's Members.
 
-## Phase 6 — Handoff
+Print to the conversation: the report path, one line per group (`G1 · <kind> · <title> · <member ids>`), the Findings table, and the coverage gaps.
+
+## Phase 7 — Handoff
 
 **Embedded:** ask nothing. If `SESSION_LOG` is set, append a `## Bug Hunt` block (report path, counts, coverage gaps) using the block-write pattern in `plugin-main.md`. Return:
 
 ```
 report_path: <absolute path>
 final_json: <run_dir>/final.json
-counts: <confirmed / refined / pre-existing / rejected / unverified>
+counts: <confirmed / refined / pre-existing / rejected / unverified; groups / folded> (verdict counts include folded findings, so folded is a subset)
+analyzed_json: <run_dir>/analyzed.json
 coverage_gaps: <list or none>
 ```
 
 **Standalone, with at least one confirmed or refined finding:** ask exactly one question:
 
-> Send findings to `/bf:bug-fix` (one run per finding), file them as GitHub issues via `/bf:gh`, or stop? Name the IDs, e.g. `fix F1 F3`, `file F2`, `stop`.
+> Send findings to `/bf:bug-fix` (one run per finding or group), file them as GitHub issues via `/bf:gh`, or stop? Name the IDs, e.g. `fix G1 F4`, `file G2`, `stop`.
 
-- `fix <ids>` → for each ID in turn, `Skill("bf:bug-fix", args="<title> — <file:line>. Why it breaks: <why>. Repro hint: <repro_hint>. Verifier: <note>.")`, plus the repro test path when one exists.
-- `file <ids>` → `Skill("bf:gh", args="<same text, one finding per issue>")` for each.
+Offer G ids only when groups exist. A folded id is not selectable.
+
+- `fix <ids>` → for each ID in turn, `Skill("bf:bug-fix", args=…)`. A finding's args: `<title> — <file:line>. Why it breaks: <why>. Repro hint: <repro_hint>. Verifier: <note>.`, plus the repro test path when one exists. For an F in a group, add the group's root cause and fix direction. Add any links touching the F or its group.
+- `fix G<n>` → one run for the whole group. Args: root cause, fix direction, fix order (links touching it), every member finding in the form above, and `suspects` as "also check these spots".
+- `file <ids>` → `Skill("bf:gh", args=…)` with the same text, one issue per F or per group (members listed).
 - `stop` → nothing.
 
 Record the choice under `## Handoff` in the report before invoking anything. No confirmed or refined findings → skip the question and say so.
@@ -149,6 +190,8 @@ Record the choice under `## Handoff` in the report before invoking anything. No 
 | `hunt-init.sh` returns `error` | Print the `detail` and stop — `empty_scope` on a clean branch suggests `--repo` or a path. |
 | `hunt-init.sh` returns `pr_not_checked_out` | Print the `detail` and stop. Hunters read the working tree, so hunting a PR whose head is not checked out reads the wrong code. The detail says whether to run `gh pr checkout` or to push or pull the local branch. Do not do either yourself, because both change the user's working tree or remote. |
 | Running inside a subagent (embedded call from a fanned-out agent) — `Agent` unavailable | Subagents cannot spawn subagents. Return `error: no_fan_out — call bf:bug-hunt from the top-level session` to the caller; never fall back to hunting single-handedly. |
+| `counts.surviving` below 2 | Skip the analyst; run `analyze` on an empty analysis. No groups, no `## Root causes`, F ids only in the handoff. |
+| Analyst fails twice or `findings.sh analyze` errors twice | Run `analyze` on an empty analysis, note it under Coverage, hand off with F ids only. The hunt does not fail. |
 | Hunter or verifier fails twice | Continue; its lens or batch is a coverage gap in the report. Its findings stay `unverified`. |
 | Every hunter failed | Write the report with only the Coverage section and stop — no verify phase, no handoff. |
 | More than 6 directories with findings | `findings.sh merge` packs neighbours into ≤6 batches; never drop findings to fit. |

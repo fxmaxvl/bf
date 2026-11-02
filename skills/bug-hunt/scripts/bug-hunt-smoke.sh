@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke check for hunt-init.sh scope resolution and findings.sh merge/resolve, against throwaway repos.
+# Smoke check for hunt-init.sh scope resolution and findings.sh merge/resolve/analyze, against throwaway repos.
 #
 # Usage: bug-hunt-smoke.sh
 # Contract: exits 0 when every case passes, 1 otherwise; prints one PASS/FAIL line per case.
@@ -86,6 +86,107 @@ f1=$(jq -r '.findings[] | select(.line == 10) | .id' <<< "$m")
 printf '{"batch_id":"%s","verdicts":[{"id":"%s","verdict":"confirmed","note":"real"}]}\n' "$b1" "$f1" > "$run/verifiers/$b1.json"
 fin=$(bash "$findings" resolve "$run")
 check "resolve: verdict joined" "$(q "$fin" '.findings[] | select(.id == "'"$f1"'") | .verdict == "confirmed"')"
+check "resolve: surviving flag and count follow the verdict" "$(q "$fin" '(.findings[] | select(.id == "'"$f1"'") | .surviving) == true and (.findings | map(select(.verdict == "unverified" and .surviving)) | length) == 0 and .counts.surviving == 1')"
 check "resolve: missing verdicts are unverified, failed batch listed" "$(q "$fin" '(.counts.unverified >= 1) and (.failed_batches | length) >= 1')"
+
+an="$tmp/an"; mkdir -p "$an"
+cat > "$an/final.json" <<'J'
+{"findings":[
+ {"id":"F1","severity":"low","verdict":"confirmed","surviving":true,"file":"a.js","line":1},
+ {"id":"F2","severity":"high","verdict":"refined","surviving":true,"file":"b.js","line":2},
+ {"id":"F3","severity":"medium","verdict":"pre-existing","surviving":true,"file":"c.js","line":3},
+ {"id":"F4","severity":"critical","verdict":"rejected","surviving":false,"file":"d.js","line":4},
+ {"id":"F5","severity":"medium","verdict":"confirmed","surviving":true,"file":"e.js","line":5},
+ {"id":"F6","severity":"low","verdict":"unverified","surviving":false,"file":"f.js","line":6}],
+ "counts":{"findings":6}}
+J
+cat > "$an/analysis.json" <<'J'
+{"groups":[
+ {"id":"G1","kind":"root-cause","title":"t","root_cause":"r","fix_direction":"d","members":["F1","F2"]},
+ {"id":"G2","kind":"duplicate","title":"t","root_cause":"r","fix_direction":"d","members":["F3","F5"],"keep":"F3"}],
+ "links":[{"from":"G1","to":"G2","note":"n","order":"before"}]}
+J
+a=$(bash "$findings" analyze "$an")
+check "analyze: valid input is written to analyzed.json" "$([ -f "$an/analyzed.json" ]; echo $?)"
+check "analyze: group severity is the max member severity" "$(q "$a" '(.groups[] | select(.id == "G1") | .severity) == "high"')"
+check "analyze: duplicate folds into the kept finding" "$(q "$a" '(.findings[] | select(.id == "F5") | .folded_into) == "F3" and (.findings[] | select(.id == "F3") | .also_reported_as[0].id) == "F5" and .counts.folded == 1 and .counts.groups == 2')"
+check "analyze: findings carry their group" "$(q "$a" '(.findings[] | select(.id == "F1") | .group) == "G1" and (.findings[] | select(.id == "F6") | .group) == null')"
+try() { printf '%s\n' "$1" > "$an/analysis.json"; bash "$findings" analyze "$an"; }
+g='"kind":"pattern","title":"t","root_cause":"r","fix_direction":"d"'
+o=$(try '{"groups":[{"id":"G1",'"$g"',"members":["F1","F2"]},{"id":"G2",'"$g"',"members":["F2","F3"]}]}')
+check "analyze: a finding in two groups is rejected" "$(q "$o" '.error == "invalid_analysis" and (.detail | contains("F2 is in more than one group"))')"
+o=$(try '{"groups":[{"id":"G1",'"$g"',"members":["F1","F9"]}]}')
+check "analyze: unknown id is rejected" "$(q "$o" '.error == "invalid_analysis" and (.detail | contains("F9"))')"
+o=$(try '{"groups":[{"id":"G1",'"$g"',"members":["F1","F4"]}]}')
+check "analyze: rejected finding cannot be grouped" "$(q "$o" '.error == "invalid_analysis" and (.detail | contains("F4"))')"
+o=$(try '{"groups":[{"id":"G1",'"$g"',"members":["F1","F2"]}],"links":[{"from":"G1","to":"F8","note":"n","order":"before"}]}')
+check "analyze: unknown link endpoint is rejected" "$(q "$o" '.error == "invalid_analysis" and (.detail | contains("F8"))')"
+o=$(try '{"groups":[{"id":"G1",'"$g"',"members":["F1","F2"]}],"links":[{"from":"G1","to":"F3","note":"n","order":"later"}]}')
+check "analyze: bad link order is rejected" "$(q "$o" '.error == "invalid_analysis" and (.detail | contains("bad order"))')"
+
+o=$(try '{"groups":[{"id":"G1","kind":"a\"b\\c","title":"t","root_cause":"r","fix_direction":"d","members":["F1","F2"]}]}')
+check "analyze: error detail with quotes and backslashes stays valid JSON" "$(q "$o" '.error == "invalid_analysis" and (.detail | contains("bad kind"))')"
+
+o=$(try '{"groups":[{"id":"G1",'"$g"',"members":["F1","F1","F2"]}]}')
+check "analyze: a member listed twice in one group has its own error" "$(q "$o" '.error == "invalid_analysis" and (.detail | contains("F1 is listed twice in G1")) and (.detail | contains("more than one group") | not)')"
+sed -e 's/"id":"F1","severity":"low"/"id":"F1"/' -e 's/"id":"F5","severity":"medium"/"id":"F5"/' "$an/final.json" > "$an/final.tmp" && mv "$an/final.tmp" "$an/final.json"
+o=$(try '{"groups":[{"id":"G1",'"$g"',"members":["F1","F5"]}]}')
+check "analyze: a member with no severity counts as low in group severity" "$(q "$o" '(.groups[0].severity) == "low"')"
+
+bad() { # name, analysis json, detail substring
+  o=$(try "$2")
+  check "analyze: $1" "$(q "$o" '.error == "invalid_analysis" and (.detail | contains("'"$3"'"))')"
+}
+gd='"title":"t","root_cause":"r","fix_direction":"d"'
+bad "keep must be a member" '{"groups":[{"id":"G1","kind":"duplicate",'"$gd"',"members":["F1","F2"],"keep":"F3"}]}' "keep must be a member"
+bad "keep on a non-duplicate group is rejected" '{"groups":[{"id":"G1","kind":"pattern",'"$gd"',"members":["F1","F2"],"keep":"F1"}]}' "keep is only for duplicate"
+bad "suspects on a non-pattern group is rejected" '{"groups":[{"id":"G1","kind":"root-cause",'"$gd"',"members":["F1","F2"],"suspects":[{"location":"x:1","note":"n"}]}]}' "suspects are only for pattern"
+bad "suspects must be {location, note} objects" '{"groups":[{"id":"G1","kind":"pattern",'"$gd"',"members":["F1","F2"],"suspects":["x:1"]}]}' "suspects must be an array"
+bad "a folded duplicate cannot be linked" '{"groups":[{"id":"G1","kind":"duplicate",'"$gd"',"members":["F2","F3"],"keep":"F2"}],"links":[{"from":"G1","to":"F3","note":"n","order":"before"}]}' "is a folded duplicate"
+bad "a link cannot join an id to itself" '{"links":[{"from":"F1","to":"F1","note":"n","order":"before"}]}' "to itself"
+bad "keep must be a string" '{"groups":[{"id":"G1","kind":"duplicate",'"$gd"',"members":["F1","F2"],"keep":["F1"]}]}' "keep must be a string"
+bad "kind must be a string" '{"groups":[{"id":"G1","kind":["pattern"],'"$gd"',"members":["F1","F2"]}]}' "kind must be a string"
+bad "link order must be a string" '{"links":[{"from":"F1","to":"F2","note":"n","order":["before"]}]}' "order must be a string"
+o=$(try '{"groups":[{"id":"G1","kind":"duplicate",'"$gd"',"members":["F1","F2"],"keep":"F3"}],"links":[{"from":"G1","to":"F2","note":"n","order":"before"}]}')
+check "analyze: a bad keep does not add a folded-duplicate error" "$(q "$o" '.error == "invalid_analysis" and (.detail | contains("keep must be a member")) and (.detail | contains("folded duplicate") | not)')"
+o=$(try '{"groups":[{"id":"G1","kind":"root-cause",'"$gd"',"members":["F1","F2"],"keep":null,"suspects":[]},{"id":"G2","kind":"pattern",'"$gd"',"members":["F3","F5"],"suspects":null}]}')
+check "analyze: null keep and null or empty suspects count as absent" "$(q "$o" '.counts.groups == 2')"
+bad "a link needs a note" '{"links":[{"from":"F1","to":"F2","order":"before"}]}' "missing note"
+bad "a group needs title, root_cause and fix_direction" '{"groups":[{"id":"G1","kind":"pattern","title":"t","members":["F1","F2"]}]}' "G1: missing root_cause"
+bad "a group needs >= 2 members" '{"groups":[{"id":"G1","kind":"pattern",'"$gd"',"members":["F1"]}]}' "needs >= 2 members"
+bad "group id must look like G<number>" '{"groups":[{"id":"X1","kind":"pattern",'"$gd"',"members":["F1","F2"]}]}' "bad group id X1"
+bad "group ids are unique" '{"groups":[{"id":"G1","kind":"pattern",'"$gd"',"members":["F1","F2"]},{"id":"G1","kind":"pattern",'"$gd"',"members":["F3","F5"]}]}' "duplicate group id G1"
+bad "members must be an array of strings" '{"groups":[{"id":"G1","kind":"pattern",'"$gd"',"members":"F1F2"}]}' "members must be an array of strings"
+bad "groups must be an array" '{"groups":{"id":"G1"}}' "groups must be an array"
+bad "links must be an array" '{"links":"none"}' "links must be an array"
+bad "a group must be an object" '{"groups":["G1"]}' "a group is not an object"
+printf '[1]\n' > "$an/analysis.json"
+o=$(bash "$findings" analyze "$an")
+check "analyze: a non-object analysis.json is rejected" "$(q "$o" '.error == "invalid_analysis" and (.detail | contains("not a JSON object"))')"
+rm "$an/analysis.json"
+o=$(bash "$findings" analyze "$an")
+check "analyze: a missing analysis.json is an error" "$(q "$o" '.error == "no_analysis"')"
+mkdir -p "$tmp/empty"; echo '{}' > "$tmp/empty/analysis.json"
+o=$(bash "$findings" analyze "$tmp/empty")
+check "analyze: no final.json is an error" "$(q "$o" '.error == "no_final"')"
+
+# Surviving F ids come from the files above.
+pl="$tmp/pipeline"; mkdir -p "$pl/hunters" "$pl/verifiers"
+cp "$run/hunters/h1.json" "$run/hunters/h2.json" "$pl/hunters/"
+bash "$findings" merge "$pl" >/dev/null
+ids=$(jq -r '[.findings[] | select(.line == 10 or .line == 14) | .id] | join(" ")' "$pl/merged.json")
+read -r pa pb <<< "$ids"
+for b in $(jq -r '.batches[].id' "$pl/merged.json"); do
+  jq -c --arg b "$b" '(.batches[] | select(.id == $b)) as $batch | {batch_id: $b, verdicts: [.findings[] | select(.id as $i | $batch.finding_ids | index($i)) | {id, verdict: "confirmed", note: "real"}]}' "$pl/merged.json" > "$pl/verifiers/$b.json"
+done
+bash "$findings" resolve "$pl" >/dev/null
+jq -nc --arg a "$pa" --arg b "$pb" '{groups:[{id:"G1",kind:"duplicate",title:"t",root_cause:"r",fix_direction:"d",members:[$a,$b],keep:$a}],links:[]}' > "$pl/analysis.json"
+pa_out=$(bash "$findings" analyze "$pl")
+check "pipeline: merge, resolve and analyze compose; a duplicate folds out" "$(q "$pa_out" '.counts.groups == 1 and .counts.folded == 1 and ([.findings[] | select(.folded_into)] | length) == 1 and (.groups[0].folded | length) == 1')"
+check "pipeline: group severity is the max member severity (critical and high members)" "$(q "$pa_out" '.groups[0].severity == "critical"')"
+check "pipeline: analyzed.json is written and matches the output" "$(jq -e --argjson o "$pa_out" '. == $o' "$pl/analyzed.json" >/dev/null; echo $?)"
+echo '{"groups":[],"links":[]}' > "$pl/analysis.json"
+pe=$(bash "$findings" analyze "$pl")
+check "pipeline: an empty analysis passes through with no groups or folds" "$(q "$pe" '.counts.groups == 0 and .counts.folded == 0 and .groups == [] and .links == [] and ([.findings[] | select(.group != null or .folded_into != null)] | length) == 0')"
 
 exit $fail
