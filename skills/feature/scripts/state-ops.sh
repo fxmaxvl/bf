@@ -8,6 +8,7 @@
 #                     [--mode quick|full] \
 #                     [--jira-key PROJ-123 --jira-url <url>] \
 #                     [--gh-issue 42]          # init: create build-state.json, output paths JSON
+#   bash state-ops.sh --archive                # move build-state.json to .bf/sessions/archive/, print the new path
 #
 # --init also writes paths.untracked_baseline: the untracked files outside .bf/ at session start,
 # NUL-delimited. finalize-git.sh --baseline reads it to tell files the session created from strays.
@@ -139,6 +140,20 @@ if args and args[0] == '--read-config':
 
 root = git_root()
 state_path = os.path.join(root, '.bf', 'sessions', 'build-state.json')
+
+# ── Archive mode ───────────────────────────────────────────────────────────
+if args and args[0] == '--archive':
+    if not os.path.exists(state_path):
+        print(f"Error: build-state.json not found at {state_path}", file=sys.stderr)
+        sys.exit(1)
+    with open(state_path) as f:
+        state = json.load(f)
+    adir = os.path.join(root, '.bf', 'sessions', 'archive')
+    os.makedirs(adir, exist_ok=True)
+    dest = os.path.join(adir, f"{state.get('build_timestamp')}-{state.get('slug')}-build-state.json")
+    os.replace(state_path, dest)
+    print(dest)
+    sys.exit(0)
 
 # ── Init mode ──────────────────────────────────────────────────────────────
 if args and args[0] == '--init':

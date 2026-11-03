@@ -116,15 +116,18 @@ Quick mode skips **only** brainstorm and review-design. Every other phase — re
    - `idea` — the clean idea text (all flags and markers stripped)
    - `current_branch`, `main_branch`, `is_main` — git branch state
    - `has_state` — whether `build-state.json` already exists
+   - `state_matches` — `false` when the state belongs to another run (different idea, issue, ticket or mode, or a non-feature mode); empty arguments always match
    - `project_root` — git repository root
 
-2. If `has_state` is `true`: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` to load state and resume:
+2. If `has_state` is `true` and `state_matches` is `false`: read the state's `slug`, `idea` and `mode`, show them, and ask one question: "A build-state from another run exists. Resume it, archive it and start fresh, or abort?" Resume: continue with step 3 using that state. Archive: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --archive` (moves it to `.bf/sessions/archive/<build_timestamp>-<slug>-build-state.json`), then proceed to Phase 0. Abort: exit.
+
+3. If `has_state` is `true`: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` to load state and resume:
    - If `phase_status` is `"awaiting_approval"`:
      - If `phase` is `"finalize"`: re-ask the pre-finalization gate per Phase 6 step 2 (one question in quick mode, two in full mode). If not ready: exit. If ready: set `phase_status` to `"in_progress"`, save `collect_todos` per Phase 6 step 2 (user's answer in full mode, `false` automatically in quick mode), update state, continue Phase 6 from step 3 (skip silent verify — it already passed).
      - Otherwise: ask "Paused before [current phase]. Ready to proceed?" — if yes, set `phase_status` to `"in_progress"`, update state, execute the current phase; if no, exit
    - Otherwise: resume the current phase from where it left off. **Note:** when `parallel_audit` is `true`, `phase=verify phase_status=in_progress` after Phase 4.5 completes means the orchestrator is about to enter the audit-stack fan-out in Phase 4.75 — resume goes directly into Phase 4.75 (not a mid-fan-out partial state). When `parallel_audit` is `false`, `phase=review-impl phase_status=in_progress` means the sequential complexity+consistency gates in Phase 4.75 are complete — resume re-enters Phase 5 as usual.
 
-3. If `has_state` is `false`: proceed to Phase 0 (init).
+4. If `has_state` is `false`: proceed to Phase 0 (init).
 
 ## Phase 0 — Init
 
@@ -534,6 +537,7 @@ Multiple key=value pairs can be passed in a single call. Boolean values (`true`/
 ## Error Recovery
 
 - If the session ends mid-phase, the next `/bf:feature` invocation reads `.bf/sessions/build-state.json` and resumes
+- If that state belongs to another run (`state_matches` is `false`), ask resume / archive / abort per On Invocation step 2 instead of resuming
 - If the branch `feat/<slug>` already exists, switch to it instead of creating a new one
 - If state shows phase `done`, tell the user the build is already complete
 
