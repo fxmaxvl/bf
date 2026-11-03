@@ -221,7 +221,7 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      `origin/<base>` alone — and resolve the range through `scope.sh`:
      ```bash
      pr_base_branch=$(gh pr view <pr_number> --json baseRefName -q .baseRefName)
-     git fetch -q origin "+$pr_base_branch:refs/bf/pr-<pr_number>-base" "+pull/<pr_number>/head:refs/bf/pr-<pr_number>"
+     git fetch -q origin "+${pr_base_branch}:refs/bf/pr-<pr_number>-base" "+pull/<pr_number>/head:refs/bf/pr-<pr_number>"
      scope=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff "refs/bf/pr-<pr_number>-base...refs/bf/pr-<pr_number>")
      ```
      Then read `files` and `diff_file` from `$scope` as the non-PR case does, and set
