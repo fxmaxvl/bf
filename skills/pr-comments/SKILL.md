@@ -28,10 +28,10 @@ Print banner (plain text, not in a code block):
 ── bf:pr-comments ─────────────────────────────────────
 ```
 
-Fetch everything in one call — never assemble threads from separate `gh` queries:
+Fetch everything in one call — never assemble threads from separate `gh` queries. `$ARGUMENTS` stays unquoted so `--wait`/`--all` split off; later scripts take the result's `url`, never `$ARGUMENTS`:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/fetch-pr-comments.sh" "$ARGUMENTS"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/fetch-pr-comments.sh" $ARGUMENTS
 ```
 
 It returns `{pr, url, title, head_sha, last_bot_review, viewer, base, head, threads[], files[], counts{}, notes[]}`.
@@ -64,7 +64,7 @@ re-review may come, and some bots never re-review on push, which is why the wait
 consent rule below rather than running automatically:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/wait-for-review.sh" "$ARGUMENTS" --timeout 600
+bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/wait-for-review.sh" "<url>" --timeout 600
 ```
 
 Run it without asking when `$ARGUMENTS` contains `--wait`; otherwise ask once whether to wait up to
@@ -313,7 +313,7 @@ There is no hands-off path: `/bf:autopilot` does not route `pr-comments`, so thi
 On approval, write the plan and post it in one call:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/post-replies.sh" <plan.json> "$ARGUMENTS"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/post-replies.sh" <plan.json> "<url>"
 ```
 
 `plan.json` is an array of `{kind, thread_id, reply, resolve}` in triage order — write it under
