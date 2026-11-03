@@ -562,8 +562,9 @@ Any answer except `comment` or `request-changes` posts nothing. Otherwise, if `g
 
 ```bash
 payload="${report_path%.md}-payload.json"
-bash "${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/pr-review-payload.sh" "$findings_json" "$diff_file" "$pr_head_sha" <COMMENT|REQUEST_CHANGES> > "$payload"
-gh api "repos/$pr_repo/pulls/<pr_number>/reviews" --input "$payload" -q .html_url
+if bash "${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/pr-review-payload.sh" "$findings_json" "$diff_file" "$pr_head_sha" <COMMENT|REQUEST_CHANGES> > "$payload"
+then gh api "repos/${pr_repo}/pulls/<pr_number>/reviews" --input "$payload" -q .html_url
+else cat "$payload"; fi
 ```
 
 The script puts findings outside the diff in the review body. Print the review URL, or the error. If GitHub refuses `REQUEST_CHANGES` because the PR is the user's own, ask once whether to post as `comment`.
