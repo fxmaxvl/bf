@@ -232,11 +232,13 @@ Row 4 is a grouped entry: one verdict, two threads, and both thread ids recorded
 **Sync first.** When `git branch --show-current` equals the fetch result's `head`, a peer may have
 pushed since, so before the first edit fetch the *push target*, which for a fork PR is not `origin`.
 If `git rev-parse --abbrev-ref @{u}` resolves to `<remote>/<head>`, `git fetch <remote>` and use `@{u}` as
-the target. Otherwise, including an upstream on another branch such as `origin/main`, (`gh pr checkout` sets a fork branch's remote to a URL,
-and a branch pushed without `-u` has none) read `git config branch.<head>.remote` and
-`branch.<head>.merge` (use `<head>` when it names another branch), defaulting to `origin` and `<head>`, run `git fetch <remote> <merge>`, and use
-`FETCH_HEAD` as the target. If `git rev-list --count HEAD..<target>` is not `0`, run
-`git merge --ff-only <target>`. If the fetch or the fast-forward fails, stop before editing and report it.
+the target. Otherwise (no upstream, or one on another branch such as `origin/main`; `gh pr checkout` sets a fork
+branch's remote to a URL, and a branch pushed without `-u` has none):
+1. Set `<remote>` to `git config branch.<head>.remote`, or `origin` if unset.
+2. Set `<merge>` to `git config branch.<head>.merge`. If it is unset or names a branch other than `<head>`, use `<head>`.
+3. Run `git fetch <remote> <merge>` and use `FETCH_HEAD` as the target.
+
+If `git rev-list --count HEAD..<target>` is not `0`, run `git merge --ff-only <target>`. If the fetch or the fast-forward fails, stop before editing and report it.
 
 Apply the `accept` and `accept-different` fixes. Follow the `dev` and `testing` conventions; run the
 project's tests and lint as those conventions require, and report failures rather than posting a
