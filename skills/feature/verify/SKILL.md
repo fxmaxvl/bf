@@ -32,6 +32,8 @@ Use `test_commands` from `detect-stack.sh`. If monorepo, apply `scope_template` 
 
 Run the full test suite (all tests in scope, not just changed files — the goal is to ensure nothing is broken).
 
+**Verification harness.** If verifying needs a harness beyond the test suite (golden capture, side-by-side run, mutation runner), first look in `<artifacts_dir>/harness/` and reuse or extend what is there. Save any harness you build there, never in the repo tree.
+
 **Output-filtering shell wrappers.** Token-saving proxies (e.g. `rtk`, often wired in through a command-rewrite hook) can summarise or reshape runner output. That hides the failure markers and per-test lines this skill parses, and a summarised "0 failed" can read as green. If output looks condensed or reformatted, or a wrapper is installed, re-run through its raw passthrough, e.g. `rtk proxy <test command>`, which keeps the exit code. Decide pass or fail from the raw run's exit code and output, never from the summary.
 
 **If the test suite fails to load (setup-stage failure):**
