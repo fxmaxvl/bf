@@ -132,7 +132,7 @@ Set `pr_repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)` (empty on f
 ```bash
 pr_repo="$url_repo"; clone_dir="${reports_dir%/reviews}/clones/$pr_repo"
 [ -d "$clone_dir/.git" ] || gh repo clone "$pr_repo" "$clone_dir" -- --filter=blob:none -q
-project_root="$clone_dir"; cd "$project_root" && git status --porcelain
+project_root="$clone_dir"; cd "$project_root" && git status --porcelain --untracked-files=no
 ```
 
 `--filter=blob:none` keeps the history, so the PR merge base resolves. If the clone fails, print the error and stop. If `git status` prints anything, an earlier run left changes in the clone: print `Clone <clone_dir> has uncommitted changes. Commit or discard them, then re-run.` and stop. Otherwise move the clone to the PR head, so conventions and host rules come from it:
