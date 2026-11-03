@@ -126,8 +126,10 @@ that contradicts a project convention loses to the convention, and that is the a
 the reply.
 
 A convention question about the whole org ("how do others do X", "is there a common way") is not
-answered by the local repo alone: search with `gh search code --owner=<org>` (other channels:
-the Phase 3 routing table in `${CLAUDE_PLUGIN_ROOT}/skills/research/SKILL.md`) and answer with one table of hits counted by repo and service type.
+answered by the local repo alone: search with `gh search code --owner=<org>`, `<org>` being the
+owner in the fetch result's `url` (other channels: the Phase 3 routing table in
+`${CLAUDE_PLUGIN_ROOT}/skills/research/SKILL.md`). The reply carries one table of hits counted by
+repo and service type — the one reply exempt from Phase 4's no-scaffolding rule.
 
 Group comments that make the same point across files, and triage the group once. Reviewers repeat
 themselves; so do bots. **A group is one verdict over many threads, never one thread standing in for
