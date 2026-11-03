@@ -35,5 +35,7 @@ eq "no state after archive" "$(probe 'fix login bug')" None
 (cd "$repo" && HOME=$tmp/home bash "$dir/state-ops.sh" --init --slug gh-7-x --idea 'GH-ISSUE:7 Token refresh fails' --gh-issue 7 >/dev/null)
 eq "matching gh issue resumes, idea text aside" "$(probe 'GH-ISSUE:7')" True
 eq "other gh issue" "$(probe 'GH-ISSUE:8 Token refresh fails')" False
+echo '{"mode":"quick"}' > "$repo/.bf/sessions/build-state.json"
+eq "state missing read keys, empty args" "$(probe '')" False
 
 [ "$fails" -eq 0 ]

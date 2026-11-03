@@ -77,5 +77,12 @@ eq "read of a corrupt state returns an error object" "$( (cd "$repo" && bash "$s
     python3 -c 'import json,sys; print(json.load(sys.stdin)["corrupt"])')" True
 corrupt=$(archive)
 eq "archive moves a corrupt state aside" "${corrupt##*/}:$(cat "$corrupt"):$([ -e "$repo/.bf/sessions/build-state.json" ] && echo left || echo moved)" "corrupt-build-state.json:{bad:moved"
+for s in '{}' '{"mode":"quick"}'; do
+    echo "$s" > "$repo/.bf/sessions/build-state.json"
+    eq "read of $s (missing keys) returns a corrupt error object" "$( (cd "$repo" && bash "$script" 2>&1 >/dev/null) |
+        python3 -c 'import json,sys; print(json.load(sys.stdin)["corrupt"])')" True
+    moved=$(archive)
+    eq "archive moves $s aside" "$(cat "$moved"):$([ -e "$repo/.bf/sessions/build-state.json" ] && echo left || echo moved)" "$s:moved"
+done
 
 [ "$fails" -eq 0 ]

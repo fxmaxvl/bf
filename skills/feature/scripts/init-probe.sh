@@ -84,7 +84,8 @@ def state_matches():
             state = json.load(f)
     except (json.JSONDecodeError, UnicodeDecodeError, OSError):
         return False
-    if not isinstance(state, dict):
+    if not isinstance(state, dict) or not all(
+            k in state for k in ('slug', 'build_timestamp', 'phase', 'phase_status')):
         return False
     mode = state.get('mode')
     if mode not in ('full', 'quick'):

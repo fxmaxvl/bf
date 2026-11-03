@@ -62,14 +62,16 @@ def read_config():
         print(f"Warning: could not read {config_path}: {e}", file=sys.stderr)
         return dict(CONFIG_DEFAULTS)
 
+REQUIRED_KEYS = ('slug', 'build_timestamp', 'mode', 'phase', 'phase_status')  # read_output indexes these
+
 def load_state():
-    """Return build-state.json as a dict, or None when it is not a valid JSON object."""
+    """Return build-state.json as a dict, or None when it is not a JSON object with REQUIRED_KEYS."""
     try:
         with open(state_path) as f:
             state = json.load(f)
     except (json.JSONDecodeError, UnicodeDecodeError):
         return None
-    return state if isinstance(state, dict) else None
+    return state if isinstance(state, dict) and all(k in state for k in REQUIRED_KEYS) else None
 
 def set_nested(obj, dotted_key, value):
     keys = dotted_key.split('.')
@@ -277,7 +279,7 @@ else:
 
     state = load_state()
     if state is None:
-        print(json.dumps({'error': f'build-state.json at {state_path} is not valid JSON', 'corrupt': True}), file=sys.stderr)
+        print(json.dumps({'error': f'build-state.json at {state_path} is not a valid build state', 'corrupt': True}), file=sys.stderr)
         sys.exit(1)
 
     if not args:
