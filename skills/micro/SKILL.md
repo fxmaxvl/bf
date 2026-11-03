@@ -27,6 +27,8 @@ Sub-skill SKILL.md files are bundled with the plugin. Prepend `${CLAUDE_PLUGIN_R
 | review-impl | `feature/review-impl/SKILL.md` | Agent | opus |
 | review-impl/fix | `feature/review-impl/fix/SKILL.md` | Agent | sonnet |
 
+**Target-repo prompt.** When `## Target Repos` is non-empty, add to every verify, complexity-gate, review-impl and fix agent prompt its lines, the `## Changed Paths` lines, and: "The change lives in these checkouts, not the session repo. Run `state-ops.sh`, `read-block.sh` and report writes from the session repo. Per checkout, run `changed-packages.sh` and `detect-stack.sh` with the checkout as cwd (`cd <checkout> && bash <script>`); their `changed_files` supersede `## Changed Paths`. Run tests, lint and fixes there, use `git -C <checkout>` and absolute paths for every git command and file read or edit, and commit only there. Never edit or commit in the session repo."
+
 ## Status Banners
 
 At the start of every phase, print a banner:
@@ -68,7 +70,7 @@ Print banner: `── micro | Init ───────────────
 4. **Branch selection**:
    - If on `master` (or the repo's main branch): create and checkout `feat/<slug>` from master.
    - If on a non-master branch: ask "You're on `<branch>`. Continue here or create a new branch `feat/<slug>` from master?" — act on the answer.
-   - **Targets in other repos** (files to change live outside the session repo): skip both bullets above — the session repo stays untouched. Per target repo, under one `mktemp -d` scratch dir: if a local checkout exists, `git -C <source> fetch origin && git -C <source> worktree add <scratch>/<repo> -b feat/<slug> origin/HEAD`; otherwise `gh repo clone <owner/repo> <scratch>/<repo>` and `git -C <scratch>/<repo> checkout -b feat/<slug>`. After step 5, write a `## Target Repos` block to `paths.session_log`, one line per repo: `<owner/repo> <checkout> feat/<slug> [<source>]`. Later phases and resumes read it with `read-block.sh`.
+   - **Targets in other repos** (files to change live outside the session repo): skip both bullets above — the session repo stays untouched. Per target repo, under one `mktemp -d` scratch dir: if a local checkout exists, `git -C <source> fetch origin`, then, if `git -C <source> rev-parse --verify -q origin/HEAD` fails, `git -C <source> remote set-head origin -a` (if that fails too, `remote set-head origin <name>` with `<name>` from `gh repo view <owner/repo> --json defaultBranchRef -q .defaultBranchRef.name`), then `git -C <source> worktree add <scratch>/<repo> -b feat/<slug> origin/HEAD`; otherwise `gh repo clone <owner/repo> <scratch>/<repo>` and `git -C <scratch>/<repo> checkout -b feat/<slug>`. After step 5, write a `## Target Repos` block to `paths.session_log`, one line per repo: `<owner/repo> <checkout> feat/<slug> [<source>]`. Later phases and resumes read it with `read-block.sh`.
 5. Initialize state:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
@@ -125,7 +127,7 @@ Proceed immediately to Phase 3 (no approval gate).
 
 Print banner: `── micro | Verify ───────────────────────────────`
 
-Dispatch `feature/verify/SKILL.md` as an Agent (model: sonnet).
+Dispatch `feature/verify/SKILL.md` as an Agent (model: sonnet), with the **Target-repo prompt** when it applies (as for every gate and fix agent in Phases 4–6).
 - Runs tests and lint, auto-fixes where possible.
 - Surfaces unrelated failures to the user.
 
