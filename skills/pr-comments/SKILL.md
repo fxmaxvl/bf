@@ -77,9 +77,9 @@ hangs silently through a review that fails or is abandoned. Act on `status`:
 | `review_settled` | The review finished with nothing actionable — print `STATUS: NO_OPEN_COMMENTS` and stop. |
 | `timeout` | Report how long it waited and that the review never landed; it may have failed. Stop rather than guess at findings. |
 
-Some review bots keep one standing PR-level comment — "no findings", a status summary — and publish
-their actual result as a CI check. That comment comes back as an actionable `issue` thread, so
-`wait-for-review.sh` reports `findings` on its first poll while the review is still running. When
+Some review bots keep one standing PR-level comment — "no findings", a status summary — and may
+publish their actual result as a CI check. That comment comes back as an actionable `issue` thread, so
+`wait-for-review.sh` reports `findings` on its first poll even while the review is still running. When
 every actionable thread is a bot `issue` comment that reads as a status post, look at the checks:
 
 ```bash
@@ -97,9 +97,12 @@ gh pr checks <pr> --watch --interval 30 > /dev/null
 `--watch` has no timeout of its own and waits on every check, so run it with a 600000 ms Bash
 timeout. If it is still running at that point, stop it and re-run `gh pr checks <pr> --json name,bucket`:
 an unrelated slow job can outlast the bound while the bot's check has already finished. Only if the
-bot's check is still pending, handle it as the `timeout` row above. If the check is not pending, the
-status post is the result: if it reports no open findings, print `STATUS: NO_OPEN_COMMENTS` and stop
-without triaging it; if it lists findings, continue with the fetch.
+bot's check is still pending, handle it as the `timeout` row above.
+
+When the bot has no check (none matches it, or gh reports no checks) or its check is not pending, at
+the first look or after the wait, the status post is the result: if every such post reports no open
+findings, print `STATUS: NO_OPEN_COMMENTS` and stop without triaging them; if one lists findings,
+continue the normal flow.
 
 With nothing actionable and no in-progress marker, print `STATUS: NO_OPEN_COMMENTS` and stop —
 read nothing, spawn nothing.
@@ -375,7 +378,7 @@ cannot see yet.
 | `counts.actionable` is `0`, no review in flight | `STATUS: NO_OPEN_COMMENTS` and stop. Do not go looking for feedback elsewhere |
 | `counts.actionable` is `0` but a review is still running | Wait via `wait-for-review.sh` (see the fetch step), then act on its `status` |
 | Only actionable items are a bot's standing status comment, and its CI check is pending | Wait via `gh pr checks <pr> --watch` (see the fetch step), then re-fetch |
-| Only actionable items are a bot's standing status comment reporting no findings, and its check is done | `STATUS: NO_OPEN_COMMENTS` and stop. Do not triage or reply to the status post |
+| Only actionable items are a bot's standing status comment reporting no findings, and the bot has no check or its check is not pending | `STATUS: NO_OPEN_COMMENTS` and stop. Do not triage or reply to the status post |
 | Thread is `outdated: true` | The code moved after the comment. Judge the current code; if the concern no longer applies, that is a reply saying so, not a silent resolve |
 | Comment asks for something already done in a later commit | Reply pointing at the commit, then resolve. Do not redo the work |
 | `counts.files_truncated` is `true` | The PR touches more than 100 files, so `files[]` is partial and the generalization pass cannot see the whole surface. Say so in the output and treat every widened fix as best-effort rather than exhaustive |
