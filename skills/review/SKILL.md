@@ -218,10 +218,14 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      `gh pr diff` can come back empty even when the PR has changes. When `$diff_file` is
      empty, fetch the base branch and the PR head into explicit refs — the PR ref works for
      fork PRs, and an explicit base ref resolves even in a clone whose fetch refspec leaves
-     `origin/<base>` alone — and resolve the range through `scope.sh`:
+     `origin/<base>` alone — and resolve the range through `scope.sh`. Fetch from the
+     remote whose URL ends in `<pr_repo>` (`origin` can be a fork), else from its GitHub URL
+     with `gh` as the credential helper:
      ```bash
      cd "<project_root>" && pr_base_branch=$(gh pr view <pr_number> -R "<pr_repo>" --json baseRefName -q .baseRefName) && \
-     git fetch -q origin "+${pr_base_branch}:refs/bf/pr-<pr_number>-base" "+pull/<pr_number>/head:refs/bf/pr-<pr_number>" && \
+     src=$(git remote -v | awk -v r="<pr_repo>" '$3 == "(fetch)" { u = tolower($2); sub(/\/$/, "", u); sub(/\.git$/, "", u); n = split(u, a, /[:\/]/); if (n > 1 && a[n-1] "/" a[n] == tolower(r)) { print $1; exit } }') && \
+     git -c credential.https://github.com.helper= -c 'credential.https://github.com.helper=!gh auth git-credential' \
+       fetch -q "${src:-https://github.com/<pr_repo>.git}" "+${pr_base_branch}:refs/bf/pr-<pr_number>-base" "+pull/<pr_number>/head:refs/bf/pr-<pr_number>" && \
      scope=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff "refs/bf/pr-<pr_number>-base...refs/bf/pr-<pr_number>")
      ```
      Then read `files` and `diff_file` from `$scope` as the non-PR case does, and set
