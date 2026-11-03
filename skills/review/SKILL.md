@@ -636,19 +636,13 @@ Wait for reply.
 
 ### PR review: check out the PR branch
 
-If `pr_head_branch` is non-empty, read the PR head from the PR itself (this works for fork PRs too):
-
-```bash
-git fetch -q origin "+pull/<pr_number>/head:refs/bf/pr-<pr_number>" && git rev-parse "refs/bf/pr-<pr_number>"
-```
-
-If the fetch fails, print the git error and exit Phase 4. If the SHA is not `pr_head_sha`, tell the user "PR <pr_number> has new commits since the review. Re-run /bf:review on it, then apply the fixes." and exit Phase 4. Otherwise check out the PR branch:
+If `pr_head_branch` is non-empty, check out the PR with `gh pr checkout`, which finds the right remote for a fork PR itself:
 
 ```bash
 gh pr checkout <pr_number> && git rev-parse HEAD
 ```
 
-`gh pr checkout` stops at its first failed step, so the current branch never moves on a failure. If it fails with `Not possible to fast-forward`, tell the user "Local branch `<pr_head_branch>` has diverged from the PR. Reconcile it, then re-run the fixes." On any other failure, or a SHA other than `pr_head_sha`, tell the user: "Could not check out PR branch `<pr_head_branch>`. bf:review cannot apply the fixes automatically. Address the concerns manually." Exit Phase 4 in each of these cases.
+If it fails with `Not possible to fast-forward`, gh has already switched to the local branch, which has diverged from the PR: tell the user "Local branch `<pr_head_branch>` has diverged from the PR and is now checked out. Reconcile it, then re-run the fixes." On any other failure, tell the user: "Could not check out PR branch `<pr_head_branch>`. bf:review cannot apply the fixes automatically. Address the concerns manually." If the printed SHA is not `pr_head_sha`, tell the user "PR <pr_number> has new commits since the review. Re-run /bf:review on it, then apply the fixes." Exit Phase 4 in each of these cases.
 
 Then run the Phase 1 `resolve-conventions.sh` call again and use the new paths in every prompt from here on. A project-tier convention can exist on one branch and not on the other.
 
@@ -832,7 +826,7 @@ List remaining concerns by ID and label if any exist.
 |-----------|----------|
 | PR head moved since the review | The post step warns and posts against the reviewed `pr_head_sha` and `diff_file`. Phase 4 exits and asks for a fresh review. |
 | Local PR branch cannot fast-forward to the PR head | Tell the user it has diverged and exit Phase 4. Never merge or reset it. |
-| `pull/<pr_number>/head` fetch fails, or its SHA is not `pr_head_sha` | Exit Phase 4 before any checkout. On a new SHA, tell the user to re-run the review. |
+| `gh pr checkout` fails, or the checked-out SHA is not `pr_head_sha` | Exit Phase 4 before any fix. On a new SHA, tell the user to re-run the review. |
 | Fix Agent fails | Inform the user, skip re-review, print original report path only. |
 | User never answers the fix-selection question | Mark every concern `[deferred]` in the saved report before exiting, so the next reader can tell the concerns were surfaced and left unruled rather than never raised. |
 | Re-review finds new concerns not in the original | Include in "remaining" count, label `[new]`. |
