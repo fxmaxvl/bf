@@ -44,6 +44,9 @@ SKIP_PLAN_GATES_DEFAULT = False
 CONFIG_DEFAULTS = {'parallel_audit': PARALLEL_AUDIT_DEFAULT, 'auto_fix_style': AUTO_FIX_STYLE_DEFAULT,
                    'skip_plan_gates': SKIP_PLAN_GATES_DEFAULT}
 
+def bool_or(value, default):
+    return value if isinstance(value, bool) else default
+
 def read_config():
     """Read ~/.bf/config.json and return resolved feature flags.
 
@@ -55,7 +58,7 @@ def read_config():
     try:
         with open(config_path) as f:
             data = json.load(f)
-        return {k: (v if isinstance(v := data.get(k, d), bool) else d) for k, d in CONFIG_DEFAULTS.items()}
+        return {k: bool_or(data.get(k), d) for k, d in CONFIG_DEFAULTS.items()}
     except FileNotFoundError:
         return dict(CONFIG_DEFAULTS)
     except (json.JSONDecodeError, OSError) as e:

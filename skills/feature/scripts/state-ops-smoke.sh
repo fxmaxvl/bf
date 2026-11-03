@@ -44,6 +44,12 @@ eq "skip_plan_gates: no config -> default off" "$(resolve spg-none - | tr '\n' '
 eq "skip_plan_gates: explicit true opts in" "$(resolve spg-on '{"skip_plan_gates": true}' | tr '\n' ' ')" "True True "
 eq "skip_plan_gates: malformed config -> default off" "$(resolve spg-bad '{oops' | tr '\n' ' ')" "False False "
 eq "skip_plan_gates: read mode returns the init-time snapshot" "$(cd "$tmp/spg-on/repo" && HOME=$tmp/spg-none/home bash "$script" | flag)" True
+eq "skip_plan_gates: string \"false\" -> false" "$(resolve spg-str '{"skip_plan_gates": "false"}' | tr '\n' ' ')" "False False "
+eq "skip_plan_gates: 1 -> default off" "$(resolve spg-int '{"skip_plan_gates": 1}' | tr '\n' ' ')" "False False "
+key=auto_fix_style
+eq "auto_fix_style: string \"true\" -> default off" "$(resolve afs-str '{"auto_fix_style": "true"}' | tr '\n' ' ')" "False False "
+key=parallel_audit
+eq "parallel_audit: string \"false\" -> default on" "$(resolve pa-str '{"parallel_audit": "false"}' | tr '\n' ' ')" "True True "
 
 
 repo=$tmp/baseline/repo home=$tmp/baseline/home
