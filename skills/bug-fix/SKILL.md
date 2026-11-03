@@ -109,9 +109,9 @@ If verdict is B: apply decide's specified revisions to the plan and re-invoke de
 
 Follow the approved plan step by step. For each step:
 
-1. Add or update tests (consult `testing`). On the step that fixes the bug, write the regression test first and run the test command (see step 3) against the unfixed code. The named test must fail on its expected assertion while the rest pass. A compile or import error, or a whole-suite failure, is not a red: fix the test and re-run. Record the red in `## Execution` (test name + failing assertion).
+1. Add or update tests (consult `testing`). On the step that fixes the bug, write the regression test first and run the test command (see step 3) against the unfixed code. The named test must fail on its expected assertion, and no test outside the list of failures already there before this phase may fail (run the suite once first and record that list in `## Execution`). A compile or import error is not a red: fix the test and re-run. If the test still passes against the unfixed code after one rewrite, do not weaken it: invoke decide with `QUESTION: The regression test cannot reproduce the bug. How to proceed?`. Record the red in `## Execution` (test name + failing assertion).
 2. Apply code changes (consult `dev` and `typescript` conventions via the plugin-main lookup).
-3. Run the project's test command (detect via existing repo conventions — `package.json` scripts, `Makefile`, `pyproject.toml`, etc.). On the bug-fix step, confirm the named regression test now passes with the rest.
+3. Run the project's test command (detect via existing repo conventions — `package.json` scripts, `Makefile`, `pyproject.toml`, etc.). On the bug-fix step, confirm the named regression test now passes and nothing outside the recorded failures fails.
 4. Append a short status line to `## Execution` (step N: pass/fail + key evidence).
 
 If a test fails: do **not** ask the user. Diagnose and re-attempt. After 2 failed attempts on the same step, invoke decide with a `QUESTION: How to proceed given the failing step?` payload and follow its verdict.
