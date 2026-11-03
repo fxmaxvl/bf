@@ -49,8 +49,8 @@ is_bot, body, replies[], diff_hunk, answered_by_viewer}` (`review` entries also 
 | `issue` | PR-level comment, not anchored to code | no |
 | `review` | A review's summary body | no |
 
-The script drops resolved threads and threads whose conversation already contains a reply from
-`viewer`, so a second run does not double-post to a public PR. `notes[]` says what it dropped;
+The script drops resolved threads, threads whose conversation already contains a reply from
+`viewer`, and `viewer`'s own PR-level comments and reviews, so a second run does not double-post to a public PR. `notes[]` says what it dropped;
 print those lines. Pass `--all` only when the user explicitly asks to revisit answered or resolved
 feedback.
 
@@ -347,11 +347,19 @@ entries in the triage file, and name any `failed` entry with its detail rather t
 batch as done. If the user declines the gate, the triage file and the fixes stay — nothing was
 published, and a rerun picks up from the file.
 
-When the fixes were pushed, the push starts a new review on most review bots. Before reporting done,
-re-run the On Invocation fetch step with the result's `url`: its stale-review check waits for that
-review under the same `--wait` consent rule (asked after the post, as its own question), and new
-findings start a normal pass. If the wait is declined, say to rerun once it finishes — a rerun before then can show no open comments, or
-the previous review's.
+When the fixes were pushed and the first fetch had a `last_bot_review`, the push starts that bot's
+re-review. Take `<sha>` from `git rev-parse HEAD` right after the push. Do not re-run the On
+Invocation fetch to wait: older review summaries still count as actionable, so its wait never runs.
+Wait for the review of `<sha>` under the same `--wait` consent rule (asked after the post, as its own question):
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/wait-for-review.sh" "<url>" --head <sha> --timeout 600
+```
+
+On `review_landed`, re-run the fetch and start a normal pass over the entries the triage file does
+not mark `posted`; with none, print `STATUS: NO_OPEN_COMMENTS`. On `timeout`, follow the `timeout` row
+above. If the wait is declined, say to rerun once it finishes — a rerun before then can show no open
+comments, or the previous review's.
 
 When the user answered `no push`, or the push option was not offered while fixes exist, say in one line
 that the working tree has unpushed fixes. The reviewer is looking at replies that reference code they
@@ -379,5 +387,6 @@ cannot see yet.
 | Reviewer has already replied since the fetch | The rerun's `answered_by_viewer` filter does not cover reviewer replies. On a `failed` post, refetch before retrying so the reply lands in context |
 | PR is merged or closed at the closing gate, before or after the answer | Follow the state check: `MERGED` offers a follow-up PR off the base, `CLOSED` offers a reopen, a failed call stops with the `gh` error. Never push to the branch of a PR that is not `OPEN`, and post replies on a merged PR only with the follow-up link |
 | Remote PR head moved since the fetch (someone else pushed) | Stop before pushing and offer a rebase onto `@{u}` (see commit and push). On conflict, abort and post nothing |
+| Fixes pushed and a bot had reviewed | Wait via `wait-for-review.sh --head <sha>`, not the fetch step's wait — old summaries keep `counts.actionable` above `0` |
 | No upstream for the branch, or fetching it fails, before the push | Stop before pushing, report the error, and post nothing |
 | User wants to argue with a verdict at the gate | Take the correction, redraft that reply, and re-ask the gate once — the batch stays intact |

@@ -118,6 +118,7 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
 
   | ( [ $pr.comments.nodes[]
         | select((.body // "") | test("\\S"))
+        | select((.author.login // "") != $me)
         | {
             kind: "issue",
             thread_id: null, comment_id: null,
