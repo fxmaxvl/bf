@@ -22,7 +22,7 @@ Extract the `## Implementation Review` block from `paths.impl_report` (= `paths.
 - **Quick mode** (`mode` = `"quick"`): No spec exists. Extract the `## QA` block from `paths.qa` (= `paths.temp`) and the `## Plan` block from `paths.plan` (= `paths.session_log`).
 - **Micro mode** (`mode` = `"micro"`): No spec or plan exists. Extract only the `## QA` block from `paths.qa` (= `paths.temp`).
 
-Implement fixes for every concern listed in the report. For each concern:
+Implement fixes for every concern listed in the report, or only for the IDs the prompt names when it names some. For each concern:
 - If it's a missing feature: implement it
 - If it's a convention violation: correct it in place
 - If it's a missing test: write the test
@@ -30,6 +30,6 @@ Implement fixes for every concern listed in the report. For each concern:
 
 If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence before committing, so the next review cycle doesn't find the leftovers one at a time.
 
-After implementing all fixes, commit following the `git` convention (resolved via the lookup in `plugin-main.md`). Use a `fix:` prefix (e.g., `fix: address implementation review concerns`). If `github_issue.enabled` is `true` in state, include the issue number (e.g., `fix(#12): address implementation review concerns`). If `jira.enabled` is `true`, include the ticket key (e.g., `fix(PROJ-123): address implementation review concerns`). Do **not** stage anything in `.bf/` except `.bf/conventions/`.
+When the prompt names IDs, commit each fix as it lands, as the prompt says. Otherwise, after implementing all fixes, commit following the `git` convention (resolved via the lookup in `plugin-main.md`). Use a `fix:` prefix (e.g., `fix: address implementation review concerns`). If `github_issue.enabled` is `true` in state, include the issue number (e.g., `fix(#12): address implementation review concerns`). If `jira.enabled` is `true`, include the ticket key (e.g., `fix(PROJ-123): address implementation review concerns`). Do **not** stage anything in `.bf/` except `.bf/conventions/`.
 
 Do **not** re-run the review and do **not** ask the user questions — the orchestrator handles both.
