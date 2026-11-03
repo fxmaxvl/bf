@@ -114,6 +114,7 @@ Steps:
      - consistency-gate Agent (model: opus), Phase 1 parallel batch
    All <N> dispatched in a single message. Phase 2 aggregates the results.
    Interactive phases that would follow (skipped in dry-run):
+     - Post to PR (PR scope only)
      - Phase 3 fix selection
      - Phase 4 fix apply + re-review
    ```
@@ -546,6 +547,22 @@ On the `Concerns:` line, list counts only for the parts that ran.
 
 If `review_failed=true`, also print: `⚠ Review Agent failed. Code concerns (C*) are not available. Fix selection in Phase 3 is limited to X* and Y* findings.`
 
+### Offer to post to the PR
+
+Skip unless `pr_head_branch` is non-empty and STATUS is CONCERN. When unattended, never post. Otherwise ask one question and wait:
+
+> Post these findings to PR <pr_number> as one review? Reply `comment`, `request-changes`, or `no`.
+
+Any answer except `comment` or `request-changes` posts nothing. Otherwise run **Check the PR head** (Phase 1). Write the primaries to `findings_json="${report_path%.md}-findings.json"` as `[{id, label, path, line, text}]` (`line` a number, a `start-end` range, or null; `path` null for a spec section). Then post:
+
+```bash
+payload="${report_path%.md}-payload.json"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/pr-review-payload.sh" "$findings_json" "$diff_file" "$pr_head_sha" <COMMENT|REQUEST_CHANGES> > "$payload"
+gh api "repos/$pr_repo/pulls/<pr_number>/reviews" --input "$payload" -q .html_url
+```
+
+The script puts findings outside the diff in the review body. Print the review URL, or the error. If GitHub refuses `REQUEST_CHANGES` because the PR is the user's own, ask once whether to post as `comment`.
+
 ## Phase 3 — Fix Selection
 
 **One-question-per-turn rule applies in this phase.** Ask step 1 and wait for the answer before asking step 2. Never batch both into one message.
@@ -786,6 +803,9 @@ List remaining concerns by ID and label if any exist.
 | Focus has no review-agent categories | No review Agent is spawned. Write the report header directly; this is not `review_failed`. |
 | Focus excludes a gate | That gate is not spawned. Omit its section; do not write `UNKNOWN`. |
 | `build-state.json` already exists | Move it aside, warn the user, restore after scan. |
+| Post to PR: user does not answer, or the run is unattended | Post nothing. Posting needs an explicit `comment` or `request-changes`. |
+| Post to PR: finding's line is not in the diff | `pr-review-payload.sh` lists it in the review body instead of inline. |
+| Post to PR: `gh api` fails | Print the error; the report stays saved. Continue to Phase 3. |
 
 ### Fix phase
 
