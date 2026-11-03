@@ -109,9 +109,9 @@ If verdict is B: apply decide's specified revisions to the plan and re-invoke de
 
 Follow the approved plan step by step. For each step:
 
-1. Apply code changes (consult `dev` and `typescript` conventions via the plugin-main lookup).
-2. Add or update tests (consult `testing`).
-3. Run the project's test command (detect via existing repo conventions — `package.json` scripts, `Makefile`, `pyproject.toml`, etc.).
+1. Add or update tests (consult `testing`). On the step that fixes the bug, write the regression test first and run the test command (see step 3) against the unfixed code. The named test must fail on its expected assertion while the rest pass. A compile or import error, or a whole-suite failure, is not a red: fix the test and re-run. Record the red in `## Execution` (test name + failing assertion).
+2. Apply code changes (consult `dev` and `typescript` conventions via the plugin-main lookup).
+3. Run the project's test command (detect via existing repo conventions — `package.json` scripts, `Makefile`, `pyproject.toml`, etc.). On the bug-fix step, confirm the named regression test now passes with the rest.
 4. Append a short status line to `## Execution` (step N: pass/fail + key evidence).
 
 If a test fails: do **not** ask the user. Diagnose and re-attempt. After 2 failed attempts on the same step, invoke decide with a `QUESTION: How to proceed given the failing step?` payload and follow its verdict.
@@ -159,7 +159,7 @@ Do not commit unless the invoking caller (autopilot, user) explicitly requested 
 |-----------|----------|
 | Symptoms brief is one sentence with no citation surface | Phase 1 agents still run; Agent A leans on broad `git log` scan. Critic in Phase 2 may flag `low` — proceed. |
 | All three Phase-1 agents return the same hypothesis | Skip decide enumeration; record the hypothesis as `## Root Cause` directly with a note. |
-| Repo has no test command discoverable | Skip step 3 of execution; flag in `## Decisions` and continue. Final summary surfaces the flag. |
+| Repo has no test command discoverable | Skip the test runs in steps 1 and 3 of execution; flag in `## Decisions` and continue. Final summary surfaces the flag. |
 | Chosen solution touches files outside the repo or requires destructive actions | Stop execution, log a `STOP` decision, and print a clear handoff asking the user to authorize. This is the one phase where autonomy yields to safety. |
 | Critic returns verdict B on plan review twice in a row | Execute the latest plan anyway and log a low-confidence flag (per autopilot doctrine). |
 | Phase-1 agent fails to return | Run that angle inline as a structured monologue from the same brief, so the fan-out still completes — a partial fan-out is ruled out by the **Parallel Fan-Out** convention. Note the fallback in `## Hypotheses`. If the inline pass also fails, record the angle and why it is missing in `## Hypotheses` so the root-cause input is visibly incomplete rather than silently narrowed. |
