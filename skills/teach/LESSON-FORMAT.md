@@ -30,7 +30,7 @@ Write **one self-contained HTML file** per lesson, numbered per [Numbering](#num
 
 ## Reference
 
-Extract reusable knowledge — syntax, algorithms, flowcharts, pose sequences, glossaries — into `reference/NNNN-<reference-slug>.html`. References are the compressed essence of lessons, designed for quick review; unlike lessons, they *will* be revisited.
+Extract reusable knowledge — syntax, algorithms, flowcharts, pose sequences, glossaries — into `reference/NNNN-<reference-slug>.html`. References are the compressed essence of lessons, designed for quick review; unlike lessons, they *will* be revisited. Build them on the same [shared kit](#lesson); a page with no quiz still takes the kit's `<style>` and `<script>`.
 
 ## Glossary promotion
 
