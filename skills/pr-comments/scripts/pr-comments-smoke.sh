@@ -19,7 +19,17 @@ cat > "$tmp/bin/gh" <<'STUB'
 case "$1 $2" in
   "auth status") exit 0 ;;
   "repo view") echo "o/r" ;;
-  "pr view") echo 1 ;;
+  "pr view")
+    # reviews mirror the graphql stub: bot on BOT_SHA, an older bot2 review on old0000
+    case " $* " in
+      *" --json reviews "*)
+        out='{"reviews":[{"author":{"login":"bot2"},"state":"COMMENTED","submittedAt":"2025-12-31T00:00:00Z","commit":{"oid":"old0000"}},
+          {"author":{"login":"bot"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","commit":{"oid":"'"$BOT_SHA"'"}}]}'
+        jqx=""; prev=""
+        for a in "$@"; do [ "$prev" = --jq ] && jqx=$a; prev=$a; done
+        if [ -n "$jqx" ]; then jq -r "$jqx" <<<"$out"; else echo "$out"; fi ;;
+      *) echo 1 ;;
+    esac ;;
   "api graphql")
     num=0
     for a in "$@"; do case "$a" in num=*) num=${a#num=} ;; esac; done
@@ -30,7 +40,9 @@ case "$1 $2" in
  "files":{"totalCount":0,"nodes":[]},"comments":{"nodes":[{"author":{"login":"bot","__typename":"Bot"},
    "body":"No open findings.","createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-03T00:00:00Z"},
    {"author":{"login":"me","__typename":"User"},"body":"my note","createdAt":"x","updatedAt":"x"}]},
- "reviews":{"totalCount":1,"nodes":[{"author":{"login":"bot","__typename":"Bot"},"body":"",
+ "reviews":{"totalCount":2,"nodes":[{"author":{"login":"bot2","__typename":"Bot"},"body":"",
+   "state":"COMMENTED","submittedAt":"2025-12-31T00:00:00Z","commit":{"oid":"old0000"}},
+   {"author":{"login":"bot","__typename":"Bot"},"body":"",
    "state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","commit":{"oid":"$BOT_SHA"}}]},
  "reviewThreads":{"nodes":[{"id":"T1","isResolved":false,"isOutdated":false,"path":"a","line":1,
    "originalLine":1,"diffSide":"RIGHT","comments":{"nodes":[{"databaseId":1,
@@ -77,5 +89,14 @@ eq "wait --head <bot sha> -> review_landed" "$(field .status "$out")" review_lan
 
 out=$(bash "$wait" "$url" --head fff0000 --timeout 0 --interval 1)
 eq "wait --head <other sha> -> timeout" "$(field .status "$out")" timeout
+
+out=$(bash "$wait" "$url" --head "$BOT_SHA" --bot bot2 --timeout 0 --interval 1)
+eq "wait --head --bot <bot that has not reviewed head> -> timeout" "$(field .status "$out")" timeout
+
+out=$(bash "$wait" "$url" --head "$BOT_SHA" --bot bot --timeout 0 --interval 1)
+eq "wait --head --bot <bot that reviewed head> -> review_landed" "$(field .status "$out")" review_landed
+
+out=$(bash "$wait" "$url" --bot bot)
+eq "wait --bot without --head -> bad_args" "$(field .error "$out")" bad_args
 
 [ "$fails" -eq 0 ]

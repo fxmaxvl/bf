@@ -365,10 +365,11 @@ published, and a rerun picks up from the file.
 When the fixes were pushed and the first fetch had a `last_bot_review`, the push starts that bot's
 re-review. Take `<sha>` from `git rev-parse HEAD` right after the push. Do not re-run the On
 Invocation fetch to wait: older review summaries still count as actionable, so its wait never runs.
-Wait for the review of `<sha>` under the same `--wait` consent rule (asked after the post, as its own question):
+Wait for the review of `<sha>` under the same `--wait` consent rule (asked after the post, as its own question).
+`<bot>` is that `last_bot_review.author`; name it when you ask or report, since another bot's review does not end the wait:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/wait-for-review.sh" "<url>" --head <sha> --timeout 600
+bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/wait-for-review.sh" "<url>" --head <sha> --bot <bot> --timeout 600
 ```
 
 On `review_landed`, re-run the fetch and start a normal pass over the entries the triage file does
@@ -402,7 +403,7 @@ cannot see yet.
 | Reviewer has already replied since the fetch | The rerun's `answered_by_viewer` filter does not cover reviewer replies. On a `failed` post, refetch before retrying so the reply lands in context |
 | PR is merged or closed at the closing gate, before or after the answer | Follow the state check: `MERGED` offers a follow-up PR off the base, `CLOSED` offers a reopen, a failed call stops with the `gh` error. Never push to the branch of a PR that is not `OPEN`, and post replies on a merged PR only with the follow-up link |
 | Remote PR head moved since the fetch (someone else pushed) | Stop before pushing and offer a rebase onto the push target (see commit and push). On conflict, abort and post nothing |
-| Fixes pushed and a bot had reviewed | Wait via `wait-for-review.sh --head <sha>`, not the fetch step's wait — old summaries keep `counts.actionable` above `0` |
+| Fixes pushed and a bot had reviewed | Wait via `wait-for-review.sh --head <sha> --bot <bot>`, not the fetch step's wait — old summaries keep `counts.actionable` above `0` |
 | Held PR branch is behind its push target before Phase 3 edits | Fast-forward with `git merge --ff-only` (see Phase 3's sync). If it diverged or the fetch fails, stop before editing |
 | No upstream for the branch, or fetching it fails, before the push | Stop before pushing, report the error, and post nothing |
 | User wants to argue with a verdict at the gate | Take the correction, redraft that reply, and re-ask the gate once — the batch stays intact |
