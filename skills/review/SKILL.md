@@ -201,11 +201,14 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      variable:
      ```bash
      diff_file=$(mktemp)
-     gh pr diff <pr_number> > "$diff_file"
-     changed_files=$(sed -n 's#^diff --git a/.* b/##p' "$diff_file")
      read -r pr_head_branch pr_head_sha < <(gh pr view <pr_number> --json headRefName,headRefOid -q '"\(.headRefName) \(.headRefOid)"')
+     gh pr diff <pr_number> > "$diff_file"
+     [ "$(gh pr view <pr_number> --json headRefOid -q .headRefOid)" = "$pr_head_sha" ] || echo HEAD_MOVED
+     changed_files=$(sed -n 's#^diff --git a/.* b/##p' "$diff_file")
      scope_description="PR <pr_number>"
      ```
+     If it prints `HEAD_MOVED`, a push landed between the reads: run the block again.
+
      `gh pr diff` can come back empty even when the PR has changes. When `$diff_file` is
      empty, fetch the base branch and the PR head into explicit refs — the PR ref works for
      fork PRs, and an explicit base ref resolves even in a clone whose fetch refspec leaves
@@ -215,11 +218,11 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      git fetch -q origin "+$pr_base_branch:refs/bf/pr-<pr_number>-base" "+pull/<pr_number>/head:refs/bf/pr-<pr_number>"
      scope=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff "refs/bf/pr-<pr_number>-base...refs/bf/pr-<pr_number>")
      ```
-     Then read `files` and `diff_file` from `$scope` as the non-PR case does. If the fetch
+     Then read `files` and `diff_file` from `$scope` as the non-PR case does, and set
+     `pr_head_sha=$(git rev-parse refs/bf/pr-<pr_number>)`. If the fetch
      fails, print the git error and stop — a failed fetch is an error, never an empty scope
-     or `NOTHING_TO_REVIEW`.
-
-   **Check the PR head.** The post step runs this first. Compare `gh pr view <pr_number> --json headRefOid -q .headRefOid` with `pr_head_sha`. If they differ, print `⚠ PR <pr_number> has new commits since the review. Refreshing the diff.`, re-run this PR case, and update `pr_head_sha`. Line numbers then anchor to the new diff.
+     or `NOTHING_TO_REVIEW`. The findings' line numbers belong to `pr_head_sha` and
+     `diff_file`. Never refresh either after the review.
 
    For file-path inputs where the diff may be empty (e.g. unmodified files explicitly
    listed), fall back to the literal paths from `$ARGUMENTS` for `changed_files`.
@@ -555,7 +558,7 @@ Skip unless `pr_head_branch` is non-empty and STATUS is CONCERN. When unattended
 
 > Post these findings to PR <pr_number> as one review? Reply `comment`, `request-changes`, or `no`.
 
-Any answer except `comment` or `request-changes` posts nothing. Otherwise run **Check the PR head** (Phase 1). Write the primaries to `findings_json="${report_path%.md}-findings.json"` as `[{id, label, path, line, text}]` (`line` a number, a `start-end` range, or null; `path` null for a spec section). Then post:
+Any answer except `comment` or `request-changes` posts nothing. Otherwise, if `gh pr view <pr_number> --json headRefOid -q .headRefOid` differs from `pr_head_sha`, print `⚠ PR <pr_number> has new commits since the review. The comments anchor to the reviewed commit.` Write the primaries to `findings_json="${report_path%.md}-findings.json"` as `[{id, label, path, line, text}]` (`line` a number, a `start-end` range, or null; `path` null for a spec section). Then post:
 
 ```bash
 payload="${report_path%.md}-payload.json"
@@ -815,7 +818,7 @@ List remaining concerns by ID and label if any exist.
 
 | Condition | Handling |
 |-----------|----------|
-| PR head moved since the review | **Check the PR head** warns, refreshes the diff and updates `pr_head_sha` before fixing or posting. |
+| PR head moved since the review | The post step warns and posts against the reviewed `pr_head_sha` and `diff_file`. Phase 4 exits and asks for a fresh review. |
 | Local PR branch cannot fast-forward to the PR head | Tell the user it has diverged and exit Phase 4. Never merge or reset it. |
 | `pull/<pr_number>/head` fetch fails, or its SHA is not `pr_head_sha` | Exit Phase 4 before any checkout. On a new SHA, tell the user to re-run the review. |
 | Fix Agent fails | Inform the user, skip re-review, print original report path only. |
