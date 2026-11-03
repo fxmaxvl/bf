@@ -195,11 +195,15 @@ case "${1:-init}" in
     broken=(); unequal=()
     for page in "$ws"/lessons/*.html "$ws"/reference/*.html; do
       [ -f "$page" ] || continue
-      # Each quiz runs from one class="quiz" to the next. Its nested .fb div closes first, so </div> cannot bound it.
+      # A quiz is any element with class token "quiz". It ends at its own closing tag, found by depth count,
+      # since its nested .fb div closes first and buttons after the last quiz are not options.
       while IFS= read -r q; do
         [ -n "$q" ] && unequal+=("${page#"$ws"/} -> $q")
-      done <<< "$(perl -0777 -ne 'my @q = split /class="quiz"/; shift @q; my $n = 0;
-        for (@q) { $n++; my @c = map { (my $t = $_) =~ s/<[^>]*>//g; scalar(() = $t =~ /\S+/g) } /<button\b[^>]*>(.*?)<\/button>/gis;
+      done <<< "$(perl -0777 -ne 'my $n = 0;
+        while (/<(\w+)\b[^>]*\bclass\s*=\s*(["\x27])(?:[^"\x27]*\s)?quiz(?:\s[^"\x27]*)?\2[^>]*>/gis) {
+          my ($tag, $rest, $d) = ($1, substr($_, $+[0]), 1); my $end = length $rest;
+          while ($rest =~ /<(\/?)$tag\b[^>]*>/gi) { $d += $1 ? -1 : 1; if (!$d) { $end = $-[0]; last } }
+          my $q = substr($rest, 0, $end); $n++; my @c = map { (my $t = $_) =~ s/<[^>]*>//g; scalar(() = $t =~ /\S+/g) } $q =~ /<button\b[^>]*>(.*?)<\/button>/gis;
           my %u = map { $_ => 1 } @c; print "quiz $n: ", join(",", @c), "\n" if @c > 1 && keys(%u) > 1 }' "$page")"
       dir=$(dirname "$page")
       while IFS= read -r href; do

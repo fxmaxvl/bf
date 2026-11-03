@@ -95,6 +95,11 @@ eq "lesson-kit quiz with equal options passes" "$(probe verify "$ws" | jq -c .un
 sed 's#<button>the lesson kit page</button>#<button>the <code>lesson kit</code> page here</button>#' "$kit" > "$ws/lessons/0002-kit.html"
 eq "quiz with unequal options is reported" "$(probe verify "$ws" | jq -c .unequal_quizzes)" \
   '["lessons/0002-kit.html -> quiz 1: 4,5,4"]'
+sed 's#</main>#<p><button>Print this lesson</button></p></main>#' "$kit" > "$ws/lessons/0002-kit.html"
+eq "button after the last quiz is not a quiz option" "$(probe verify "$ws" | jq -c .unequal_quizzes)" '[]'
+sed 's#class="quiz"#class="quiz card"#;s#<button>the lesson kit page</button>#<button>kit</button>#' "$kit" > "$ws/lessons/0002-kit.html"
+eq "quiz with several classes is checked" "$(probe verify "$ws" | jq -c .unequal_quizzes)" \
+  '["lessons/0002-kit.html -> quiz 1: 4,1,4"]'
 rm "$ws/lessons/0002-kit.html"
 
 lessonless=$tmp/.bf/teach/no-lessons
