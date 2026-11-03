@@ -54,7 +54,7 @@ anchors=$(LC_ALL=C awk -F '\t' '
 
 jq --argjson a "$anchors" --arg sha "$sha" --arg event "$event" '
   def fmt: "**\(.id)** [\(.label)] \(.text)";
-  def ends: (.line | tostring | split("-") | map(tonumber? // empty));
+  def ends: (.line | tostring | split("-") | map(tonumber? // empty) | sort);
   def place:
     (ends) as $e
     | if .path == null or ($e | length) == 0 then null

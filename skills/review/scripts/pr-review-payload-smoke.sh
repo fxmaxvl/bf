@@ -48,7 +48,8 @@ cat > "$tmp/findings.json" <<'JSON'
  {"id":"Y1","label":"should-consider","path":null,"line":null,"text":"spec section"},
  {"id":"C4","label":"should-consider","path":"src/a.ts","line":"10-12","text":"range in one hunk"},
  {"id":"C5","label":"should-consider","path":"src/a.ts","line":"12-42","text":"range across hunks"},
- {"id":"C6","label":"must-fix","path":"src/a.ts","line":13,"text":"line after the removed --- line"}]
+ {"id":"C6","label":"must-fix","path":"src/a.ts","line":13,"text":"line after the removed --- line"},
+ {"id":"C7","label":"should-consider","path":"src/a.ts","line":"12-10","text":"reversed range"}]
 JSON
 
 out=$(bash "$build" "$tmp/findings.json" "$tmp/diff" abc123 REQUEST_CHANGES)
@@ -73,7 +74,9 @@ ok=0; in_body C5 && ! inline C5 || ok=1
 check "range across hunks goes to the body" $ok
 ok=0; inline C6 && jq -e '.comments[] | select(.body | startswith("**C6**")) | .line == 13' <<< "$out" >/dev/null || ok=1
 check "removed line starting with --- is not read as a header" $ok
-ok=0; jq -e '.body | startswith("bf:review: 8 finding(s), 4 inline.")' <<< "$out" >/dev/null || ok=1
+ok=0; jq -e '.comments[] | select(.body | startswith("**C7**")) | .start_line == 10 and .line == 12' <<< "$out" >/dev/null || ok=1
+check "reversed range is sorted to start_line..line" $ok
+ok=0; jq -e '.body | startswith("bf:review: 9 finding(s), 5 inline.")' <<< "$out" >/dev/null || ok=1
 check "body counts findings and inline comments" $ok
 
 repo="$tmp/repo"; mkdir "$repo"
