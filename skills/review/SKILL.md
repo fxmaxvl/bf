@@ -352,7 +352,7 @@ STATUS: PASS<status_suffix> | CONCERN<status_suffix>
 - **C2** [must-fix] `file:line`: <problem>. Suggested: <fix>
 
 ### Security
-- **C3** [must-fix] `file:line`: <problem>. Suggested: <fix>
+- **C3** [critical] `file:line`: <problem>. Suggested: <fix>
 
 ### Code Structure & Fit
 - **C4** [should-consider] `file:line`: <problem>. Suggested: <fix>
@@ -363,7 +363,7 @@ STATUS: PASS<status_suffix> | CONCERN<status_suffix>
 <List only the section headers for the categories in focus_categories.>
 
 Numbering: C1, C2, C3, ... sequentially across all sections.
-Label each concern [must-fix] or [should-consider].
+Label each concern [critical] (a correctness, security or data-loss defect), [must-fix] (a broken convention or rule) or [should-consider].
 Omit sections that have no concerns.
 If STATUS is PASS, omit the Concerns block entirely.
 
@@ -481,6 +481,8 @@ Map severity:
 - BLOCK finding → `[must-fix]`
 - ADVISORY finding → `[should-consider]`
 
+Gates never emit `[critical]`; that label is for the review Agent's defects only. Severity order: `[critical]` > `[must-fix]` > `[should-consider]`.
+
 Append to the report at `$report_path`:
 
 ```
@@ -519,7 +521,7 @@ The agents run independently, so one defect can come back as a C*, an X* and a Y
 
 The same line with two different defects is not a match. Neither is the same defect class in different places.
 
-For each match, keep the first ID in C → X → Y order as the primary. Append `(also <ids>)` to its line and give it the higher severity. Replace each other entry's body with `→ merged into <primary>`, so its ID still appears in the report. Phase 3 lists primaries only, and selecting a merged ID selects its primary. The summary's `Concerns:` counts leave merged entries out.
+For each match, keep the first ID in C → X → Y order as the primary. Append `(also <ids>)` to its line and give it the higher severity (in the order above). Replace each other entry's body with `→ merged into <primary>`, so its ID still appears in the report. Phase 3 lists primaries only, and selecting a merged ID selects its primary. The summary's `Concerns:` counts leave merged entries out.
 
 ### Escalate overall STATUS
 
@@ -536,7 +538,7 @@ Print:
 ```
 STATUS: <PASS | CONCERN><status_suffix>
 Focus: <focus_label>
-Concerns: <N> code (<M> must-fix), <X> complexity, <Y> consistency
+Concerns: <N> code (<K> critical, <M> must-fix), <X> complexity, <Y> consistency
 Report: <report_path>
 ```
 
@@ -560,14 +562,14 @@ Print a one-line summary of each concern, primaries only:
 
 ```
 C1 [must-fix]        src/foo.ts:42: <problem description>
-C2 [should-consider] src/bar.ts:8: <problem description>
+C2 [critical]        src/bar.ts:8: <problem description>
 X1 [must-fix]        src/baz.ts:15: <complexity finding>
 Y1 [should-consider] src/qux.ts:3: <consistency finding>
 ```
 
 Then ask (one question only):
 
-> Which concerns would you like to fix? Reply with IDs (e.g. `C1 X1 Y2`), `all`, `must-fix`, or `none`.
+> Which concerns would you like to fix? Reply with IDs (e.g. `C1 X1 Y2`), `all`, `critical`, `must-fix`, or `none`.
 
 Wait for the user's reply before proceeding.
 
@@ -575,7 +577,8 @@ Wait for the user's reply before proceeding.
 
 - `none` or empty → select nothing.
 - `all` → select all C*, X* and Y* concerns.
-- `must-fix` → select all concerns labelled `[must-fix]`.
+- `critical` → select all concerns labelled `[critical]`.
+- `must-fix` → select all concerns labelled `[critical]` or `[must-fix]`.
 - Space-separated IDs → validate each ID exists in the report.
   - If any ID is unknown, ask once: "Unknown ID(s): <list>. Please re-enter valid IDs from the list above." Re-parse the new answer; if still invalid, treat as `none`.
 
