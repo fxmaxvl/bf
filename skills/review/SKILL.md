@@ -223,7 +223,7 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      with `gh` as the credential helper:
      ```bash
      cd "<project_root>" && pr_base_branch=$(gh pr view <pr_number> -R "<pr_repo>" --json baseRefName -q .baseRefName) && \
-     src=$(git remote -v | awk -v r="<pr_repo>" '$3 == "(fetch)" { u = tolower($2); sub(/\/$/, "", u); sub(/\.git$/, "", u); n = split(u, a, /[:\/]/); if (n > 1 && a[n-1] "/" a[n] == tolower(r)) { print $1; exit } }') && \
+     src=$(git remote -v | awk -v r="<pr_repo>" '$3 == "(fetch)" { u = tolower($2); sub(/\/$/, "", u); sub(/\.git$/, "", u); n = split(u, a, /[:\/]/); if (n > 2 && a[n-2] ~ /(^|[@.])github\.com$/ && a[n-1] "/" a[n] == tolower(r)) { print $1; exit } }') && \
      git -c credential.https://github.com.helper= -c 'credential.https://github.com.helper=!gh auth git-credential' \
        fetch -q "${src:-https://github.com/<pr_repo>.git}" "+${pr_base_branch}:refs/bf/pr-<pr_number>-base" "+pull/<pr_number>/head:refs/bf/pr-<pr_number>" && \
      scope=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff "refs/bf/pr-<pr_number>-base...refs/bf/pr-<pr_number>")
