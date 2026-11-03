@@ -38,6 +38,11 @@ out=$(bash "$init" --lenses bogus)
 check "bad lens is an error" "$(q "$out" '.error == "unknown_lens"')"
 out=$(bash "$init" --repo lib)
 check "repo plus path is an error" "$(q "$out" '.error == "conflicting_scope"')"
+# alarm 5: a regression to the old parse loop fails here instead of hanging the smoke.
+out=$(perl -e 'alarm 5; exec @ARGV' bash "$init" --pr)
+check "--pr with no value is missing_value, not a hang" "$(q "$out" '.error == "missing_value"')"
+out=$(perl -e 'alarm 5; exec @ARGV' bash "$init" --bogus)
+check "unknown flag is unknown_flag, not a hang" "$(q "$out" '.error == "unknown_flag"')"
 r1=$(bash "$init" | jq -r .report_path); touch "$r1"; r2=$(bash "$init" | jq -r .report_path)
 check "report path never collides" "$([ "$r1" != "$r2" ]; echo $?)"
 
