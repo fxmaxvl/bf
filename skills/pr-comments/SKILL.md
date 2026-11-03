@@ -101,7 +101,8 @@ bot's check is still pending, handle it as the `timeout` row above.
 
 When the bot has no check (none matches it, or gh reports no checks) or its check is not pending, at
 the first look or after the wait, the status post is the result, but only if its `updated_at` is later than the fetch
-result's `head_committed_at`; an older post is stale, so treat it as in progress. Otherwise: if every such post reports no open
+result's `head_committed_at`. A post that is older, or has no time to compare, is stale: triage it in
+the normal flow instead. For a current post: if every such post reports no open
 findings, print `STATUS: NO_OPEN_COMMENTS` and stop without triaging them; if one lists findings,
 continue the normal flow.
 
@@ -389,7 +390,7 @@ cannot see yet.
 | `counts.actionable` is `0`, no review in flight | `STATUS: NO_OPEN_COMMENTS` and stop. Do not go looking for feedback elsewhere |
 | `counts.actionable` is `0` but a review is still running | Wait via `wait-for-review.sh` (see the fetch step), then act on its `status` |
 | Only actionable items are a bot's standing status comment, and its CI check is pending | Wait via `gh pr checks <pr> --watch` (see the fetch step), then re-fetch |
-| Only actionable items are a bot's standing status comment reporting no findings, and the bot has no check or its check is not pending | `STATUS: NO_OPEN_COMMENTS` and stop. Do not triage or reply to the status post |
+| Only actionable items are a bot's standing status comment reporting no findings, posted or edited after the head commit, and the bot has no check or its check is not pending | `STATUS: NO_OPEN_COMMENTS` and stop. Do not triage or reply to the status post. An older post goes to normal triage |
 | Thread is `outdated: true` | The code moved after the comment. Judge the current code; if the concern no longer applies, that is a reply saying so, not a silent resolve |
 | Comment asks for something already done in a later commit | Reply pointing at the commit, then resolve. Do not redo the work |
 | `counts.files_truncated` is `true` | The PR touches more than 100 files, so `files[]` is partial and the generalization pass cannot see the whole surface. Say so in the output and treat every widened fix as best-effort rather than exhaustive |
