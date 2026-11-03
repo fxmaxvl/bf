@@ -316,7 +316,8 @@ Print banner: `── feature | Plan ──────────────�
 Print banner: `── feature | Execute ───────────────────────────────`
 
 1. Dispatch `feature/do-todo/SKILL.md` as an Agent (model: sonnet) — it loops internally until all items are checked
-2. When it completes:
+2. **Spot-check** before advancing state: compare the files, commits and counts the agent claims with `git diff --stat <main_branch>...HEAD` and `git log --oneline <main_branch>..HEAD`. On a mismatch, re-dispatch do-todo for the gap or fix it yourself, then check again.
+3. When the spot-check passes:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=verify phase_status=in_progress
    ```
