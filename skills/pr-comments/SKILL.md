@@ -329,8 +329,11 @@ entries in the triage file, and name any `failed` entry with its detail rather t
 batch as done. If the user declines the gate, the triage file and the fixes stay — nothing was
 published, and a rerun picks up from the file.
 
-When the fixes were pushed, add one line: the push starts a new review on most review bots, so
-rerun once it finishes — a rerun before then can show no open comments, or the previous review's.
+When the fixes were pushed, the push starts a new review on most review bots. Under the fetch step's
+`--wait` consent rule (asked after the post, as its own question), wait for it on the new head with
+`wait-for-review.sh "<url>" --timeout 600` and act on its `status` as there before reporting done.
+Without the wait, say to rerun once it finishes — a rerun before then can show no open comments, or
+the previous review's.
 
 When the user answered `no push`, or the push option was not offered while fixes exist, say in one line
 that the working tree has unpushed fixes. The reviewer is looking at replies that reference code they
