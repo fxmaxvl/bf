@@ -96,6 +96,12 @@ check "path with a space goes inline" $ok
 ok=0; inline C2 || ok=1
 check "git-quoted non-ASCII path goes inline" $ok
 
+printf 'diff --git "a/nl\\nx.txt" "b/nl\\nx.txt"\n+++ "b/nl\\nx.txt"\n@@ -0,0 +1 @@\n+a\ndiff --git a/ok.txt b/ok.txt\n+++ b/ok.txt\n@@ -0,0 +1 @@\n+a\n' > "$tmp/nl.diff"
+printf '%s' '[{"id":"C1","label":"must-fix","path":"ok.txt","line":1,"text":"ok"}]' > "$tmp/nl.json"
+out=$(bash "$build" "$tmp/nl.json" "$tmp/nl.diff" abc123 COMMENT)
+ok=0; inline C1 || ok=1
+check "a quoted newline in another path does not break the payload" $ok
+
 err=$(bash "$build" "$tmp/findings.json" "$tmp/diff" abc123 APPROVE); rc=$?
 ok=0; [ $rc = 1 ] && jq -e '.error == "bad_event"' <<< "$err" >/dev/null || ok=1
 check "rejects an event other than COMMENT or REQUEST_CHANGES" $ok

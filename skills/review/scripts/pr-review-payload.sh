@@ -30,7 +30,8 @@ case "$event" in COMMENT|REQUEST_CHANGES) ;; *) die bad_event "event must be COM
 # Emits "<path>\t<new-side line>\t<hunk index>" for every line a review comment can target.
 # File headers are read only between "diff --git" and the first "@@", so a removed line whose text
 # starts with "-- " is never taken for a header. git ends a path that has a space with a TAB and
-# C-quotes one with special bytes ("b/caf\303\251.txt"), so unq undoes both. LC_ALL=C keeps %c byte-wise.
+# C-quotes one with special bytes ("b/caf\303\251.txt"), so unq undoes both. It keeps \t and \n
+# escaped, because a real TAB or newline would split the anchor stream below. LC_ALL=C keeps %c byte-wise.
 anchors=$(LC_ALL=C awk -F '\t' '
   function unq(s,   o, i, c, k) {
     sub(/\t$/, "", s)
@@ -41,7 +42,7 @@ anchors=$(LC_ALL=C awk -F '\t' '
       if (c != "\\") { o = o c; continue }
       c = substr(s, ++i, 1)
       if (c ~ /[0-7]/) { k = substr(s, i, 3); i += 2; o = o sprintf("%c", substr(k, 1, 1) * 64 + substr(k, 2, 1) * 8 + substr(k, 3, 1)) }
-      else o = o (c == "t" ? "\t" : c == "n" ? "\n" : c)
+      else o = o (c == "t" || c == "n" ? "\\" c : c)
     }
     return o
   }
