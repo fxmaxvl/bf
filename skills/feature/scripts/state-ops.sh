@@ -140,6 +140,7 @@ def read_output(root, state):
         'collect_todos':   state.get('collect_todos'),
         'audit_started_at': state.get('audit_started_at'),
         'pending_fixes':   state.get('pending_fixes'),
+        'fix_base':        state.get('fix_base'),
         'artifacts_dir':   adir,
         'artifact_prefix': prefix,
         'paths':           artifact_paths(adir, prefix),

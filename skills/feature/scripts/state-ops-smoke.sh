@@ -59,6 +59,8 @@ pending() { (cd "$repo" && bash "$script" | python3 -c 'import json,sys; print(j
 eq "pending_fixes round-trips through read" "$(pending)" "C1,K2"
 (cd "$repo" && bash "$script" pending_fixes=null >/dev/null)
 eq "pending_fixes=null clears it" "$(pending)" None
+(cd "$repo" && bash "$script" fix_base=abc123 >/dev/null)
+eq "fix_base round-trips through read" "$( (cd "$repo" && bash "$script") | python3 -c 'import json,sys; print(json.load(sys.stdin)["fix_base"])')" abc123
 
 archive() { (cd "$repo" && bash "$script" --archive); }
 temp=$(cd "$repo" && bash "$script" | python3 -c 'import json,sys; print(json.load(sys.stdin)["paths"]["temp"])')
