@@ -7,12 +7,13 @@
 #
 # Output (stdout, single JSON object):
 #   {pr, url, title, head_sha, last_bot_review, viewer, base, head, threads[], files[], notes[], counts{}}
-#     head_sha = the PR's headRefOid
+#     head_sha = the PR's headRefOid; head_committed_at = its last commit's committedDate
 #     last_bot_review = {author, sha, submitted_at} of the newest review by a bot other than the
 #                       viewer (from the newest 100 reviews), or null
 #     threads[] = {kind, thread_id, comment_id, file, line, side, outdated,
 #                  resolved, author, is_bot, body, replies[], diff_hunk,
-#                  answered_by_viewer}   (kind "review" entries also carry `state`)
+#                  answered_by_viewer}   (kind "review" entries also carry `state`;
+#                  kind "issue" entries carry `updated_at`)
 #     files[]   = {path, additions, deletions, change_type} — the PR's changed files,
 #                 DELETED ones excluded; this is the search surface for sibling instances
 #       kind: "thread" (line-anchored, resolvable) | "issue" (PR-level) | "review" (review summary body)
@@ -61,10 +62,10 @@ query($owner:String!,$repo:String!,$num:Int!){
     pullRequest(number:$num){
       number url title headRefOid
       baseRefName headRefName
-      commits(last:1){nodes{commit{oid}}}
+      commits(last:1){nodes{commit{oid committedDate}}}
       files(first:100){totalCount nodes{path additions deletions changeType}}
       comments(first:100){nodes{
-        author{login __typename} body createdAt
+        author{login __typename} body createdAt updatedAt
       }}
       reviews(last:100){totalCount nodes{
         author{login __typename} body state submittedAt commit{oid}
@@ -127,6 +128,7 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
             author: (.author.login // "unknown"),
             is_bot: ((.author.__typename // "") == "Bot"),
             body: .body, replies: [], diff_hunk: "",
+            updated_at: (.updatedAt // .createdAt),
             answered_by_viewer: false
           } ] ) as $issues
 
@@ -166,6 +168,7 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
       url: $pr.url,
       title: $pr.title,
       head_sha: $head_sha,
+      head_committed_at: ($pr.commits.nodes[0].commit.committedDate // null),
       last_bot_review: $bot_review,
       viewer: $me,
       base: $pr.baseRefName,

@@ -26,8 +26,9 @@ case "$1 $2" in
     cat <<JSON
 {"data":{"viewer":{"login":"me"},"repository":{"pullRequest":{
  "number":$num,"url":"https://github.com/o/r/pull/$num","title":"t","headRefOid":"$BOT_SHA",
- "baseRefName":"main","headRefName":"feat","commits":{"nodes":[{"commit":{"oid":"$BOT_SHA"}}]},
- "files":{"totalCount":0,"nodes":[]},"comments":{"nodes":[]},
+ "baseRefName":"main","headRefName":"feat","commits":{"nodes":[{"commit":{"oid":"$BOT_SHA","committedDate":"2026-01-02T00:00:00Z"}}]},
+ "files":{"totalCount":0,"nodes":[]},"comments":{"nodes":[{"author":{"login":"bot","__typename":"Bot"},
+   "body":"No open findings.","createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-03T00:00:00Z"}]},
  "reviews":{"totalCount":1,"nodes":[{"author":{"login":"bot","__typename":"Bot"},"body":"",
    "state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","commit":{"oid":"$BOT_SHA"}}]},
  "reviewThreads":{"nodes":[{"id":"T1","isResolved":false,"isOutdated":false,"path":"a","line":1,
@@ -49,6 +50,9 @@ field() { jq -r "$1" 2>/dev/null <<<"$2"; }
 
 out=$(bash "$fetch" "125 --wait")
 eq 'fetch "125 --wait" resolves PR 125' "$(field .pr "$out")" 125
+
+eq "fetch reports the head commit time" "$(field .head_committed_at "$out")" 2026-01-02T00:00:00Z
+eq "fetch gives a PR-level post its edit time" "$(field '[.threads[] | select(.kind == "issue")][0].updated_at' "$out")" 2026-01-03T00:00:00Z
 
 out=$(bash "$fetch" "125 --timout 600")
 eq "fetch unknown flag --timout -> bad_args" "$(field .error "$out")" bad_args

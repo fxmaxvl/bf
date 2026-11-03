@@ -100,7 +100,8 @@ an unrelated slow job can outlast the bound while the bot's check has already fi
 bot's check is still pending, handle it as the `timeout` row above.
 
 When the bot has no check (none matches it, or gh reports no checks) or its check is not pending, at
-the first look or after the wait, the status post is the result: if every such post reports no open
+the first look or after the wait, the status post is the result, but only if its `updated_at` is later than the fetch
+result's `head_committed_at`; an older post is stale, so treat it as in progress. Otherwise: if every such post reports no open
 findings, print `STATUS: NO_OPEN_COMMENTS` and stop without triaging them; if one lists findings,
 continue the normal flow.
 
@@ -229,10 +230,10 @@ Row 4 is a grouped entry: one verdict, two threads, and both thread ids recorded
 
 **Sync first.** When `git branch --show-current` equals the fetch result's `head`, a peer may have
 pushed since, so before the first edit fetch the *push target*, which for a fork PR is not `origin`.
-If `git rev-parse --abbrev-ref @{u}` resolves, `git fetch <remote>` with the part before the first
-`/` and use `@{u}` as the target. Otherwise (`gh pr checkout` sets a fork branch's remote to a URL,
+If `git rev-parse --abbrev-ref @{u}` resolves to `<remote>/<head>`, `git fetch <remote>` and use `@{u}` as
+the target. Otherwise, including an upstream on another branch such as `origin/main`, (`gh pr checkout` sets a fork branch's remote to a URL,
 and a branch pushed without `-u` has none) read `git config branch.<head>.remote` and
-`branch.<head>.merge`, defaulting to `origin` and `<head>`, run `git fetch <remote> <merge>`, and use
+`branch.<head>.merge` (use `<head>` when it names another branch), defaulting to `origin` and `<head>`, run `git fetch <remote> <merge>`, and use
 `FETCH_HEAD` as the target. If `git rev-list --count HEAD..<target>` is not `0`, run
 `git merge --ff-only <target>`. If the fetch or the fast-forward fails, stop before editing and report it.
 
