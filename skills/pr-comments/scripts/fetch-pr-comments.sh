@@ -8,7 +8,8 @@
 #
 # Output (stdout, single JSON object):
 #   {pr, url, title, head_sha, last_bot_review, viewer, base, head, threads[], files[], notes[], counts{}}
-#     head_sha = the PR's headRefOid; head_committed_at = its last commit's committedDate
+#     head_sha = the PR's headRefOid; head_pushed_at = when head_sha was pushed (the head repo's
+#                activity log), or null when GitHub does not report it
 #     last_bot_review = {author, sha, submitted_at} of the newest review by a bot other than the
 #                       viewer (from the newest 100 reviews), or null
 #     threads[] = {kind, thread_id, comment_id, file, line, side, outdated,
@@ -62,7 +63,7 @@ query($owner:String!,$repo:String!,$num:Int!){
   repository(owner:$owner,name:$repo){
     pullRequest(number:$num){
       number url title headRefOid
-      baseRefName headRefName
+      baseRefName headRefName headRepository{nameWithOwner}
       commits(last:1){nodes{commit{oid committedDate}}}
       files(first:100){totalCount nodes{path additions deletions changeType}}
       comments(first:100){nodes{
@@ -90,7 +91,17 @@ query($owner:String!,$repo:String!,$num:Int!){
 printf '%s' "$RAW" | jq -e '.data.repository.pullRequest' >/dev/null 2>&1 \
   || die pr_not_found "no PR #$NUM in $OWNER/$REPO"
 
-printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
+# GraphQL has no push time (Commit.pushedDate is deprecated and null); the REST activity log has it.
+PUSHED=""
+read -r HEAD_NWO HEAD_REF HEAD_OID < <(printf '%s' "$RAW" | jq -r '.data.repository.pullRequest
+  | [(.headRepository.nameWithOwner // "-"), (.headRefName // "-"), (.headRefOid // "-")] | @tsv')
+if [ "$HEAD_NWO" != "-" ] && [ "$HEAD_REF" != "-" ] && [ "$HEAD_OID" != "-" ]; then
+  PUSHED=$( (gh api "repos/$HEAD_NWO/activity" -X GET -f ref="refs/heads/$HEAD_REF" -f per_page=30 2>/dev/null || echo '[]') \
+    | jq -r --arg oid "$HEAD_OID" '[.[]? | select(.after == $oid and (.activity_type == "push" or .activity_type == "force_push"))]
+      | first | .timestamp // empty' 2>/dev/null)
+fi
+
+printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" --arg pushed "$PUSHED" '
   .data as $d
   | $d.viewer.login as $me
   | $d.repository.pullRequest as $pr
@@ -171,7 +182,7 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
       url: $pr.url,
       title: $pr.title,
       head_sha: $head_sha,
-      head_committed_at: ($pr.commits.nodes[0].commit.committedDate // null),
+      head_pushed_at: (if $pushed == "" then null else $pushed end),
       last_bot_review: $bot_review,
       viewer: $me,
       base: $pr.baseRefName,

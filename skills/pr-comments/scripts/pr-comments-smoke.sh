@@ -36,7 +36,7 @@ case "$1 $2" in
     cat <<JSON
 {"data":{"viewer":{"login":"me"},"repository":{"pullRequest":{
  "number":$num,"url":"https://github.com/o/r/pull/$num","title":"t","headRefOid":"$BOT_SHA",
- "baseRefName":"main","headRefName":"feat","commits":{"nodes":[{"commit":{"oid":"$BOT_SHA","committedDate":"2026-01-02T00:00:00Z"}}]},
+ "baseRefName":"main","headRefName":"feat","headRepository":{"nameWithOwner":"o/r"},"commits":{"nodes":[{"commit":{"oid":"$BOT_SHA","committedDate":"2026-01-02T00:00:00Z"}}]},
  "files":{"totalCount":0,"nodes":[]},"comments":{"nodes":[{"author":{"login":"bot","__typename":"Bot"},
    "body":"No open findings.","createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-03T00:00:00Z"},
    {"author":{"login":"me","__typename":"User"},"body":"my note","createdAt":"x","updatedAt":"x"}]},
@@ -50,6 +50,10 @@ case "$1 $2" in
 }}}}
 JSON
     ;;
+  "api repos/o/r/activity")
+    # the head's push; NO_PUSH=1 leaves only an older push, so the push time is unknown
+    if [ -n "${NO_PUSH:-}" ]; then echo '[{"activity_type":"push","after":"old0000","timestamp":"2025-12-30T00:00:00Z"}]'
+    else echo '[{"activity_type":"push","after":"'"$BOT_SHA"'","timestamp":"2026-01-02T05:00:00Z"}]'; fi ;;
   *) echo "stub gh: unexpected call: $*" >&2; exit 1 ;;
 esac
 STUB
@@ -64,7 +68,8 @@ field() { jq -r "$1" 2>/dev/null <<<"$2"; }
 out=$(bash "$fetch" "125 --wait")
 eq 'fetch "125 --wait" resolves PR 125' "$(field .pr "$out")" 125
 
-eq "fetch reports the head commit time" "$(field .head_committed_at "$out")" 2026-01-02T00:00:00Z
+eq "fetch reports the head push time, not the commit time" "$(field .head_pushed_at "$out")" 2026-01-02T05:00:00Z
+eq "fetch reports no push time when the log lacks the head" "$(NO_PUSH=1 bash "$fetch" 125 | jq -r .head_pushed_at)" null
 eq "fetch gives a PR-level post its edit time" "$(field '[.threads[] | select(.kind == "issue")][0].updated_at' "$out")" 2026-01-03T00:00:00Z
 
 eq "fetch drops the viewer's own PR-level comment" "$(field '[.threads[] | select(.author == "me")] | length' "$out")" 0

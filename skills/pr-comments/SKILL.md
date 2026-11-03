@@ -101,7 +101,7 @@ bot's check is still pending, handle it as the `timeout` row above.
 
 When the bot has no check (none matches it, or gh reports no checks) or its check is not pending, at
 the first look or after the wait, the status post is the result, but only if its `updated_at` is later than the fetch
-result's `head_committed_at`. A post that is older, or has no time to compare, is stale: triage it in
+result's `head_pushed_at` (when the head was pushed; `null` when unknown). A post that is older, or has no time to compare, is stale: triage it in
 the normal flow instead. For a current post: if every such post reports no open
 findings, print `STATUS: NO_OPEN_COMMENTS` and stop without triaging them; if one lists findings,
 continue the normal flow.
