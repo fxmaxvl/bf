@@ -209,8 +209,8 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      diff_file=$(mktemp)
      read -r pr_head_branch pr_head_sha < <(gh pr view <pr_number> -R "<pr_repo>" --json headRefName,headRefOid -q '"\(.headRefName) \(.headRefOid)"')
      gh pr diff <pr_number> -R "<pr_repo>" > "$diff_file"
+     changed_files=$(gh api --paginate "repos/<pr_repo>/pulls/<pr_number>/files" -q '.[].filename')
      [ "$(gh pr view <pr_number> -R "<pr_repo>" --json headRefOid -q .headRefOid)" = "$pr_head_sha" ] || echo HEAD_MOVED
-     changed_files=$(sed -n 's#^diff --git a/.* b/##p' "$diff_file")
      scope_description="PR <pr_number>"
      ```
      If it prints `HEAD_MOVED`, a push landed between the reads: run the block again.
