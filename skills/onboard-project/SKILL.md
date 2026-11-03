@@ -69,6 +69,9 @@ Give each agent its areas, the relevant `signals` samples, the mission, and thes
 - **A missing area is not a failure.** Write `Status: absent` and list what was looked for.
 - **Check external docs.** For each stack component named in a manifest, record its official documentation URL, checked with WebSearch or WebFetch.
 - **Report back.** The agent's final act is its one-line result to `team-lead`. The orchestrator blocks until every agent has reported.
+- **Write the fact sheet's header first**, then fill it as you go.
+
+Watch for a silent survey agent with Phase 4's **Watch for a silent writer** procedure. The progress test is whether `<facts_dir>/<agent-name>.md` exists.
 
 If `tracked_files` < 50, do the survey inline instead. Fanning out over a tiny repo buys nothing.
 
@@ -160,6 +163,6 @@ Print the workspace path, the lesson and reference counts, any skipped areas, an
 | `units.mode` is `dir` | Architecture lessons say the topology was inferred from directories, not build units. |
 | Survey or lesson agent fails or writes nothing | Re-spawn that one agent once. If it fails again, mark its lessons missing in the course map. Never present a partial course as complete. |
 | `promote` reports `conflicts` | Stop before Phase 5's remaining files. Name each conflicting page; the workspace already holds a page with that name, so this course must not replace it. |
-| Lesson writer still running but silent past the stall check | Follow **Watch for a silent writer** in Phase 4: message it once, then stop it and re-spawn its batch or write it inline. |
+| Survey agent or lesson writer still running but silent past the stall check | Follow **Watch for a silent writer** in Phase 4: message it once, then stop it and re-spawn it or do its work inline. |
 | Repo docs contradict the code | Teach what the code does, cite both sides, and add the discrepancy to NOTES.md as a question for the team. |
 | Secrets found in tracked config | Never copy the values into lessons, fact sheets, `NOTES.md` or `RESOURCES.md`. Name the file and the variable only. |
