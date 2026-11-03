@@ -58,6 +58,8 @@ def read_config():
     try:
         with open(config_path) as f:
             data = json.load(f)
+        if not isinstance(data, dict):
+            data = {}
         return {k: bool_or(data.get(k), d) for k, d in CONFIG_DEFAULTS.items()}
     except FileNotFoundError:
         return dict(CONFIG_DEFAULTS)
