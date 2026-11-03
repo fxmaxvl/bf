@@ -45,8 +45,9 @@
 #     Summarizes timing.jsonl. hunt-init.sh, merge, resolve and analyze append their own rows (by:"script").
 #     merge and resolve also add one "hunter" / "verifier" row per output file, timed by its mtime (whole
 #     seconds): only hunters/<hunter_id>.json whose hunter_id matches its name, and verifiers/<batch_id>.json
-#     for a batch in merged.json. Hunter durations run from the last "hunt" mark (else init), verifier
-#     durations from the last "verify" mark (else merge), any other mark's from the row that ended before it. A rerun re-stamps the
+#     for a batch in merged.json. Hunter durations run from the first "hunt" mark (else init), verifier
+#     durations from the first "verify" mark (else merge), so a re-mark before a retry never makes one
+#     negative; any other mark's from the row that ended before it. A rerun re-stamps the
 #     same file: the last agent row per step and label wins.
 #     Output: {wall, script, agent: wall - script, steps:[{step, label, by, at, duration}],
 #     pipeline:{hunter_spread: last minus first hunter finish, verify_sum, verify_wall}}.
@@ -232,10 +233,11 @@ timing() {
   jq -sc '
     def r1: if . == null then null else (. * 10 + 0.5 | floor) / 10 end;
     def mark($s): [.[] | select(.step == $s) | .end] | if length > 0 then .[-1] else null end;
+    def first_mark($s): [.[] | select(.step == $s) | .end] | if length > 0 then .[0] else null end;
     def since($a): if $a == null then null else .end - $a end;
     map(select(type == "object" and (.start | type) == "number" and (.end | type) == "number"))
     | . as $all | (map(.start) | min) as $t0 | (map(.end) | max) as $t1
-    | (mark("hunt") // mark("init")) as $hs | (mark("verify") // mark("merge")) as $vs
+    | (first_mark("hunt") // mark("init")) as $hs | (first_mark("verify") // mark("merge")) as $vs
     | [.[] | select(.by == "script")] as $script
     | (map(select(.by == "agent")) | group_by([.step, .label]) | map(.[-1])) as $agent
     | [$agent[] | select(.step == "hunter")] as $h | [$agent[] | select(.step == "verifier")] as $v

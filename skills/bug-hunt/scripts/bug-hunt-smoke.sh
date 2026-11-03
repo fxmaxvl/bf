@@ -222,6 +222,18 @@ check "timing: hunter spread and verify sum from the marks" "$(q "$t" '.pipeline
 check "timing: per-step durations, rerun rows deduped" "$(q "$t" '([.steps[] | select(.step == "hunter") | .duration] == [90, 100, 150]) and ([.steps[] | select(.step == "merge") | .duration] == [0.3])')"
 check "timing: a mark runs from the row that ended before it" "$(q "$t" '([.steps[] | select(.step == "hunt" or .step == "report") | .duration] == [9.5, 68.8])')"
 check "timing: script and agent split the wall time" "$(q "$t" '.wall == 300 and .script == 1 and .agent == 299')"
+cat > "$tm/timing.jsonl" <<'J'
+{"step":"hunt","label":"","by":"agent","start":10,"end":10}
+{"step":"hunter","label":"h1","by":"agent","start":100,"end":100}
+{"step":"hunt","label":"","by":"agent","start":200,"end":200}
+{"step":"hunter","label":"h2","by":"agent","start":300,"end":300}
+{"step":"verify","label":"","by":"agent","start":310,"end":310}
+{"step":"verifier","label":"B1","by":"agent","start":320,"end":320}
+{"step":"verify","label":"","by":"agent","start":330,"end":330}
+{"step":"verifier","label":"B2","by":"agent","start":400,"end":400}
+J
+t=$(bash "$findings" timing "$tm")
+check "timing: a second hunt or verify mark before a retry never makes a duration negative" "$(q "$t" '[.steps[] | select(.step == "hunter" or .step == "verifier") | .duration] == [90, 290, 10, 90]')"
 printf '%s\n' '{"step":"merge","label":"","by":"script","start":5,"end":6}' > "$tm/timing.jsonl"
 t=$(bash "$findings" timing "$tm")
 check "timing: missing marks give null, not an error" "$(q "$t" '.wall == 1 and .pipeline == {hunter_spread: null, verify_sum: null, verify_wall: null}')"
