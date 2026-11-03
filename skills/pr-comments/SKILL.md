@@ -28,10 +28,10 @@ Print banner (plain text, not in a code block):
 ── bf:pr-comments ─────────────────────────────────────
 ```
 
-Fetch everything in one call — never assemble threads from separate `gh` queries. `$ARGUMENTS` stays unquoted so `--wait`/`--all` split off; later scripts take the result's `url`, never `$ARGUMENTS`:
+Fetch everything in one call — never assemble threads from separate `gh` queries. Later scripts take the result's `url`, never `$ARGUMENTS`:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/fetch-pr-comments.sh" $ARGUMENTS
+bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/fetch-pr-comments.sh" "$ARGUMENTS"
 ```
 
 It returns `{pr, url, title, head_sha, last_bot_review, viewer, base, head, threads[], files[], counts{}, notes[]}`.

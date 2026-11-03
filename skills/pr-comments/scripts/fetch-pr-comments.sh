@@ -26,6 +26,8 @@ command -v gh  >/dev/null 2>&1 || die gh_missing "gh CLI not installed"
 command -v jq  >/dev/null 2>&1 || die jq_missing "jq not installed"
 gh auth status >/dev/null 2>&1 || die gh_unauthenticated "run: gh auth login"
 
+# The skill passes "$ARGUMENTS" as one word, e.g. "125 --wait"; split it here, without globbing.
+set -f; set -- $*; set +f
 INCLUDE_ALL=false
 ARG=""
 for a in "$@"; do
