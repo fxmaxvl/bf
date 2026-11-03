@@ -155,6 +155,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/host-rules.sh"
 
 It prints a JSON array of absolute paths (`[]` when the repo has none). If it prints an `error` object instead, print its `detail`, continue with `host_rules = none`, and do not stop the review. Pass the paths to the review Agent (Prompt A) and the re-review Agent as `host_rules`; how they rank against the bf conventions is set in the Code Review Convention.
 
+A local scan cannot answer an org-wide convention question ("how do other repos do X?"). For one, recommend `gh search code --owner=<org>` and one table counted by repo and service type, gathered and cited per "Phase 3 — Gather" in `${CLAUDE_PLUGIN_ROOT}/skills/research/SKILL.md`.
+
 ### Resolve scope and changed_files
 
 Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--dry-run`, `--focus` and any free-text focus have been stripped):
