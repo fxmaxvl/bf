@@ -54,4 +54,22 @@ eq "pending_fixes round-trips through read" "$(pending)" "C1,K2"
 (cd "$repo" && bash "$script" pending_fixes=null >/dev/null)
 eq "pending_fixes=null clears it" "$(pending)" None
 
+archive() { (cd "$repo" && bash "$script" --archive); }
+temp=$(cd "$repo" && bash "$script" | python3 -c 'import json,sys; print(json.load(sys.stdin)["paths"]["temp"])')
+echo old > "$temp"
+first=$(archive)
+eq "archive moves the run's temp file with the state" "$(cat "${first%build-state.json}temp.md")" old
+(cd "$repo" && HOME=$home bash "$script" --init --slug t --idea y >/dev/null)
+eq "same-hour rerun starts without the old temp file" "$([ -e "$temp" ] && echo kept || echo gone)" gone
+second=$(archive)
+eq "second same-hour archive gets its own name" "$([ "$first" != "$second" ] && echo distinct || echo "reused $first")" distinct
+idea() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["idea"])' "$1"; }
+eq "both archived states survive" "$(idea "$first")$(idea "$second")" xy
+
+echo '{bad' > "$repo/.bf/sessions/build-state.json"
+eq "read of a corrupt state returns an error object" "$( (cd "$repo" && bash "$script" 2>&1 >/dev/null) |
+    python3 -c 'import json,sys; print(json.load(sys.stdin)["corrupt"])')" True
+corrupt=$(archive)
+eq "archive moves a corrupt state aside" "${corrupt##*/}:$(cat "$corrupt"):$([ -e "$repo/.bf/sessions/build-state.json" ] && echo left || echo moved)" "corrupt-build-state.json:{bad:moved"
+
 [ "$fails" -eq 0 ]
