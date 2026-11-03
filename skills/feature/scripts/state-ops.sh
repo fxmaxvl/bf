@@ -8,7 +8,7 @@
 #                     [--mode quick|full] \
 #                     [--jira-key PROJ-123 --jira-url <url>] \
 #                     [--gh-issue 42]          # init: create build-state.json, output paths JSON
-#   bash state-ops.sh --archive                # move build-state.json to .bf/sessions/archive/, print the new path
+#   bash state-ops.sh --archive                # move build-state.json and its run's files to .bf/sessions/archive/, print the new state path
 #
 # --init also writes paths.untracked_baseline: the untracked files outside .bf/ at session start,
 # NUL-delimited. finalize-git.sh --baseline reads it to tell files the session created from strays.
@@ -59,6 +59,15 @@ def read_config():
     except (json.JSONDecodeError, OSError) as e:
         print(f"Warning: could not read {config_path}: {e}", file=sys.stderr)
         return dict(CONFIG_DEFAULTS)
+
+def load_state():
+    """Return build-state.json as a dict, or None when it is not a valid JSON object."""
+    try:
+        with open(state_path) as f:
+            state = json.load(f)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    return state if isinstance(state, dict) else None
 
 def set_nested(obj, dotted_key, value):
     keys = dotted_key.split('.')
@@ -148,13 +157,27 @@ if args and args[0] == '--archive':
     if not os.path.exists(state_path):
         print(f"Error: build-state.json not found at {state_path}", file=sys.stderr)
         sys.exit(1)
-    with open(state_path) as f:
-        state = json.load(f)
-    adir = os.path.join(root, '.bf', 'sessions', 'archive')
+    state = load_state()
+    sdir = os.path.dirname(state_path)
+    adir = os.path.join(sdir, 'archive')
     os.makedirs(adir, exist_ok=True)
-    dest = os.path.join(adir, f"{state.get('build_timestamp')}-{state.get('slug')}-build-state.json")
-    os.replace(state_path, dest)
-    print(dest)
+    named = bool(state and state.get('build_timestamp') and state.get('slug'))
+    if named:
+        prefix = f"{state['build_timestamp']}-{state['slug']}"
+    else:
+        prefix = 'corrupt' if state is None else 'unnamed'
+    # The run's own files go with it, so a new run with the same prefix starts clean.
+    suffixes = ['build-state.json', 'session-log.md', 'temp.md', 'untracked-at-start']
+    moves = [(state_path, 'build-state.json')] + [
+        (os.path.join(sdir, f'{prefix}-{s}'), s) for s in suffixes[1:] if named]
+    n, tag = 1, prefix
+    while any(os.path.exists(os.path.join(adir, f'{tag}-{s}')) for s in suffixes):
+        n += 1
+        tag = f'{prefix}-{n}'
+    for src, s in moves:
+        if os.path.exists(src):
+            os.replace(src, os.path.join(adir, f'{tag}-{s}'))
+    print(os.path.join(adir, f'{tag}-build-state.json'))
     sys.exit(0)
 
 # ── Init mode ──────────────────────────────────────────────────────────────
@@ -248,8 +271,10 @@ else:
         print(json.dumps({'error': f'build-state.json not found at {state_path}'}), file=sys.stderr)
         sys.exit(1)
 
-    with open(state_path) as f:
-        state = json.load(f)
+    state = load_state()
+    if state is None:
+        print(json.dumps({'error': f'build-state.json at {state_path} is not valid JSON', 'corrupt': True}), file=sys.stderr)
+        sys.exit(1)
 
     if not args:
         # Read mode
