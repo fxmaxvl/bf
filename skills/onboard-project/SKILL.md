@@ -146,7 +146,7 @@ Then check every link and quiz:
 bash "${CLAUDE_PLUGIN_ROOT}/skills/onboard-project/scripts/onboard-probe.sh" verify "<workspace>"
 ```
 
-Fix every link in `broken_links` and every quiz in `unequal_quizzes`, and re-run until both lists are empty. Then make a light content pass: step through each worked example's arithmetic, and spot-check about five `path:line` citations against the repo. Fix what is wrong.
+Fix every link in `broken_links` and every quiz in `unequal_quizzes`, and re-run until both lists are empty. Check each quiz in `unread_quizzes` by hand. Then make a light content pass: step through each worked example's arithmetic, and spot-check about five `path:line` citations against the repo. Fix what is wrong.
 
 ## Phase 6 — Hand off
 

@@ -5,7 +5,8 @@
 #   onboard-probe.sh init [slug]        # slug defaults to "<repo>-onboarding"; always slugified
 #   onboard-probe.sh verify <workspace> # lists lesson/reference links whose target file is missing;
 #                                       # links quoted inside <pre>/<code> are sample text, not links;
-#                                       # unequal_quizzes lists lesson-kit quizzes whose <button> options differ in word count
+#                                       # unequal_quizzes lists quizzes whose options (radio labels, else <button>s) differ in word count;
+#                                       # unread_quizzes lists quizzes with under 2 options found, so no skip is silent
 #   onboard-probe.sh promote <staging> <workspace>
 #                                       # copies staged lessons/ and reference/ pages into the workspace;
 #                                       # never overwrites, so an existing page is a conflict, not copied
@@ -192,19 +193,33 @@ case "${1:-init}" in
   verify)
     ws=${2:?usage: onboard-probe.sh verify <workspace>}
     [ -d "$ws/lessons" ] || { jq -nc --arg ws "$ws" '{error:"no_lessons_dir", workspace:$ws}'; exit 1; }
-    broken=(); unequal=()
+    broken=(); unequal=(); unread=()
     for page in "$ws"/lessons/*.html "$ws"/reference/*.html; do
       [ -f "$page" ] || continue
       # A quiz is any element with class token "quiz". It ends at its own closing tag, found by depth count,
       # since its nested .fb div closes first and buttons after the last quiz are not options.
+      # Options are its radio labels grouped by input name (older courses; one .quiz may hold several
+      # questions, and its Check button is not an option), else its buttons.
       while IFS= read -r q; do
-        [ -n "$q" ] && unequal+=("${page#"$ws"/} -> $q")
+        case $q in
+          '') ;;
+          unread:*) unread+=("${page#"$ws"/} -> ${q#unread: }") ;;
+          *) unequal+=("${page#"$ws"/} -> $q") ;;
+        esac
       done <<< "$(perl -0777 -ne 'my $n = 0;
         while (/<(\w+)\b[^>]*\bclass\s*=\s*(["\x27])(?:[^"\x27]*\s)?quiz(?:\s[^"\x27]*)?\2[^>]*>/gis) {
           my ($tag, $rest, $d) = ($1, substr($_, $+[0]), 1); my $end = length $rest;
           while ($rest =~ /<(\/?)$tag\b[^>]*>/gi) { $d += $1 ? -1 : 1; if (!$d) { $end = $-[0]; last } }
-          my $q = substr($rest, 0, $end); $n++; my @c = map { (my $t = $_) =~ s/<[^>]*>//g; scalar(() = $t =~ /\S+/g) } $q =~ /<button\b[^>]*>(.*?)<\/button>/gis;
-          my %u = map { $_ => 1 } @c; print "quiz $n: ", join(",", @c), "\n" if @c > 1 && keys(%u) > 1 }' "$page")"
+          my $q = substr($rest, 0, $end); $n++;
+          my (%g, @k);
+          for (grep { /<input\b[^>]*\btype\s*=\s*["\x27]?radio\b/i } $q =~ /<label\b[^>]*>(.*?)<\/label>/gis) {
+            my ($nm) = /\bname\s*=\s*["\x27]?([^"\x27\s>]+)/i; $nm //= ""; push @k, $nm unless $g{$nm}; push @{$g{$nm}}, $_ }
+          unless (@k) { @k = (""); $g{""} = [$q =~ /<button\b[^>]*>(.*?)<\/button>/gis] }
+          for my $nm (@k) {
+            my $id = "quiz $n" . (@k > 1 ? " $nm" : "");
+            my @c = map { (my $t = $_) =~ s/<[^>]*>//g; scalar(() = $t =~ /\S+/g) } @{$g{$nm}};
+            if (@c < 2) { print "unread: $id\n"; next }
+            my %u = map { $_ => 1 } @c; print "$id: ", join(",", @c), "\n" if keys(%u) > 1 } }' "$page")"
       dir=$(dirname "$page")
       while IFS= read -r href; do
         target=${href%%#*}
@@ -218,7 +233,8 @@ case "${1:-init}" in
       --argjson references "$( (find "$ws/reference" -name '*.html' 2>/dev/null || true) | wc -l | tr -d ' ')" \
       --argjson broken "$(printf '%s\n' "${broken[@]:-}" | json_lines)" \
       --argjson unequal "$(printf '%s\n' "${unequal[@]:-}" | json_lines)" \
-      '{lessons:$lessons, references:$references, broken_links:$broken, unequal_quizzes:$unequal}'
+      --argjson unread "$(printf '%s\n' "${unread[@]:-}" | json_lines)" \
+      '{lessons:$lessons, references:$references, broken_links:$broken, unequal_quizzes:$unequal, unread_quizzes:$unread}'
     ;;
   promote)
     staging=${2:?usage: onboard-probe.sh promote <staging> <workspace>}
