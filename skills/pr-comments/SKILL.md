@@ -315,6 +315,7 @@ After approval, run the state check again before anything else; the answer may h
 
 On **commit and push**, follow the `git` convention:
 - Stage only the files Phase 3 changed, and commit them.
+- `git fetch origin <head>`. If `git rev-list --count HEAD..origin/<head>` is not `0`, someone else pushed: stop before pushing, report the count, and offer to rebase the fix commit onto `origin/<head>` (one question). On a rebase conflict, `git rebase --abort` and stop; post nothing.
 - `git push`, and post only after the push succeeds. If it fails, stop before posting: replies would point at code the reviewer cannot see. Report the push error, and leave the replies for a rerun.
 
 Never one question per comment: it breaks the one-question rule and is unusable at fifteen comments.
