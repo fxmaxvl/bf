@@ -124,6 +124,7 @@ def read_output(root, state):
         'parallel_audit':  state.get('parallel_audit', PARALLEL_AUDIT_DEFAULT),
         'collect_todos':   state.get('collect_todos'),
         'audit_started_at': state.get('audit_started_at'),
+        'pending_fixes':   state.get('pending_fixes'),
         'artifacts_dir':   adir,
         'artifact_prefix': prefix,
         'paths':           artifact_paths(adir, prefix),

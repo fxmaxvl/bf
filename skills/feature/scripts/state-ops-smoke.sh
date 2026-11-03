@@ -41,4 +41,10 @@ baseline=$(cd "$repo" && HOME=$home bash "$script" --init --slug t --idea x 2>/d
     python3 -c 'import json,sys; print(json.load(sys.stdin)["paths"]["untracked_baseline"])')
 eq "init writes the untracked baseline, .bf/ excluded" "$(tr '\0' '\n' < "$baseline")" "stray one.md"
 
+pending() { (cd "$repo" && bash "$script" | python3 -c 'import json,sys; print(json.load(sys.stdin)["pending_fixes"])'); }
+(cd "$repo" && bash "$script" pending_fixes=C1,K2 >/dev/null)
+eq "pending_fixes round-trips through read" "$(pending)" "C1,K2"
+(cd "$repo" && bash "$script" pending_fixes=null >/dev/null)
+eq "pending_fixes=null clears it" "$(pending)" None
+
 [ "$fails" -eq 0 ]
