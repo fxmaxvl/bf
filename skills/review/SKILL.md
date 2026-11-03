@@ -135,7 +135,7 @@ pr_repo="$url_repo"; clone_dir="${reports_dir%/reviews}/clones/$pr_repo"
 project_root="$clone_dir"; cd "$project_root"
 ```
 
-`--filter=blob:none` keeps the history, so the PR merge base resolves. If the clone fails, print the error and stop.
+`--filter=blob:none` keeps the history, so the PR merge base resolves. If the clone fails, print the error and stop. The shell cwd can reset between Bash calls, so start every later Bash call with `cd "<project_root>" &&`.
 
 ### Resolve conventions
 
@@ -307,6 +307,8 @@ Host repository rules (apply as the Code Review Convention describes): <one path
 
 The review scope has already been resolved by the orchestrating skill.
 
+project_root: <project_root> (changed_files are relative to it)
+
 changed_files:
 <one path per line from changed_files>
 
@@ -390,7 +392,7 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 
 <one path per line from changed_files>
 
-Proceed with scan mode using these paths.
+Proceed with scan mode using these paths. They are relative to <project_root>. Start every Bash call with `cd "<project_root>" &&`.
 
 Apply the rules in <resolved absolute path to prose.md> to all prose you return.
 
@@ -406,7 +408,7 @@ Do NOT run `changed-packages.sh`. Treat the following paths as `changed_files` i
 
 <one path per line from changed_files>
 
-Proceed with scan mode using these paths.
+Proceed with scan mode using these paths. They are relative to <project_root>. Start every Bash call with `cd "<project_root>" &&`.
 
 Apply the rules in <resolved absolute path to prose.md> to all prose you return.
 
@@ -706,6 +708,7 @@ This gives you `test_commands`. If `test_commands` is non-empty:
       <captured test output>
 
       ## Changed Files
+      Relative to <project_root>:
       <one path per line from changed_files>
 
       ## Instructions
@@ -751,6 +754,7 @@ Read each of these files and apply it strictly:
 Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
 
 ## Files to Re-review
+Relative to <project_root>:
 <one path per line from changed_files>
 
 ## What the Fix Changed
