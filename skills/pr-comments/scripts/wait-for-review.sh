@@ -33,7 +33,8 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --timeout)  TIMEOUT="${2:-}"; shift 2 || die bad_args "--timeout needs a value" ;;
     --interval) INTERVAL="${2:-}"; shift 2 || die bad_args "--interval needs a value" ;;
-    ""|--*) shift ;;
+    ""|--wait|--all) shift ;;  # the skill's own flags, as in fetch-pr-comments.sh
+    -*) die bad_args "unknown flag: $1" ;;
     *)  PR="$1"; shift ;;
   esac
 done

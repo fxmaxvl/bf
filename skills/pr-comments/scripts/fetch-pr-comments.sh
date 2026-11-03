@@ -33,7 +33,8 @@ ARG=""
 for a in "$@"; do
   case "$a" in
     --all) INCLUDE_ALL=true ;;
-    ""|--*) ;;
+    ""|--wait) ;;
+    -*) die bad_args "unknown flag: $a" ;;
     *) ARG="$a" ;;
   esac
 done
