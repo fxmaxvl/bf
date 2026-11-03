@@ -195,7 +195,7 @@ case "${1:-init}" in
     broken=(); unequal=()
     for page in "$ws"/lessons/*.html "$ws"/reference/*.html; do
       [ -f "$page" ] || continue
-      # Each quiz runs from one class="quiz" to the next; its nested .fb div closes first, so </div> cannot bound it.
+      # Each quiz runs from one class="quiz" to the next. Its nested .fb div closes first, so </div> cannot bound it.
       while IFS= read -r q; do
         [ -n "$q" ] && unequal+=("${page#"$ws"/} -> $q")
       done <<< "$(perl -0777 -ne 'my @q = split /class="quiz"/; shift @q; my $n = 0;
