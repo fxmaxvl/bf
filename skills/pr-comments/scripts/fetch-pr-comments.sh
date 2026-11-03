@@ -3,7 +3,8 @@
 #
 # Usage: fetch-pr-comments.sh [<pr-number> | <pr-url> | --all]
 #   no arg   -> PR for the current branch
-#   --all    -> include already-resolved threads and threads we already answered
+#   --all    -> include already-resolved threads, threads we already answered, and our own
+#               PR-level comments and review bodies
 #
 # Output (stdout, single JSON object):
 #   {pr, url, title, head_sha, last_bot_review, viewer, base, head, threads[], files[], notes[], counts{}}
@@ -119,7 +120,7 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
 
   | ( [ $pr.comments.nodes[]
         | select((.body // "") | test("\\S"))
-        | select((.author.login // "") != $me)
+        | select($all or (.author.login // "") != $me)
         | {
             kind: "issue",
             thread_id: null, comment_id: null,
@@ -134,7 +135,7 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
 
   | ( [ $pr.reviews.nodes[]
         | select((.body // "") | test("\\S"))
-        | select((.author.login // "") != $me)
+        | select($all or (.author.login // "") != $me)
         | {
             kind: "review",
             thread_id: null, comment_id: null,
@@ -158,6 +159,8 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
     ) as $bot_review
   | ($pr.headRefOid // $pr.commits.nodes[0].commit.oid // null) as $head_sha
 
+  | ( [ ($pr.comments.nodes + $pr.reviews.nodes)[]
+        | select(((.body // "") | test("\\S")) and (.author.login // "") == $me) ] | length ) as $own
   | ($threads + $issues + $reviews) as $every
   | ( if $all then $every
       else [ $every[] | select(.resolved == false and .answered_by_viewer == false) ]
@@ -191,6 +194,7 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" '
             | if ($r > 0 and ($all|not)) then "\($r) resolved thread(s) skipped — rerun with --all to include" else empty end ),
           ( ([ $every[] | select(.answered_by_viewer) ] | length) as $a
             | if ($a > 0 and ($all|not)) then "\($a) thread(s) already answered by \($me) skipped — rerun with --all to include" else empty end ),
+          ( if ($own > 0 and ($all|not)) then "\($own) PR-level comment(s) or review(s) by \($me) skipped — rerun with --all to include" else empty end ),
           ( ([ $open[] | select(.outdated) ] | length) as $o
             | if $o > 0 then "\($o) actionable thread(s) are outdated — the code they point at has moved" else empty end ),
           ( if ($bot_review != null and $bot_review.sha != null and $head_sha != null and $bot_review.sha != $head_sha)
