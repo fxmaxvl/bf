@@ -28,7 +28,9 @@ Print banner (plain text, not in a code block):
 Resolve the scope in one call — do not derive diffs by hand:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-untracked "$ARGUMENTS"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-untracked - <<'BF_ARGS'
+$ARGUMENTS
+BF_ARGS
 ```
 
 It returns `{root, mode, file_count, added, removed, files[]}`. `mode` is `working` (uncommitted, brand-new untracked files included),

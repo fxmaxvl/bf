@@ -25,8 +25,7 @@ Sub-skill SKILL.md files are bundled with the plugin. Prepend `${CLAUDE_PLUGIN_R
 
 **Invocation patterns:**
 
-- **Inline** (user interaction required): Read the SKILL.md at the listed path, then follow its instructions directly in the current conversation. Do **not** use the Skill tool or Agent tool. The sub-skill shares the current conversation context — state from prior steps is immediately visible to it, but user interaction is required to receive results.
-- **Agent** (written below as "dispatch `<path>` as an Agent"): do **not** read the SKILL.md yourself. Interpolate its resolved absolute path into the agent's `prompt` and instruct the agent to read that file and follow it — `${CLAUDE_PLUGIN_ROOT}` is expanded by the orchestrator because the agent cannot expand it. Any per-phase overrides go in the prompt alongside the path. Always pass the declared model. The sub-skill runs in an isolated context — it cannot see the current conversation state and must re-derive anything it needs (e.g. by re-running detect scripts). Results are returned via files, not conversation context. Add one more line to every agent prompt, including the inline fix-agent prompts below: "Apply the rules in `<prose path>` to code comments and to all prose you return.", where `<prose path>` is the `prose` entry from `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" prose`, resolved once per run.
+Follow **Sub-skill Invocation** in `plugin-main.md`. Inline is for sub-skills that need user interaction. Results from Agent sub-skills come back through files.
 
 ## Model Routing
 
@@ -101,13 +100,15 @@ init → refine → [auto] research → [auto] plan (from Q&A) → [GATE] execut
 init → refine → [auto] research → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```
 
-Quick mode skips **only** brainstorm and review-design. Every other phase — refine, research, plan, execute, verify, review-impl, verify (silent), finalize — is **mandatory** regardless of how simple or obvious the fix appears. `skip_plan_gates` can turn off only the advisory plan gates inside Phase 3; no phase is skipped. Do not collapse, merge, or skip phases because the task looks trivial. The phases exist as quality gates that apply at all complexity levels.
+Quick mode skips **only** brainstorm and review-design. Every other phase — refine, research, plan, execute, verify, audit (complexity + consistency), review-impl, verify (silent), finalize — is **mandatory** regardless of how simple or obvious the fix appears. `skip_plan_gates` can turn off only the advisory plan gates inside Phase 3; no phase is skipped. Do not collapse, merge, or skip phases because the task looks trivial. The phases exist as quality gates that apply at all complexity levels.
 
 ## On Invocation
 
 1. **Probe arguments and git state:**
    ```
-   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/init-probe.sh" "$ARGUMENTS"
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/init-probe.sh" <<'BF_ARGS'
+$ARGUMENTS
+BF_ARGS
    ```
    The script outputs JSON with:
    - `quick` — whether `--quick` was present
@@ -273,6 +274,7 @@ Run up to 3 analyze → fix cycles:
 5. Run both gates on the spec in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board, dispatched in one message, both awaited before you proceed (phase is still `review-design` — both skills auto-detect spec advisory mode):
    - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus)
    - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus)
+   Start the silent-agent watch from **Parallel Fan-Out** after the spawn; the progress test is each gate's report block in `paths.temp`.
    Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
 6. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=research phase_status=in_progress
@@ -353,33 +355,7 @@ Print banner: `── feature | Audit Stack ────────────
 
 ### If `parallel_audit` is `false` (opt-out — sequential)
 
-**Record start timestamp** before the first scan cycle — store it in state, where it survives across orchestrator turns:
-
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" audit_started_at=$(date -u +%s)
-```
-
-Run up to 3 scan → fix cycles (complexity & consistency):
-
-1. Run both gates in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board (phase is `verify` — both skills auto-detect scan mode):
-   - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus)
-   - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus)
-2. Check both reports:
-   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
-   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Consistency Report"`
-   - Overall STATUS: escalate to `BLOCK` if either returns `BLOCK`; otherwise `ADVISORY` if either returns `ADVISORY`; else `PASS`
-3. If overall STATUS is `PASS` or `ADVISORY`: show findings if any, proceed to step 5
-4. If overall STATUS is `BLOCK`:
-   - Show the blocked issues from both reports to the user
-   - Ask: "Should I fix these issues?"
-   - If yes: record **Pending fixes**, then spawn a fix agent (model: sonnet) with this prompt: "Read the `## Complexity Report` and `## Consistency Report` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each issue under Blocked Issues in either report, apply the prescribed fix. Do not modify any file outside `changed_files`. If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence in `changed_files`; list any outside it in your summary. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`). Apply the rules in `<prose path>` to code comments and to all prose you return."
-     Then go back to step 1
-   - If no (user accepts as-is): proceed to step 5
-   - If this was already the 3rd cycle: tell the user "Max fix cycles reached. Review the blocked issues manually." and stop
-5. ```
-   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=review-impl phase_status=in_progress
-   ```
-6. Proceed immediately to Phase 5 (no approval gate)
+Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/references/sequential-audit.md` and follow it, then continue at Phase 5.
 
 ### If `parallel_audit` is `true` (default — concurrent fan-out)
 
@@ -390,13 +366,11 @@ Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
    - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent
    - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent
    - `review-impl`: dispatch `feature/review-impl/SKILL.md` as an Agent
-   IMPORTANT: all three must be in the SAME assistant message so they execute in parallel, and the fan-out is atomic — wait for all three to return before proceeding. Do not chain them, and do not have them message each other.
+   IMPORTANT: all three must be in the SAME assistant message so they execute in parallel, and the fan-out is atomic — wait for all three to return before proceeding. Do not chain them, and do not have them message each other. Start the silent-agent watch from **Parallel Fan-Out** after the spawn; the progress test is each agent's report block in `paths.temp`.
 3. **Record end timestamp:** after all three return, log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (parallel)"`, reading `audit_started_at` from state.
 4. Check all three reports:
-   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report"`
-   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Consistency Report"`
-   - `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Implementation Review"`
-5. Aggregate overall STATUS: `BLOCK` if any gate returns `BLOCK` or review-impl returns `CONCERN`; `ADVISORY` if any gate returns `ADVISORY`; else `PASS`.
+   `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report" --block "## Consistency Report" --block "## Implementation Review"`
+5. Act on the `OVERALL:` line it prints (`PASS`, `ADVISORY`, `BLOCK` or `NOT_FOUND`). Treat `NOT_FOUND` as a gate that did not report and re-run that gate once. If the report is still `NOT_FOUND` after the re-run, treat the gate as `BLOCK`: do not proceed, and tell the user the gate produced no report.
 6. If `PASS` or `ADVISORY`: show findings, then:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
@@ -405,7 +379,7 @@ Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
 7. If `BLOCK`:
    - Show blocked issues + review-impl concerns to the user.
    - Ask: "Should I fix these issues?"
-   - If yes: record **Pending fixes**, then spawn ONE fix agent (model: sonnet) with prompt: "Read the `## Complexity Report`, `## Consistency Report` and `## Implementation Review` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each blocked issue and each review-impl concern, apply the prescribed fix. Stay within `changed_files`. If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence in `changed_files`; list any outside it in your summary. Follow the `dev` convention. Apply the rules in `<prose path>` to code comments and to all prose you return." Then go back to step 1 (next cycle).
+   - If yes: record **Pending fixes**, then spawn ONE fix agent (model: sonnet) with prompt: "Read the `## Complexity Report`, `## Consistency Report` and `## Implementation Review` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each blocked issue and each review-impl concern, apply the prescribed fix. Stay within `changed_files`. Follow the `dev` convention. Apply the rules in `<prose path>` to code comments and to all prose you return." Then go back to step 1 (next cycle).
    - If no:
      ```
      bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress

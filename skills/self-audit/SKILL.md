@@ -39,13 +39,15 @@ These checks are mechanical and already settled: frontmatter fields, `name`/dire
 
 Skip this phase if `$ARGUMENTS` contains `--static-only`. It skips only this phase — the mechanical findings still dedupe, still get your approval, and still get filed.
 
-What remains needs reading comprehension, so fan out three **read-only** lenses per **Parallel Fan-Out** in `plugin-main.md`: named agents, dispatched in a single message, all three awaited before anything is merged, no messaging between them. Give each the repo root, the scope, and the Phase 1 findings so nobody re-reports a static hit. Each returns a list of findings in the Phase 3 shape — and edits nothing.
+What remains needs reading comprehension, so fan out three **read-only** lenses per **Parallel Fan-Out** in `plugin-main.md`: named agents, dispatched in a single message, all three awaited before anything is merged, no messaging between them. Give each the repo root, the scope, and the Phase 1 findings so nobody re-reports a static hit. Add the line "Apply the rules in `<prose path>` to all prose you return.", with the path from `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" prose`. Each returns a list of findings in the Phase 3 shape — and edits nothing.
 
 | Agent | Looks for |
 |---|---|
 | `drift-lens` | Divergence from `plugin-main.md` and the engineering guidelines that grep cannot see: questions batched into one turn, artifacts written outside `.bf/`, hard-coded convention paths instead of the 3-step lookup, internal process names leaking into durable records, fan-out that skips the atomic wait. |
 | `token-lens` | Work the model is asked to do that a script should: derivation repeated every invocation, unbounded `git`/`gh` output, whole-file reads where the block-reading pattern applies, prose duplicated across skills that belongs in `conventions/`. |
 | `coherence-lens` | Instructions that no longer match reality: prose describing removed behavior, a phase flow that disagrees with its own phase list, a skill citing another's phases inaccurately, a README row that oversells what the skill does. |
+
+Right after the spawn, start the silent-agent watch from **Parallel Fan-Out**. A lens whose findings have not come back after that is the retry case in Edge Cases: run it inline.
 
 Every finding must cite `path:line` and name the convention or cost it violates. A lens that cannot cite is reporting a hunch — drop it.
 
@@ -106,7 +108,7 @@ Print the filed issue urls, the number deduped away, and the artifact path. Clos
 | `harvest-issues.sh` is missing or errors | Skip dedupe, warn that duplicates are possible, and continue — never skip filing over it. |
 | A lens returns findings without `path:line` | Drop them and note the count; uncitable findings are not filed. |
 | `gh` unauthenticated | Stop before filing, keep the artifact, and tell the user to run `gh auth login` then re-invoke. |
-| A lens agent goes idle without reporting | Ask it once for its findings. If it stays silent, run that lens inline from the same brief, so the fan-out still completes — a partial fan-out is ruled out by the **Parallel Fan-Out** convention. Only if the inline pass also fails, record the gap in the artifact so the sweep is visibly incomplete rather than silently narrowed. |
+| A lens agent goes idle or stays silent after the watch | Ask it once for its findings. If it stays silent, run that lens inline from the same brief, so the fan-out still completes — a partial fan-out is ruled out by the **Parallel Fan-Out** convention. Only if the inline pass also fails, record the gap in the artifact so the sweep is visibly incomplete rather than silently narrowed. |
 
 Here is the request:
 $ARGUMENTS

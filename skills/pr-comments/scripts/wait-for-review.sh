@@ -58,7 +58,7 @@ review_count() {
 }
 
 actionable_now() {
-  bash "$FETCH" ${PR:+"$PR"} 2>/dev/null | jq -r '.counts.actionable // empty' 2>/dev/null
+  printf '%s' "${PR:-}" | bash "$FETCH" 2>/dev/null | jq -r '.counts.actionable // empty' 2>/dev/null
 }
 
 BEFORE=$(review_count)
@@ -76,7 +76,7 @@ while :; do
       SHA=$(gh pr view ${PR:+"$PR"} --json reviews 2>/dev/null | jq -r --arg b "$BOT" '[.reviews[]
         | select(.author.login == $b and .state != "PENDING")] | sort_by(.submittedAt // "") | last | .commit.oid // empty' 2>/dev/null)
     else
-      SHA=$(bash "$FETCH" ${PR:+"$PR"} 2>/dev/null | jq -r '.last_bot_review.sha // empty' 2>/dev/null)
+      SHA=$(printf '%s' "${PR:-}" | bash "$FETCH" 2>/dev/null | jq -r '.last_bot_review.sha // empty' 2>/dev/null)
     fi
     if [ "$SHA" = "$HEAD_SHA" ]; then STATUS=review_landed; break; fi
   else

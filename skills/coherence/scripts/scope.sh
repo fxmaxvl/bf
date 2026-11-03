@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Resolve the scope of a change to assess. Emits one JSON object.
 #
-# Usage: scope.sh [--with-diff] [--with-untracked] [target]
+# Usage: scope.sh [--with-diff] [--with-untracked] [target | -]
+#   target "-"        → read the target from stdin (see Script Input in plugin-main.md)
 #   target empty      → uncommitted changes; falls back to branch-vs-base when the tree is clean
 #   target "branch"   → current branch vs merge-base with origin/HEAD
 #   target <sha|range>→ that commit or range
@@ -35,6 +36,7 @@ while :; do
   esac
 done
 target="${1:-}"
+[ "$target" = - ] && target=$(cat)
 untracked_spec=()
 
 # `git diff --no-index` exits 1 whenever the files differ, so its status is not an error signal.

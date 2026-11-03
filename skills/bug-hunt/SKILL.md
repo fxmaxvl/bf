@@ -66,7 +66,7 @@ Spawn every hunter in **one message** per **Parallel Fan-Out**: `Agent`, `subage
 - Output: write `<run_dir>/hunters/<hunter_id>.json` as exactly
   `{"hunter_id","lens","findings":[{"file","line","end_line","severity":"critical|high|medium|low","title","why","repro_hint"}]}` — empty `findings` when nothing solid. Then, as its final act, report `done <hunter_id> <N findings>` to `team-lead`.
 
-Wait for every hunter. An idle notification after a report is a duplicate — ignore it. A hunter that errors or writes no valid file is re-spawned **once** with the same prompt; a second failure makes its lens a **coverage gap**. Do not proceed while any hunter or retry is in flight.
+Wait for every hunter. Right after the spawn, start the silent-agent watch from **Parallel Fan-Out**; the progress test is each hunter's `<run_dir>/hunters/<hunter_id>.json`. A hunter still silent after that counts as a failure for the retry-once rule below. An idle notification after a report is a duplicate — ignore it. A hunter that errors or writes no valid file is re-spawned **once** with the same prompt; a second failure makes its lens a **coverage gap**. Do not proceed while any hunter or retry is in flight.
 
 ## Phase 3 — Merge
 
@@ -80,12 +80,12 @@ It dedupes on file and anchored line ±2, counts `sources` by distinct hunter (n
 
 Spawn one verifier per batch in **one message**: `Agent`, `general-purpose`, `model: opus`, named `verifier-<batch_id>`. Each sees **only its batch's findings** from `merged.json` — never other batches, never the hunters' reasoning beyond each finding's own fields — and gets:
 
-- Task: re-read the code and give each finding one verdict — `confirmed` (real bug), `refined` (real, but corrected severity/location/title — supply the corrected fields), `rejected` (not a bug), or, **in branch and pr mode only**, `pre-existing` (real, but not introduced by the change — check with `git diff <base>...HEAD`). Path and repo hunts have no baseline: never `pre-existing`.
+- Task: re-read the code and give each finding one verdict — `confirmed` (real bug), `refined` (real, but corrected severity/location/title — supply the corrected fields), `rejected` (not a bug), or, **in branch and pr mode only**, `pre-existing` (real, but not introduced by the change — check with `git diff <base>...HEAD -- <file>`). Path and repo hunts have no baseline: never `pre-existing`.
 - The same prose line as the hunters get, with "every description and reason you write" replaced by "every note you write".
 - `repro: true` → for each `confirmed`/`refined` finding at `critical` or `high`, also write a failing test that demonstrates it under `<run_dir>/repro/<finding_id>/`, matching the project's test framework. Never write inside the project tree.
 - Output: write `<run_dir>/verifiers/<batch_id>.json` as `{"batch_id","verdicts":[{"id","verdict","severity","file","line","title","note"}]}`, then report `done <batch_id>` to `team-lead` as its final act.
 
-Same wait, duplicate, and retry-once rules as Phase 2. Then:
+Same wait, silent-agent watch, duplicate, and retry-once rules as Phase 2. The progress test is `<run_dir>/verifiers/<batch_id>.json`. Then:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" resolve "<run_dir>"
@@ -109,7 +109,7 @@ Spawn one analyst: `Agent`, `general-purpose`, `model: opus`, named `analyst`. I
 - It never changes a verdict, severity or location.
 - Output: write `<run_dir>/analysis.json` as `{"groups":[{"id","kind","title","root_cause","fix_direction","members","keep"?,"suspects"?:[{"location","note"}]}],"links":[…]}`. The validity rules live in the header of `findings.sh`; `analyze` enforces them. Then report `done analyst` to `team-lead` as its final act.
 
-Same wait, duplicate, and retry-once rules as Phase 2. Then:
+Same wait, silent-agent watch, duplicate, and retry-once rules as Phase 2. The progress test is `<run_dir>/analysis.json`. Then:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" analyze "<run_dir>"

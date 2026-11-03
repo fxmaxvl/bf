@@ -55,6 +55,11 @@ out=$(bash "$scope" --with-diff --with-untracked n.txt)
 ok=0; [ "$(mode "$out")" = paths ] && has "$out" n.txt || ok=1
 check "paths: names an untracked file" $ok
 
+echo q > "it's#1(x).txt"
+out=$(printf '%s\n' "it's#1(x).txt" | bash "$scope" --with-diff --with-untracked -)
+ok=0; [ "$(mode "$out")" = paths ] && has "$out" "it's#1(x).txt" || ok=1
+check "stdin: target with quote, parentheses and # arrives intact" $ok
+
 out=$(bash "$scope" --with-diff --with-untracked .)
 ok=0; has "$out" .bf/x.md && ok=1; has "$out" n.txt || ok=1
 check "paths: '.' skips .bf" $ok

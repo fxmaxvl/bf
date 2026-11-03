@@ -11,9 +11,12 @@ each prints one PASS/FAIL line per case and exits non-zero on any failure. Run t
 | `skills/coherence/scripts/scope-smoke.sh` | `scope.sh` |
 | `skills/scan-conventions/scripts/host-rules-smoke.sh` | `host-rules.sh` |
 | `skills/feature/scripts/finalize-git-smoke.sh` | `finalize-git.sh` |
+| `skills/feature/scripts/check-report-status-smoke.sh` | `check-report-status.sh` (one block, several blocks, the `OVERALL` escalation) |
+| `skills/feature/scripts/rename-only-smoke.sh` | `rename-only.sh` (pure rename, rename with edits, path-string-only edits, adds) |
 | `skills/feature/scripts/write-block-smoke.sh` | `write-block.sh` |
 | `skills/feature/scripts/state-ops-smoke.sh` | `state-ops.sh` (`parallel_audit`, `auto_fix_style`, `skip_plan_gates`, `pending_fixes`, `--archive` with a corrupt state and a same-hour name collision) |
 | `skills/feature/scripts/init-probe-smoke.sh` | `init-probe.sh` (`state_matches` for a leftover build state) |
+| `skills/review/scripts/merge-gate-reports-smoke.sh` | `merge-gate-reports.sh` (renumbering, severity mapping, `UNKNOWN`, STATUS escalation) |
 | `skills/review/scripts/pr-review-payload-smoke.sh` | `pr-review-payload.sh` (inline vs body placement against the diff) |
 | `skills/self-audit/scripts/audit-static-smoke.sh` | `audit-static.sh` (kit-template reference check) |
 | `skills/onboard-project/scripts/onboard-probe-smoke.sh` | `onboard-probe.sh` (`init`, `verify`, `promote` and `brief`) |

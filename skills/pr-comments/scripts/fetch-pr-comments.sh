@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fetch every actionable comment on a PR as one JSON payload.
 #
-# Usage: fetch-pr-comments.sh [<pr-number> | <pr-url> | --all]
+# Usage: fetch-pr-comments.sh <<'BF_ARGS' ... BF_ARGS   (arguments on stdin: [<pr-number> | <pr-url> | --all])
 #   no arg   -> PR for the current branch
 #   --all    -> include already-resolved threads, threads we already answered, and our own
 #               PR-level comments and review bodies
@@ -29,8 +29,9 @@ command -v gh  >/dev/null 2>&1 || die gh_missing "gh CLI not installed"
 command -v jq  >/dev/null 2>&1 || die jq_missing "jq not installed"
 gh auth status >/dev/null 2>&1 || die gh_unauthenticated "run: gh auth login"
 
-# The skill passes "$ARGUMENTS" as one word, e.g. "125 --wait"; split it here, without globbing.
-set -f; set -- $*; set +f
+# The skill passes "$ARGUMENTS" on stdin as one line, e.g. "125 --wait"; split it here, without globbing.
+ARGS=$(cat)
+set -f; set -- $ARGS; set +f
 INCLUDE_ALL=false
 ARG=""
 for a in "$@"; do

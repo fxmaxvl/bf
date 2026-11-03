@@ -70,6 +70,9 @@ Spawn both challengers in a single message per the **Parallel Fan-Out** conventi
 - **Verdict A** in full
 - Their assigned angle from the picked pair
 - Instruction to return a verdict ledger in the same `bf:decide` format, plus a `**Challenge:**` line stating where A is wrong/weak from their angle. If they agree with A, they must still explain why their angle does not undermine A.
+- The line "Apply the rules in `<prose path>` to all prose you return.", with the path from `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" prose`
+
+Start the silent-agent watch from **Parallel Fan-Out** after the spawn; the progress test is each challenger's returned verdict.
 
 Label results **Verdict B** and **Verdict C**.
 
@@ -78,7 +81,7 @@ Label results **Verdict B** and **Verdict C**.
 Tally the verdicts. Treat two verdicts as agreeing when they pick the same option (or, for open-ended questions, the same substantive answer).
 
 - **3/3 agree** → consensus. Return the consensus answer; confidence = `high`.
-- **2/3 agree** → majority. Return the majority answer; confidence = `medium`. Include a `**Dissent:**` block quoting the dissenter's challenge verbatim (one or two sentences).
+- **2/3 agree** → majority. Return the majority answer; confidence = `medium`. Include a `**Dissent:**` block restating the dissenter's challenge as plain rationale, without verdict labels or critic names (one or two sentences).
 - **3-way split** → no majority. Return all three positions with the strongest argument from each; confidence = `low`. Add a `**Flag:**` line naming the specific ambiguity blocking consensus.
 
 Before tallying, set aside any verdict that answers a different question than `QUESTION` — most often one that reframes the deliverable as the decision. Re-run that critic once with `QUESTION` restated at the top of its prompt. If Verdict A is the misread, re-run A first and then re-spawn B and C against the new A, since both were built on it. A verdict that misreads again is dropped and never quoted as `**Dissent:**`. With one verdict dropped, tally the remaining two (agreeing → majority; disagreeing → split). With more than one dropped, return `split` and a `**Flag:**` naming the framing problem — the question itself is not landing.
@@ -95,7 +98,7 @@ Output one final block in this exact shape:
 
 **Why:** <1–2 sentences citing concrete evidence — convention rule, code pattern, spec section by name/topic.>
 
-**Dissent:** <only if 2/3 — verbatim challenge from the dissenter, ≤2 sentences>
+**Dissent:** <only if 2/3 — the dissenter's challenge as plain rationale, no verdict labels or critic names, ≤2 sentences>
 **Flag:** <only if split — specific ambiguity the human needs to resolve>
 
 ---

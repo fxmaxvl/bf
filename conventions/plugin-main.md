@@ -45,6 +45,10 @@ Applies to every file a skill writes: code, scripts, tests and config.
 - **When unsure, leave it out.** A well-named function or variable replaces most comments; rename before you annotate.
 - This governs *adding* comments. Existing comments stay unless they are actively false — see `dev.md`.
 
+## Script Input
+
+Free-form user text (`$ARGUMENTS`) reaches a script on stdin through a quoted `<<'BF_ARGS'` heredoc, so quotes, spaces and `#` stay intact. A script that takes only that text reads stdin always (`init-probe.sh`, `fetch-pr-comments.sh`, `run-state.sh init`). A script whose operand also comes from other scripts reads stdin when the operand is `-` (`scope.sh`, `onboard-probe.sh`). Flags stay on the command line.
+
 ## Parallel Fan-Out
 
 When a skill spawns multiple sub-agents to work the **same task from independent angles** in parallel — multi-critic councils, multi-hypothesis investigation, concurrent review gates — follow this pattern. It defines *how* to fan out; each skill still decides *whether and when* to (e.g. behind a `parallel_audit` flag, or always).
@@ -56,6 +60,13 @@ When a skill spawns multiple sub-agents to work the **same task from independent
 - **If agents run in the background,** instruct each to report its result to the orchestrator as its final act — address it as `team-lead` (the literal `main` only resolves for agents spawned with the background flag; `team-lead` works from any teammate) — and have the orchestrator block on all completions before proceeding. A backgrounded agent that finishes its analysis but never reports will stall the fan-out.
 - **Watch for a silent agent.** Right after spawning background agents, start a background `sleep 600`. Each fan-out starts its own timer, and a timer covers only the agents spawned with it. On waking, message each of those agents with no report and nothing yet at its output path once by name, then `sleep 300`. Still silent: stop it, then re-spawn it once (this uses the skill's one retry) or do its share inline.
 - **An idle notification after the report is a duplicate.** A background agent often follows its final report with an idle notification that repeats the same result. Treat it as already handled: don't re-summarize it for the user or act on it twice.
+
+## Sub-skill Invocation
+
+Orchestrator skills (`feature`, `micro`, `design`) run their sub-skills in one of two ways. Each skill's own routing table says which one a sub-skill uses.
+
+- **Inline:** read the sub-skill's SKILL.md and follow it directly in the current conversation. Do **not** use the Skill tool or Agent tool. The sub-skill shares the conversation context, so state from earlier steps is visible to it.
+- **Agent** (written as "dispatch `<path>` as an Agent"): do **not** read the SKILL.md yourself. Interpolate its resolved absolute path into the agent's `prompt` and tell the agent to read that file and follow it. The orchestrator expands `${CLAUDE_PLUGIN_ROOT}` because the agent cannot. Put any per-phase overrides in the prompt beside the path, and always pass the declared model. The sub-skill runs in an isolated context. It cannot see the conversation and must re-derive what it needs, for example by re-running detect scripts. Results come back through files, not conversation context. Add one more line to every agent prompt, including inline fix-agent prompts: "Apply the rules in `<prose path>` to code comments and to all prose you return.", where `<prose path>` is the `prose` entry from `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" prose`, resolved once per run.
 
 ## Convention Lookup
 
