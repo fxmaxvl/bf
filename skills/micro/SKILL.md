@@ -96,6 +96,8 @@ Print banner: `── micro | Init ───────────────
 
 Print banner: `── micro | Clarify ───────────────────────────────`
 
+**Missing targets.** When the instruction targets the same file in several repos, check it exists in each `## Target Repos` checkout. If it is missing in some, list those repos and ask one question: create the file there, skip those repos, or handle them separately in another run. On skip or separate, remove those checkouts and drop their lines from `## Target Repos`. Ask any ambiguity question below only after this one is answered.
+
 If the instruction is clear and unambiguous → proceed immediately to Phase 2. Do **not** ask anything.
 
 If anything is ambiguous: ask ONE clarifying question (the single most important gap). Wait for the answer. If the instruction changed meaningfully, update `paths.qa` with the refined task. Then:
