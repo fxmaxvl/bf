@@ -71,6 +71,34 @@ main = main_branch(root)
 
 state_path = os.path.join(root, '.bf', 'sessions', 'build-state.json')
 
+def state_matches():
+    """None without state; True when the state belongs to this invocation.
+
+    Empty arguments are a plain resume and always match a feature or quick run. An issue or
+    ticket key outranks the idea text, which callers like bf:gh rewrite between runs.
+    """
+    if not os.path.exists(state_path):
+        return None
+    try:
+        with open(state_path) as f:
+            state = json.load(f)
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+        return False
+    if not isinstance(state, dict) or not all(
+            k in state for k in ('slug', 'build_timestamp', 'phase', 'phase_status')):
+        return False
+    mode = state.get('mode')
+    if mode not in ('full', 'quick'):
+        return False
+    if not (idea or gh_issue or jira_key):
+        return True
+    if quick != (mode == 'quick'):
+        return False
+    if gh_issue or jira_key:
+        return (gh_issue == (state.get('github_issue') or {}).get('number')
+                and jira_key == (state.get('jira') or {}).get('ticket_key'))
+    return idea == (state.get('idea') or '')
+
 print(json.dumps({
     'quick':          quick,
     'gh_issue':       gh_issue,
@@ -81,6 +109,7 @@ print(json.dumps({
     'main_branch':    main,
     'is_main':        cur == main,
     'has_state':      os.path.exists(state_path),
+    'state_matches':  state_matches(),
     'project_root':   root,
 }, indent=2))
 EOF

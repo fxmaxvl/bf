@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke check for hunt-init.sh scope resolution and findings.sh merge/resolve/analyze, against throwaway repos.
+# Smoke check for hunt-init.sh scope resolution and findings.sh merge/resolve/analyze/mark/timing, against throwaway repos.
 #
 # Usage: bug-hunt-smoke.sh
 # Contract: exits 0 when every case passes, 1 otherwise; prints one PASS/FAIL line per case.
@@ -38,6 +38,11 @@ out=$(bash "$init" --lenses bogus)
 check "bad lens is an error" "$(q "$out" '.error == "unknown_lens"')"
 out=$(bash "$init" --repo lib)
 check "repo plus path is an error" "$(q "$out" '.error == "conflicting_scope"')"
+# alarm 5: a regression to the old parse loop fails here instead of hanging the smoke.
+out=$(perl -e 'alarm 5; exec @ARGV' bash "$init" --pr)
+check "--pr with no value is missing_value, not a hang" "$(q "$out" '.error == "missing_value"')"
+out=$(perl -e 'alarm 5; exec @ARGV' bash "$init" --bogus)
+check "unknown flag is unknown_flag, not a hang" "$(q "$out" '.error == "unknown_flag"')"
 r1=$(bash "$init" | jq -r .report_path); touch "$r1"; r2=$(bash "$init" | jq -r .report_path)
 check "report path never collides" "$([ "$r1" != "$r2" ]; echo $?)"
 
@@ -66,14 +71,14 @@ echo 'not json' > "$run/hunters/h5.json"
 m=$(bash "$findings" merge "$run")
 check "merge: ±2 is anchored, not chained (10,11,12 | 14,16)" "$(q "$m" '[.findings[] | select(.file == "src/a.js") | .line] | sort == [10,14]')"
 check "merge: sources count distinct hunters" "$(q "$m" '(.findings[] | select(.line == 10) | .sources) == 4')"
-check "merge: one hunter on two lenses is one source" "$(q "$m" '(.findings[] | select(.line == 14) | .sources == 2 and (.lenses | length) == 2)')"
+check "merge: a file not named after its hunter_id adds nothing and is listed" "$(q "$m" '(.findings[] | select(.line == 14) | .sources == 1 and .lenses == ["logic"]) and .ignored == ["hunters/h4b.json"]')"
 check "merge: highest severity wins, ids ordered by severity" "$(q "$m" '.findings[0].severity == "critical" and .findings[0].id == "F1"')"
-check "merge: nothing dropped" "$(q "$m" '([.findings[].members[]] | length) == 9')"
+check "merge: nothing dropped" "$(q "$m" '([.findings[].members[]] | length) == 8')"
 check "merge: invalid hunter output reported" "$(q "$m" '.invalid == ["h5"]')"
 
 mkdir -p "$tmp/pack/hunters"
 for d in a b c d e f g h; do
-  printf '{"hunter_id":"h-%s","lens":"logic","findings":[{"file":"%s/x.js","line":1,"severity":"medium","title":"t"}]}\n' "$d" "$d" > "$tmp/pack/hunters/$d.json"
+  printf '{"hunter_id":"h-%s","lens":"logic","findings":[{"file":"%s/x.js","line":1,"severity":"medium","title":"t"}]}\n' "$d" "$d" > "$tmp/pack/hunters/h-$d.json"
 done
 p=$(bash "$findings" merge "$tmp/pack")
 check "pack: 8 directories fit in 6 batches, none dropped" "$(q "$p" '(.batches | length) == 6 and ([.batches[].finding_ids[]] | length) == 8')"
@@ -84,6 +89,8 @@ check "pack: cap is honoured" "$(q "$p" '(.batches | length) == 2')"
 b1=$(jq -r '.batches[] | select(.dirs | index("src")) | .id' <<< "$m")
 f1=$(jq -r '.findings[] | select(.line == 10) | .id' <<< "$m")
 printf '{"batch_id":"%s","verdicts":[{"id":"%s","verdict":"confirmed","note":"real"}]}\n' "$b1" "$f1" > "$run/verifiers/$b1.json"
+# A stray verifier file: its verdicts must not count, so counts.surviving stays 1 below.
+jq -c '{batch_id: "B1", verdicts: [.findings[] | {id, verdict: "confirmed", note: "stray"}]}' <<< "$m" > "$run/verifiers/B1.input.json"
 fin=$(bash "$findings" resolve "$run")
 check "resolve: verdict joined" "$(q "$fin" '.findings[] | select(.id == "'"$f1"'") | .verdict == "confirmed"')"
 check "resolve: surviving flag and count follow the verdict" "$(q "$fin" '(.findings[] | select(.id == "'"$f1"'") | .surviving) == true and (.findings | map(select(.verdict == "unverified" and .surviving)) | length) == 0 and .counts.surviving == 1')"
@@ -173,13 +180,19 @@ check "analyze: no final.json is an error" "$(q "$o" '.error == "no_final"')"
 # Surviving F ids come from the files above.
 pl="$tmp/pipeline"; mkdir -p "$pl/hunters" "$pl/verifiers"
 cp "$run/hunters/h1.json" "$run/hunters/h2.json" "$pl/hunters/"
-bash "$findings" merge "$pl" >/dev/null
+# Stray files: neither is named after its own hunter_id or a batch id, so neither may add findings,
+# verdicts or a timing row.
+echo '{"hunter_id":"h1","lens":"logic","findings":[{"file":"z/z.js","line":1,"severity":"high","title":"retry"}]}' > "$pl/hunters/h1.retry.json"
+pm=$(bash "$findings" merge "$pl")
+check "merge: a stray hunter file with findings changes nothing" "$(q "$pm" '([.findings[] | select(.file == "z/z.js")] | length) == 0 and .counts.findings == 3 and .ignored == ["hunters/h1.retry.json"]')"
 ids=$(jq -r '[.findings[] | select(.line == 10 or .line == 14) | .id] | join(" ")' "$pl/merged.json")
 read -r pa pb <<< "$ids"
 for b in $(jq -r '.batches[].id' "$pl/merged.json"); do
   jq -c --arg b "$b" '(.batches[] | select(.id == $b)) as $batch | {batch_id: $b, verdicts: [.findings[] | select(.id as $i | $batch.finding_ids | index($i)) | {id, verdict: "confirmed", note: "real"}]}' "$pl/merged.json" > "$pl/verifiers/$b.json"
 done
-bash "$findings" resolve "$pl" >/dev/null
+jq -nc --arg a "$pa" '{batch_id: "B1", verdicts: [{id: $a, verdict: "rejected", note: "stray"}]}' > "$pl/verifiers/B1.input.json"
+pr=$(bash "$findings" resolve "$pl")
+check "resolve: a stray verifier file with verdicts changes nothing" "$(q "$pr" '(.findings[] | select(.id == "'"$pa"'") | .verdict) == "confirmed" and .counts.surviving == 3 and .ignored == ["hunters/h1.retry.json","verifiers/B1.input.json"]')"
 jq -nc --arg a "$pa" --arg b "$pb" '{groups:[{id:"G1",kind:"duplicate",title:"t",root_cause:"r",fix_direction:"d",members:[$a,$b],keep:$a}],links:[]}' > "$pl/analysis.json"
 pa_out=$(bash "$findings" analyze "$pl")
 check "pipeline: merge, resolve and analyze compose; a duplicate folds out" "$(q "$pa_out" '.counts.groups == 1 and .counts.folded == 1 and ([.findings[] | select(.folded_into)] | length) == 1 and (.groups[0].folded | length) == 1')"
@@ -188,5 +201,53 @@ check "pipeline: analyzed.json is written and matches the output" "$(jq -e --arg
 echo '{"groups":[],"links":[]}' > "$pl/analysis.json"
 pe=$(bash "$findings" analyze "$pl")
 check "pipeline: an empty analysis passes through with no groups or folds" "$(q "$pe" '.counts.groups == 0 and .counts.folded == 0 and .groups == [] and .links == [] and ([.findings[] | select(.group != null or .folded_into != null)] | length) == 0')"
+
+check "timing: merge, resolve and analyze stamp script rows and per-file rows" "$(jq -se '[.[] | select(.by == "script") | .step] == ["merge","resolve","analyze","analyze"] and ([.[] | select(.step == "hunter") | .label] == ["h1","h2"]) and ([.[] | select(.step == "verifier")] | length) > 0' "$pl/timing.jsonl" >/dev/null; echo $?)"
+mk=$(bash "$findings" mark "$pl" report)
+check "timing: only <hunter_id>.json and <batch_id>.json files become agent rows" "$(jq -se --slurpfile m "$pl/merged.json" '([.[] | select(.step == "verifier") | .label] | sort) == ([$m[0].batches[].id] | sort)' "$pl/timing.jsonl" >/dev/null; echo $?)"
+check "timing: mark appends and prints an agent row" "$(q "$mk" '.step == "report" and .label == "" and .by == "agent" and .start == .end')"
+check "timing: mark with a label" "$(bash "$findings" mark "$pl" hunter h9 >/dev/null; jq -se '.[-1] | .step == "hunter" and .label == "h9"' "$pl/timing.jsonl" >/dev/null; echo $?)"
+o=$(bash "$findings" mark "$pl")
+check "timing: mark with no step is an error" "$(q "$o" '.error == "missing_step"')"
+ti=$(bash "$init" | jq -r .run_dir)
+check "timing: hunt-init.sh writes an init row" "$(jq -se '.[-1] | .step == "init" and .by == "script" and .end >= .start' "$ti/timing.jsonl" >/dev/null; echo $?)"
+
+tm="$tmp/timing"; mkdir -p "$tm"
+cat > "$tm/timing.jsonl" <<'J'
+{"step":"init","label":"","by":"script","start":0,"end":0.5}
+{"step":"hunt","label":"","by":"agent","start":10,"end":10}
+{"step":"hunter","label":"h1","by":"agent","start":100,"end":100}
+{"step":"hunter","label":"h2","by":"agent","start":110,"end":110}
+{"step":"hunter","label":"h3","by":"agent","start":160,"end":160}
+{"step":"merge","label":"","by":"script","start":165,"end":165.25}
+{"step":"verify","label":"","by":"agent","start":170,"end":170}
+{"step":"verifier","label":"B1","by":"agent","start":200,"end":200}
+{"step":"verifier","label":"B2","by":"agent","start":230,"end":230}
+{"step":"hunter","label":"h3","by":"agent","start":160,"end":160}
+{"step":"resolve","label":"","by":"script","start":231,"end":231.25}
+{"step":"report","label":"","by":"agent","start":300,"end":300}
+J
+t=$(bash "$findings" timing "$tm")
+check "timing: hunter spread and verify sum from the marks" "$(q "$t" '.pipeline == {hunter_spread: 60, verify_sum: 90, verify_wall: 60}')"
+check "timing: per-step durations, rerun rows deduped" "$(q "$t" '([.steps[] | select(.step == "hunter") | .duration] == [90, 100, 150]) and ([.steps[] | select(.step == "merge") | .duration] == [0.3])')"
+check "timing: a mark runs from the row that ended before it" "$(q "$t" '([.steps[] | select(.step == "hunt" or .step == "report") | .duration] == [9.5, 68.8])')"
+check "timing: script and agent split the wall time" "$(q "$t" '.wall == 300 and .script == 1 and .agent == 299')"
+cat > "$tm/timing.jsonl" <<'J'
+{"step":"hunt","label":"","by":"agent","start":10,"end":10}
+{"step":"hunter","label":"h1","by":"agent","start":100,"end":100}
+{"step":"hunt","label":"","by":"agent","start":200,"end":200}
+{"step":"hunter","label":"h2","by":"agent","start":300,"end":300}
+{"step":"verify","label":"","by":"agent","start":310,"end":310}
+{"step":"verifier","label":"B1","by":"agent","start":320,"end":320}
+{"step":"verify","label":"","by":"agent","start":330,"end":330}
+{"step":"verifier","label":"B2","by":"agent","start":400,"end":400}
+J
+t=$(bash "$findings" timing "$tm")
+check "timing: a second hunt or verify mark before a retry never makes a duration negative" "$(q "$t" '[.steps[] | select(.step == "hunter" or .step == "verifier") | .duration] == [90, 290, 10, 90]')"
+printf '%s\n' '{"step":"merge","label":"","by":"script","start":5,"end":6}' > "$tm/timing.jsonl"
+t=$(bash "$findings" timing "$tm")
+check "timing: missing marks give null, not an error" "$(q "$t" '.wall == 1 and .pipeline == {hunter_spread: null, verify_sum: null, verify_wall: null}')"
+o=$(bash "$findings" timing "$tmp/empty")
+check "timing: no timing.jsonl is an error" "$(q "$o" '.error == "no_timing"')"
 
 exit $fail

@@ -28,3 +28,5 @@ Implement the refactoring:
 3. Make the changes. Keep scope tight: only modify what the instruction describes.
 4. Update or add tests as needed.
 5. Commit following the `git` convention (resolved via the lookup in `plugin-main.md`). Use `refactor:` prefix. Stage by path only the files you changed or created, never `git add -A` or `git add .`, which also pick up stray files the session never made. Do **not** stage anything in `.bf/` except `.bf/conventions/`.
+
+If the prompt lists target repo lines (`<owner/repo> <checkout> <branch> ...`), edit, stage and commit only inside those checkouts with `git -C <checkout>`. Never touch the session repo.

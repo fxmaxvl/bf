@@ -1,0 +1,45 @@
+<!doctype html><html lang="en"><head><title>Lesson kit</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Copy this <style> into every lesson's and reference page's <head> and the <script> before </body>, verbatim. Add page-specific rules after the kit's. -->
+<style>
+:root{--bg:#fffff8;--fg:#111;--muted:#666;--accent:#a3361f;--rule:#ddd;--code-bg:#f4f1e8;--ok:#2e7d32;--bad:#b71c1c;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#151515;--fg:#e8e6df;--muted:#9a978e;--accent:#e07a5f;--rule:#333;--code-bg:#1f1f1c;--ok:#81c784;--bad:#ef9a9a;--card:#1b1b1b}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:18px/1.6 Georgia,"Iowan Old Style",serif;margin:0;padding:2rem 16px 4rem}
+main{max-width:46rem;margin:0 auto}
+h1{font-weight:400;font-size:2.1rem;line-height:1.2;margin:.5rem 0 1rem}
+h2{font-weight:400;font-style:italic;font-size:1.45rem;margin:2.2rem 0 .6rem;border-top:1px solid var(--rule);padding-top:1.2rem}
+a{color:var(--accent)}
+code,pre{font:14px/1.5 ui-monospace,Menlo,Consolas,monospace}
+code{background:var(--code-bg);padding:.1em .3em;border-radius:3px}
+pre{background:var(--code-bg);padding:.9rem 1rem;overflow-x:auto;border-radius:4px;border-left:3px solid var(--accent)}
+pre code{background:none;padding:0}
+.cite{font-size:.8rem;color:var(--muted)}
+.nav{display:flex;justify-content:space-between;gap:1rem;font-size:.9rem;margin:.5rem 0 1.5rem;flex-wrap:wrap}
+.objective{font-style:italic;color:var(--muted);border-left:3px solid var(--rule);padding-left:1rem}
+.inferred{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--bad);border:1px solid var(--bad);border-radius:3px;padding:0 .3em}
+.note{background:var(--code-bg);padding:.8rem 1rem;border-radius:4px;font-size:.95rem}
+table{border-collapse:collapse;width:100%;font-size:.9rem;display:block;overflow-x:auto}
+th,td{border-bottom:1px solid var(--rule);padding:.35rem .5rem;text-align:left;vertical-align:top}
+.quiz{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:1rem;margin:1.2rem 0}
+.quiz button{display:block;width:100%;text-align:left;margin:.35rem 0;padding:.5rem .7rem;font:inherit;font-size:.95rem;background:var(--bg);color:var(--fg);border:1px solid var(--rule);border-radius:4px;cursor:pointer}
+.quiz button.right{border-color:var(--ok);color:var(--ok)}
+.quiz button.wrong{border-color:var(--bad);color:var(--bad)}
+.quiz .fb{font-size:.9rem;margin-top:.4rem;min-height:1.2em}
+@media print{.quiz button{border:1px solid #999}}
+</style>
+</head><body><main>
+<h1>Lesson kit</h1>
+<p>One quiz per <code>.quiz</code> block. <code>data-answer</code> is the zero-based index of the right button.</p>
+<div class="quiz" data-answer="1">
+<p><strong>Q.</strong> Which file holds the shared lesson styles?</p>
+<button>the course map page</button>
+<button>the lesson kit page</button>
+<button>the mission format page</button>
+<div class="fb" data-right="Right. Every lesson copies the kit." data-wrong="Look at the page title."></div>
+</div>
+</main>
+<script>
+document.querySelectorAll('.quiz').forEach(q=>{const a=+q.dataset.answer,fb=q.querySelector('.fb');q.querySelectorAll('button').forEach((b,i)=>b.onclick=()=>{q.querySelectorAll('button').forEach(x=>x.className='');b.className=(i===a)?'right':'wrong';fb.textContent=(i===a)?fb.dataset.right:fb.dataset.wrong;});});
+</script>
+</body></html>

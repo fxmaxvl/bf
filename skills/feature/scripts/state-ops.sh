@@ -8,6 +8,7 @@
 #                     [--mode quick|full] \
 #                     [--jira-key PROJ-123 --jira-url <url>] \
 #                     [--gh-issue 42]          # init: create build-state.json, output paths JSON
+#   bash state-ops.sh --archive                # move build-state.json and its run's files to .bf/sessions/archive/, print the new state path
 #
 # --init also writes paths.untracked_baseline: the untracked files outside .bf/ at session start,
 # NUL-delimited. finalize-git.sh --baseline reads it to tell files the session created from strays.
@@ -38,11 +39,18 @@ def git_root():
     return r.stdout.strip()
 
 PARALLEL_AUDIT_DEFAULT = True
+AUTO_FIX_STYLE_DEFAULT = False
+SKIP_PLAN_GATES_DEFAULT = False
+CONFIG_DEFAULTS = {'parallel_audit': PARALLEL_AUDIT_DEFAULT, 'auto_fix_style': AUTO_FIX_STYLE_DEFAULT,
+                   'skip_plan_gates': SKIP_PLAN_GATES_DEFAULT}
+
+def bool_or(value, default):
+    return value if isinstance(value, bool) else default
 
 def read_config():
     """Read ~/.bf/config.json and return resolved feature flags.
 
-    Returns a dict with at least {'parallel_audit': bool}.
+    Returns a dict with {'parallel_audit': bool, 'auto_fix_style': bool, 'skip_plan_gates': bool}.
     Each flag takes its default when the file is missing, malformed, or the key is absent;
     an explicit `"parallel_audit": false` opts out of the concurrent audit stack.
     """
@@ -50,14 +58,25 @@ def read_config():
     try:
         with open(config_path) as f:
             data = json.load(f)
-        return {
-            'parallel_audit': bool(data.get('parallel_audit', PARALLEL_AUDIT_DEFAULT)),
-        }
+        if not isinstance(data, dict):
+            data = {}
+        return {k: bool_or(data.get(k), d) for k, d in CONFIG_DEFAULTS.items()}
     except FileNotFoundError:
-        return {'parallel_audit': PARALLEL_AUDIT_DEFAULT}
+        return dict(CONFIG_DEFAULTS)
     except (json.JSONDecodeError, OSError) as e:
         print(f"Warning: could not read {config_path}: {e}", file=sys.stderr)
-        return {'parallel_audit': PARALLEL_AUDIT_DEFAULT}
+        return dict(CONFIG_DEFAULTS)
+
+REQUIRED_KEYS = ('slug', 'build_timestamp', 'mode', 'phase', 'phase_status')  # read_output indexes these
+
+def load_state():
+    """Return build-state.json as a dict, or None when it is not a JSON object with REQUIRED_KEYS."""
+    try:
+        with open(state_path) as f:
+            state = json.load(f)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    return state if isinstance(state, dict) and all(k in state for k in REQUIRED_KEYS) else None
 
 def set_nested(obj, dotted_key, value):
     keys = dotted_key.split('.')
@@ -121,8 +140,12 @@ def read_output(root, state):
         'phase':           state['phase'],
         'phase_status':    state['phase_status'],
         'parallel_audit':  state.get('parallel_audit', PARALLEL_AUDIT_DEFAULT),
+        'auto_fix_style':  state.get('auto_fix_style', AUTO_FIX_STYLE_DEFAULT),
+        'skip_plan_gates': state.get('skip_plan_gates', SKIP_PLAN_GATES_DEFAULT),
         'collect_todos':   state.get('collect_todos'),
         'audit_started_at': state.get('audit_started_at'),
+        'pending_fixes':   state.get('pending_fixes'),
+        'fix_base':        state.get('fix_base'),
         'artifacts_dir':   adir,
         'artifact_prefix': prefix,
         'paths':           artifact_paths(adir, prefix),
@@ -139,6 +162,34 @@ if args and args[0] == '--read-config':
 
 root = git_root()
 state_path = os.path.join(root, '.bf', 'sessions', 'build-state.json')
+
+# ── Archive mode ───────────────────────────────────────────────────────────
+if args and args[0] == '--archive':
+    if not os.path.exists(state_path):
+        print(f"Error: build-state.json not found at {state_path}", file=sys.stderr)
+        sys.exit(1)
+    state = load_state()
+    sdir = os.path.dirname(state_path)
+    adir = os.path.join(sdir, 'archive')
+    os.makedirs(adir, exist_ok=True)
+    named = bool(state and state.get('build_timestamp') and state.get('slug'))
+    if named:
+        prefix = f"{state['build_timestamp']}-{state['slug']}"
+    else:
+        prefix = 'corrupt' if state is None else 'unnamed'
+    # The run's own files go with it, so a new run with the same prefix starts clean.
+    suffixes = ['build-state.json', 'session-log.md', 'temp.md', 'untracked-at-start']
+    moves = [(state_path, 'build-state.json')] + [
+        (os.path.join(sdir, f'{prefix}-{s}'), s) for s in suffixes[1:] if named]
+    n, tag = 1, prefix
+    while any(os.path.exists(os.path.join(adir, f'{tag}-{s}')) for s in suffixes):
+        n += 1
+        tag = f'{prefix}-{n}'
+    for src, s in moves:
+        if os.path.exists(src):
+            os.replace(src, os.path.join(adir, f'{tag}-{s}'))
+    print(os.path.join(adir, f'{tag}-build-state.json'))
+    sys.exit(0)
 
 # ── Init mode ──────────────────────────────────────────────────────────────
 if args and args[0] == '--init':
@@ -196,7 +247,7 @@ if args and args[0] == '--init':
             'pending_questions': None,
         },
         'collect_todos': None,
-        'parallel_audit': read_config()['parallel_audit'],
+        **read_config(),
         'artifacts': {'spec': None, 'plan': None, 'todo': None, 'backlog': None},
         'created_at': iso_now,
         'updated_at': iso_now,
@@ -217,6 +268,8 @@ if args and args[0] == '--init':
         'mode':            mode,
         'phase':           state['phase'],
         'parallel_audit':  state['parallel_audit'],
+        'auto_fix_style':  state['auto_fix_style'],
+        'skip_plan_gates': state['skip_plan_gates'],
         'artifacts_dir':   adir,
         'artifact_prefix': prefix,
         'paths':           artifact_paths(adir, prefix),
@@ -230,8 +283,10 @@ else:
         print(json.dumps({'error': f'build-state.json not found at {state_path}'}), file=sys.stderr)
         sys.exit(1)
 
-    with open(state_path) as f:
-        state = json.load(f)
+    state = load_state()
+    if state is None:
+        print(json.dumps({'error': f'build-state.json at {state_path} is not a valid build state', 'corrupt': True}), file=sys.stderr)
+        sys.exit(1)
 
     if not args:
         # Read mode

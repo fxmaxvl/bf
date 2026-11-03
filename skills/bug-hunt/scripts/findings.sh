@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Deterministic merge, resolve and analyze steps of bf:bug-hunt. Emits one JSON object and writes it to the run dir.
+# Deterministic merge, resolve, analyze and timing steps of bf:bug-hunt. Emits one JSON object; merge, resolve
+# and analyze also write it to the run dir.
 #
 # Usage:
 #   findings.sh merge <run_dir> [max_batches]
@@ -11,9 +12,12 @@
 #       batches:  directory groups packed into at most max_batches (default 6) by repeatedly merging
 #                 the lexically adjacent pair with the fewest findings, so neighbours merge first.
 #       invalid:  hunter files that were not valid JSON (their lens is a coverage gap).
+#       ignored:  valid hunter files whose hunter_id differs from the file name (e.g. hunters/x.retry.json);
+#                 they add no findings.
 #   findings.sh resolve <run_dir>
 #     Joins <run_dir>/verifiers/<batch_id>.json ({batch_id, verdicts:[{id, verdict, severity?,
-#     file?, line?, title?, note}]}) onto merged.json and writes <run_dir>/final.json. A finding
+#     file?, line?, title?, note}]}), read only for batch ids in merged.json, onto merged.json and writes
+#     <run_dir>/final.json; any other verifiers/*.json is appended to ignored and adds no verdicts. A finding
 #     with no verdict — its batch failed or the verifier skipped it — gets verdict "unverified".
 #     resolve alone decides which verdicts survive (confirmed, refined, pre-existing). It sets
 #     surviving:true|false on every finding and counts.surviving. Later steps read that flag.
@@ -37,6 +41,20 @@
 #     analyzed.json is final.json plus: groups (each with severity = max member severity and folded
 #     ids), links, per finding group / folded_into / also_reported_as, counts.groups, counts.folded.
 #     A member with no severity counts as low. An empty analysis ({groups:[],links:[]}) is valid.
+#   findings.sh mark <run_dir> <step> [label]
+#     Appends {step, label, by:"agent", start, end} (epoch seconds, start = end) to <run_dir>/timing.jsonl
+#     and prints it.
+#   findings.sh timing <run_dir>
+#     Summarizes timing.jsonl. hunt-init.sh, merge, resolve and analyze append their own rows (by:"script").
+#     merge and resolve also add one "hunter" / "verifier" row per output file, timed by its mtime (whole
+#     seconds): only hunters/<hunter_id>.json whose hunter_id matches its name, and verifiers/<batch_id>.json
+#     for a batch in merged.json. Hunter durations run from the first "hunt" mark (else init), verifier
+#     durations from the first "verify" mark (else merge), so a re-mark before a retry never makes one
+#     negative; any other mark's from the row that ended before it. A rerun re-stamps the
+#     same file: the last agent row per step and label wins.
+#     Output: {wall, script, agent: wall - script, steps:[{step, label, by, at, duration}],
+#     pipeline:{hunter_spread: last minus first hunter finish, verify_sum, verify_wall}}.
+#     Seconds from the first row, rounded to 0.1. A missing anchor gives null, never an error.
 set -uo pipefail
 
 die() {
@@ -45,19 +63,37 @@ die() {
   exit 1
 }
 command -v jq >/dev/null || die no_jq "jq is required"
+row() { # step label by start [end]
+  jq -nc --arg s "$1" --arg l "$2" --arg b "$3" --argjson a "$4" --argjson e "${5:-$4}" \
+    '{step: $s, label: $l, by: $b, start: $a, end: $e}'
+}
+# A failed stamp never fails the step it times, and never writes to stdout.
+stamp() { row "$@" >> "$run_dir/timing.jsonl" 2>/dev/null || true; }
+now() { jq -n now; }
+mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1"; }
+stamp_files() { # step subdir id... — only <id>.json files get a row, so a stray file is never an agent
+  local step="$1" sub="$2" id; shift 2
+  for id in "$@"; do [ -e "$run_dir/$sub/$id.json" ] && stamp "$step" "$id" agent "$(mtime "$run_dir/$sub/$id.json")"; done
+}
 RANK='def rank: {"critical":0,"high":1,"medium":2,"low":3}[. // "low"] // 3;'
 cmd="${1:-}"; run_dir="${2:-}"
-[ -n "$run_dir" ] && [ -d "$run_dir" ] || die bad_run_dir "usage: findings.sh merge|resolve|analyze <run_dir>"
+[ -n "$run_dir" ] && [ -d "$run_dir" ] || die bad_run_dir "usage: findings.sh merge|resolve|analyze|mark|timing <run_dir>"
 
 merge() {
-  local max="${1:-6}" valid=() invalid=() f
+  local max="${1:-6}" valid=() invalid=() ignored=() hids=() f b t0
+  t0=$(now)
   for f in "$run_dir"/hunters/*.json; do
     [ -e "$f" ] || continue
-    if jq -e 'type == "object"' "$f" >/dev/null 2>&1; then valid+=("$f"); else invalid+=("$(basename "$f" .json)"); fi
+    b=$(basename "$f" .json)
+    if ! jq -e 'type == "object"' "$f" >/dev/null 2>&1; then invalid+=("$b")
+    elif jq -e --arg b "$b" '.hunter_id == $b' "$f" >/dev/null 2>&1; then valid+=("$f"); hids+=("$b")
+    else ignored+=("hunters/$b.json"); fi
   done
-  local invalid_json='[]'
+  local invalid_json='[]' ignored_json='[]'
   [ "${#invalid[@]}" -gt 0 ] && invalid_json=$(printf '%s\n' "${invalid[@]}" | jq -R . | jq -sc .)
-  { [ "${#valid[@]}" -gt 0 ] && jq -s . "${valid[@]}" || echo '[]'; } | jq --argjson max "$max" --argjson invalid "$invalid_json" "$RANK"'
+  [ "${#ignored[@]}" -gt 0 ] && ignored_json=$(printf '%s\n' "${ignored[@]}" | jq -R . | jq -sc .)
+  { [ "${#valid[@]}" -gt 0 ] && jq -s . "${valid[@]}" || echo '[]'; } \
+    | jq --argjson max "$max" --argjson invalid "$invalid_json" --argjson ignored "$ignored_json" "$RANK"'
     def dir: if (.file // "") == "" then "(unlocated)"
              else (.file | split("/") | .[:-1] | join("/")) | if . == "" then "." else . end end;
     def pack($k): if length <= $k then . else
@@ -88,19 +124,32 @@ merge() {
        batches: ($all | group_by(dir) | map({dirs: [.[0] | dir], ids: map(.id)})
                  | sort_by(.dirs[0]) | pack($max)
                  | to_entries | map({id: "B\(.key + 1)", dirs: .value.dirs, finding_ids: .value.ids})),
-       invalid: $invalid,
+       invalid: $invalid, ignored: $ignored,
        counts: {findings: ($all | length), corroborated: ([$all[] | select(.sources > 1)] | length)}}
   ' > "$run_dir/merged.json" || die merge_failed "jq could not merge hunter output"
+  stamp_files hunter hunters ${hids[@]+"${hids[@]}"}; stamp merge "" script "$t0" "$(now)"
   cat "$run_dir/merged.json"
 }
 
 resolve() {
   [ -f "$run_dir/merged.json" ] || die no_merge "run findings.sh merge first"
-  local v
-  v=$(for f in "$run_dir"/verifiers/*.json; do [ -e "$f" ] && jq -c 'select(type == "object")' "$f" 2>/dev/null; done | jq -sc .)
-  jq --argjson v "$v" '
+  local v ids ign t0
+  t0=$(now)
+  ids=$(jq -r '.batches[]?.id' "$run_dir/merged.json" 2>/dev/null)
+  # Only <batch_id>.json for a batch in merged.json counts; its file name, not its content, marks the batch done.
+  v=$(for b in $ids; do f="$run_dir/verifiers/$b.json"
+        [ -e "$f" ] && jq -c --arg b "$b" 'select(type == "object") | .batch_id = $b' "$f" 2>/dev/null; done | jq -sc .)
+  local known=" $(echo $ids) " stray=()
+  for f in "$run_dir"/verifiers/*.json; do
+    [ -e "$f" ] || continue
+    case $known in *" $(basename "$f" .json) "*) ;; *) stray+=("verifiers/$(basename "$f")") ;; esac
+  done
+  ign='[]'
+  [ "${#stray[@]}" -gt 0 ] && ign=$(printf '%s\n' "${stray[@]}" | jq -R . | jq -sc .)
+  jq --argjson v "$v" --argjson ign "$ign" '
     ([$v[] | (.verdicts // [])[] | {key: .id, value: .}] | from_entries) as $by
     | ([$v[] | .batch_id] ) as $done
+    | .ignored = ((.ignored // []) + $ign)
     | .findings |= map(. as $f | ($by[$f.id] // null) as $r
         | if $r == null then . + {verdict: "unverified"}
           else . + {verdict: $r.verdict, note: $r.note}
@@ -111,6 +160,7 @@ resolve() {
     | .counts += (.findings | group_by(.verdict) | map({key: .[0].verdict, value: length}) | from_entries)
     | .counts.surviving = ([.findings[] | select(.surviving)] | length)
   ' "$run_dir/merged.json" > "$run_dir/final.json" || die resolve_failed "jq could not join verdicts"
+  stamp_files verifier verifiers $ids; stamp resolve "" script "$t0" "$(now)"
   cat "$run_dir/final.json"
 }
 
@@ -118,7 +168,8 @@ analyze() {
   [ -f "$run_dir/final.json" ] || die no_final "run findings.sh resolve first"
   [ -f "$run_dir/analysis.json" ] || die no_analysis "analysis.json is missing"
   jq -e 'type == "object"' "$run_dir/analysis.json" >/dev/null 2>&1 || die invalid_analysis "analysis.json is not a JSON object"
-  local out
+  local out t0
+  t0=$(now)
   out=$(jq --slurpfile a "$run_dir/analysis.json" "$RANK"'
     def text: type == "string" and length > 0;
     def shape_errors($gs; $ls):
@@ -184,12 +235,50 @@ analyze() {
       end' "$run_dir/final.json" 2>/dev/null) || die analyze_failed "jq could not apply analysis.json"
   if jq -e 'has("error")' <<< "$out" >/dev/null; then die "$(jq -r .error <<< "$out")" "$(jq -r .detail <<< "$out")"; fi
   echo "$out" > "$run_dir/analyzed.json"
+  stamp analyze "" script "$t0" "$(now)"
   cat "$run_dir/analyzed.json"
+}
+
+mark() {
+  [ -n "${1:-}" ] || die missing_step "usage: findings.sh mark <run_dir> <step> [label]"
+  local r
+  r=$(row "$1" "${2:-}" agent "$(now)") && echo "$r" >> "$run_dir/timing.jsonl" || die mark_failed "cannot append to timing.jsonl"
+  echo "$r"
+}
+
+timing() {
+  [ -s "$run_dir/timing.jsonl" ] || die no_timing "timing.jsonl is missing or empty"
+  jq -sc '
+    def r1: if . == null then null else (. * 10 + 0.5 | floor) / 10 end;
+    def mark($s): [.[] | select(.step == $s) | .end] | if length > 0 then .[-1] else null end;
+    def first_mark($s): [.[] | select(.step == $s) | .end] | if length > 0 then .[0] else null end;
+    def since($a): if $a == null then null else .end - $a end;
+    map(select(type == "object" and (.start | type) == "number" and (.end | type) == "number"))
+    | . as $all | (map(.start) | min) as $t0 | (map(.end) | max) as $t1
+    | (first_mark("hunt") // mark("init")) as $hs | (first_mark("verify") // mark("merge")) as $vs
+    | [.[] | select(.by == "script")] as $script
+    | (map(select(.by == "agent")) | group_by([.step, .label]) | map(.[-1])) as $agent
+    | [$agent[] | select(.step == "hunter")] as $h | [$agent[] | select(.step == "verifier")] as $v
+    | ([$script[] | .end - .start] | add // 0) as $script_s
+    | [ ($script[] | {step, label, by, at: (.start - $t0), duration: (.end - .start)}),
+        ($h[] | {step, label, by, at: (.end - $t0), duration: since($hs)}),
+        ($v[] | {step, label, by, at: (.end - $t0), duration: since($vs)}),
+        ($agent[] | select(.step | IN("hunter", "verifier") | not) | . as $m
+         | {step, label, by, at: (.end - $t0),
+            duration: ([$all[] | .end | select(. < $m.end)] | if length > 0 then $m.end - max else null end)}) ]
+    | sort_by(.at) | map(.at |= r1 | .duration |= r1) as $steps
+    | {wall: ($t1 - $t0 | r1), script: ($script_s | r1), agent: ($t1 - $t0 - $script_s | r1), steps: $steps,
+       pipeline: {hunter_spread: (if ($h | length) > 0 then ($h | map(.end) | max - min) | r1 else null end),
+                  verify_sum: (if ($v | length) > 0 and $vs != null then [$v[] | .end - $vs] | add | r1 else null end),
+                  verify_wall: (if ($v | length) > 0 and $vs != null then ($v | map(.end) | max) - $vs | r1 else null end)}}
+  ' "$run_dir/timing.jsonl" || die timing_failed "jq could not read timing.jsonl"
 }
 
 case "$cmd" in
   merge) merge "${3:-6}" ;;
   resolve) resolve ;;
   analyze) analyze ;;
-  *) die bad_command "usage: findings.sh merge|resolve|analyze <run_dir>" ;;
+  mark) mark "${3:-}" "${4:-}" ;;
+  timing) timing ;;
+  *) die bad_command "usage: findings.sh merge|resolve|analyze|mark|timing <run_dir>" ;;
 esac

@@ -101,7 +101,7 @@ init → refine → [auto] research → [auto] plan (from Q&A) → [GATE] execut
 init → refine → [auto] research → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```
 
-Quick mode skips **only** brainstorm and review-design. Every other phase — refine, research, plan, execute, verify, review-impl, verify (silent), finalize — is **mandatory** regardless of how simple or obvious the fix appears. Do not collapse, merge, or skip phases because the task looks trivial. The phases exist as quality gates that apply at all complexity levels.
+Quick mode skips **only** brainstorm and review-design. Every other phase — refine, research, plan, execute, verify, review-impl, verify (silent), finalize — is **mandatory** regardless of how simple or obvious the fix appears. `skip_plan_gates` can turn off only the advisory plan gates inside Phase 3; no phase is skipped. Do not collapse, merge, or skip phases because the task looks trivial. The phases exist as quality gates that apply at all complexity levels.
 
 ## On Invocation
 
@@ -116,15 +116,18 @@ Quick mode skips **only** brainstorm and review-design. Every other phase — re
    - `idea` — the clean idea text (all flags and markers stripped)
    - `current_branch`, `main_branch`, `is_main` — git branch state
    - `has_state` — whether `build-state.json` already exists
+   - `state_matches` — `false` when the state belongs to another run (different idea, issue, ticket or mode, or a non-feature mode); empty arguments always match
    - `project_root` — git repository root
 
-2. If `has_state` is `true`: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` to load state and resume:
+2. If `has_state` is `true` and `state_matches` is `false`: read the state's `slug`, `idea` and `mode` with `state-ops.sh`, show them, and ask one question: "A build-state from another run exists. Resume it, archive it and start fresh, or abort?" If the read returns `"corrupt": true`, say the state is unreadable and offer only archive or abort; do the same when its `mode` is not `full` or `quick`, since this skill cannot run another skill's phases. Resume: continue with step 3 using that state. Archive: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --archive` (moves it and its session log, temp and baseline files to `.bf/sessions/archive/`, never overwriting), then proceed to Phase 0. Abort: exit.
+
+3. If `has_state` is `true`: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` to load state and resume:
    - If `phase_status` is `"awaiting_approval"`:
      - If `phase` is `"finalize"`: re-ask the pre-finalization gate per Phase 6 step 2 (one question in quick mode, two in full mode). If not ready: exit. If ready: set `phase_status` to `"in_progress"`, save `collect_todos` per Phase 6 step 2 (user's answer in full mode, `false` automatically in quick mode), update state, continue Phase 6 from step 3 (skip silent verify — it already passed).
      - Otherwise: ask "Paused before [current phase]. Ready to proceed?" — if yes, set `phase_status` to `"in_progress"`, update state, execute the current phase; if no, exit
-   - Otherwise: resume the current phase from where it left off. **Note:** when `parallel_audit` is `true`, `phase=verify phase_status=in_progress` after Phase 4.5 completes means the orchestrator is about to enter the audit-stack fan-out in Phase 4.75 — resume goes directly into Phase 4.75 (not a mid-fan-out partial state). When `parallel_audit` is `false`, `phase=review-impl phase_status=in_progress` means the sequential complexity+consistency gates in Phase 4.75 are complete — resume re-enters Phase 5 as usual.
+   - Otherwise: resume the current phase from where it left off. **Note:** when `parallel_audit` is `true`, `phase=verify phase_status=in_progress` after Phase 4.5 completes means the orchestrator is about to enter the audit-stack fan-out in Phase 4.75 — resume goes directly into Phase 4.75 (not a mid-fan-out partial state). When `parallel_audit` is `false`, `phase=review-impl phase_status=in_progress` means the sequential complexity+consistency gates in Phase 4.75 are complete — resume re-enters Phase 5 as usual. If `pending_fixes` is non-null, do not redo the scan: apply the transient-error rule in **Error Recovery** (re-spawn the fix agent of the current loop — Phase 5 when `phase=review-impl`, else Phase 4.75 — with only those IDs), then continue that loop at its step 1.
 
-3. If `has_state` is `false`: proceed to Phase 0 (init).
+4. If `has_state` is `false`: proceed to Phase 0 (init).
 
 ## Phase 0 — Init
 
@@ -159,7 +162,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
   [--gh-issue 42]                          # only if GitHub issue detected
 ```
 
-   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `true`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently.
+   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `true`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently. It also includes `auto_fix_style` (same source, defaults to `false`), which Phases 4.75 and 5 use, and `skip_plan_gates` (same source, defaults to `false`), which Phase 3 uses.
 
 6. **Stub the session log.** Immediately after `state-ops.sh --init`, create `paths.session_log` with empty block headers so the file is visible from the start of the session:
 
@@ -189,7 +192,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
 
 Use `paths.*` from `state-ops.sh` instead of constructing paths manually.
 
-**Feature flags:** `parallel_audit` — when `true`, Phases 4.75 and 5 collapse into a single 3-way concurrent fan-out (complexity-gate + consistency-gate + review-impl). See Phase 4.75 for details.
+**Feature flags:** `parallel_audit` — when `true`, Phases 4.75 and 5 collapse into a single 3-way concurrent fan-out (complexity-gate + consistency-gate + review-impl). See Phase 4.75 for details. `auto_fix_style` — when `true`, Phases 4.75 and 5 fix style-only findings without asking. `skip_plan_gates` — when `true`, Phase 3 skips its two advisory plan gates; the code-stage gates and review-impl always run.
 
 ## Phase 1 — Brainstorm (full mode only)
 
@@ -294,7 +297,7 @@ Runs in both modes. Runs after review-design (full) or after refine (quick) — 
 Print banner: `── feature | Plan ───────────────────────────────`
 
 1. Dispatch `feature/plan/SKILL.md` as an Agent (model: opus) — it appends `## Plan` and `## Todo` blocks to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
-2. After the plan agent completes, run both gates on the plan in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board, dispatched in one message, both awaited before you proceed (phase is still `plan` — both skills auto-detect plan advisory mode):
+2. If `skip_plan_gates` (from `state-ops.sh` read) is `true`: print one line, "Skipped the advisory plan gates (skip_plan_gates is on).", and go to step 3. Otherwise, after the plan agent completes, run both gates on the plan in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board, dispatched in one message, both awaited before you proceed (phase is still `plan` — both skills auto-detect plan advisory mode):
    - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus)
    - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus)
    Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
@@ -313,7 +316,8 @@ Print banner: `── feature | Plan ──────────────�
 Print banner: `── feature | Execute ───────────────────────────────`
 
 1. Dispatch `feature/do-todo/SKILL.md` as an Agent (model: sonnet) — it loops internally until all items are checked
-2. When it completes:
+2. **Spot-check** before advancing state: compare the files, commits and counts the agent claims with `git diff --stat <main_branch>...HEAD` and `git log --oneline <main_branch>..HEAD`. A mismatch is a claimed file, commit or count that git does not show; extra history on a reused branch is not one. On a mismatch, re-dispatch do-todo for the gap or fix it yourself, then check again. If this was already the 3rd cycle: tell the user "Spot-check still fails after 3 cycles: <mismatches>. Check them manually." and stop.
+3. When the spot-check passes:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=verify phase_status=in_progress
    ```
@@ -339,6 +343,12 @@ Print banner: `── feature | Audit Stack ────────────
 
 **Out-of-scope fixes (applies here and in Phase 5).** If a fix needs a file outside `changed_files`, or a path the spec or plan said not to touch, restate that in one line before dispatching the fix agent (see **Restate a wide effect** in `plugin-main.md`). Then append a `## Decisions` entry to `paths.session_log` recording the user's ruling (Block Writing Pattern, accumulate), and name the extra files in the fix prompt. A scope change recorded at the moment it is made is not later flagged by review-impl as an unexplained violation.
 
+**Style-only auto-fix (applies to both "Should I fix these issues?" questions below and to Phase 5's "Should I fix these concerns?").** If `auto_fix_style` (from `state-ops.sh` read) is `true` and every finding to fix (blocked issues, review-impl concerns) is style-only — naming, formatting, comments, docstrings, layout, never behaviour or design — skip the question and treat the answer as yes. Any behaviour or design finding means ask as usual. Pushes still wait for the Phase 6 gate.
+
+**Pending fixes (applies to every fix agent in this phase and in Phase 5).** Number the findings by position: `C<n>` = nth `- ` bullet under Blocked Issues in `## Complexity Report`, `K<n>` = nth `- ` bullet under BLOCK in `## Consistency Report`, `R<n>` = nth `- ` bullet under Concerns in `## Implementation Review`. Before dispatch, run `state-ops.sh pending_fixes=<chosen IDs, comma-separated> fix_base=$(git rev-parse HEAD)`. Add to the fix prompt: "Fix only these findings, in this order; this list overrides any instruction to fix every finding: <one line each: ID — `file:line`>. After each fix, commit it alone (stage by path only the files you changed; `fix: <ID> <summary>`, with the issue or ticket prefix the `git` convention adds), then run `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh\" pending_fixes=<IDs still open>` (`null` when none)." When the agent returns, run `state-ops.sh pending_fixes=null`.
+
+**Recurring rules.** When a fix round resolves gate BLOCK findings, append one line per rule they broke to the `## Decisions` block of `paths.session_log` (Block Writing Pattern, accumulate): `- Recurring rule: <the rule, one line>`. Skip a rule already listed. do-todo's self-check reads these lines on later runs.
+
 **Branch on `parallel_audit`** (read from build-state.json via `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` (no args) which prints the persisted `parallel_audit` from build-state.json — do NOT use `--read-config` here, which would re-read config.json and ignore the init-time snapshot):
 
 ### If `parallel_audit` is `false` (opt-out — sequential)
@@ -362,7 +372,7 @@ Run up to 3 scan → fix cycles (complexity & consistency):
 4. If overall STATUS is `BLOCK`:
    - Show the blocked issues from both reports to the user
    - Ask: "Should I fix these issues?"
-   - If yes: spawn a fix agent (model: sonnet) with this prompt: "Read the `## Complexity Report` and `## Consistency Report` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each issue under Blocked Issues in either report, apply the prescribed fix. Do not modify any file outside `changed_files`. If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence in `changed_files`; list any outside it in your summary. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`). Apply the rules in `<prose path>` to code comments and to all prose you return."
+   - If yes: record **Pending fixes**, then spawn a fix agent (model: sonnet) with this prompt: "Read the `## Complexity Report` and `## Consistency Report` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each issue under Blocked Issues in either report, apply the prescribed fix. Do not modify any file outside `changed_files`. If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence in `changed_files`; list any outside it in your summary. Follow the `dev` convention (resolved via the lookup in `plugin-main.md`). Apply the rules in `<prose path>` to code comments and to all prose you return."
      Then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: tell the user "Max fix cycles reached. Review the blocked issues manually." and stop
@@ -395,7 +405,7 @@ Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
 7. If `BLOCK`:
    - Show blocked issues + review-impl concerns to the user.
    - Ask: "Should I fix these issues?"
-   - If yes: spawn ONE fix agent (model: sonnet) with prompt: "Read the `## Complexity Report`, `## Consistency Report` and `## Implementation Review` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each blocked issue and each review-impl concern, apply the prescribed fix. Stay within `changed_files`. If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence in `changed_files`; list any outside it in your summary. Follow the `dev` convention. Apply the rules in `<prose path>` to code comments and to all prose you return." Then go back to step 1 (next cycle).
+   - If yes: record **Pending fixes**, then spawn ONE fix agent (model: sonnet) with prompt: "Read the `## Complexity Report`, `## Consistency Report` and `## Implementation Review` blocks with `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh\" <paths.temp> --block \"## <name>\"` — one call per block. For each blocked issue and each review-impl concern, apply the prescribed fix. Stay within `changed_files`. If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence in `changed_files`; list any outside it in your summary. Follow the `dev` convention. Apply the rules in `<prose path>` to code comments and to all prose you return." Then go back to step 1 (next cycle).
    - If no:
      ```
      bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress
@@ -422,8 +432,8 @@ Run up to 3 analyze → fix cycles:
 3. If output is `PASS`: proceed to step 5
 4. If output is `CONCERN`:
    - Show the concerns to the user
-   - Ask: "Should I fix these concerns?"
-   - If yes: dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), applying the out-of-scope rule from Phase 4.75 first, then go back to step 1
+   - Ask: "Should I fix these concerns?" — unless **Style-only auto-fix** (Phase 4.75) answers yes
+   - If yes: record **Pending fixes** (Phase 4.75), then dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), applying the out-of-scope rule from Phase 4.75 first, then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (sequential)"`, reading `audit_started_at` from state. Then tell the user "Max review cycles reached. Review the implementation manually." and stop
 5. ```
@@ -534,6 +544,8 @@ Multiple key=value pairs can be passed in a single call. Boolean values (`true`/
 ## Error Recovery
 
 - If the session ends mid-phase, the next `/bf:feature` invocation reads `.bf/sessions/build-state.json` and resumes
+- If that state belongs to another run (`state_matches` is `false`), ask resume / archive / abort per On Invocation step 2 instead of resuming
+- If any sub-agent dies mid-run on a transient error (network, auth, no return): do not reset or restore files yourself, because `git status` cannot tell a half-applied edit from finished work or the user's own changes. Re-spawn it once with only what is left (a fix agent gets only the IDs still in `pending_fixes`, which already commit one by one, minus any ID that `git log --format=%s <fix_base>..HEAD | grep -E ': <ID>( |$)'` finds (the ID right after the type, as `fix: <ID> <summary>` puts it), since an agent can die between its commit and the list update; a fan-out re-spawns only the agents that did not return), and add to its prompt: "A previous attempt died mid-run. Run `git diff HEAD` first. It may hold a half-applied edit for <the first pending ID> (for verify: leftover mutations from its runner). Finish or revert only that, and leave every other uncommitted change alone." If the retry also fails, stop and tell the user
 - If the branch `feat/<slug>` already exists, switch to it instead of creating a new one
 - If state shows phase `done`, tell the user the build is already complete
 

@@ -34,7 +34,7 @@ Repeat the following loop until no unchecked items remain — do not wait for us
 2. Work from the matching `### Prompt N:` section of the plan **already in context** — extract the
    step number N from the todo item (e.g., "Step 3: ..." → N=3) and use that section. Do not re-read
    or re-slice `paths.plan`; its blocks were read before the loop.
-3. Carefully plan your approach before touching any code — think through edge cases, dependencies, and impact on existing code.
+3. Carefully plan your approach before touching any code — think through edge cases, dependencies, and impact on existing code. If the item depends on framework or library behaviour (context requirements, testkit semantics, threading), read that framework's source or docs first and state the constraint in one line.
 4. Implement the item — write robust, readable code, add tests, verify tests pass.
 5. Mark the item as checked (`- [x]`) immediately after completing it: Read `paths.todo` with `offset` at the line number from step 1 and `limit: 1`, then Edit that line.
 6. Commit your changes following the `git` convention (resolved via the lookup in `plugin-main.md`). Use `feat:` for new functionality, `fix:` for bug corrections within the feature. Stage by path only the files you changed or created, never `git add -A` or `git add .`, which also pick up stray files the session never made. Do **not** stage anything in `.bf/` except `.bf/conventions/`.
@@ -43,5 +43,5 @@ Repeat the following loop until no unchecked items remain — do not wait for us
 **Before handing off** — once the loop has stopped, check your own diff before verify and the gates see it:
 
 1. List the session's files: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/changed-packages.sh"` — use `changed_files`.
-2. Read the diff of those files and check every changed line against the `dev` and `testing` conventions and the custom conventions read above — for example comment rules, docstring and signature layout, type hints, naming, banned tokens, and any spec IDs left in code or comments.
-3. Fix each violation in place, rerun the plan's test command, and commit with `fix:`. If there were none, commit nothing.
+2. Read the diff of those files and check every changed line against the `dev` and `testing` conventions and the custom conventions read above — for example comment rules, docstring and signature layout, type hints, naming, banned tokens, and any spec IDs left in code or comments. Also check it against each rule that earlier gate fix rounds recorded: Grep `^- Recurring rule:` in `<artifacts_dir>/*-session-log.md`.
+3. Fix each violation in place, rerun the plan's test command, and commit with `fix:`, staging by path only the files you changed (never `git add -A` or `git add .`, nothing in `.bf/` except `.bf/conventions/`). If there were none, commit nothing.

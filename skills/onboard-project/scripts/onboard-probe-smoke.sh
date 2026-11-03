@@ -89,6 +89,32 @@ HTML
 eq "links quoted in pre/code are ignored, real ones still checked" "$(probe verify "$ws" | jq -c .broken_links)" \
   '["lessons/0001-intro.html -> 0009-missing.html"]'
 
+kit=$here/../../teach/assets/lesson-kit.html
+cp "$kit" "$ws/lessons/0002-kit.html"
+eq "lesson-kit quiz with equal options passes" "$(probe verify "$ws" | jq -c .unequal_quizzes)" '[]'
+sed 's#<button>the lesson kit page</button>#<button>the <code>lesson kit</code> page here</button>#' "$kit" > "$ws/lessons/0002-kit.html"
+eq "quiz with unequal options is reported" "$(probe verify "$ws" | jq -c .unequal_quizzes)" \
+  '["lessons/0002-kit.html -> quiz 1: 4,5,4"]'
+sed 's#</main>#<p><button>Print this lesson</button></p></main>#' "$kit" > "$ws/lessons/0002-kit.html"
+eq "button after the last quiz is not a quiz option" "$(probe verify "$ws" | jq -c .unequal_quizzes)" '[]'
+sed 's#class="quiz"#class="quiz card"#;s#<button>the lesson kit page</button>#<button>kit</button>#' "$kit" > "$ws/lessons/0002-kit.html"
+eq "quiz with several classes is checked" "$(probe verify "$ws" | jq -c .unequal_quizzes)" \
+  '["lessons/0002-kit.html -> quiz 1: 4,1,4"]'
+rm "$ws/lessons/0002-kit.html"
+
+radio() { printf '<div class="quiz"><p class="q">Q?</p>\n<label><input type="radio" name="q1" value="a"> %s</label>\n<label><input type="radio" name="q1" value="b"> two words</label>\n<button onclick="chk(this)">Check</button><div class="fb"></div></div>\n' "$1" > "$ws/lessons/0003-old.html"; }
+radio "<code>both</code> words"
+eq "radio quiz with equal labels passes" "$(probe verify "$ws" | jq -c '[.unequal_quizzes,.unread_quizzes]')" '[[],[]]'
+radio "three whole words"
+eq "radio quiz with unequal labels is reported" "$(probe verify "$ws" | jq -c .unequal_quizzes)" '["lessons/0003-old.html -> quiz 1: 3,2"]'
+printf '<div class="quiz">%s%s</div>\n' \
+  '<label><input type="radio" name="q1"> one</label><label><input type="radio" name="q1"> two</label>' \
+  '<label><input type="radio" name="q2"> a b c d</label><label><input type="radio" name="q2"> e f g h</label>' > "$ws/lessons/0003-old.html"
+eq "radio questions sharing one quiz are compared per name" "$(probe verify "$ws" | jq -c '[.unequal_quizzes,.unread_quizzes]')" '[[],[]]'
+printf '<div class="quiz"><select><option>a</option></select></div>\n' > "$ws/lessons/0003-old.html"
+eq "quiz with no readable options is listed" "$(probe verify "$ws" | jq -c .unread_quizzes)" '["lessons/0003-old.html -> quiz 1"]'
+rm "$ws/lessons/0003-old.html"
+
 lessonless=$tmp/.bf/teach/no-lessons
 mkdir -p "$lessonless"
 st=$tmp/staging; pws=$tmp/promoted

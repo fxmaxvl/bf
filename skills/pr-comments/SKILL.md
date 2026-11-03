@@ -28,7 +28,7 @@ Print banner (plain text, not in a code block):
 ── bf:pr-comments ─────────────────────────────────────
 ```
 
-Fetch everything in one call — never assemble threads from separate `gh` queries:
+Fetch everything in one call — never assemble threads from separate `gh` queries. Later scripts take the result's `url`, never `$ARGUMENTS`:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/fetch-pr-comments.sh" "$ARGUMENTS"
@@ -49,10 +49,10 @@ is_bot, body, replies[], diff_hunk, answered_by_viewer}` (`review` entries also 
 | `issue` | PR-level comment, not anchored to code | no |
 | `review` | A review's summary body | no |
 
-The script drops resolved threads and threads whose conversation already contains a reply from
-`viewer`, so a second run does not double-post to a public PR. `notes[]` says what it dropped;
+The script drops resolved threads, threads whose conversation already contains a reply from
+`viewer`, and `viewer`'s own PR-level comments and reviews, so a second run does not double-post to a public PR. `notes[]` says what it dropped;
 print those lines. Pass `--all` only when the user explicitly asks to revisit answered or resolved
-feedback.
+feedback. Under `--all`, the fetch drops this skill's own earlier replies (`post-replies.sh` marks them with `<!-- bf:pr-comments -->`), so any `viewer` entry left is a note the user wrote.
 
 On `{"error": ...}`: print `detail` and stop.
 
@@ -64,7 +64,7 @@ re-review may come, and some bots never re-review on push, which is why the wait
 consent rule below rather than running automatically:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/wait-for-review.sh" "$ARGUMENTS" --timeout 600
+bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/wait-for-review.sh" "<url>" --timeout 600
 ```
 
 Run it without asking when `$ARGUMENTS` contains `--wait`; otherwise ask once whether to wait up to
@@ -77,9 +77,9 @@ hangs silently through a review that fails or is abandoned. Act on `status`:
 | `review_settled` | The review finished with nothing actionable — print `STATUS: NO_OPEN_COMMENTS` and stop. |
 | `timeout` | Report how long it waited and that the review never landed; it may have failed. Stop rather than guess at findings. |
 
-Some review bots keep one standing PR-level comment — "no findings", a status summary — and publish
-their actual result as a CI check. That comment comes back as an actionable `issue` thread, so
-`wait-for-review.sh` reports `findings` on its first poll while the review is still running. When
+Some review bots keep one standing PR-level comment — "no findings", a status summary — and may
+publish their actual result as a CI check. That comment comes back as an actionable `issue` thread, so
+`wait-for-review.sh` reports `findings` on its first poll even while the review is still running. When
 every actionable thread is a bot `issue` comment that reads as a status post, look at the checks:
 
 ```bash
@@ -97,8 +97,14 @@ gh pr checks <pr> --watch --interval 30 > /dev/null
 `--watch` has no timeout of its own and waits on every check, so run it with a 600000 ms Bash
 timeout. If it is still running at that point, stop it and re-run `gh pr checks <pr> --json name,bucket`:
 an unrelated slow job can outlast the bound while the bot's check has already finished. Only if the
-bot's check is still pending, handle it as the `timeout` row above. If the check is not pending, the
-status post is the result — continue with the fetch.
+bot's check is still pending, handle it as the `timeout` row above.
+
+When the bot has no check (none matches it, or gh reports no checks) or its check is not pending, at
+the first look or after the wait, the status post is the result, but only if its `updated_at` is later than the fetch
+result's `head_pushed_at` (when the head was pushed; `null` when unknown). A post that is older, or has no time to compare, is stale: triage it in
+the normal flow instead. For a current post: if every such post reports no open
+findings, print `STATUS: NO_OPEN_COMMENTS` and stop without triaging them; if one lists findings,
+continue the normal flow.
 
 With nothing actionable and no in-progress marker, print `STATUS: NO_OPEN_COMMENTS` and stop —
 read nothing, spawn nothing.
@@ -123,6 +129,12 @@ lists them (on an `error` object, print its `detail` and carry on without host r
 Review Convention says which wins when they disagree with bf's. A reviewer's stylistic preference
 that contradicts a project convention loses to the convention, and that is the argument to make in
 the reply.
+
+A convention question about the whole org ("how do others do X", "is there a common way") is not
+answered by the local repo alone: search with `gh search code --owner=<org>`, `<org>` being the
+owner in the fetch result's `url` (other channels: the Phase 3 routing table in
+`${CLAUDE_PLUGIN_ROOT}/skills/research/SKILL.md`). The reply carries one table of hits counted by
+repo and service type — the one reply exempt from Phase 4's no-scaffolding rule.
 
 Group comments that make the same point across files, and triage the group once. Reviewers repeat
 themselves; so do bots. **A group is one verdict over many threads, never one thread standing in for
@@ -164,6 +176,12 @@ If the pattern appears elsewhere in the PR's changed lines and the reviewer's co
 specifically is fine and why. A rejection that is right about the line and wrong about the class is
 the most expensive mistake available here: it is public, it is argued, and it leaves the real
 instance sitting in the branch.
+
+**Check a "blocked by" claim before choosing.** When a reviewer flags this work as blocked by another
+change, read that change. If this PR is complete and correct once that change lands, it is only a
+merge-order dependency, not a defect: `reject` the block, with the required merge order as the
+argument. If this PR still needs its own change, or something the other change does not provide, the
+block is real — judge it like any other valid concern.
 
 ### Escalation
 
@@ -210,6 +228,17 @@ The table:
 Row 4 is a grouped entry: one verdict, two threads, and both thread ids recorded on it.
 
 ## Phase 3 — Fix the class, not the line
+
+**Sync first.** When `git branch --show-current` equals the fetch result's `head`, a peer may have
+pushed since, so before the first edit fetch the *push target*, which for a fork PR is not `origin`.
+If `git rev-parse --abbrev-ref @{u}` resolves to `<remote>/<head>`, `git fetch <remote>` and use `@{u}` as
+the target. Otherwise (no upstream, or one on another branch such as `origin/main`; `gh pr checkout` sets a fork
+branch's remote to a URL, and a branch pushed without `-u` has none):
+1. Set `<remote>` to `git config branch.<head>.remote`, or `origin` if unset.
+2. Set `<merge>` to `git config branch.<head>.merge`. If it is unset or names a branch other than `<head>`, use `<head>`.
+3. Run `git fetch <remote> <merge>` and use `FETCH_HEAD` as the target.
+
+If `git rev-list --count HEAD..<target>` is not `0`, run `git merge --ff-only <target>`. If the fetch or the fast-forward fails, stop before editing and report it.
 
 Apply the `accept` and `accept-different` fixes. Follow the `dev` and `testing` conventions; run the
 project's tests and lint as those conventions require, and report failures rather than posting a
@@ -267,7 +296,8 @@ comment and adds "fixed" is noise.
   unasked.
 - **`question`** — one question, specific enough to answer in a sentence.
 
-Plain prose, a couple of sentences, no headers or bullet scaffolding. Show every draft in full
+Plain prose, a couple of sentences, no headers or bullet scaffolding (Phase 1's org-search table
+is the one exception). Show every draft in full
 before the gate — this is the text that gets published under the user's name.
 
 ## Phase 5 — Closing gate
@@ -291,7 +321,11 @@ Posting a reply and resolving its thread are separate outward-facing actions, so
 both. Above the question, list the <M> threads that would resolve, one line each: triage id and
 `file:line`. Approving the replies must never resolve a thread the user did not see on that list.
 
-If both hold, offer the push with it, naming the branch, the file count and the order:
+If both hold, offer the push with it, naming the branch, the file count and the order. First look for
+an automerge tag (e.g. `#automerge`) in `git log --format=%B origin/<base>..HEAD` and
+`gh pr view <pr> --json title,body`; on a hit, add one warning line above the question (not a second
+question): the push may merge the PR before later fixes land, so tag only the final commit or post the
+automerge comment after the last push.
 
 > Commit and push the fixes to `<head>` (<F> files), then post <N> replies and resolve the <M> threads listed above? Reply `yes`, or add `no push` (post now, push later) and/or `no resolve` (post the replies, leave every thread open), or `no` (decline: post nothing).
 
@@ -305,6 +339,7 @@ After approval, run the state check again before anything else; the answer may h
 
 On **commit and push**, follow the `git` convention:
 - Stage only the files Phase 3 changed, and commit them.
+- Fetch the push target again, resolved as in Phase 3's sync. If the fetch fails, stop before pushing, report the error, and post nothing. If `git rev-list --count HEAD..<target>` is not `0`, someone else pushed: stop before pushing, report the count, and offer to rebase the fix commit onto `<target>` (one question). On a rebase conflict, `git rebase --abort` and stop; post nothing.
 - `git push`, and post only after the push succeeds. If it fails, stop before posting: replies would point at code the reviewer cannot see. Report the push error, and leave the replies for a rerun.
 
 Never one question per comment: it breaks the one-question rule and is unusable at fifteen comments.
@@ -313,7 +348,7 @@ There is no hands-off path: `/bf:autopilot` does not route `pr-comments`, so thi
 On approval, write the plan and post it in one call:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/post-replies.sh" <plan.json> "$ARGUMENTS"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/post-replies.sh" <plan.json> "<url>"
 ```
 
 `plan.json` is an array of `{kind, thread_id, reply, resolve}` in triage order — write it under
@@ -329,8 +364,20 @@ entries in the triage file, and name any `failed` entry with its detail rather t
 batch as done. If the user declines the gate, the triage file and the fixes stay — nothing was
 published, and a rerun picks up from the file.
 
-When the fixes were pushed, add one line: the push starts a new review on most review bots, so
-rerun once it finishes — a rerun before then can show no open comments, or the previous review's.
+When the fixes were pushed and the first fetch had a `last_bot_review`, the push starts that bot's
+re-review. Take `<sha>` from `git rev-parse HEAD` right after the push. Do not re-run the On
+Invocation fetch to wait: older review summaries still count as actionable, so its wait never runs.
+Wait for the review of `<sha>` under the same `--wait` consent rule (asked after the post, as its own question).
+`<bot>` is that `last_bot_review.author`; name it when you ask or report, since another bot's review does not end the wait:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/wait-for-review.sh" "<url>" --head <sha> --bot <bot> --timeout 600
+```
+
+On `review_landed`, re-run the fetch and start a normal pass over the entries the triage file does
+not mark `posted`; with none, print `STATUS: NO_OPEN_COMMENTS`. On `timeout`, follow the `timeout` row
+above. If the wait is declined, say to rerun once it finishes — a rerun before then can show no open
+comments, or the previous review's.
 
 When the user answered `no push`, or the push option was not offered while fixes exist, say in one line
 that the working tree has unpushed fixes. The reviewer is looking at replies that reference code they
@@ -346,6 +393,7 @@ cannot see yet.
 | `counts.actionable` is `0`, no review in flight | `STATUS: NO_OPEN_COMMENTS` and stop. Do not go looking for feedback elsewhere |
 | `counts.actionable` is `0` but a review is still running | Wait via `wait-for-review.sh` (see the fetch step), then act on its `status` |
 | Only actionable items are a bot's standing status comment, and its CI check is pending | Wait via `gh pr checks <pr> --watch` (see the fetch step), then re-fetch |
+| Only actionable items are a bot's standing status comment reporting no findings, posted or edited after the head commit, and the bot has no check or its check is not pending | `STATUS: NO_OPEN_COMMENTS` and stop. Do not triage or reply to the status post. An older post goes to normal triage |
 | Thread is `outdated: true` | The code moved after the comment. Judge the current code; if the concern no longer applies, that is a reply saying so, not a silent resolve |
 | Comment asks for something already done in a later commit | Reply pointing at the commit, then resolve. Do not redo the work |
 | `counts.files_truncated` is `true` | The PR touches more than 100 files, so `files[]` is partial and the generalization pass cannot see the whole surface. Say so in the output and treat every widened fix as best-effort rather than exhaustive |
@@ -356,4 +404,8 @@ cannot see yet.
 | A reply fails to post but its thread resolved (or vice versa) | The `results[]` entry shows the split. Report it and leave the triage file unmarked for that entry — a rerun retries only what failed |
 | Reviewer has already replied since the fetch | The rerun's `answered_by_viewer` filter does not cover reviewer replies. On a `failed` post, refetch before retrying so the reply lands in context |
 | PR is merged or closed at the closing gate, before or after the answer | Follow the state check: `MERGED` offers a follow-up PR off the base, `CLOSED` offers a reopen, a failed call stops with the `gh` error. Never push to the branch of a PR that is not `OPEN`, and post replies on a merged PR only with the follow-up link |
+| Remote PR head moved since the fetch (someone else pushed) | Stop before pushing and offer a rebase onto the push target (see commit and push). On conflict, abort and post nothing |
+| Fixes pushed and a bot had reviewed | Wait via `wait-for-review.sh --head <sha> --bot <bot>`, not the fetch step's wait — old summaries keep `counts.actionable` above `0` |
+| Held PR branch is behind its push target before Phase 3 edits | Fast-forward with `git merge --ff-only` (see Phase 3's sync). If it diverged or the fetch fails, stop before editing |
+| No upstream for the branch, or fetching it fails, before the push | Stop before pushing, report the error, and post nothing |
 | User wants to argue with a verdict at the gate | Take the correction, redraft that reply, and re-ask the gate once — the batch stays intact |

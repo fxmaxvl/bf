@@ -7,8 +7,11 @@
 # for findings hangs silently through a review that fails or is abandoned. This
 # settles all three: findings, a review that settled without findings, or timeout.
 #
-# Usage: wait-for-review.sh [<pr number|url>] [--timeout <seconds>] [--interval <seconds>]
+# Usage: wait-for-review.sh [<pr number|url>] [--head <sha> [--bot <login>]] [--timeout <seconds>] [--interval <seconds>]
 #   no pr arg  -> PR for the current branch
+#   --head      wait only for the newest bot review to be on <sha> (after a push); no baseline,
+#               so a review that landed before the call counts on the first poll
+#   --bot       with --head: wait for this bot's newest review, not any bot's (GraphQL login, no [bot])
 #   --timeout   default 600
 #   --interval  default 30
 #
@@ -16,8 +19,9 @@
 #   {status, waited_seconds, actionable, reviews_before, reviews_now, polls}
 #     status: "findings"      -- actionable comments arrived; run the normal flow
 #             "review_settled"-- a review completed but produced nothing actionable
+#             "review_landed" -- (--head only) the bot (or --bot) reviewed <sha>; re-fetch to see its findings
 #             "timeout"       -- neither happened in time; the review may have failed
-# Exit code is 0 for all three; the caller decides. Errors: {"error":...} + exit 1
+# Exit code is 0 for every status; the caller decides. Errors: {"error":...} + exit 1
 set -uo pipefail
 
 die() { printf '{"error":"%s","detail":"%s"}\n' "$1" "${2:-}"; exit 1; }
@@ -28,17 +32,23 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 FETCH="$HERE/fetch-pr-comments.sh"
 [ -x "$FETCH" ] || [ -f "$FETCH" ] || die fetch_missing "fetch-pr-comments.sh not found beside this script"
 
-PR=""; TIMEOUT=600; INTERVAL=30
+PR=""; TIMEOUT=600; INTERVAL=30; HEAD_SHA=""; BOT=""
 while [ $# -gt 0 ]; do
   case "$1" in
+    --head)     HEAD_SHA="${2:-}"; shift 2 || die bad_args "--head needs a value"
+                case "$HEAD_SHA" in ""|-*) die bad_args "--head needs a value" ;; esac ;;
+    --bot)      BOT="${2:-}"; shift 2 || die bad_args "--bot needs a value"
+                case "$BOT" in ""|-*) die bad_args "--bot needs a value" ;; esac ;;
     --timeout)  TIMEOUT="${2:-}"; shift 2 || die bad_args "--timeout needs a value" ;;
     --interval) INTERVAL="${2:-}"; shift 2 || die bad_args "--interval needs a value" ;;
+    ""|--wait|--all) shift ;;  # the skill's own flags, as in fetch-pr-comments.sh
     -*) die bad_args "unknown flag: $1" ;;
     *)  PR="$1"; shift ;;
   esac
 done
 case "$TIMEOUT$INTERVAL" in *[!0-9]*) die bad_args "--timeout and --interval must be integers" ;; esac
 [ "$INTERVAL" -gt 0 ] || die bad_args "--interval must be greater than 0"
+[ -z "$BOT" ] || [ -n "$HEAD_SHA" ] || die bad_args "--bot needs --head"
 
 # A review count taken before waiting; any settled review that appears later is
 # the one being waited on, whether or not it produced findings.
@@ -58,14 +68,25 @@ START=$SECONDS
 POLLS=0
 while :; do
   POLLS=$((POLLS+1))
-  ACT=$(actionable_now)
   NOW=$(review_count)
-
-  if [ -n "$ACT" ] && [ "$ACT" -gt 0 ] 2>/dev/null; then
-    STATUS=findings; break
-  fi
-  if [ -n "$NOW" ] && [ -n "$BEFORE" ] && [ "$NOW" -gt "$BEFORE" ] 2>/dev/null; then
-    STATUS=review_settled; break
+  if [ -n "$HEAD_SHA" ]; then
+    # Counts mislead after a push: older summaries still read as actionable.
+    ACT=""
+    if [ -n "$BOT" ]; then
+      SHA=$(gh pr view ${PR:+"$PR"} --json reviews 2>/dev/null | jq -r --arg b "$BOT" '[.reviews[]
+        | select(.author.login == $b and .state != "PENDING")] | sort_by(.submittedAt // "") | last | .commit.oid // empty' 2>/dev/null)
+    else
+      SHA=$(bash "$FETCH" ${PR:+"$PR"} 2>/dev/null | jq -r '.last_bot_review.sha // empty' 2>/dev/null)
+    fi
+    if [ "$SHA" = "$HEAD_SHA" ]; then STATUS=review_landed; break; fi
+  else
+    ACT=$(actionable_now)
+    if [ -n "$ACT" ] && [ "$ACT" -gt 0 ] 2>/dev/null; then
+      STATUS=findings; break
+    fi
+    if [ -n "$NOW" ] && [ -n "$BEFORE" ] && [ "$NOW" -gt "$BEFORE" ] 2>/dev/null; then
+      STATUS=review_settled; break
+    fi
   fi
   if [ $((SECONDS - START)) -ge "$TIMEOUT" ]; then
     STATUS=timeout; break

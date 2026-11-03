@@ -14,6 +14,7 @@ Lessons live in `lessons/NNNN-<lesson-slug>.html` and references in `reference/N
 
 Write **one self-contained HTML file** per lesson, numbered per [Numbering](#numbering).
 
+- **Shared kit.** Copy the `<style>` and `<script>` from [./assets/lesson-kit.html](./assets/lesson-kit.html) verbatim, and use its quiz markup. Every lesson then looks and behaves the same.
 - **Beautiful.** Clean, readable Tufte-style typography and layout — the user returns to these to review, and they should print well.
 - **Short and quickly completable.** Working memory is small; stay within it. But each lesson must deliver one tangible win, tied to the mission and inside the ZPD.
 - **Knowledge first, heavily cited.** Teach only the knowledge the skill requires. Link every claim to a `RESOURCES.md` source — citations build trust.
@@ -29,7 +30,7 @@ Write **one self-contained HTML file** per lesson, numbered per [Numbering](#num
 
 ## Reference
 
-Extract reusable knowledge — syntax, algorithms, flowcharts, pose sequences, glossaries — into `reference/NNNN-<reference-slug>.html`. References are the compressed essence of lessons, designed for quick review; unlike lessons, they *will* be revisited.
+Extract reusable knowledge — syntax, algorithms, flowcharts, pose sequences, glossaries — into `reference/NNNN-<reference-slug>.html`. References are the compressed essence of lessons, designed for quick review; unlike lessons, they *will* be revisited. Build them on the same [shared kit](#lesson); a page with no quiz still takes the kit's `<style>` and `<script>`.
 
 ## Glossary promotion
 

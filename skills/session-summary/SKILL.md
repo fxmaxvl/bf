@@ -16,11 +16,11 @@ On invocation, print this banner as plain text (not in a code block) before doin
 
 ## Step 1 — Write the session summary
 
-Resolve the artifact root, then write the summary to `$SESSIONS_DIR/session_{slug}_{timestamp}.md`:
+Resolve the artifact root, then write the summary to `$SESSIONS_DIR/session_{slug}_{timestamp}.md`. Use the repo only when `.bf/sessions` is git-ignored, so the summary never shows up in it. The probe names a path inside the directory because a `dir/` pattern does not match a directory that does not exist yet.
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-if [ -n "$PROJECT_ROOT" ]; then
+if [ -n "$PROJECT_ROOT" ] && git -C "$PROJECT_ROOT" check-ignore -q .bf/sessions/probe; then
   SESSIONS_DIR="$PROJECT_ROOT/.bf/sessions"
 else
   SESSIONS_DIR="$HOME/.bf/sessions"
@@ -33,6 +33,7 @@ Include:
 - A brief recap of key actions.
 - Total cost of the session, only if the harness shows it. It usually does not, in which case write "not available" and move on. Never estimate or infer a figure.
 - Efficiency insights.
+  - Was any tool output filtered or summarised by a wrapper, and did a decision depend on it?
 - Possible process improvements.
 - Any other interesting observations or highlights.
 
@@ -78,6 +79,7 @@ The body should list each insight as a bullet point, written as a general improv
 |---|---|
 | Neither `<project_root>/.bf/` nor `~/.bf/` is writable | Print the summary to the conversation and say it could not be persisted. Never drop it silently. |
 | Not in a git repository | Use the `~/.bf/sessions` fallback; the summary does not need a repo. |
+| In a git repo, but `.bf/sessions` is not git-ignored | Use the `~/.bf/sessions` fallback, so the summary does not show up in the repo. |
 | The session has nothing worth summarizing | Say so in one line and write nothing rather than padding a file. |
 | `gh issue create` fails or `gh` is unauthenticated | Keep the written summary, report the failure, and print the issue body so the user can file it by hand. |
 | The user declines the improvement issue | Write the summary only. Do not re-ask. |

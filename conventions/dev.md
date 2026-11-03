@@ -26,7 +26,7 @@
 ### TDD Implementation Process
 
 - Write a failing test that defines a desired function or improvement
-- Run the test to confirm it fails as expected
+- Run the tests to confirm the new test fails with the expected assertion while the rest pass. A compile or import error, or a whole-suite failure, is not a valid red
 - Write minimal code to make the test pass
 - Run the test to confirm success
 - Refactor code to improve design while keeping tests green
