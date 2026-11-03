@@ -823,6 +823,7 @@ List remaining concerns by ID and label if any exist.
 | `build-state.json` already exists | Move it aside, warn the user, restore after scan. |
 | Post to PR: user does not answer, or the run is unattended | Post nothing. Posting needs an explicit `comment` or `request-changes`. |
 | Post to PR: finding's line is not in the diff | `pr-review-payload.sh` lists it in the review body instead of inline. |
+| Post to PR: `pr-review-payload.sh` exits 1 | Print its error object and do not call `gh api`. Continue to Phase 3. |
 | Post to PR: `gh api` fails | Print the error; the report stays saved. Continue to Phase 3. |
 
 ### Fix phase
