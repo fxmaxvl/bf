@@ -228,7 +228,10 @@ Print banner: `── micro | Finalize ─────────────�
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/finalize-git.sh" \
      --commit-msg "<commit message>" \
      --pr-title "<pr title>" \
-     --pr-body "<pr body text>" \
+     --pr-body "$(cat <<'PRBODY'
+   <pr body text>
+   PRBODY
+   )" \
      --baseline <paths.untracked_baseline> \
      [--add <path>]...                        # only on a rerun after exit 3 \
      [--leave-untracked]                      # only on a rerun after exit 3 \
@@ -238,7 +241,7 @@ Print banner: `── micro | Finalize ─────────────�
    The script stages tracked edits, every untracked file made since the session started (anything not in `paths.untracked_baseline`), the `--add` files and `.bf/conventions/`. It commits if there are changes, pushes, creates the PR, and outputs the PR URL.
    **Exit 3** means files that were already untracked when the session started are still untracked. The script lists them on stderr and has staged and pushed nothing. Show the list and ask which of them belong to the change (one question). Rerun with `--add` for those, plus `--leave-untracked` when any remain. Under `/bf:autopilot`, rerun with `--leave-untracked`: a file that was there before the session never goes into the commit unasked.
    **Exit 1** with a git error means an `--add` path is missing, ignored, or outside the repo. Nothing was staged. Drop that path and rerun.
-   **Target repos** (`## Target Repos` non-empty): do not run `finalize-git.sh`. Per line: `git -C <checkout> push -u origin <branch>`, then `gh pr create -R <owner/repo> --head <branch> --title "<pr title>" --body "<pr body text>"`. Collect every PR URL.
+   **Target repos** (`## Target Repos` non-empty): do not run `finalize-git.sh`. Per line: `git -C <checkout> push -u origin <branch>`, then `gh pr create -R <owner/repo> --head <branch> --title "<pr title>" --body-file -` with the body in a quoted heredoc (`<<'PRBODY'`), never in double quotes: backticks there run as commands. Collect every PR URL.
 6. If `jira.enabled`:
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
