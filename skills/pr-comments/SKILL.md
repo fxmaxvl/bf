@@ -125,6 +125,10 @@ Review Convention says which wins when they disagree with bf's. A reviewer's sty
 that contradicts a project convention loses to the convention, and that is the argument to make in
 the reply.
 
+A convention question about the whole org ("how do others do X", "is there a common way") is not
+answered by the local repo alone: search with `gh search code --owner=<org>` (other channels:
+the Phase 3 routing table in `${CLAUDE_PLUGIN_ROOT}/skills/research/SKILL.md`) and answer with one table of hits counted by repo and service type.
+
 Group comments that make the same point across files, and triage the group once. Reviewers repeat
 themselves; so do bots. **A group is one verdict over many threads, never one thread standing in for
 the others** — carry every member's `thread_id` on the grouped entry. Each of those threads is
