@@ -68,6 +68,7 @@ Print banner: `── micro | Init ───────────────
 4. **Branch selection**:
    - If on `master` (or the repo's main branch): create and checkout `feat/<slug>` from master.
    - If on a non-master branch: ask "You're on `<branch>`. Continue here or create a new branch `feat/<slug>` from master?" — act on the answer.
+   - **Targets in other repos** (files to change live outside the session repo): skip both bullets above — the session repo stays untouched. Per target repo, under one `mktemp -d` scratch dir: if a local checkout exists, `git -C <source> fetch origin && git -C <source> worktree add <scratch>/<repo> -b feat/<slug> origin/HEAD`; otherwise `gh repo clone <owner/repo> <scratch>/<repo>` and `git -C <scratch>/<repo> checkout -b feat/<slug>`. After step 5, write a `## Target Repos` block to `paths.session_log`, one line per repo: `<owner/repo> <checkout> feat/<slug> [<source>]`. Later phases and resumes read it with `read-block.sh`.
 5. Initialize state:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
@@ -109,7 +110,7 @@ Proceed to Phase 2.
 
 Print banner: `── micro | Execute ───────────────────────────────`
 
-Dispatch `micro/execute/SKILL.md` as an Agent (model: sonnet).
+Dispatch `micro/execute/SKILL.md` as an Agent (model: sonnet). If `## Target Repos` is non-empty, paste its lines into the prompt.
 
 When it completes:
 ```
@@ -231,10 +232,11 @@ Print banner: `── micro | Finalize ─────────────�
    The script stages tracked edits, every untracked file made since the session started (anything not in `paths.untracked_baseline`), the `--add` files and `.bf/conventions/`. It commits if there are changes, pushes, creates the PR, and outputs the PR URL.
    **Exit 3** means files that were already untracked when the session started are still untracked. The script lists them on stderr and has staged and pushed nothing. Show the list and ask which of them belong to the change (one question). Rerun with `--add` for those, plus `--leave-untracked` when any remain. Under `/bf:autopilot`, rerun with `--leave-untracked`: a file that was there before the session never goes into the commit unasked.
    **Exit 1** with a git error means an `--add` path is missing, ignored, or outside the repo. Nothing was staged. Drop that path and rerun.
+   **Target repos** (`## Target Repos` non-empty): do not run `finalize-git.sh`. Per line: `git -C <checkout> push -u origin <branch>`, then `gh pr create -R <owner/repo> --head <branch> --title "<pr title>" --body "<pr body text>"`. Collect every PR URL.
 6. If `jira.enabled`:
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-7. Tell the user: "PR is up at <pr_url>. Build complete!" When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
+7. Tell the user: "PR is up at <pr_url>. Build complete!" For target repos, list one PR URL per repo. When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
 8. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=done phase_status=in_progress
    ```
@@ -243,6 +245,8 @@ Print banner: `── micro | Finalize ─────────────�
 ## Phase 7 — Cleanup
 
 Print banner: `── micro | Cleanup ───────────────────────────────`
+
+For each `## Target Repos` line with a `<source>`, first run `git -C <source> worktree remove <checkout>`. Then:
 
 ```
 bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/cleanup.sh"
