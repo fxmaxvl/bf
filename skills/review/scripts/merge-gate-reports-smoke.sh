@@ -75,4 +75,12 @@ out=$(bash "$merge" "$tmp/report.md" "$tmp/odd.md" --complexity)
 eq "unparseable BLOCK finding -> CONCERN, not PASS" "$out" "STATUS: CONCERN"
 has "unparseable BLOCK finding is kept verbatim" "$tmp/report.md" '- src/a.ts:10: path without backticks. **Fix:** quote it.'
 
+# In the consistency format there are no "####" group lines, so an unreadable finding can come
+# before the first readable one. It must still reach the report.
+printf '## Consistency Report\n\nSTATUS: ADVISORY\n\n### ADVISORY\n\n- src/a.ts:3, **Naming**: path without backticks.\n- `src/c.ts:7`, **Naming**: name differs.\n' >"$tmp/mixed.md"
+report ""
+bash "$merge" "$tmp/report.md" "$tmp/mixed.md" --consistency >/dev/null
+has "an unreadable finding before a readable one is kept" "$tmp/report.md" '- src/a.ts:3, **Naming**: path without backticks.'
+has "the readable finding is still numbered" "$tmp/report.md" '- **Y1** [should-consider] `src/c.ts:7`: name differs.'
+
 [ "$fails" -eq 0 ]

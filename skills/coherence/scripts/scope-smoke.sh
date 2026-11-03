@@ -79,4 +79,22 @@ done
 jq -e '.file_count == (.files | length)' <<< "$out" >/dev/null || ok=1
 check "working: quoted, tab, control-byte, newline and backslash names keep files, hunks and file_count" $ok
 
+# Path splitting and option injection: a path with a space stays whole, one path per line splits
+# on newlines only, and a range-looking target never reaches git as an option.
+new_repo
+echo s > "my notes.txt"; echo b > b.txt; git add . && git commit -qm spaced
+echo more >> "my notes.txt"; echo more >> b.txt; echo more >> a.txt
+out=$(printf '%s\n' "my notes.txt" | bash "$scope" --with-untracked -)
+ok=0; [ "$(mode "$out")" = paths ] && has "$out" "my notes.txt" || ok=1
+check "stdin: a path with a space stays one path" $ok
+out=$(printf '%s\n%s\n' "my notes.txt" b.txt | bash "$scope" -)
+ok=0; has "$out" "my notes.txt" && has "$out" b.txt || ok=1
+check "stdin: one path per line" $ok
+out=$(bash "$scope" "a.txt b.txt")
+ok=0; has "$out" a.txt && has "$out" b.txt || ok=1
+check "positional: space-separated paths still split" $ok
+out=$(printf '%s\n' "--output=../pwned..txt" | bash "$scope" --with-diff -)
+ok=0; [ ! -e "$tmp/pwned..txt" ] || ok=1
+check "stdin: a target that starts with - never reaches git diff as an option" $ok
+
 exit $fail

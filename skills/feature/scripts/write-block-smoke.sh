@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Smoke test for write-block.sh: usage errors, create, append, in-place replace, header prefix,
-# rejected body, and concurrent writers. The race window is too narrow to hit at normal speed, so
+# rejected body, emptying a block, and concurrent writers. The race window is too narrow to hit at normal speed, so
 # the lock is proven on slowed copies of the script: intact with the lock, corrupted without it.
 #
 # Usage: write-block-smoke.sh
@@ -54,6 +54,13 @@ done
 wait
 eq "concurrent writers keep one header each" "$(grep '^## ' "$r" | sort | tr '\n' '|')" "## Complexity Report|## Consistency Report|## Implementation Review|## QA|"
 eq "concurrent writers keep each final body" "$(bash "$read_block" "$r" --block "## Consistency Report")" "$(printf '\nConsistency Report\nrun 20\n')"
+
+e=$tmp/emptied.md
+printf '## Complexity Report\n\nSTATUS: ADVISORY\n\nold\n\n## QA\n\nqa\n' > "$e"
+: | bash "$script" "$e" --block "## Complexity Report"
+eq "an emptied block reads as empty" "$(bash "$read_block" "$e" --block "## Complexity Report")" ""
+eq "an emptied block keeps its neighbours" "$(bash "$read_block" "$e" --block "## QA")" "$(printf '\nqa\n')"
+eq "an emptied block reads as NOT_FOUND to the gate check" "$(bash "$dir/check-report-status.sh" "$e" --block "## Complexity Report")" "NOT_FOUND"
 
 sed "s/^    lines = f.read().splitlines(keepends=True)$/&\\
     __import__('time').sleep(0.1)/" "$script" > "$tmp/slow.sh"

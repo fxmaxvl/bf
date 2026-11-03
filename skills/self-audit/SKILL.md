@@ -108,7 +108,8 @@ Print the filed issue urls, the number deduped away, and the artifact path. Clos
 | `harvest-issues.sh` is missing or errors | Skip dedupe, warn that duplicates are possible, and continue — never skip filing over it. |
 | A lens returns findings without `path:line` | Drop them and note the count; uncitable findings are not filed. |
 | `gh` unauthenticated | Stop before filing, keep the artifact, and tell the user to run `gh auth login` then re-invoke. |
-| A lens agent goes idle or stays silent after the watch | Ask it once for its findings. If it stays silent, run that lens inline from the same brief, so the fan-out still completes — a partial fan-out is ruled out by the **Parallel Fan-Out** convention. Only if the inline pass also fails, record the gap in the artifact so the sweep is visibly incomplete rather than silently narrowed. |
+| A lens agent goes idle without reporting | Ask it once for its findings. If it still sends none, treat it like a lens the watch stopped (next row). |
+| The silent-agent watch stopped a lens | Run that lens inline from the same brief, so the fan-out still completes — a partial fan-out is ruled out by the **Parallel Fan-Out** convention. Only if the inline pass also fails, record the gap in the artifact so the sweep is visibly incomplete rather than silently narrowed. |
 
 Here is the request:
 $ARGUMENTS

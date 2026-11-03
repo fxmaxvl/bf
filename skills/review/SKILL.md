@@ -394,7 +394,7 @@ Apply the rules in <resolved absolute path to prose.md> to all prose you return.
 Read <resolved absolute path to skills/feature/consistency-gate/SKILL.md> and follow it.
 ```
 
-Dispatch the enabled Agents in a **single message** (all model: opus) per the **Parallel Fan-Out** convention in `plugin-main.md`, so they run in parallel. Name each so it shows on the fleet board: `review` (Prompt A), `complexity-gate` (Prompt B), `consistency-gate` (Prompt C). Right after the spawn, start the silent-agent watch from **Parallel Fan-Out**; the progress test is each agent's report file or block. Wait for all of them to return.
+Dispatch the enabled Agents in a **single message** (all model: opus) per the **Parallel Fan-Out** convention in `plugin-main.md`, so they run in parallel. Name each so it shows on the fleet board: `review` (Prompt A), `complexity-gate` (Prompt B), `consistency-gate` (Prompt C). Right after the spawn, start the silent-agent watch from **Parallel Fan-Out**. Wait for all of them to return.
 
 ### Clean up temp state
 

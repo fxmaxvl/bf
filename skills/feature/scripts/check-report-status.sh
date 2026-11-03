@@ -8,9 +8,13 @@
 #                   Required when multiple reports share a single temp file.
 #                   Repeat it to check several blocks in one call: the output is then one
 #                   "<header>: <STATUS>" line per block, then "OVERALL: <STATUS>".
-#                   OVERALL is BLOCK when any block is BLOCK or CONCERN, else NOT_FOUND when any
-#                   block is missing (a missing report must not open the gate), else ADVISORY
-#                   when any block is ADVISORY, else PASS.
+#                   OVERALL is NOT_FOUND when any block is missing, so the caller re-runs that
+#                   gate even when another one blocks; else BLOCK when any block is BLOCK,
+#                   CONCERN or a status the script does not know; else ADVISORY when any block
+#                   is ADVISORY; else PASS.
+#
+# The STATUS label is matched in any case and with markdown emphasis, and only the first
+# word of the value counts: `BLOCK (2 issues)` reads as BLOCK, `CONCERNS` as CONCERN.
 
 set -euo pipefail
 
@@ -35,6 +39,13 @@ while [[ $# -gt 0 ]]; do
     shift 2
 done
 
+# Gates write `STATUS: BLOCK (2 issues)`, `**STATUS:** BLOCK` or copy the template's
+# `BLOCK | ADVISORY`; only the first word after the label is the verdict.
+normalize() {
+    sed -E 's/^[*_]*[Ss][Tt][Aa][Tt][Uu][Ss][*_]*:[*_[:space:]]*//' | grep -oE '^[A-Za-z_]+' | tr '[:lower:]' '[:upper:]' \
+        | sed -E 's/^CONCERNS$/CONCERN/; s/^(BLOCKED|BLOCKING)$/BLOCK/; s/^PASSED$/PASS/'
+}
+
 status_of() {
     local BLOCK_HEADER="$1" CONTENT STATUS ANSWER Q S TS_ASK
     if [[ ! -f "$FILE" ]]; then
@@ -48,7 +59,7 @@ status_of() {
         CONTENT=$(cat "$FILE")
     fi
 
-    STATUS=$(echo "$CONTENT" | grep -m1 -E '^STATUS:' 2>/dev/null | sed 's/^STATUS:[[:space:]]*//' | tr -d '[:space:]' || true)
+    STATUS=$(echo "$CONTENT" | grep -m1 -iE '^[*_]*status[*_]*:' 2>/dev/null | normalize || true)
 
     # The grep is the fast path and stays authoritative. It only misses when the
     # report drifted from the agreed line format (`**STATUS:** BLOCK`, or a verdict
@@ -93,14 +104,20 @@ if [[ ${#BLOCK_HEADERS[@]} -le 1 ]]; then
     exit 0
 fi
 
+rank() {
+    case "$1" in
+        PASS) echo 0 ;;
+        ADVISORY) echo 1 ;;
+        NOT_FOUND) echo 3 ;;
+        *) echo 2 ;;
+    esac
+}
+
 OVERALL=PASS
 for header in "${BLOCK_HEADERS[@]}"; do
     status=$(status_of "$header")
     echo "$header: $status"
-    case "$status" in
-        BLOCK|CONCERN) OVERALL=BLOCK ;;
-        NOT_FOUND) [[ "$OVERALL" == BLOCK ]] || OVERALL=NOT_FOUND ;;
-        ADVISORY) [[ "$OVERALL" == PASS ]] && OVERALL=ADVISORY ;;
-    esac
+    [[ "$status" == PASS || "$status" == ADVISORY || "$status" == NOT_FOUND ]] || status=BLOCK
+    if (( $(rank "$status") > $(rank "$OVERALL") )); then OVERALL=$status; fi
 done
 echo "OVERALL: $OVERALL"

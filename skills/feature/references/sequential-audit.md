@@ -10,13 +10,13 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" audit_started_a
 
 Run up to 3 scan → fix cycles (complexity & consistency):
 
-1. Run both gates in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board (phase is `verify` — both skills auto-detect scan mode):
+1. Empty both report blocks first, so a block from review-design or an earlier cycle cannot pass for this cycle's report: `: | bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/write-block.sh" <paths.temp> --block "<header>"` for `## Complexity Report` and `## Consistency Report`. Then run both gates in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board (phase is `verify` — both skills auto-detect scan mode):
    - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus)
    - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus)
-   Start the silent-agent watch from **Parallel Fan-Out** after the spawn; the progress test is each gate's report block in `paths.temp`.
+   Start the silent-agent watch from **Parallel Fan-Out** after the spawn.
 2. Check both reports:
    `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report" --block "## Consistency Report"`
-   Act on its `OVERALL:` line (`PASS`, `ADVISORY`, `BLOCK` or `NOT_FOUND`); on `NOT_FOUND`, re-run the missing gate once. If the report is still `NOT_FOUND` after the re-run, treat the gate as `BLOCK`: do not proceed, and tell the user the gate produced no report.
+   Act on its `OVERALL:` line (`PASS`, `ADVISORY`, `BLOCK` or `NOT_FOUND`); on `NOT_FOUND`, re-run the gate its per-block line names once, then check again. If the report is still `NOT_FOUND` after the re-run, do not enter the `BLOCK` branch, which has nothing to fix: tell the user which gate produced no report and ask one question, re-run that gate again or proceed without its report. On proceed, record the missing gate in the session log.
 3. If overall STATUS is `PASS` or `ADVISORY`: show findings if any, proceed to step 5
 4. If overall STATUS is `BLOCK`:
    - Show the blocked issues from both reports to the user

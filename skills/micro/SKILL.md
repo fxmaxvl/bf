@@ -138,13 +138,13 @@ Print banner: `── micro | Complexity Guard ───────────
 **Non-code change check.** Both this phase and Phase 5 spawn opus agents to reason about
 new code. When the task produced none, they cost two round-trips and find nothing.
 
-Read the record first: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.session_log> --block "## Changed Paths"`. If every line has type `docs`, skip. Otherwise run:
+Read the record first: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.session_log> --block "## Changed Paths"`. If it has lines and every line has type `docs`, skip. Otherwise, including when the output is empty (a single-repo run writes no record), run the check from inside each repo that holds the change: the session repo, or each `## Target Repos` checkout when that block is non-empty:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/rename-only.sh"
+cd <repo> && bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/rename-only.sh"
 ```
 
-It prints `skip: true` when every changed entry is a pure rename (`R100`) or a modification whose added and removed lines differ only inside quoted path or module literals (no whitespace, with a `/` or a dotted name), and `skip: false` for anything else. Skip this phase and Phase 5 — go straight to Phase 6 — on `skip: true`. On `skip: false`, both gates run as normal.
+It prints `skip: true` when every changed entry is a pure rename (`R100`) or a modification whose added and removed lines differ only inside quoted path or module literals (single- or double-quoted, no whitespace, `$`, backtick or parenthesis, with a `/` or a dotted name), paired line by line inside each hunk and read from the working tree, so uncommitted edits count, and `skip: false` for anything else. Skip this phase and Phase 5 — go straight to Phase 6 — only when every repo prints `skip: true`. On any `skip: false`, both gates run as normal.
 
 If skipping, record it and say so:
 

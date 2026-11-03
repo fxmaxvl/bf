@@ -11,9 +11,10 @@
 # Each merged section gets its findings renumbered X1.., Y1.. in order. A BLOCK finding becomes
 # [must-fix], an ADVISORY finding [should-consider]. A missing gate block gives
 # "STATUS: UNKNOWN (...)". STATUS in the report becomes CONCERN when any C*, X* or Y* finding
-# exists, a merged gate STATUS is not PASS, or --review-failed is set; its focus suffix stays.
-# A non-PASS gate whose findings the parser cannot read is copied verbatim under a marker line, so
-# no finding is dropped.
+# exists, a merged gate reported a STATUS other than PASS, or --review-failed is set; its focus
+# suffix stays. A missing gate (UNKNOWN) does not escalate: the review runs without it.
+# A finding line the parser cannot read is kept as written, wherever it falls; a non-PASS gate with
+# no readable finding at all is copied verbatim under a marker line. Either way no finding is dropped.
 #
 # Format dependency: the parser reads the Report Format of feature/complexity-gate/SKILL.md and
 # feature/consistency-gate/SKILL.md: the "###" severity headers, the "####" group lines, the
@@ -73,7 +74,7 @@ for line in sys.stdin_lines:
         text = re.sub(r"\*\*(?:Fix|Suggestion):\*\*", "Suggested:", text)
         n += 1
         out.append("- **%s%d** %s %s: %s" % (prefix, n, severity, loc, text))
-    elif out and line.strip() and not line.startswith("#"):
+    elif (out or severity) and line.strip() and not line.startswith("#"):
         out.append(line)
 if n == 0:
     out = ["(unparsed gate findings, copied as written)"] + [l for l in sys.stdin_lines if l.strip()]

@@ -6,7 +6,10 @@
 #   target empty      → uncommitted changes; falls back to branch-vs-base when the tree is clean
 #   target "branch"   → current branch vs merge-base with origin/HEAD
 #   target <sha|range>→ that commit or range
-#   target <paths...> → git diff limited to those paths
+#   target <paths...> → git diff limited to those paths: one path per line when the target has
+#                       several lines; else the whole line when it names an existing or tracked
+#                       path (so `my notes.txt` stays one path); else split on whitespace.
+#                       Globs are left to git's pathspec matching, not expanded by the shell.
 #
 #   --with-diff       → append three keys after "files", leaving every existing key and its
 #                       position untouched:
@@ -37,6 +40,7 @@ while :; do
 done
 target="${1:-}"
 [ "$target" = - ] && target=$(cat)
+[[ "$target" =~ ^[[:space:]]*$ ]] && target=""
 untracked_spec=()
 
 # `git diff --no-index` exits 1 whenever the files differ, so its status is not an error signal.
@@ -52,6 +56,20 @@ untracked_diff() {
   return 0
 }
 
+split_paths() {
+  paths=()
+  local line
+  if [[ "$target" == *$'\n'* ]]; then
+    while IFS= read -r line; do [ -n "$line" ] && paths+=("$line"); done <<< "$target"
+  elif [ -e "$target" ] || [ -n "$(git ls-files -- ":(literal)$target" 2>/dev/null)" ]; then
+    paths=("$target")
+  else
+    set -f
+    read -r -a paths <<< "$target"
+    set +f
+  fi
+}
+
 base_ref() {
   local head; head=$(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main)
   git merge-base HEAD "$head" 2>/dev/null || git rev-parse HEAD~1 2>/dev/null
@@ -64,11 +82,13 @@ if [ -z "$target" ]; then
   [ "$with_untracked" = 1 ] && untracked_spec=(. ':(exclude).bf')
 elif [ "$target" = "branch" ]; then
   mode=branch; diff_args=("$(base_ref)"...HEAD); diff=$(git -c core.quotePath=false diff "${diff_args[@]}" 2>/dev/null)
-elif git rev-parse --verify --quiet "$target" >/dev/null 2>&1 || [[ "$target" == *..* ]]; then
-  mode=range; diff_args=("$target"); diff=$(git -c core.quotePath=false diff "${diff_args[@]}" 2>/dev/null)
+elif git rev-parse --verify --quiet --end-of-options "$target" >/dev/null 2>&1 || [[ "$target" == *..* ]]; then
+  # --end-of-options keeps a target such as `--output=../x..txt` from being read as a git option.
+  mode=range; diff_args=(--end-of-options "$target"); diff=$(git -c core.quotePath=false diff "${diff_args[@]}" 2>/dev/null)
 else
-  mode=paths; diff_args=(HEAD -- $target); diff=$(git -c core.quotePath=false diff "${diff_args[@]}" 2>/dev/null)
-  [ "$with_untracked" = 1 ] && untracked_spec=($target ':(exclude).bf')
+  split_paths
+  mode=paths; diff_args=(HEAD -- "${paths[@]}"); diff=$(git -c core.quotePath=false diff "${diff_args[@]}" 2>/dev/null)
+  [ "$with_untracked" = 1 ] && untracked_spec=("${paths[@]}" ':(exclude).bf')
 fi
 
 if [ "${#untracked_spec[@]}" -gt 0 ]; then

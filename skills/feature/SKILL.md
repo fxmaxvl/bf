@@ -272,9 +272,10 @@ Run up to 3 analyze → fix cycles:
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: tell the user "Max review cycles reached. Review the spec manually." and stop
 5. Run both gates on the spec in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board, dispatched in one message, both awaited before you proceed (phase is still `review-design` — both skills auto-detect spec advisory mode):
+   Before the spawn, empty both gates' report blocks so a block from an earlier phase cannot pass for this run's report: `: | bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/write-block.sh" <paths.temp> --block "<header>"` for `## Complexity Report` and `## Consistency Report`.
    - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus)
    - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus)
-   Start the silent-agent watch from **Parallel Fan-Out** after the spawn; the progress test is each gate's report block in `paths.temp`.
+   Start the silent-agent watch from **Parallel Fan-Out** after the spawn.
    Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
 6. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=research phase_status=in_progress
@@ -362,15 +363,16 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/feature/references/sequential-audit.md` and f
 Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
 
 1. **Record start timestamp:** `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" audit_started_at=$(date -u +%s)` — state survives across orchestrator turns.
-2. **Spawn three named Agents concurrently in a single tool-use block** per the **Parallel Fan-Out** convention in `plugin-main.md` (all model: opus). Name each so it shows on the fleet board:
+2. **Empty the three report blocks** so a block from review-design or an earlier cycle cannot pass for this cycle's report, and a gate that dies reads as `NOT_FOUND`: `: | bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/write-block.sh" <paths.temp> --block "<header>"` for `## Complexity Report`, `## Consistency Report` and `## Implementation Review`.
+   **Spawn three named Agents concurrently in a single tool-use block** per the **Parallel Fan-Out** convention in `plugin-main.md` (all model: opus). Name each so it shows on the fleet board:
    - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent
    - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent
    - `review-impl`: dispatch `feature/review-impl/SKILL.md` as an Agent
-   IMPORTANT: all three must be in the SAME assistant message so they execute in parallel, and the fan-out is atomic — wait for all three to return before proceeding. Do not chain them, and do not have them message each other. Start the silent-agent watch from **Parallel Fan-Out** after the spawn; the progress test is each agent's report block in `paths.temp`.
+   IMPORTANT: all three must be in the SAME assistant message so they execute in parallel, and the fan-out is atomic — wait for all three to return before proceeding. Do not chain them, and do not have them message each other. Start the silent-agent watch from **Parallel Fan-Out** after the spawn.
 3. **Record end timestamp:** after all three return, log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (parallel)"`, reading `audit_started_at` from state.
 4. Check all three reports:
    `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "<paths.temp>" --block "## Complexity Report" --block "## Consistency Report" --block "## Implementation Review"`
-5. Act on the `OVERALL:` line it prints (`PASS`, `ADVISORY`, `BLOCK` or `NOT_FOUND`). Treat `NOT_FOUND` as a gate that did not report and re-run that gate once. If the report is still `NOT_FOUND` after the re-run, treat the gate as `BLOCK`: do not proceed, and tell the user the gate produced no report.
+5. Act on the `OVERALL:` line it prints (`PASS`, `ADVISORY`, `BLOCK` or `NOT_FOUND`). `NOT_FOUND` means a gate did not report, even when another gate blocks: the per-block lines name it. Re-run that gate once, then check again. If the report is still `NOT_FOUND` after the re-run, do not enter the `BLOCK` branch, which has nothing to fix: tell the user which gate produced no report and ask one question, re-run that gate again or proceed without its report. On proceed, record the missing gate in the session log.
 6. If `PASS` or `ADVISORY`: show findings, then:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=finalize phase_status=in_progress

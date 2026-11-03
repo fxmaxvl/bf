@@ -3,11 +3,15 @@
 # Usage: bash rename-only.sh [--base <ref>]
 #   --base   Ref to diff against (default: origin/HEAD, then origin/main, origin/master, main, master, as changed-packages.sh)
 # Output: "skip: true" when every changed entry is a pure rename (R100) or a modification whose
-#   added and removed lines differ only inside quoted path or module literals (no whitespace, and
-#   either a "/" or a dotted name such as "pkg.mod"), else "skip: false". A string like "admin" or
-#   a prose edit between two quotes is a real change and gives false.
+#   added and removed lines pair up in order, hunk by hunk, and differ only inside single- or
+#   double-quoted path or module literals (no whitespace, no `$`, backtick or parenthesis, and
+#   either a "/" or a dotted name such as "pkg.mod"), else "skip: false". The quote kind must stay
+#   the same. A string like "admin", a prose edit between two quotes, moved lines or an untracked
+#   file outside .bf/ is a real change and gives false.
 #   An empty diff, an add, a delete, a copy or a rename that also carries edits gives false: a gate
 #   skipped over real code costs more than the two gates it saves.
+# The diff runs from the merge base to the working tree: micro asks before it commits, so the
+#   task's edits are usually uncommitted. Run it from inside the repo to check.
 # The default base is a remote-tracking ref: a local branch behind its remote reports renames as
 # unpaired adds, which reads as new code.
 set -euo pipefail
@@ -31,35 +35,47 @@ if [[ -z "$base" ]]; then
   fi
 fi
 
-entries=$(git diff --name-status -M "$base...HEAD" 2>/dev/null) || { echo "skip: false"; exit 0; }
+from=$(git merge-base "$base" HEAD 2>/dev/null) || { echo "skip: false"; exit 0; }
+[[ -z "$(git ls-files --others --exclude-standard -- . ':!.bf/')" ]] || { echo "skip: false"; exit 0; }
+entries=$(git diff --name-status -M "$from" 2>/dev/null) || { echo "skip: false"; exit 0; }
 [[ -n "$entries" ]] || { echo "skip: false"; exit 0; }
 
-python3 - "$base" "$entries" <<'PY'
+python3 - "$from" "$entries" <<'PY'
 import re
 import subprocess
 import sys
 
 base, entries = sys.argv[1], sys.argv[2]
 strings = re.compile(r'''"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`[^`]*`''')
+literal = re.compile(r"[^\s$`()]+")
+module = re.compile(r"[A-Za-z_@][\w@-]*(\.[\w-]+)+")
+hunk = re.compile(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@")
 
 def mask(m):
-    body = m.group(0)[1:-1]
-    if re.fullmatch(r"\S+", body) and ("/" in body or re.fullmatch(r"[A-Za-z_@][\w@-]*(\.[\w-]+)+", body)):
-        return '""'
+    quote, body = m.group(0)[0], m.group(0)[1:-1]
+    if quote != "`" and literal.fullmatch(body) and ("/" in body or module.fullmatch(body)):
+        return quote * 2
     return m.group(0)
 
 def only_string_edits(path):
-    r = subprocess.run(["git", "diff", "-U0", f"{base}...HEAD", "--", path],
-                       capture_output=True, text=True)
-    removed, added = [], []
+    r = subprocess.run(["git", "diff", "-U0", base, "--", path], capture_output=True, text=True)
+    hunks, cur = [], None
     for line in r.stdout.splitlines():
-        if line.startswith(("---", "+++")):
+        h = hunk.match(line)
+        if h:
+            old = int(h.group(1)) if h.group(1) is not None else 1
+            new = int(h.group(2)) if h.group(2) is not None else 1
+            if old != new:
+                return False
+            cur = ([], [])
+            hunks.append(cur)
+        elif cur is None:
             continue
-        if line.startswith("-"):
-            removed.append(strings.sub(mask, line[1:]))
+        elif line.startswith("-"):
+            cur[0].append(strings.sub(mask, line[1:]))
         elif line.startswith("+"):
-            added.append(strings.sub(mask, line[1:]))
-    return bool(removed) and removed == added
+            cur[1].append(strings.sub(mask, line[1:]))
+    return bool(hunks) and all(removed == added for removed, added in hunks)
 
 for entry in entries.splitlines():
     fields = entry.split("\t")

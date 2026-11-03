@@ -61,7 +61,7 @@ of, what it depends on, and the findings that are visible at the whole-system le
 
 Spawn one agent per top-level unit, **all in a single message**, named `arch-<unit>` so the run is
 legible on the fleet board. Wait for every one before continuing — the fan-out is atomic, per the
-**Parallel Fan-Out** convention. Agents must not message each other. Tell each to report its one-line summary to `team-lead` as its final act. Right after the spawn, start the silent-agent watch from that convention. The progress test is whether the agent's fragment file exists and has grown since the last check.
+**Parallel Fan-Out** convention. Agents must not message each other. Tell each to report its one-line summary to `team-lead` as its final act. Right after the spawn, start the silent-agent watch from that convention.
 
 Each agent owns its branch to the bottom and **writes its subtree as finished markdown to
 `<fragments_dir>/<unit>.md`**, returning only a one-line summary. Give it: its unit path, its
