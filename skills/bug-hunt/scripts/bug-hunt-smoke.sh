@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke check for hunt-init.sh scope resolution and findings.sh merge/resolve/analyze, against throwaway repos.
+# Smoke check for hunt-init.sh scope resolution and findings.sh merge/resolve/analyze/mark/timing, against throwaway repos.
 #
 # Usage: bug-hunt-smoke.sh
 # Contract: exits 0 when every case passes, 1 otherwise; prints one PASS/FAIL line per case.
@@ -188,5 +188,40 @@ check "pipeline: analyzed.json is written and matches the output" "$(jq -e --arg
 echo '{"groups":[],"links":[]}' > "$pl/analysis.json"
 pe=$(bash "$findings" analyze "$pl")
 check "pipeline: an empty analysis passes through with no groups or folds" "$(q "$pe" '.counts.groups == 0 and .counts.folded == 0 and .groups == [] and .links == [] and ([.findings[] | select(.group != null or .folded_into != null)] | length) == 0')"
+
+check "timing: merge, resolve and analyze stamp script rows and per-file rows" "$(jq -se '[.[] | select(.by == "script") | .step] == ["merge","resolve","analyze","analyze"] and ([.[] | select(.step == "hunter") | .label] == ["h1","h2"]) and ([.[] | select(.step == "verifier")] | length) > 0' "$pl/timing.jsonl" >/dev/null; echo $?)"
+mk=$(bash "$findings" mark "$pl" report)
+check "timing: mark appends and prints an agent row" "$(q "$mk" '.step == "report" and .label == "" and .by == "agent" and .start == .end')"
+check "timing: mark with a label" "$(bash "$findings" mark "$pl" hunter h9 >/dev/null; jq -se '.[-1] | .step == "hunter" and .label == "h9"' "$pl/timing.jsonl" >/dev/null; echo $?)"
+o=$(bash "$findings" mark "$pl")
+check "timing: mark with no step is an error" "$(q "$o" '.error == "missing_step"')"
+ti=$(bash "$init" | jq -r .run_dir)
+check "timing: hunt-init.sh writes an init row" "$(jq -se '.[-1] | .step == "init" and .by == "script" and .end >= .start' "$ti/timing.jsonl" >/dev/null; echo $?)"
+
+tm="$tmp/timing"; mkdir -p "$tm"
+cat > "$tm/timing.jsonl" <<'J'
+{"step":"init","label":"","by":"script","start":0,"end":0.5}
+{"step":"hunt","label":"","by":"agent","start":10,"end":10}
+{"step":"hunter","label":"h1","by":"agent","start":100,"end":100}
+{"step":"hunter","label":"h2","by":"agent","start":110,"end":110}
+{"step":"hunter","label":"h3","by":"agent","start":160,"end":160}
+{"step":"merge","label":"","by":"script","start":165,"end":165.25}
+{"step":"verify","label":"","by":"agent","start":170,"end":170}
+{"step":"verifier","label":"B1","by":"agent","start":200,"end":200}
+{"step":"verifier","label":"B2","by":"agent","start":230,"end":230}
+{"step":"hunter","label":"h3","by":"agent","start":160,"end":160}
+{"step":"resolve","label":"","by":"script","start":231,"end":231.25}
+{"step":"report","label":"","by":"agent","start":300,"end":300}
+J
+t=$(bash "$findings" timing "$tm")
+check "timing: hunter spread and verify sum from the marks" "$(q "$t" '.pipeline == {hunter_spread: 60, verify_sum: 90, verify_wall: 60}')"
+check "timing: per-step durations, rerun rows deduped" "$(q "$t" '([.steps[] | select(.step == "hunter") | .duration] == [90, 100, 150]) and ([.steps[] | select(.step == "merge") | .duration] == [0.3])')"
+check "timing: a mark runs from the row that ended before it" "$(q "$t" '([.steps[] | select(.step == "hunt" or .step == "report") | .duration] == [9.5, 68.8])')"
+check "timing: script and agent split the wall time" "$(q "$t" '.wall == 300 and .script == 1 and .agent == 299')"
+printf '%s\n' '{"step":"merge","label":"","by":"script","start":5,"end":6}' > "$tm/timing.jsonl"
+t=$(bash "$findings" timing "$tm")
+check "timing: missing marks give null, not an error" "$(q "$t" '.wall == 1 and .pipeline == {hunter_spread: null, verify_sum: null, verify_wall: null}')"
+o=$(bash "$findings" timing "$tmp/empty")
+check "timing: no timing.jsonl is an error" "$(q "$o" '.error == "no_timing"')"
 
 exit $fail

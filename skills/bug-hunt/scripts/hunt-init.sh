@@ -11,7 +11,8 @@
 # Output keys: root, mode, base (branch and pr, else null), pr (pr only, else null), files, file_count,
 #   diff_file (branch and pr only),
 #   lenses (validated override or null), hunters (override or null), hunters_capped, repro,
-#   run_dir (created; holds hunters/ and verifiers/), report_path (collision-free), slug.
+#   run_dir (created; holds hunters/, verifiers/ and timing.jsonl, which gets an init row), report_path
+#   (collision-free), slug.
 # -h, --help prints this text on stdout and exits 0.
 # Errors: {"error":"<code>","detail":"..."} on stdout, exit 1.
 set -uo pipefail
@@ -28,6 +29,7 @@ for arg in "$@"; do
   case "$arg" in -h|--help) awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"; exit 0 ;; esac
 done
 command -v jq >/dev/null || die no_jq "jq is required"
+t0=$(jq -n now)
 root=$(git rev-parse --show-toplevel 2>/dev/null) || die not_a_git_repo "run inside a git repository"
 cd "$root" || exit 1
 
@@ -138,6 +140,7 @@ while [ -e "$report" ]; do report="$out_dir/$slug-$n.md"; n=$((n + 1)); done
 slug=$(basename "$report" .md)
 run_dir="$out_dir/runs/$slug"
 mkdir -p "$run_dir/hunters" "$run_dir/verifiers" "$run_dir/repro"
+jq -nc --argjson a "$t0" '{step: "init", label: "", by: "script", start: $a, end: now}' >> "$run_dir/timing.jsonl" 2>/dev/null || true
 
 jq -nc --arg root "$root" --arg mode "$mode" --argjson base "$base" --argjson pr "$pr_json" --argjson files "$files_json" \
   --argjson diff_file "$diff_file" --argjson lenses "$lenses_json" --argjson hunters "$hunters_json" \

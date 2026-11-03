@@ -38,6 +38,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/hunt-init.sh" <flags and tar
 
 It returns `{mode, base, pr, files, file_count, diff_file, lenses, hunters, hunters_capped, repro, run_dir, report_path, slug}`, or `{error, detail}` — print the detail and stop. Every later path comes from this result; do not re-derive any of them.
 
+Timing: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" mark "<run_dir>" <step>` with `hunt` just before the hunter spawn message, `verify` just before the verifier spawn message, and `report` after writing `report_path`; the scripts stamp everything else. A failed mark never stops the hunt. `findings.sh timing "<run_dir>"` prints the durations on request.
+
 ## Phase 1 — Pick lenses
 
 | id | Lens | Fits when the scope has… |
