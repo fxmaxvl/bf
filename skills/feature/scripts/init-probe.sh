@@ -74,7 +74,8 @@ state_path = os.path.join(root, '.bf', 'sessions', 'build-state.json')
 def state_matches():
     """None without state; True when the state belongs to this invocation.
 
-    Empty arguments are a plain resume and always match a feature or quick run.
+    Empty arguments are a plain resume and always match a feature or quick run. An issue or
+    ticket key outranks the idea text, which callers like bf:gh rewrite between runs.
     """
     if not os.path.exists(state_path):
         return None
@@ -88,10 +89,12 @@ def state_matches():
         return False
     if not (idea or gh_issue or jira_key):
         return True
-    return (quick == (mode == 'quick')
-            and idea == (state.get('idea') or '')
-            and gh_issue == (state.get('github_issue') or {}).get('number')
-            and jira_key == (state.get('jira') or {}).get('ticket_key'))
+    if quick != (mode == 'quick'):
+        return False
+    if gh_issue or jira_key:
+        return (gh_issue == (state.get('github_issue') or {}).get('number')
+                and jira_key == (state.get('jira') or {}).get('ticket_key'))
+    return idea == (state.get('idea') or '')
 
 print(json.dumps({
     'quick':          quick,

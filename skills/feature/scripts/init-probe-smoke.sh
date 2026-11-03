@@ -32,4 +32,8 @@ case ${archived#"$repo"/} in .bf/sessions/archive/*T*-dark-mode-build-state.json
 eq "archive moves the state" "$moved" yes
 eq "no state after archive" "$(probe 'fix login bug')" None
 
+(cd "$repo" && HOME=$tmp/home bash "$dir/state-ops.sh" --init --slug gh-7-x --idea 'GH-ISSUE:7 Token refresh fails' --gh-issue 7 >/dev/null)
+eq "matching gh issue resumes, idea text aside" "$(probe 'GH-ISSUE:7')" True
+eq "other gh issue" "$(probe 'GH-ISSUE:8 Token refresh fails')" False
+
 [ "$fails" -eq 0 ]
