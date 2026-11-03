@@ -166,6 +166,11 @@ specifically is fine and why. A rejection that is right about the line and wrong
 the most expensive mistake available here: it is public, it is argued, and it leaves the real
 instance sitting in the branch.
 
+**Check a "blocked by" claim before choosing.** When a reviewer flags this work as blocked by another
+change, read that change. If this PR breaks or cannot work without it, the block is real — judge it
+like any other valid concern. If the two only need to merge in a given order, it is a merge-order
+dependency, not a defect: `reject` the block, with the required merge order as the argument.
+
 ### Escalation
 
 Run `Skill("bf:decide", args=...)` inline for any comment where the verdict is not obvious after
