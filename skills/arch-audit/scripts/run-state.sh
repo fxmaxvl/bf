@@ -5,7 +5,7 @@
 # resumable, which would make the completion record a lie after an interruption.
 # Usage:
 #   run-state.sh paths
-#   run-state.sh init "<scope text>"                 # creates state when absent; scope always refreshed
+#   run-state.sh init <<'BF_ARGS'                    # scope text on stdin; creates state when absent, scope always refreshed
 #   run-state.sh done "<unit path>" "<fragment>"     # records one finished branch
 # Output: single-line JSON.
 set -euo pipefail
@@ -25,7 +25,8 @@ case "${1:-paths}" in
     ;;
   init)
     mkdir -p "$frag"
-    python3 - "$state" "$repo" "${2:-}" "$frag" <<'PY'
+    scope=$(cat)
+    python3 - "$state" "$repo" "$scope" "$frag" <<'PY'
 import json,os,sys,datetime
 state,repo,scope,frag=sys.argv[1:5]
 s={"repo":repo,"started":datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),"completed_branches":[]}

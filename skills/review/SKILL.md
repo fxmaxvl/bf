@@ -89,39 +89,7 @@ Print as plain text, not in a code block. If `dry_run=true`, append ` (dry-run)`
 
 ### Dry-run preview (if dry_run=true)
 
-When `dry_run=true`, skip every Agent spawn and exit before Phase 1 work begins. Print a structured preview so the user can see exactly what would run, then stop. No report is written, no `build-state.json` is created, no symlink is updated.
-
-Steps:
-
-1. Resolve conventions exactly as Phase 1 does, in the current repo (a dry-run never clones) — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture`, `prose`, plus one `host-rules.sh` call — but do **not** read the file bodies. Capture only the resolved absolute paths.
-2. Print this block (plain text, not in a code fence):
-
-   ```
-   bf:review dry-run
-   Scope: <scope description: "current branch diff vs origin/HEAD" if the scope text is empty, else the scope text left after flags and focus are stripped>
-   Focus: <focus_label>
-   Report would be written to: <report_path>
-   Resolved conventions:
-     - code-review: <resolved path or "MISSING">
-     - dev:         <resolved path or "MISSING">
-     - testing:     <resolved path or "MISSING">
-     - architecture: <resolved path or "MISSING">
-     - prose:       <resolved path or "MISSING">
-   Host repository rules: <one path per line from host_rules, or "none">
-   Agents that would be spawned (skipped in dry-run):
-     - review Agent        (model: opus), Phase 1 parallel batch
-     - complexity-gate Agent (model: opus), Phase 1 parallel batch
-     - consistency-gate Agent (model: opus), Phase 1 parallel batch
-   All <N> dispatched in a single message. Phase 2 aggregates the results.
-   Interactive phases that would follow (skipped in dry-run):
-     - Post to PR (PR scope only)
-     - Phase 3 fix selection
-     - Phase 4 fix apply + re-review
-   ```
-
-   List only the agents whose `run_review` / `run_complexity` / `run_consistency` is true. Do not name the others, not even as skipped. When only one agent would run, replace the "All <N> dispatched" line with "Dispatched alone. Phase 2 aggregates the results."
-
-3. Exit. Do not proceed to Phase 1.
+When `dry_run=true`, read `${CLAUDE_PLUGIN_ROOT}/skills/review/references/dry-run.md` and follow it. It prints the preview and ends the run before Phase 1.
 
 ## Phase 1 — Review
 
@@ -426,7 +394,7 @@ Apply the rules in <resolved absolute path to prose.md> to all prose you return.
 Read <resolved absolute path to skills/feature/consistency-gate/SKILL.md> and follow it.
 ```
 
-Dispatch the enabled Agents in a **single message** (all model: opus) per the **Parallel Fan-Out** convention in `plugin-main.md`, so they run in parallel. Name each so it shows on the fleet board: `review` (Prompt A), `complexity-gate` (Prompt B), `consistency-gate` (Prompt C). Wait for all of them to return.
+Dispatch the enabled Agents in a **single message** (all model: opus) per the **Parallel Fan-Out** convention in `plugin-main.md`, so they run in parallel. Name each so it shows on the fleet board: `review` (Prompt A), `complexity-gate` (Prompt B), `consistency-gate` (Prompt C). Right after the spawn, start the silent-agent watch from **Parallel Fan-Out**. Wait for all of them to return.
 
 ### Clean up temp state
 
@@ -490,51 +458,19 @@ STATUS: CONCERN<status_suffix>
 Review Agent did not complete. Results from the gates that ran are below.
 ```
 
-A gate the focus did not enable was never spawned. Skip its merge step and omit its section entirely; never write `UNKNOWN` for it.
+A gate the focus did not enable was never spawned. Leave its flag off; the script omits its section and never writes `UNKNOWN` for it.
 
-**Complexity** (when `run_complexity`)**:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Complexity Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Complexity\nSTATUS: UNKNOWN (complexity gate failed — see conversation)`.
+Run one call. Pass `--complexity` when `run_complexity`, `--consistency` when `run_consistency`, and `--review-failed` when `review_failed=true`:
 
-Renumber all complexity findings as X1, X2, ... sequentially.
-
-Map severity:
-- BLOCK finding → `[must-fix]`
-- ADVISORY finding → `[should-consider]`
-
-Gates never emit `[critical]`; that label is for the review Agent's defects only. Severity order: `[critical]` > `[must-fix]` > `[should-consider]`.
-
-Append to the report at `$report_path`:
-
-```
-## Complexity
-STATUS: <PASS | ADVISORY | BLOCK>
-
-### <Root Cause / Red Flag>
-- **X1** [must-fix | should-consider] `file:line`: <observation>. Suggested: <fix>
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/merge-gate-reports.sh" "$report_path" "$complexity_report_path" [--complexity] [--consistency] [--review-failed]
 ```
 
-Omit the section body if STATUS is PASS.
-
-**Consistency** (when `run_consistency`)**:** Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/check-report-status.sh" "$complexity_report_path" --block "## Consistency Report"` to extract the STATUS. If the file does not exist or the Agent failed, continue with: `## Consistency\nSTATUS: UNKNOWN (consistency gate failed — see conversation)`.
-
-Renumber all consistency findings as Y1, Y2, ... sequentially.
-
-Map severity identically (BLOCK → `[must-fix]`, ADVISORY → `[should-consider]`).
-
-Append to the report at `$report_path`:
-
-```
-## Consistency
-STATUS: <PASS | ADVISORY | BLOCK>
-
-### <Lens>
-- **Y1** [must-fix | should-consider] `file:line or spec section`: <observation>. Suggested: <fix>
-```
-
-Omit the section body if STATUS is PASS.
+It appends a `## Complexity` and a `## Consistency` section to `$report_path`. Each finding is renumbered X1, X2, ... and Y1, Y2, ... and labelled `[must-fix]` (BLOCK) or `[should-consider]` (ADVISORY). Gates never emit `[critical]`; that label is for the review Agent's defects only. Severity order: `[critical]` > `[must-fix]` > `[should-consider]`. A gate block that is missing gets `STATUS: UNKNOWN (<gate> gate failed — see conversation)`. The script also sets the overall STATUS: CONCERN when any C*, X* or Y* concern exists or `review_failed=true`, keeping `<status_suffix>`. Do not rewrite the STATUS line yourself.
 
 ### Merge shared root causes
 
-The agents run independently, so one defect can come back as a C*, an X* and a Y*. Before escalating, merge concerns from **different** sections that describe the same root cause. Two concerns share one only when both hold:
+The agents run independently, so one defect can come back as a C*, an X* and a Y*. Before the summary, merge concerns from **different** sections that describe the same root cause. Two concerns share one only when both hold:
 - they point at the same file and overlapping lines (or the same spec section);
 - one fix resolves both.
 
@@ -542,13 +478,9 @@ The same line with two different defects is not a match. Neither is the same def
 
 For each match, keep the first ID in C → X → Y order as the primary. Append `(also <ids>)` to its line and give it the higher severity (in the order above). Replace each other entry's body with `→ merged into <primary>`, so its ID still appears in the report. Phase 3 lists primaries only, and selecting a merged ID selects its primary. The summary's `Concerns:` counts leave merged entries out.
 
-### Escalate overall STATUS
+### Write back the merges
 
-If any C*, X*, or Y* concern exists, or if `review_failed=true`, set overall STATUS to CONCERN.
-
-Rewrite `$report_path` with the merged content (replace the STATUS line at the top, keeping `<status_suffix>`).
-
-Update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
+Write the root-cause merges back to `$report_path`. Leave the STATUS line as the script set it. Then update the symlink: `ln -sf "$report_path" "$reports_dir/latest.md"`
 
 ### Show summary in conversation
 
@@ -639,160 +571,7 @@ Wait for reply.
 
 ## Phase 4 — Fix
 
-### PR review: check out the PR branch
-
-If `pr_head_branch` is non-empty, check out the PR with `gh pr checkout`, which finds the right remote for a fork PR itself:
-
-```bash
-cd "<project_root>" && gh pr checkout <pr_number> -R "<pr_repo>" && git rev-parse HEAD
-```
-
-If it fails with `Not possible to fast-forward`, gh has already switched to the local branch, which has diverged from the PR: tell the user "Local branch `<pr_head_branch>` has diverged from the PR and is now checked out. Reconcile it, then re-run the fixes." On any other failure, tell the user: "Could not check out PR branch `<pr_head_branch>`. bf:review cannot apply the fixes automatically. Address the concerns manually." If the printed SHA is not `pr_head_sha`, tell the user "PR <pr_number> has new commits since the review. Re-run /bf:review on it, then apply the fixes." Exit Phase 4 in each of these cases.
-
-Then run the Phase 1 `resolve-conventions.sh` call again and use the new paths in every prompt from here on. A project-tier convention can exist on one branch and not on the other.
-
-### Spawn fix Agent (model: sonnet)
-
-Print (plain text): `→ Applying <N> fix(es) with sonnet…`
-
-Collect the selected concerns from the report: extract the full description blocks for each selected ID.
-
-Pass the following prompt to an Agent with model: sonnet:
-
-```
-You are applying code fixes identified by a code review.
-
-## Dev Convention
-
-Read <resolved absolute path to dev.md> and apply it.
-
-## Prose
-
-Apply the rules in <resolved absolute path to prose.md> to code comments and to all prose you return.
-
-## Selected Concerns
-<concern block for each selected ID, preserving full text>
-
-## Changed Files
-<one path per line from changed_files>
-
-## Instructions
-
-- You are running in the main working tree rooted at `<project_root>`. Do NOT create or use a git worktree. Do NOT checkout a different directory. Edit source files directly using their absolute paths under `<project_root>`.
-- Apply each fix in place. Every write must target a file listed in the `## Changed Files` block above.
-- Do not commit or push anything.
-- If a fix renames a term, placeholder or path, grep the whole repo for the old name and fix every remaining occurrence in `changed_files`; list any outside it in your summary.
-- If a fix cannot be applied cleanly (e.g. the code has moved), add a TODO comment:
-  `// TODO(bf:review): <concern ID>: <brief description of what needs manual fixing>`
-- Return a brief summary: which concerns were applied, which were deferred with a TODO.
-```
-
-### Post-fix test check
-
-After the fix Agent returns, check whether the project has a test suite:
-
-```bash
-cd "<project_root>" && bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/detect-stack.sh"
-```
-
-This gives you `test_commands`. If `test_commands` is non-empty:
-
-1. Run each test command from `<project_root>`. Capture stdout+stderr combined. Note the exit code.
-2. If all commands exit 0: proceed to the re-review cycle below.
-3. If any command exits non-zero:
-   a. Print (plain text): `⚠ Tests failed after fix. Starting the correction loop…`
-   b. Spawn a correction Agent (model: sonnet) with this prompt:
-      ```
-      The fix you applied caused test failures. Fix only the failing test assertions.
-
-      ## Prose
-
-      Apply the rules in <resolved absolute path to prose.md> to code comments and to all prose you return.
-
-      ## Test Output
-      <captured test output>
-
-      ## Changed Files
-      Relative to <project_root>:
-      <one path per line from changed_files>
-
-      ## Instructions
-      - Read the failing test files.
-      - Update only stale test assertions caused by the structural fix — do not change test intent or coverage.
-      - Do not commit or push anything.
-      - Return a brief summary of what you changed.
-      ```
-   c. After the correction Agent returns, run the test commands once more.
-   d. If still failing: print `⚠ Tests still fail after correction. Starting the re-review. The tests may need manual fixes.` — then proceed anyway. Do not loop more than once.
-
-If `test_commands` is empty: skip this step and proceed directly to the re-review cycle.
-
-### Re-review cycle
-
-**When `run_review` is false** (a gates-only focus), skip the re-review. It only ever spawns a review Agent, and gates are not re-run after fixes in a full review either. Tell the user instead:
-
-```
-Original report: <report_path>
-Applied: <N> fix(es)
-Re-run `/bf:review --focus <focus_lenses>` to re-check the gates.
-```
-
-Otherwise the re-review keeps the original focus, so a focused first pass never widens into a full review. The one exception is the check on lines the fix itself touched (step 3 of the prompt below), because a fix can break a rule outside the focus it was made for.
-
-Print (plain text): `→ Re-reviewing post-fix (cycle <N>) with opus…`
-
-After the fix Agent returns, spawn a new review Agent (same conventions, model: opus) with the following prompt:
-
-```
-You are a code reviewer performing a re-review after fixes were applied.
-
-## Conventions
-
-Read each of these files and apply it strictly:
-
-- Dev: <resolved absolute path to dev.md>
-- Testing: <resolved absolute path to testing.md>
-- Architecture: <resolved absolute path to architecture.md>
-- Code review: <resolved absolute path to code-review.md>
-- Prose (for all prose you return): <resolved absolute path to prose.md>
-
-Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
-
-## Files to Re-review
-Relative to <project_root>:
-<one path per line from changed_files>
-
-## What the Fix Changed
-<the selected concern blocks passed to the fix Agent, then the fix Agent's returned summary>
-
-## Instructions
-
-1. Read the full current content of each file using the Read tool.
-2. Apply the checks in these sections of the Code Review Convention: <the § numbers and names in focus_categories>. <When focused, add: "Do not check or report on any other category, except as step 3 requires.">
-3. Whatever the focus, check every line the fix touched (per "What the Fix Changed") against these rules, and report anything the fix introduced labelled `[new]`:
-   - the **Comments** rule in <absolute path to ${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md>;
-   - the style rule in the Dev convention — the change matches the surrounding code's style and formatting;
-   - the host repository rules listed above.
-4. Produce the same report format as before (# Code Review Report … ## Review Metadata), with `- Focus: <focus_label>` in the header, `<status_suffix>` on the STATUS line, and section headers only for the categories above, plus any category a `[new]` finding from step 3 falls under.
-   For changed_files in Review Metadata, repeat the same file list.
-```
-
-Cap at 2 re-review cycles. Do not run a third fix→review round.
-
-Set `after_fix_report_path` to `${report_path%.md}-after-fix.md` (or `-after-fix-2.md` for cycle 2).
-
-Save the new report to `after_fix_report_path`. Update `latest.md` symlink. Do not overwrite the original `$report_path`.
-
-### Tell the user
-
-```
-Original report:  <report_path>
-After-fix report: <after_fix_report_path>
-Resolved:  <N> concerns addressed
-Remaining: <M> concerns still present
-```
-
-List remaining concerns by ID and label if any exist.
+When the user selects fixes in Phase 3, read `${CLAUDE_PLUGIN_ROOT}/skills/review/references/fix.md` and follow it. It covers the PR checkout, the fix agent, the post-fix test check and the re-review cycle. Skip it when nothing is selected.
 
 ## Edge Cases & Errors
 

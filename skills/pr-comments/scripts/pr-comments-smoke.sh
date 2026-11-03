@@ -67,20 +67,20 @@ fails=0
 eq() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1: got [$2], want [$3]"; fails=$((fails+1)); fi; }
 field() { jq -r "$1" 2>/dev/null <<<"$2"; }
 
-out=$(bash "$fetch" "125 --wait")
+out=$(printf '%s' '125 --wait' | bash "$fetch")
 eq 'fetch "125 --wait" resolves PR 125' "$(field .pr "$out")" 125
 
 eq "fetch reports the head push time, not the commit time" "$(field .head_pushed_at "$out")" 2026-01-02T05:00:00Z
-eq "fetch reports no push time when the log lacks the head" "$(NO_PUSH=1 bash "$fetch" 125 | jq -r .head_pushed_at)" null
+eq "fetch reports no push time when the log lacks the head" "$(NO_PUSH=1 bash "$fetch" <<<"125" | jq -r .head_pushed_at)" null
 eq "fetch gives a PR-level post its edit time" "$(field '[.threads[] | select(.kind == "issue")][0].updated_at' "$out")" 2026-01-03T00:00:00Z
 
 eq "fetch drops the viewer's own PR-level comment" "$(field '[.threads[] | select(.author == "me")] | length' "$out")" 0
 eq "fetch notes the dropped own comment" "$(field '[.notes[] | select(test("by me skipped"))] | length' "$out")" 1
-out=$(bash "$fetch" "125 --all")
+out=$(printf '%s' '125 --all' | bash "$fetch")
 eq "fetch --all keeps the viewer's own note but not the skill's marked reply" "$(field '[.threads[] | select(.author == "me")] | length' "$out")" 1
-eq "fetch takes a branch's first push (branch_creation) as the push time" "$(FIRST_PUSH=1 bash "$fetch" 125 | jq -r .head_pushed_at)" 2026-01-02T06:00:00Z
+eq "fetch takes a branch's first push (branch_creation) as the push time" "$(FIRST_PUSH=1 bash "$fetch" <<<"125" | jq -r .head_pushed_at)" 2026-01-02T06:00:00Z
 
-out=$(bash "$fetch" "125 --timout 600")
+out=$(printf '%s' '125 --timout 600' | bash "$fetch")
 eq "fetch unknown flag --timout -> bad_args" "$(field .error "$out")" bad_args
 
 out=$(bash "$wait" "$url" --timout 600)

@@ -15,7 +15,7 @@ eq() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1: got [$2], wa
 repo=$tmp/repo
 mkdir -p "$repo" "$tmp/home"
 git -C "$repo" init -q
-probe() { (cd "$repo" && bash "$dir/init-probe.sh" "$1" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state_matches"])'); }
+probe() { (cd "$repo" && printf '%s' "$1" | bash "$dir/init-probe.sh" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state_matches"])'); }
 
 eq "no state -> null" "$(probe 'add dark mode')" None
 (cd "$repo" && HOME=$tmp/home bash "$dir/state-ops.sh" --init --slug dark-mode --idea 'add dark mode' --mode quick >/dev/null)

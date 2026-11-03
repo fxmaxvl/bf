@@ -130,7 +130,7 @@ If an item cannot be verified, revert its commit, return it to the backlog, and 
 
 | Condition | Handling |
 |---|---|
-| Harvest returns `{"error":...}` | Surface `detail` and stop — `gh_unauthenticated` means `gh auth login`; `no_remote` means pass `owner/repo`. |
+| Harvest returns `{"error":...}` | Surface `detail` and stop — `gh_unauthenticated` means `gh auth login`; `no_remote` means add an `origin` remote, or run the skill in the plugin checkout. |
 | Fewer than 3 items in the backlog | Proceed with what exists; say so rather than padding the set. |
 | A selected item's fix targets `skills/self-heal/**` | Flag the self-modification in the argumentation and ask before touching it; never silently rewrite this skill mid-run. |
 | An item is already satisfied in the current tree | Drop it in Phase 2 and record it in the selection artifact with the file and line that satisfies it. |

@@ -27,7 +27,9 @@ Print banner (plain text):
 Resolve paths and run state in one call:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/arch-audit/scripts/run-state.sh" init "$ARGUMENTS"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/arch-audit/scripts/run-state.sh" init <<'BF_ARGS'
+$ARGUMENTS
+BF_ARGS
 ```
 
 `completed_branches` lists branches whose fragment is still on disk — those are skipped in Phase 2
@@ -59,7 +61,7 @@ of, what it depends on, and the findings that are visible at the whole-system le
 
 Spawn one agent per top-level unit, **all in a single message**, named `arch-<unit>` so the run is
 legible on the fleet board. Wait for every one before continuing — the fan-out is atomic, per the
-**Parallel Fan-Out** convention. Agents must not message each other.
+**Parallel Fan-Out** convention. Agents must not message each other. Tell each to report its one-line summary to `team-lead` as its final act. Right after the spawn, start the silent-agent watch from that convention.
 
 Each agent owns its branch to the bottom and **writes its subtree as finished markdown to
 `<fragments_dir>/<unit>.md`**, returning only a one-line summary. Give it: its unit path, its

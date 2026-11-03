@@ -15,9 +15,7 @@ Orchestrate a minimal refactoring workflow. No brainstorm, no plan file, no appr
 
 Sub-skill SKILL.md files are bundled with the plugin. Prepend `${CLAUDE_PLUGIN_ROOT}/skills/` to the path column to get the absolute path.
 
-**Invocation patterns:**
-- **Inline**: Read the SKILL.md and follow its instructions directly in the current conversation.
-- **Agent** (written below as "dispatch `<path>` as an Agent"): do **not** read the SKILL.md yourself. Interpolate its resolved absolute path into the agent's `prompt` and instruct the agent to read that file and follow it — `${CLAUDE_PLUGIN_ROOT}` is expanded by the orchestrator because the agent cannot expand it. Any per-phase overrides go in the prompt alongside the path. Always pass the declared model. Add one more line to every agent prompt, including the inline fix-agent prompts below: "Apply the rules in `<prose path>` to code comments and to all prose you return.", where `<prose path>` is the `prose` entry from `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" prose`, resolved once per run.
+**Invocation patterns:** follow **Sub-skill Invocation** in `plugin-main.md`.
 
 | Sub-skill | SKILL.md path | Invocation | Model |
 |-----------|---------------|------------|-------|
@@ -140,20 +138,13 @@ Print banner: `── micro | Complexity Guard ───────────
 **Non-code change check.** Both this phase and Phase 5 spawn opus agents to reason about
 new code. When the task produced none, they cost two round-trips and find nothing.
 
-Read the record first: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.session_log> --block "## Changed Paths"`. If every line has type `docs`, skip. Otherwise apply the test below to its entries. Empty output means no record, so fall back to:
+Read the record first: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.session_log> --block "## Changed Paths"`. If it has lines and every line has type `docs`, skip. Otherwise, including when the output is empty (a single-repo run writes no record), run the check from inside each repo that holds the change: the session repo, or each `## Target Repos` checkout when that block is non-empty:
 
 ```bash
-git diff --name-status origin/HEAD...HEAD
+cd <repo> && bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/rename-only.sh"
 ```
 
-Diff against the remote-tracking ref, not a local branch name — a local `main` that is behind
-its remote reports renames as unpaired adds, which reads as new code and silently forfeits the
-skip. Skip this phase and Phase 5 — go straight to Phase 6 — when every changed entry is either a pure
-rename (`R100`) or a modification whose added and removed lines differ only in a path or
-module string. `R100` is load-bearing: a rename that also carries edits scores below it
-(`R099` and down), so it fails this test on its own. Anything else, including a single new
-conditional or dependency, means both gates run as normal. When the diff is mixed or unclear, run them: a
-gate skipped over real code costs more than two spent round-trips.
+It prints `skip: true` when every changed entry is a pure rename (`R100`) or a modification whose added and removed lines differ only inside quoted path or module literals (single- or double-quoted, no whitespace, `$`, backtick or parenthesis, with a `/` or a dotted name), paired line by line inside each hunk and read from the working tree, so uncommitted edits count, and `skip: false` for anything else. Skip this phase and Phase 5 — go straight to Phase 6 — only when every repo prints `skip: true`. On any `skip: false`, both gates run as normal.
 
 If skipping, record it and say so:
 

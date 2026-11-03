@@ -64,7 +64,7 @@ skills/
 - The skill exceeds ~130 lines of prose, OR
 - A reusable shell script would be called from multiple skills.
 
-Existing single-file skills for reference: `skills/review/SKILL.md`, `skills/quick/SKILL.md`, `skills/autopilot/SKILL.md`.
+Existing single-file skills for reference: `skills/quick/SKILL.md`, `skills/decide/SKILL.md`, `skills/consilium/SKILL.md`.
 
 **Token efficiency — move work to scripts.** This plugin prizes token frugality. Before writing inline model logic, ask: can a shell script do this deterministically? If yes, write the script. The payoff compounds across every invocation:
 

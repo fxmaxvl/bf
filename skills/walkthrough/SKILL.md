@@ -33,7 +33,9 @@ Confirm a repo, then resolve the scope in one call — never derive diffs by han
 
 ```bash
 git rev-parse --show-toplevel
-bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff "$ARGUMENTS"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff --with-untracked - <<'BF_ARGS'
+$ARGUMENTS
+BF_ARGS
 ```
 
 If `git rev-parse` fails, or the call returns `error: not_a_git_repo`, print
@@ -44,11 +46,11 @@ hunk's `@@` header inside `diff_file` — read hunk bodies and header text out o
 no end marker: a hunk runs to the next `^@@` or `^diff --git` line, or to EOF. The next entry's
 `line` is not that boundary — it may sit in a different file, past an intervening header block.
 
-Untracked files are never in scope — every mode diffs tracked content, so a brand-new file is
-invisible until git knows about it. Run `git status --porcelain -uall` before going further (`-uall`
-so the entries are files, not a collapsed directory); if it lists `??` entries, print one line
-naming them and noting that `git add -N <path>` brings a new file into scope. Say nothing when
-there are none.
+`--with-untracked` brings new files into scope in the working and paths modes. The range and branch
+modes diff commits only, so a brand-new file is not in them. If the mode is `range` or `branch`, run
+`git status --porcelain -uall` (`-uall` so the entries are files, not a collapsed directory). If it
+lists `??` entries, print one line naming them and noting that they are outside this tour. Say
+nothing when there are none.
 
 If `file_count` is `0`, print `STATUS: NOTHING_TO_ASSESS` and stop — spawn nothing, read nothing.
 
@@ -206,6 +208,6 @@ If the batch is empty, say so and skip the gate entirely.
 | Every hunk filtered in Phase 1 | Print the not-toured line naming the files, then stop — no tour, no gate |
 | Very large scope (>25 files) | Do not read every hunk in Phase 2. Pre-rank from each hunk's `added`/`removed` counts plus its path, read only the top candidates in full, and say in the output that ranking was narrowed. 25 is a chosen default, matching `/bf:coherence`'s own large-scope guard |
 | Invoked mid-`/bf:feature` or `/bf:quick` | Those workflows have their own review gates; note the overlap in one line and run only if the user asked explicitly |
-| `mode` came back `branch` while the untracked probe listed `??` entries | The working tree was clean, so scope fell back to the branch diff — the tour is about to cover commits, not the new files. Say that in one line, then continue |
+| `mode` is `range` or `branch` and the untracked probe lists `??` entries | Those modes diff commits only, so the new files are outside the tour. Name them in one line, then continue |
 | `skip <file>` names a file with no hunk to surface — not in the change at all, or in `whitespace_only_files` | Say so in one line and stay on the current snippet |
 | `diff_file` missing or unreadable | Report it and stop. Do not reconstruct the diff by hand — the point of the flag is that one call resolves it |
