@@ -292,7 +292,11 @@ Posting a reply and resolving its thread are separate outward-facing actions, so
 both. Above the question, list the <M> threads that would resolve, one line each: triage id and
 `file:line`. Approving the replies must never resolve a thread the user did not see on that list.
 
-If both hold, offer the push with it, naming the branch, the file count and the order:
+If both hold, offer the push with it, naming the branch, the file count and the order. First look for
+an automerge tag (e.g. `#automerge`) in `git log --format=%B origin/<base>..HEAD` and
+`gh pr view <pr> --json title,body`; on a hit, add one warning line above the question (not a second
+question): the push may merge the PR before later fixes land, so tag only the final commit or post the
+automerge comment after the last push.
 
 > Commit and push the fixes to `<head>` (<F> files), then post <N> replies and resolve the <M> threads listed above? Reply `yes`, or add `no push` (post now, push later) and/or `no resolve` (post the replies, leave every thread open), or `no` (decline: post nothing).
 
