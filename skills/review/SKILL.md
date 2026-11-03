@@ -4,7 +4,7 @@ description: Review code against feature conventions and the complexity gate. Pa
 model: opus
 disable-model-invocation: false
 argument-hint: "[--dry-run] [--focus <lens>[,<lens>]] [free-form: 'PR 42', 'https://github.com/org/repo/pull/42', 'src/auth/', 'last 3 commits', or empty for current branch]"
-allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(mktemp *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *), Bash(bash *)
+allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(mktemp *), Bash(mkdir *), Bash(ln *), Bash(date *), Bash(rm *), Bash(sed *), Bash(basename *), Bash(bash *), Bash(cd *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill, including the **one-question-per-turn** rule that applies at every interactive point in this skill.
@@ -15,7 +15,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains pl
 
 Run: `git rev-parse --show-toplevel`
 
-If this fails, print: "Not a git repository. Exiting." and stop.
+If this fails and `$ARGUMENTS` has no GitHub PR URL, print: "Not a git repository. Exiting." and stop. With a PR URL, continue with an empty `project_root`; Phase 1 clones the PR's repository.
 
 Set `project_root` to the output.
 
@@ -77,6 +77,8 @@ report_path="$reports_dir/${timestamp}-review.md"
 
 Create the reports directory: `mkdir -p "$reports_dir"`
 
+Compute these once, here. A cross-repo review later moves `project_root` into a clone; the report stays in the invoking repo's `.bf/` (or `~/.bf/`).
+
 ### Print banner
 
 ```
@@ -91,7 +93,7 @@ When `dry_run=true`, skip every Agent spawn and exit before Phase 1 work begins.
 
 Steps:
 
-1. Resolve conventions exactly as Phase 1 does — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture`, `prose`, plus one `host-rules.sh` call — but do **not** read the file bodies. Capture only the resolved absolute paths.
+1. Resolve conventions exactly as Phase 1 does, in the current repo (a dry-run never clones) — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture`, `prose`, plus one `host-rules.sh` call — but do **not** read the file bodies. Capture only the resolved absolute paths.
 2. Print this block (plain text, not in a code fence):
 
    ```
@@ -121,6 +123,18 @@ Steps:
 3. Exit. Do not proceed to Phase 1.
 
 ## Phase 1 — Review
+
+### Cross-repo PR
+
+Set `pr_repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)` (empty on failure). If `$ARGUMENTS` has a GitHub PR URL, match it against `^https?://[^/]+/([^/]+)/([^/]+)/pull/([0-9]+)` for `url_repo` (`owner/repo`) and `pr_number`. When `url_repo` differs from `pr_repo` (case-insensitive), locate or clone it, then move `project_root` there and `cd` into it, so every later script, `git` and `gh` call runs against the clone:
+
+```bash
+pr_repo="$url_repo"; clone_dir="${reports_dir%/reviews}/clones/$pr_repo"
+[ -d "$clone_dir/.git" ] || gh repo clone "$pr_repo" "$clone_dir" -- --filter=blob:none -q
+project_root="$clone_dir"; cd "$project_root"
+```
+
+`--filter=blob:none` keeps the history, so the PR merge base resolves. If the clone fails, print the error and stop.
 
 ### Resolve conventions
 
@@ -744,7 +758,8 @@ List remaining concerns by ID and label if any exist.
 
 | Condition | Handling |
 |-----------|----------|
-| Not a git repository | Print "Not a git repository. Exiting." and stop. |
+| Not a git repository | Print "Not a git repository. Exiting." and stop, unless the scope is a PR URL (Phase 1 clones it). |
+| PR URL names another repository | Clone it to `.bf/clones/<owner>/<repo>` (reused when present) and run Phase 1 in it. The report stays in the invoking repo. If the clone fails, print the error and stop. |
 | `<project_root>/.bf` not writable | Fall back to `~/.bf/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (`resolve-conventions.sh` returns `null` for it) | Print "Convention file not found: <name>. This may be a plugin install issue." and stop. |
 | `host-rules.sh` prints an `error` object (`not_a_git_repo`, `jq_missing`) | Print `detail`, continue with `host_rules = none`. Do not stop the review. |
