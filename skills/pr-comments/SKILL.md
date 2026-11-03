@@ -227,6 +227,15 @@ Row 4 is a grouped entry: one verdict, two threads, and both thread ids recorded
 
 ## Phase 3 — Fix the class, not the line
 
+**Sync first.** When `git branch --show-current` equals the fetch result's `head`, a peer may have
+pushed since, so before the first edit fetch the *push target*, which for a fork PR is not `origin`.
+If `git rev-parse --abbrev-ref @{u}` resolves, `git fetch <remote>` with the part before the first
+`/` and use `@{u}` as the target. Otherwise (`gh pr checkout` sets a fork branch's remote to a URL,
+and a branch pushed without `-u` has none) read `git config branch.<head>.remote` and
+`branch.<head>.merge`, defaulting to `origin` and `<head>`, run `git fetch <remote> <merge>`, and use
+`FETCH_HEAD` as the target. If `git rev-list --count HEAD..<target>` is not `0`, run
+`git merge --ff-only <target>`. If the fetch or the fast-forward fails, stop before editing and report it.
+
 Apply the `accept` and `accept-different` fixes. Follow the `dev` and `testing` conventions; run the
 project's tests and lint as those conventions require, and report failures rather than posting a
 reply that claims a fix that does not build.
@@ -325,7 +334,7 @@ After approval, run the state check again before anything else; the answer may h
 
 On **commit and push**, follow the `git` convention:
 - Stage only the files Phase 3 changed, and commit them.
-- Fetch the push target, which for a fork PR is not `origin`. If `git rev-parse --abbrev-ref @{u}` resolves, `git fetch <remote>` with the part before the first `/` and use `@{u}` as the target. Otherwise (`gh pr checkout` sets a fork branch's remote to a URL, and a branch pushed without `-u` has none) read `git config branch.<head>.remote` and `branch.<head>.merge`, defaulting to `origin` and `<head>`, run `git fetch <remote> <merge>`, and use `FETCH_HEAD` as the target. If the fetch fails, stop before pushing, report the error, and post nothing. If `git rev-list --count HEAD..<target>` is not `0`, someone else pushed: stop before pushing, report the count, and offer to rebase the fix commit onto `<target>` (one question). On a rebase conflict, `git rebase --abort` and stop; post nothing.
+- Fetch the push target again, resolved as in Phase 3's sync. If the fetch fails, stop before pushing, report the error, and post nothing. If `git rev-list --count HEAD..<target>` is not `0`, someone else pushed: stop before pushing, report the count, and offer to rebase the fix commit onto `<target>` (one question). On a rebase conflict, `git rebase --abort` and stop; post nothing.
 - `git push`, and post only after the push succeeds. If it fails, stop before posting: replies would point at code the reviewer cannot see. Report the push error, and leave the replies for a rerun.
 
 Never one question per comment: it breaks the one-question rule and is unusable at fifteen comments.
@@ -391,5 +400,6 @@ cannot see yet.
 | PR is merged or closed at the closing gate, before or after the answer | Follow the state check: `MERGED` offers a follow-up PR off the base, `CLOSED` offers a reopen, a failed call stops with the `gh` error. Never push to the branch of a PR that is not `OPEN`, and post replies on a merged PR only with the follow-up link |
 | Remote PR head moved since the fetch (someone else pushed) | Stop before pushing and offer a rebase onto the push target (see commit and push). On conflict, abort and post nothing |
 | Fixes pushed and a bot had reviewed | Wait via `wait-for-review.sh --head <sha>`, not the fetch step's wait — old summaries keep `counts.actionable` above `0` |
+| Held PR branch is behind its push target before Phase 3 edits | Fast-forward with `git merge --ff-only` (see Phase 3's sync). If it diverged or the fetch fails, stop before editing |
 | No upstream for the branch, or fetching it fails, before the push | Stop before pushing, report the error, and post nothing |
 | User wants to argue with a verdict at the gate | Take the correction, redraft that reply, and re-ask the gate once — the batch stays intact |
