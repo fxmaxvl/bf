@@ -292,7 +292,8 @@ comment and adds "fixed" is noise.
   unasked.
 - **`question`** — one question, specific enough to answer in a sentence.
 
-Plain prose, a couple of sentences, no headers or bullet scaffolding. Show every draft in full
+Plain prose, a couple of sentences, no headers or bullet scaffolding (Phase 1's org-search table
+is the one exception). Show every draft in full
 before the gate — this is the text that gets published under the user's name.
 
 ## Phase 5 — Closing gate
