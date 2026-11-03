@@ -39,6 +39,12 @@ eq "auto_fix_style: explicit true opts in" "$(resolve afs-on '{"auto_fix_style":
 eq "auto_fix_style: malformed config -> default off" "$(resolve afs-bad '{oops' | tr '\n' ' ')" "False False "
 eq "auto_fix_style: read mode returns the init-time snapshot" "$(cd "$tmp/afs-on/repo" && HOME=$tmp/afs-none/home bash "$script" | flag)" True
 
+key=skip_plan_gates
+eq "skip_plan_gates: no config -> default off" "$(resolve spg-none - | tr '\n' ' ')" "False False "
+eq "skip_plan_gates: explicit true opts in" "$(resolve spg-on '{"skip_plan_gates": true}' | tr '\n' ' ')" "True True "
+eq "skip_plan_gates: malformed config -> default off" "$(resolve spg-bad '{oops' | tr '\n' ' ')" "False False "
+eq "skip_plan_gates: read mode returns the init-time snapshot" "$(cd "$tmp/spg-on/repo" && HOME=$tmp/spg-none/home bash "$script" | flag)" True
+
 
 repo=$tmp/baseline/repo home=$tmp/baseline/home
 mkdir -p "$repo" "$home"

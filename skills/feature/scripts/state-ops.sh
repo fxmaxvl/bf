@@ -40,12 +40,14 @@ def git_root():
 
 PARALLEL_AUDIT_DEFAULT = True
 AUTO_FIX_STYLE_DEFAULT = False
-CONFIG_DEFAULTS = {'parallel_audit': PARALLEL_AUDIT_DEFAULT, 'auto_fix_style': AUTO_FIX_STYLE_DEFAULT}
+SKIP_PLAN_GATES_DEFAULT = False
+CONFIG_DEFAULTS = {'parallel_audit': PARALLEL_AUDIT_DEFAULT, 'auto_fix_style': AUTO_FIX_STYLE_DEFAULT,
+                   'skip_plan_gates': SKIP_PLAN_GATES_DEFAULT}
 
 def read_config():
     """Read ~/.bf/config.json and return resolved feature flags.
 
-    Returns a dict with {'parallel_audit': bool, 'auto_fix_style': bool}.
+    Returns a dict with {'parallel_audit': bool, 'auto_fix_style': bool, 'skip_plan_gates': bool}.
     Each flag takes its default when the file is missing, malformed, or the key is absent;
     an explicit `"parallel_audit": false` opts out of the concurrent audit stack.
     """
@@ -132,6 +134,7 @@ def read_output(root, state):
         'phase_status':    state['phase_status'],
         'parallel_audit':  state.get('parallel_audit', PARALLEL_AUDIT_DEFAULT),
         'auto_fix_style':  state.get('auto_fix_style', AUTO_FIX_STYLE_DEFAULT),
+        'skip_plan_gates': state.get('skip_plan_gates', SKIP_PLAN_GATES_DEFAULT),
         'collect_todos':   state.get('collect_todos'),
         'audit_started_at': state.get('audit_started_at'),
         'pending_fixes':   state.get('pending_fixes'),
@@ -258,6 +261,7 @@ if args and args[0] == '--init':
         'phase':           state['phase'],
         'parallel_audit':  state['parallel_audit'],
         'auto_fix_style':  state['auto_fix_style'],
+        'skip_plan_gates': state['skip_plan_gates'],
         'artifacts_dir':   adir,
         'artifact_prefix': prefix,
         'paths':           artifact_paths(adir, prefix),

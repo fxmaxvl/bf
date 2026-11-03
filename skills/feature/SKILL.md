@@ -101,7 +101,7 @@ init → refine → [auto] research → [auto] plan (from Q&A) → [GATE] execut
 init → refine → [auto] research → [auto] plan → [GATE] execute → [auto] verify → [auto] audit-stack (complexity ‖ consistency ‖ review-impl) ⇄ fix → [auto] verify (silent) → [GATE: ready?] finalize (commit/push/ticket) → cleanup → done
 ```
 
-Quick mode skips **only** brainstorm and review-design. Every other phase — refine, research, plan, execute, verify, review-impl, verify (silent), finalize — is **mandatory** regardless of how simple or obvious the fix appears. Do not collapse, merge, or skip phases because the task looks trivial. The phases exist as quality gates that apply at all complexity levels.
+Quick mode skips **only** brainstorm and review-design. Every other phase — refine, research, plan, execute, verify, review-impl, verify (silent), finalize — is **mandatory** regardless of how simple or obvious the fix appears. `skip_plan_gates` can turn off only the advisory plan gates inside Phase 3; no phase is skipped. Do not collapse, merge, or skip phases because the task looks trivial. The phases exist as quality gates that apply at all complexity levels.
 
 ## On Invocation
 
@@ -162,7 +162,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
   [--gh-issue 42]                          # only if GitHub issue detected
 ```
 
-   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `true`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently. It also includes `auto_fix_style` (same source, defaults to `false`), which Phases 4.75 and 5 use.
+   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `true`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently. It also includes `auto_fix_style` (same source, defaults to `false`), which Phases 4.75 and 5 use, and `skip_plan_gates` (same source, defaults to `false`), which Phase 3 uses.
 
 6. **Stub the session log.** Immediately after `state-ops.sh --init`, create `paths.session_log` with empty block headers so the file is visible from the start of the session:
 
@@ -192,7 +192,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
 
 Use `paths.*` from `state-ops.sh` instead of constructing paths manually.
 
-**Feature flags:** `parallel_audit` — when `true`, Phases 4.75 and 5 collapse into a single 3-way concurrent fan-out (complexity-gate + consistency-gate + review-impl). See Phase 4.75 for details. `auto_fix_style` — when `true`, Phases 4.75 and 5 fix style-only findings without asking.
+**Feature flags:** `parallel_audit` — when `true`, Phases 4.75 and 5 collapse into a single 3-way concurrent fan-out (complexity-gate + consistency-gate + review-impl). See Phase 4.75 for details. `auto_fix_style` — when `true`, Phases 4.75 and 5 fix style-only findings without asking. `skip_plan_gates` — when `true`, Phase 3 skips its two advisory plan gates; the code-stage gates and review-impl always run.
 
 ## Phase 1 — Brainstorm (full mode only)
 
@@ -297,7 +297,7 @@ Runs in both modes. Runs after review-design (full) or after refine (quick) — 
 Print banner: `── feature | Plan ───────────────────────────────`
 
 1. Dispatch `feature/plan/SKILL.md` as an Agent (model: opus) — it appends `## Plan` and `## Todo` blocks to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
-2. After the plan agent completes, run both gates on the plan in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board, dispatched in one message, both awaited before you proceed (phase is still `plan` — both skills auto-detect plan advisory mode):
+2. If `skip_plan_gates` (from `state-ops.sh` read) is `true`: print one line, "Skipped the advisory plan gates (skip_plan_gates is on).", and go to step 3. Otherwise, after the plan agent completes, run both gates on the plan in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board, dispatched in one message, both awaited before you proceed (phase is still `plan` — both skills auto-detect plan advisory mode):
    - `complexity-gate`: dispatch `feature/complexity-gate/SKILL.md` as an Agent (model: opus)
    - `consistency-gate`: dispatch `feature/consistency-gate/SKILL.md` as an Agent (model: opus)
    Show findings from both to the user. Always proceed regardless of outcome — findings here are advisory only.
