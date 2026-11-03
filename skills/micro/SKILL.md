@@ -116,7 +116,7 @@ Print banner: `── micro | Execute ──────────────
 
 Dispatch `micro/execute/SKILL.md` as an Agent (model: sonnet). If `## Target Repos` is non-empty, paste its lines into the prompt.
 
-When it completes, if `## Target Repos` is non-empty, write a `## Changed Paths` block to `paths.session_log`: for each checkout, one line per entry of `git -C <checkout> diff --name-status origin/HEAD...HEAD`, as `<owner/repo> <status> <type> <path>`. `<type>` is `docs` for `.md`, `.mdx`, `.rst`, `.adoc`, else `code`. Then:
+When it completes, if `## Target Repos` is non-empty, write a `## Changed Paths` block to `paths.session_log`: for each checkout, one line per entry of `git -C <checkout> diff --name-status origin/HEAD...HEAD`, as `<owner/repo> <status> <type> <path>`; an `R`/`C` entry prints two paths, so write `<owner/repo> <status> <type> <old> -> <new>`. `<type>` is `docs` for `.md`, `.mdx`, `.rst`, `.adoc`, else `code`; for `R`/`C`, `docs` only when both paths are. Then:
 ```
 bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=verify phase_status=in_progress
 ```
