@@ -68,8 +68,8 @@ Give each agent its areas, the relevant `signals` samples, the mission, and thes
 - **The repo is the primary source.** Cite every fact as `path:line`. Mark anything the repo cannot confirm, such as business intent or production topology, as **inferred**. Never state it as fact.
 - **A missing area is not a failure.** Write `Status: absent` and list what was looked for.
 - **Check external docs.** For each stack component named in a manifest, record its official documentation URL, checked with WebSearch or WebFetch.
-- **Report back.** The agent's final act is its one-line result to `team-lead`. The orchestrator blocks until every agent has reported.
 - **Write the fact sheet's header first**, then fill it as you go.
+- **Report back.** The agent's final act is its one-line result to `team-lead`. The orchestrator blocks until every agent has reported.
 
 Watch for a silent survey agent with Phase 4's **Watch for a silent writer** procedure. The progress test is whether `<facts_dir>/<agent-name>.md` exists.
 
