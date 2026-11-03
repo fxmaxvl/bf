@@ -76,6 +76,23 @@ check "removed line starting with --- is not read as a header" $ok
 ok=0; jq -e '.body | startswith("bf:review: 8 finding(s), 4 inline.")' <<< "$out" >/dev/null || ok=1
 check "body counts findings and inline comments" $ok
 
+repo="$tmp/repo"; mkdir "$repo"
+g() { git -C "$repo" -c user.name=smoke -c user.email=smoke@example.com -c core.quotePath=true "$@"; }
+g init -q
+printf 'a\nb\n' > "$repo/foo bar.txt"; printf 'x\n' > "$repo/café.txt"
+g add -A; g commit -qm base
+printf 'a\nB\n' > "$repo/foo bar.txt"; printf 'y\n' > "$repo/café.txt"
+g diff > "$tmp/names.diff"
+cat > "$tmp/names.json" <<'JSON'
+[{"id":"C1","label":"must-fix","path":"foo bar.txt","line":2,"text":"space"},
+ {"id":"C2","label":"must-fix","path":"café.txt","line":1,"text":"non-ASCII"}]
+JSON
+out=$(bash "$build" "$tmp/names.json" "$tmp/names.diff" abc123 COMMENT)
+ok=0; inline C1 || ok=1
+check "path with a space goes inline" $ok
+ok=0; inline C2 || ok=1
+check "git-quoted non-ASCII path goes inline" $ok
+
 err=$(bash "$build" "$tmp/findings.json" "$tmp/diff" abc123 APPROVE); rc=$?
 ok=0; [ $rc = 1 ] && jq -e '.error == "bad_event"' <<< "$err" >/dev/null || ok=1
 check "rejects an event other than COMMENT or REQUEST_CHANGES" $ok
