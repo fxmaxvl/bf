@@ -33,6 +33,7 @@ Include:
 - A brief recap of key actions.
 - Total cost of the session, only if the harness shows it. It usually does not, in which case write "not available" and move on. Never estimate or infer a figure.
 - Efficiency insights.
+  - Was any tool output filtered or summarised by a wrapper, and did a decision depend on it?
 - Possible process improvements.
 - Any other interesting observations or highlights.
 
