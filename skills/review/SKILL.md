@@ -141,14 +141,14 @@ project_root="$clone_dir"; cd "$project_root" && git status --porcelain --untrac
 cd "$project_root" && git fetch -q origin "+pull/${pr_number}/head:refs/bf/pr-${pr_number}" && git checkout -q --detach "refs/bf/pr-${pr_number}"
 ```
 
-If either step fails, print the git error and stop. The shell cwd can reset between Bash calls, so start every later Bash call with `cd "<project_root>" &&`.
+If either step fails, print the git error and stop. The shell cwd can reset between Bash calls, so every later Bash block that runs a script or `git` starts with `cd "<project_root>" &&`, and every `gh pr` call passes `-R "<pr_repo>"`, same-repo PRs included. With a PR in scope and `pr_repo` empty, print `Cannot resolve the PR's repository.` and stop.
 
 ### Resolve conventions
 
 Resolve all five conventions in one call, per the Convention Lookup in `plugin-main.md`:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" code-review dev testing architecture prose
+cd "<project_root>" && bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" code-review dev testing architecture prose
 ```
 
 Read the five absolute paths from the JSON; a `null` is the "Convention file missing" edge case. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
@@ -156,7 +156,7 @@ Read the five absolute paths from the JSON; a `null` is the "Convention file mis
 Then list the host repository's own rule files the same way — paths only, never bodies:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/host-rules.sh"
+cd "<project_root>" && bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/host-rules.sh"
 ```
 
 It prints a JSON array of absolute paths (`[]` when the repo has none). If it prints an `error` object instead, print its `detail`, continue with `host_rules = none`, and do not stop the review. Pass the paths to the review Agent (Prompt A) and the re-review Agent as `host_rules`; how they rank against the bf conventions is set in the Code Review Convention.
@@ -195,7 +195,7 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      clean. `--with-untracked` keeps brand-new files in scope, which a plain `git diff`
      never lists:
      ```bash
-     scope=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff --with-untracked "$target")
+     cd "<project_root>" && scope=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff --with-untracked "$target")
      ```
      Read `mode`, `files`, `file_count` and `diff_file` from the returned JSON. Set
      `changed_files` from `files`, `diff_file` from `diff_file`, `pr_head_branch=""`,
@@ -207,9 +207,9 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      variable:
      ```bash
      diff_file=$(mktemp)
-     read -r pr_head_branch pr_head_sha < <(gh pr view <pr_number> --json headRefName,headRefOid -q '"\(.headRefName) \(.headRefOid)"')
-     gh pr diff <pr_number> > "$diff_file"
-     [ "$(gh pr view <pr_number> --json headRefOid -q .headRefOid)" = "$pr_head_sha" ] || echo HEAD_MOVED
+     read -r pr_head_branch pr_head_sha < <(gh pr view <pr_number> -R "<pr_repo>" --json headRefName,headRefOid -q '"\(.headRefName) \(.headRefOid)"')
+     gh pr diff <pr_number> -R "<pr_repo>" > "$diff_file"
+     [ "$(gh pr view <pr_number> -R "<pr_repo>" --json headRefOid -q .headRefOid)" = "$pr_head_sha" ] || echo HEAD_MOVED
      changed_files=$(sed -n 's#^diff --git a/.* b/##p' "$diff_file")
      scope_description="PR <pr_number>"
      ```
@@ -220,12 +220,12 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      fork PRs, and an explicit base ref resolves even in a clone whose fetch refspec leaves
      `origin/<base>` alone — and resolve the range through `scope.sh`:
      ```bash
-     pr_base_branch=$(gh pr view <pr_number> --json baseRefName -q .baseRefName)
-     git fetch -q origin "+${pr_base_branch}:refs/bf/pr-<pr_number>-base" "+pull/<pr_number>/head:refs/bf/pr-<pr_number>"
+     cd "<project_root>" && pr_base_branch=$(gh pr view <pr_number> -R "<pr_repo>" --json baseRefName -q .baseRefName) && \
+     git fetch -q origin "+${pr_base_branch}:refs/bf/pr-<pr_number>-base" "+pull/<pr_number>/head:refs/bf/pr-<pr_number>" && \
      scope=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff "refs/bf/pr-<pr_number>-base...refs/bf/pr-<pr_number>")
      ```
      Then read `files` and `diff_file` from `$scope` as the non-PR case does, and set
-     `pr_head_sha=$(git rev-parse refs/bf/pr-<pr_number>)`. If the fetch
+     `pr_head_sha=$(git -C "<project_root>" rev-parse refs/bf/pr-<pr_number>)`. If the fetch
      fails, print the git error and stop — a failed fetch is an error, never an empty scope
      or `NOTHING_TO_REVIEW`. The findings' line numbers belong to `pr_head_sha` and
      `diff_file`. Never refresh either after the review.
@@ -260,8 +260,8 @@ temp_state_backup="$temp_state.bfreview-backup"
 Then initialize the state and read the paths it returns:
 
 ```bash
-paths_json=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
-  --slug "review-${timestamp}" --idea "bf:review complexity scan" --mode review)
+cd "<project_root>" && paths_json=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
+  --slug "review-${timestamp}" --idea "bf:review complexity scan" --mode review) && \
 bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=verify phase_status=in_progress
 complexity_report_path=$(echo "$paths_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["paths"]["complexity_report"])')
 ```
@@ -566,12 +566,12 @@ Skip unless `pr_head_branch` is non-empty and STATUS is CONCERN. When unattended
 
 > Post these findings to PR <pr_number> as one review? Reply `comment`, `request-changes`, or `no`.
 
-Any answer except `comment` or `request-changes` posts nothing. Otherwise, if `gh pr view <pr_number> --json headRefOid -q .headRefOid` differs from `pr_head_sha`, print `⚠ PR <pr_number> has new commits since the review. The comments anchor to the reviewed commit.` Write the primaries to `findings_json="${report_path%.md}-findings.json"` as `[{id, label, path, line, text}]` (`line` a number, a `start-end` range, or null; `path` null for a spec section). Then post:
+Any answer except `comment` or `request-changes` posts nothing. Otherwise, if `gh pr view <pr_number> -R "<pr_repo>" --json headRefOid -q .headRefOid` differs from `pr_head_sha`, print `⚠ PR <pr_number> has new commits since the review. The comments anchor to the reviewed commit.` Write the primaries to `findings_json="${report_path%.md}-findings.json"` as `[{id, label, path, line, text}]` (`line` a number, a `start-end` range, or null; `path` null for a spec section). Then post:
 
 ```bash
 payload="${report_path%.md}-payload.json"
 if bash "${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/pr-review-payload.sh" "$findings_json" "$diff_file" "$pr_head_sha" <COMMENT|REQUEST_CHANGES> > "$payload"
-then gh api "repos/${pr_repo}/pulls/<pr_number>/reviews" --input "$payload" -q .html_url
+then gh api "repos/<pr_repo>/pulls/<pr_number>/reviews" --input "$payload" -q .html_url
 else cat "$payload"; fi
 ```
 
@@ -639,7 +639,7 @@ Wait for reply.
 If `pr_head_branch` is non-empty, check out the PR with `gh pr checkout`, which finds the right remote for a fork PR itself:
 
 ```bash
-gh pr checkout <pr_number> && git rev-parse HEAD
+cd "<project_root>" && gh pr checkout <pr_number> -R "<pr_repo>" && git rev-parse HEAD
 ```
 
 If it fails with `Not possible to fast-forward`, gh has already switched to the local branch, which has diverged from the PR: tell the user "Local branch `<pr_head_branch>` has diverged from the PR and is now checked out. Reconcile it, then re-run the fixes." On any other failure, tell the user: "Could not check out PR branch `<pr_head_branch>`. bf:review cannot apply the fixes automatically. Address the concerns manually." If the printed SHA is not `pr_head_sha`, tell the user "PR <pr_number> has new commits since the review. Re-run /bf:review on it, then apply the fixes." Exit Phase 4 in each of these cases.
@@ -687,12 +687,12 @@ Apply the rules in <resolved absolute path to prose.md> to code comments and to 
 After the fix Agent returns, check whether the project has a test suite:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/detect-stack.sh"
+cd "<project_root>" && bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/detect-stack.sh"
 ```
 
 This gives you `test_commands`. If `test_commands` is non-empty:
 
-1. Run each test command. Capture stdout+stderr combined. Note the exit code.
+1. Run each test command from `<project_root>`. Capture stdout+stderr combined. Note the exit code.
 2. If all commands exit 0: proceed to the re-review cycle below.
 3. If any command exits non-zero:
    a. Print (plain text): `⚠ Tests failed after fix. Starting the correction loop…`
@@ -797,6 +797,7 @@ List remaining concerns by ID and label if any exist.
 |-----------|----------|
 | Not a git repository | Print "Not a git repository. Exiting." and stop, unless the scope is a PR URL (Phase 1 clones it). |
 | PR URL names another repository | Clone it to `.bf/clones/<owner>/<repo>` (reused when present), check out the PR head detached, and run Phase 1 in it. The report stays in the invoking repo. If the clone has uncommitted changes, or the clone, fetch or checkout fails, print why and stop. |
+| PR in scope but `pr_repo` is empty | Print `Cannot resolve the PR's repository.` and stop. Never run a `gh pr` call without `-R`. |
 | `<project_root>/.bf` not writable | Fall back to `~/.bf/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (`resolve-conventions.sh` returns `null` for it) | Print "Convention file not found: <name>. This may be a plugin install issue." and stop. |
 | `host-rules.sh` prints an `error` object (`not_a_git_repo`, `jq_missing`) | Print `detail`, continue with `host_rules = none`. Do not stop the review. |
