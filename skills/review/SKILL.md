@@ -132,10 +132,16 @@ Set `pr_repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)` (empty on f
 ```bash
 pr_repo="$url_repo"; clone_dir="${reports_dir%/reviews}/clones/$pr_repo"
 [ -d "$clone_dir/.git" ] || gh repo clone "$pr_repo" "$clone_dir" -- --filter=blob:none -q
-project_root="$clone_dir"; cd "$project_root"
+project_root="$clone_dir"; cd "$project_root" && git status --porcelain
 ```
 
-`--filter=blob:none` keeps the history, so the PR merge base resolves. If the clone fails, print the error and stop. The shell cwd can reset between Bash calls, so start every later Bash call with `cd "<project_root>" &&`.
+`--filter=blob:none` keeps the history, so the PR merge base resolves. If the clone fails, print the error and stop. If `git status` prints anything, an earlier run left changes in the clone: print `Clone <clone_dir> has uncommitted changes. Commit or discard them, then re-run.` and stop. Otherwise move the clone to the PR head, so conventions and host rules come from it:
+
+```bash
+cd "$project_root" && git fetch -q origin "+pull/${pr_number}/head:refs/bf/pr-${pr_number}" && git checkout -q --detach "refs/bf/pr-${pr_number}"
+```
+
+If either step fails, print the git error and stop. The shell cwd can reset between Bash calls, so start every later Bash call with `cd "<project_root>" &&`.
 
 ### Resolve conventions
 
@@ -796,7 +802,7 @@ List remaining concerns by ID and label if any exist.
 | Condition | Handling |
 |-----------|----------|
 | Not a git repository | Print "Not a git repository. Exiting." and stop, unless the scope is a PR URL (Phase 1 clones it). |
-| PR URL names another repository | Clone it to `.bf/clones/<owner>/<repo>` (reused when present) and run Phase 1 in it. The report stays in the invoking repo. If the clone fails, print the error and stop. |
+| PR URL names another repository | Clone it to `.bf/clones/<owner>/<repo>` (reused when present), check out the PR head detached, and run Phase 1 in it. The report stays in the invoking repo. If the clone has uncommitted changes, or the clone, fetch or checkout fails, print why and stop. |
 | `<project_root>/.bf` not writable | Fall back to `~/.bf/reviews/` for `reports_dir`. Warn the user. |
 | Convention file missing (`resolve-conventions.sh` returns `null` for it) | Print "Convention file not found: <name>. This may be a plugin install issue." and stop. |
 | `host-rules.sh` prints an `error` object (`not_a_git_repo`, `jq_missing`) | Print `detail`, continue with `host_rules = none`. Do not stop the review. |
