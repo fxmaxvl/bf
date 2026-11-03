@@ -316,7 +316,7 @@ Print banner: `── feature | Plan ──────────────�
 Print banner: `── feature | Execute ───────────────────────────────`
 
 1. Dispatch `feature/do-todo/SKILL.md` as an Agent (model: sonnet) — it loops internally until all items are checked
-2. **Spot-check** before advancing state: compare the files, commits and counts the agent claims with `git diff --stat <main_branch>...HEAD` and `git log --oneline <main_branch>..HEAD`. A mismatch is a claimed file, commit or count that git does not show; extra history on a reused branch is not one. On a mismatch, re-dispatch do-todo for the gap or fix it yourself, then check again.
+2. **Spot-check** before advancing state: compare the files, commits and counts the agent claims with `git diff --stat <main_branch>...HEAD` and `git log --oneline <main_branch>..HEAD`. A mismatch is a claimed file, commit or count that git does not show; extra history on a reused branch is not one. On a mismatch, re-dispatch do-todo for the gap or fix it yourself, then check again. If this was already the 3rd cycle: tell the user "Spot-check still fails after 3 cycles: <mismatches>. Check them manually." and stop.
 3. When the spot-check passes:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=verify phase_status=in_progress
