@@ -173,6 +173,9 @@ check "analyze: no final.json is an error" "$(q "$o" '.error == "no_final"')"
 # Surviving F ids come from the files above.
 pl="$tmp/pipeline"; mkdir -p "$pl/hunters" "$pl/verifiers"
 cp "$run/hunters/h1.json" "$run/hunters/h2.json" "$pl/hunters/"
+# Stray files: neither is named after its own hunter_id or a batch id, so neither may become a timing row.
+echo '{"hunter_id":"h1","lens":"logic","findings":[]}' > "$pl/hunters/h1.retry.json"
+echo '{"note":"verifier input"}' > "$pl/verifiers/B1.input.json"
 bash "$findings" merge "$pl" >/dev/null
 ids=$(jq -r '[.findings[] | select(.line == 10 or .line == 14) | .id] | join(" ")' "$pl/merged.json")
 read -r pa pb <<< "$ids"
@@ -191,6 +194,7 @@ check "pipeline: an empty analysis passes through with no groups or folds" "$(q 
 
 check "timing: merge, resolve and analyze stamp script rows and per-file rows" "$(jq -se '[.[] | select(.by == "script") | .step] == ["merge","resolve","analyze","analyze"] and ([.[] | select(.step == "hunter") | .label] == ["h1","h2"]) and ([.[] | select(.step == "verifier")] | length) > 0' "$pl/timing.jsonl" >/dev/null; echo $?)"
 mk=$(bash "$findings" mark "$pl" report)
+check "timing: only <hunter_id>.json and <batch_id>.json files become agent rows" "$(jq -se --slurpfile m "$pl/merged.json" '([.[] | select(.step == "verifier") | .label] | sort) == ([$m[0].batches[].id] | sort)' "$pl/timing.jsonl" >/dev/null; echo $?)"
 check "timing: mark appends and prints an agent row" "$(q "$mk" '.step == "report" and .label == "" and .by == "agent" and .start == .end')"
 check "timing: mark with a label" "$(bash "$findings" mark "$pl" hunter h9 >/dev/null; jq -se '.[-1] | .step == "hunter" and .label == "h9"' "$pl/timing.jsonl" >/dev/null; echo $?)"
 o=$(bash "$findings" mark "$pl")

@@ -44,8 +44,9 @@
 #   findings.sh timing <run_dir>
 #     Summarizes timing.jsonl. hunt-init.sh, merge, resolve and analyze append their own rows (by:"script").
 #     merge and resolve also add one "hunter" / "verifier" row per output file, timed by its mtime (whole
-#     seconds). Hunter durations run from the last "hunt" mark (else init), verifier durations from the last
-#     "verify" mark (else merge), any other mark's from the row that ended before it. A rerun re-stamps the
+#     seconds): only hunters/<hunter_id>.json whose hunter_id matches its name, and verifiers/<batch_id>.json
+#     for a batch in merged.json. Hunter durations run from the last "hunt" mark (else init), verifier
+#     durations from the last "verify" mark (else merge), any other mark's from the row that ended before it. A rerun re-stamps the
 #     same file: the last agent row per step and label wins.
 #     Output: {wall, script, agent: wall - script, steps:[{step, label, by, at, duration}],
 #     pipeline:{hunter_spread: last minus first hunter finish, verify_sum, verify_wall}}.
@@ -66,20 +67,21 @@ row() { # step label by start [end]
 stamp() { row "$@" >> "$run_dir/timing.jsonl" 2>/dev/null || true; }
 now() { jq -n now; }
 mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1"; }
-stamp_files() { # step subdir
-  local f
-  for f in "$run_dir/$2"/*.json; do [ -e "$f" ] && stamp "$1" "$(basename "$f" .json)" agent "$(mtime "$f")"; done
+stamp_files() { # step subdir id... — only <id>.json files get a row, so a stray file is never an agent
+  local step="$1" sub="$2" id; shift 2
+  for id in "$@"; do [ -e "$run_dir/$sub/$id.json" ] && stamp "$step" "$id" agent "$(mtime "$run_dir/$sub/$id.json")"; done
 }
 RANK='def rank: {"critical":0,"high":1,"medium":2,"low":3}[. // "low"] // 3;'
 cmd="${1:-}"; run_dir="${2:-}"
 [ -n "$run_dir" ] && [ -d "$run_dir" ] || die bad_run_dir "usage: findings.sh merge|resolve|analyze|mark|timing <run_dir>"
 
 merge() {
-  local max="${1:-6}" valid=() invalid=() f t0
+  local max="${1:-6}" valid=() invalid=() hids=() f t0
   t0=$(now)
   for f in "$run_dir"/hunters/*.json; do
     [ -e "$f" ] || continue
     if jq -e 'type == "object"' "$f" >/dev/null 2>&1; then valid+=("$f"); else invalid+=("$(basename "$f" .json)"); fi
+    jq -e --arg b "$(basename "$f" .json)" '.hunter_id == $b' "$f" >/dev/null 2>&1 && hids+=("$(basename "$f" .json)")
   done
   local invalid_json='[]'
   [ "${#invalid[@]}" -gt 0 ] && invalid_json=$(printf '%s\n' "${invalid[@]}" | jq -R . | jq -sc .)
@@ -117,7 +119,7 @@ merge() {
        invalid: $invalid,
        counts: {findings: ($all | length), corroborated: ([$all[] | select(.sources > 1)] | length)}}
   ' > "$run_dir/merged.json" || die merge_failed "jq could not merge hunter output"
-  stamp_files hunter hunters; stamp merge "" script "$t0" "$(now)"
+  stamp_files hunter hunters ${hids[@]+"${hids[@]}"}; stamp merge "" script "$t0" "$(now)"
   cat "$run_dir/merged.json"
 }
 
@@ -139,7 +141,7 @@ resolve() {
     | .counts += (.findings | group_by(.verdict) | map({key: .[0].verdict, value: length}) | from_entries)
     | .counts.surviving = ([.findings[] | select(.surviving)] | length)
   ' "$run_dir/merged.json" > "$run_dir/final.json" || die resolve_failed "jq could not join verdicts"
-  stamp_files verifier verifiers; stamp resolve "" script "$t0" "$(now)"
+  stamp_files verifier verifiers $(jq -r '.batches[]?.id' "$run_dir/merged.json" 2>/dev/null); stamp resolve "" script "$t0" "$(now)"
   cat "$run_dir/final.json"
 }
 
