@@ -14,6 +14,7 @@ Lessons live in `lessons/NNNN-<lesson-slug>.html` and references in `reference/N
 
 Write **one self-contained HTML file** per lesson, numbered per [Numbering](#numbering).
 
+- **Shared kit.** Copy the `<style>` and `<script>` from [./assets/lesson-kit.html](./assets/lesson-kit.html) verbatim, and use its quiz markup. Every lesson then looks and behaves the same.
 - **Beautiful.** Clean, readable Tufte-style typography and layout — the user returns to these to review, and they should print well.
 - **Short and quickly completable.** Working memory is small; stay within it. But each lesson must deliver one tangible win, tied to the mission and inside the ZPD.
 - **Knowledge first, heavily cited.** Teach only the knowledge the skill requires. Link every claim to a `RESOURCES.md` source — citations build trust.
