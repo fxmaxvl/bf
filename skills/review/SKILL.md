@@ -161,7 +161,7 @@ cd "<project_root>" && bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scrip
 
 It prints a JSON array of absolute paths (`[]` when the repo has none). If it prints an `error` object instead, print its `detail`, continue with `host_rules = none`, and do not stop the review. Pass the paths to the review Agent (Prompt A) and the re-review Agent as `host_rules`; how they rank against the bf conventions is set in the Code Review Convention.
 
-A local scan cannot answer an org-wide convention question ("how do other repos do X?"). For one, recommend `gh search code --owner=<org>` and one table counted by repo and service type, gathered and cited per "Phase 3 — Gather" in `${CLAUDE_PLUGIN_ROOT}/skills/research/SKILL.md`.
+A local scan cannot answer an org-wide convention question. When the user, a PR comment, or a concern raised in the review (one labelled `[org-search]`) or the fix discussion asks how other repos do X, or whether there is a common way, recommend `gh search code --owner=<org>` and one table counted by repo and service type, gathered and cited per "Phase 3 — Gather" in `${CLAUDE_PLUGIN_ROOT}/skills/research/SKILL.md`.
 
 ### Resolve scope and changed_files
 
@@ -344,7 +344,8 @@ When flagging missing integration or E2E tests:
 1. The changed files are listed in the `## Scope` block above and the diff is on disk at `diff_file` — read it with the Read tool. Do NOT re-run git or gh to re-derive the scope.
 2. Read the full current content of each file listed in `changed_files` using the Read tool before forming conclusions.
 3. Apply the checks in these sections of the Code Review Convention: <the § numbers and names in focus_categories>. <When focused, add: "Do not check or report on any other category.">
-4. Produce the report in this exact format — including the Review Metadata block at the end:
+4. If a concern turns on how other repos in the org do something, or whether a common way exists, add `[org-search]` after its label instead of settling it from this repo alone.
+5. Produce the report in this exact format — including the Review Metadata block at the end:
 
 # Code Review Report
 - Scope: <human-readable description of what was reviewed>
