@@ -2,7 +2,7 @@
 name: micro
 description: Micro workflow for small, focused refactors — clarifies only if needed, then executes directly with complexity and quality guards.
 argument-hint: [refactoring description]
-allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(bash *), Bash(mktemp *), mcp__*__jira__*
+allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(bash *), Bash(mktemp *), Bash(rm -rf *), mcp__*__jira__*
 model: opus
 disable-model-invocation: false
 ---
@@ -98,7 +98,7 @@ Print banner: `── micro | Init ───────────────
 
 Print banner: `── micro | Clarify ───────────────────────────────`
 
-**Missing targets.** When the instruction targets the same file in several repos, check it exists in each `## Target Repos` checkout. If it is missing in some, list those repos and ask one question: create the file there, skip those repos, or handle them separately in another run. On skip or separate, remove those checkouts and drop their lines from `## Target Repos`. Ask any ambiguity question below only after this one is answered.
+**Missing targets.** When the instruction targets the same file in several repos, check it exists in each `## Target Repos` checkout. If it is missing in some, list those repos and ask one question: create the file there, skip those repos, or handle them separately in another run. On skip or separate, remove those checkouts (with a `<source>`: `worktree remove` and `branch -D` as in Phase 7; else `rm -rf <checkout>`) and drop their lines from `## Target Repos`. Ask any ambiguity question below only after this one is answered.
 
 If the instruction is clear and unambiguous → proceed immediately to Phase 2. Do **not** ask anything.
 
@@ -252,7 +252,7 @@ Print banner: `── micro | Finalize ─────────────�
 
 Print banner: `── micro | Cleanup ───────────────────────────────`
 
-For each `## Target Repos` line with a `<source>`, first run `git -C <source> worktree remove <checkout>`. Then:
+For each `## Target Repos` line with a `<source>`, first run `git -C <source> worktree remove <checkout>`. If it refuses (modified or untracked files), show `git -C <checkout> status --short` and ask one question: discard them (rerun with `--force`) or keep the checkout. Once removed, `git -C <source> branch -D <branch>` (the pushed PR branch keeps the commits). When no checkout was kept, `rm -rf <scratch>` (the parent dir of the checkouts; this also removes the clones); otherwise tell the user the kept paths. Then:
 
 ```
 bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/cleanup.sh"
