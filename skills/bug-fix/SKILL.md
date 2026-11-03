@@ -85,6 +85,7 @@ Build a stepwise implementation plan for the chosen solution. Each step:
 - Files + diff intent (what changes, not how the code looks)
 - Test coverage for the step
 - Ordering constraint (what must precede it)
+- Framework constraint: if the step depends on framework or library behaviour, read its source or docs first and state the constraint in one line
 
 Write the plan to `## Plan`.
 
