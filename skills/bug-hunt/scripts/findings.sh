@@ -12,9 +12,12 @@
 #       batches:  directory groups packed into at most max_batches (default 6) by repeatedly merging
 #                 the lexically adjacent pair with the fewest findings, so neighbours merge first.
 #       invalid:  hunter files that were not valid JSON (their lens is a coverage gap).
+#       ignored:  valid hunter files whose hunter_id differs from the file name (e.g. hunters/x.retry.json);
+#                 they add no findings.
 #   findings.sh resolve <run_dir>
 #     Joins <run_dir>/verifiers/<batch_id>.json ({batch_id, verdicts:[{id, verdict, severity?,
-#     file?, line?, title?, note}]}) onto merged.json and writes <run_dir>/final.json. A finding
+#     file?, line?, title?, note}]}), read only for batch ids in merged.json, onto merged.json and writes
+#     <run_dir>/final.json; any other verifiers/*.json is appended to ignored and adds no verdicts. A finding
 #     with no verdict — its batch failed or the verifier skipped it — gets verdict "unverified".
 #     resolve alone decides which verdicts survive (confirmed, refined, pre-existing). It sets
 #     surviving:true|false on every finding and counts.surviving. Later steps read that flag.
@@ -77,16 +80,20 @@ cmd="${1:-}"; run_dir="${2:-}"
 [ -n "$run_dir" ] && [ -d "$run_dir" ] || die bad_run_dir "usage: findings.sh merge|resolve|analyze|mark|timing <run_dir>"
 
 merge() {
-  local max="${1:-6}" valid=() invalid=() hids=() f t0
+  local max="${1:-6}" valid=() invalid=() ignored=() hids=() f b t0
   t0=$(now)
   for f in "$run_dir"/hunters/*.json; do
     [ -e "$f" ] || continue
-    if jq -e 'type == "object"' "$f" >/dev/null 2>&1; then valid+=("$f"); else invalid+=("$(basename "$f" .json)"); fi
-    jq -e --arg b "$(basename "$f" .json)" '.hunter_id == $b' "$f" >/dev/null 2>&1 && hids+=("$(basename "$f" .json)")
+    b=$(basename "$f" .json)
+    if ! jq -e 'type == "object"' "$f" >/dev/null 2>&1; then invalid+=("$b")
+    elif jq -e --arg b "$b" '.hunter_id == $b' "$f" >/dev/null 2>&1; then valid+=("$f"); hids+=("$b")
+    else ignored+=("hunters/$b.json"); fi
   done
-  local invalid_json='[]'
+  local invalid_json='[]' ignored_json='[]'
   [ "${#invalid[@]}" -gt 0 ] && invalid_json=$(printf '%s\n' "${invalid[@]}" | jq -R . | jq -sc .)
-  { [ "${#valid[@]}" -gt 0 ] && jq -s . "${valid[@]}" || echo '[]'; } | jq --argjson max "$max" --argjson invalid "$invalid_json" "$RANK"'
+  [ "${#ignored[@]}" -gt 0 ] && ignored_json=$(printf '%s\n' "${ignored[@]}" | jq -R . | jq -sc .)
+  { [ "${#valid[@]}" -gt 0 ] && jq -s . "${valid[@]}" || echo '[]'; } \
+    | jq --argjson max "$max" --argjson invalid "$invalid_json" --argjson ignored "$ignored_json" "$RANK"'
     def dir: if (.file // "") == "" then "(unlocated)"
              else (.file | split("/") | .[:-1] | join("/")) | if . == "" then "." else . end end;
     def pack($k): if length <= $k then . else
@@ -117,7 +124,7 @@ merge() {
        batches: ($all | group_by(dir) | map({dirs: [.[0] | dir], ids: map(.id)})
                  | sort_by(.dirs[0]) | pack($max)
                  | to_entries | map({id: "B\(.key + 1)", dirs: .value.dirs, finding_ids: .value.ids})),
-       invalid: $invalid,
+       invalid: $invalid, ignored: $ignored,
        counts: {findings: ($all | length), corroborated: ([$all[] | select(.sources > 1)] | length)}}
   ' > "$run_dir/merged.json" || die merge_failed "jq could not merge hunter output"
   stamp_files hunter hunters ${hids[@]+"${hids[@]}"}; stamp merge "" script "$t0" "$(now)"
@@ -126,12 +133,23 @@ merge() {
 
 resolve() {
   [ -f "$run_dir/merged.json" ] || die no_merge "run findings.sh merge first"
-  local v t0
+  local v ids ign t0
   t0=$(now)
-  v=$(for f in "$run_dir"/verifiers/*.json; do [ -e "$f" ] && jq -c 'select(type == "object")' "$f" 2>/dev/null; done | jq -sc .)
-  jq --argjson v "$v" '
+  ids=$(jq -r '.batches[]?.id' "$run_dir/merged.json" 2>/dev/null)
+  # Only <batch_id>.json for a batch in merged.json counts; its file name, not its content, marks the batch done.
+  v=$(for b in $ids; do f="$run_dir/verifiers/$b.json"
+        [ -e "$f" ] && jq -c --arg b "$b" 'select(type == "object") | .batch_id = $b' "$f" 2>/dev/null; done | jq -sc .)
+  local known=" $(echo $ids) " stray=()
+  for f in "$run_dir"/verifiers/*.json; do
+    [ -e "$f" ] || continue
+    case $known in *" $(basename "$f" .json) "*) ;; *) stray+=("verifiers/$(basename "$f")") ;; esac
+  done
+  ign='[]'
+  [ "${#stray[@]}" -gt 0 ] && ign=$(printf '%s\n' "${stray[@]}" | jq -R . | jq -sc .)
+  jq --argjson v "$v" --argjson ign "$ign" '
     ([$v[] | (.verdicts // [])[] | {key: .id, value: .}] | from_entries) as $by
     | ([$v[] | .batch_id] ) as $done
+    | .ignored = ((.ignored // []) + $ign)
     | .findings |= map(. as $f | ($by[$f.id] // null) as $r
         | if $r == null then . + {verdict: "unverified"}
           else . + {verdict: $r.verdict, note: $r.note}
@@ -142,7 +160,7 @@ resolve() {
     | .counts += (.findings | group_by(.verdict) | map({key: .[0].verdict, value: length}) | from_entries)
     | .counts.surviving = ([.findings[] | select(.surviving)] | length)
   ' "$run_dir/merged.json" > "$run_dir/final.json" || die resolve_failed "jq could not join verdicts"
-  stamp_files verifier verifiers $(jq -r '.batches[]?.id' "$run_dir/merged.json" 2>/dev/null); stamp resolve "" script "$t0" "$(now)"
+  stamp_files verifier verifiers $ids; stamp resolve "" script "$t0" "$(now)"
   cat "$run_dir/final.json"
 }
 

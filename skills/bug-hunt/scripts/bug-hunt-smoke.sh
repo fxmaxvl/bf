@@ -71,14 +71,14 @@ echo 'not json' > "$run/hunters/h5.json"
 m=$(bash "$findings" merge "$run")
 check "merge: ±2 is anchored, not chained (10,11,12 | 14,16)" "$(q "$m" '[.findings[] | select(.file == "src/a.js") | .line] | sort == [10,14]')"
 check "merge: sources count distinct hunters" "$(q "$m" '(.findings[] | select(.line == 10) | .sources) == 4')"
-check "merge: one hunter on two lenses is one source" "$(q "$m" '(.findings[] | select(.line == 14) | .sources == 2 and (.lenses | length) == 2)')"
+check "merge: a file not named after its hunter_id adds nothing and is listed" "$(q "$m" '(.findings[] | select(.line == 14) | .sources == 1 and .lenses == ["logic"]) and .ignored == ["hunters/h4b.json"]')"
 check "merge: highest severity wins, ids ordered by severity" "$(q "$m" '.findings[0].severity == "critical" and .findings[0].id == "F1"')"
-check "merge: nothing dropped" "$(q "$m" '([.findings[].members[]] | length) == 9')"
+check "merge: nothing dropped" "$(q "$m" '([.findings[].members[]] | length) == 8')"
 check "merge: invalid hunter output reported" "$(q "$m" '.invalid == ["h5"]')"
 
 mkdir -p "$tmp/pack/hunters"
 for d in a b c d e f g h; do
-  printf '{"hunter_id":"h-%s","lens":"logic","findings":[{"file":"%s/x.js","line":1,"severity":"medium","title":"t"}]}\n' "$d" "$d" > "$tmp/pack/hunters/$d.json"
+  printf '{"hunter_id":"h-%s","lens":"logic","findings":[{"file":"%s/x.js","line":1,"severity":"medium","title":"t"}]}\n' "$d" "$d" > "$tmp/pack/hunters/h-$d.json"
 done
 p=$(bash "$findings" merge "$tmp/pack")
 check "pack: 8 directories fit in 6 batches, none dropped" "$(q "$p" '(.batches | length) == 6 and ([.batches[].finding_ids[]] | length) == 8')"
@@ -89,6 +89,8 @@ check "pack: cap is honoured" "$(q "$p" '(.batches | length) == 2')"
 b1=$(jq -r '.batches[] | select(.dirs | index("src")) | .id' <<< "$m")
 f1=$(jq -r '.findings[] | select(.line == 10) | .id' <<< "$m")
 printf '{"batch_id":"%s","verdicts":[{"id":"%s","verdict":"confirmed","note":"real"}]}\n' "$b1" "$f1" > "$run/verifiers/$b1.json"
+# A stray verifier file: its verdicts must not count, so counts.surviving stays 1 below.
+jq -c '{batch_id: "B1", verdicts: [.findings[] | {id, verdict: "confirmed", note: "stray"}]}' <<< "$m" > "$run/verifiers/B1.input.json"
 fin=$(bash "$findings" resolve "$run")
 check "resolve: verdict joined" "$(q "$fin" '.findings[] | select(.id == "'"$f1"'") | .verdict == "confirmed"')"
 check "resolve: surviving flag and count follow the verdict" "$(q "$fin" '(.findings[] | select(.id == "'"$f1"'") | .surviving) == true and (.findings | map(select(.verdict == "unverified" and .surviving)) | length) == 0 and .counts.surviving == 1')"
@@ -178,16 +180,19 @@ check "analyze: no final.json is an error" "$(q "$o" '.error == "no_final"')"
 # Surviving F ids come from the files above.
 pl="$tmp/pipeline"; mkdir -p "$pl/hunters" "$pl/verifiers"
 cp "$run/hunters/h1.json" "$run/hunters/h2.json" "$pl/hunters/"
-# Stray files: neither is named after its own hunter_id or a batch id, so neither may become a timing row.
-echo '{"hunter_id":"h1","lens":"logic","findings":[]}' > "$pl/hunters/h1.retry.json"
-echo '{"note":"verifier input"}' > "$pl/verifiers/B1.input.json"
-bash "$findings" merge "$pl" >/dev/null
+# Stray files: neither is named after its own hunter_id or a batch id, so neither may add findings,
+# verdicts or a timing row.
+echo '{"hunter_id":"h1","lens":"logic","findings":[{"file":"z/z.js","line":1,"severity":"high","title":"retry"}]}' > "$pl/hunters/h1.retry.json"
+pm=$(bash "$findings" merge "$pl")
+check "merge: a stray hunter file with findings changes nothing" "$(q "$pm" '([.findings[] | select(.file == "z/z.js")] | length) == 0 and .counts.findings == 3 and .ignored == ["hunters/h1.retry.json"]')"
 ids=$(jq -r '[.findings[] | select(.line == 10 or .line == 14) | .id] | join(" ")' "$pl/merged.json")
 read -r pa pb <<< "$ids"
 for b in $(jq -r '.batches[].id' "$pl/merged.json"); do
   jq -c --arg b "$b" '(.batches[] | select(.id == $b)) as $batch | {batch_id: $b, verdicts: [.findings[] | select(.id as $i | $batch.finding_ids | index($i)) | {id, verdict: "confirmed", note: "real"}]}' "$pl/merged.json" > "$pl/verifiers/$b.json"
 done
-bash "$findings" resolve "$pl" >/dev/null
+jq -nc --arg a "$pa" '{batch_id: "B1", verdicts: [{id: $a, verdict: "rejected", note: "stray"}]}' > "$pl/verifiers/B1.input.json"
+pr=$(bash "$findings" resolve "$pl")
+check "resolve: a stray verifier file with verdicts changes nothing" "$(q "$pr" '(.findings[] | select(.id == "'"$pa"'") | .verdict) == "confirmed" and .counts.surviving == 3 and .ignored == ["hunters/h1.retry.json","verifiers/B1.input.json"]')"
 jq -nc --arg a "$pa" --arg b "$pb" '{groups:[{id:"G1",kind:"duplicate",title:"t",root_cause:"r",fix_direction:"d",members:[$a,$b],keep:$a}],links:[]}' > "$pl/analysis.json"
 pa_out=$(bash "$findings" analyze "$pl")
 check "pipeline: merge, resolve and analyze compose; a duplicate folds out" "$(q "$pa_out" '.counts.groups == 1 and .counts.folded == 1 and ([.findings[] | select(.folded_into)] | length) == 1 and (.groups[0].folded | length) == 1')"

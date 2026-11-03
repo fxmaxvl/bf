@@ -150,7 +150,7 @@ Severity · Location · Lenses · Verdict
 <one line each: ID, location, verifier note>
 
 ## Coverage
-<lenses run; coverage gaps (failed hunters, invalid output, failed batches); analysis failure ("analysis failed twice: <detail>. No groups."); hunters_capped note>
+<lenses run; coverage gaps (failed hunters, invalid output, failed batches); stray files in `ignored`; analysis failure ("analysis failed twice: <detail>. No groups."); hunters_capped note>
 
 ## Handoff
 <filled in after Phase 7>
