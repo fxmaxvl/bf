@@ -68,7 +68,7 @@ Run the linter. **If issues are found:**
 1. If `lint_fix_command` is non-null → run it **scoped to `changed_files` only** (the files changed by this feature, from `changed-packages.sh`) — do not auto-fix files outside that set. Then re-run the linter to verify.
 2. If still issues after auto-fix, or no auto-fix available → fix the issues manually (do NOT suppress or disable linter rules)
 3. Re-run the linter to confirm green
-4. **If any files were modified during lint fixing:** commit them immediately — resolve and read the `git` convention for format, use `style:` prefix (e.g., `style: apply prettier auto-fixes`). Do not leave lint fixes as unstaged changes.
+4. **If any files were modified during lint fixing:** commit them immediately — resolve and read the `git` convention for format, use `style:` prefix (e.g., `style: apply prettier auto-fixes`). Do not leave lint fixes as unstaged changes. Stage by path only the files you changed, never `git add -A` or `git add .`. Do **not** stage anything in `.bf/` except `.bf/conventions/`.
 
 All lint checks must pass before completing.
 

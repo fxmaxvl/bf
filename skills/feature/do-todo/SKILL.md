@@ -44,4 +44,4 @@ Repeat the following loop until no unchecked items remain — do not wait for us
 
 1. List the session's files: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/changed-packages.sh"` — use `changed_files`.
 2. Read the diff of those files and check every changed line against the `dev` and `testing` conventions and the custom conventions read above — for example comment rules, docstring and signature layout, type hints, naming, banned tokens, and any spec IDs left in code or comments.
-3. Fix each violation in place, rerun the plan's test command, and commit with `fix:`. If there were none, commit nothing.
+3. Fix each violation in place, rerun the plan's test command, and commit with `fix:`, staging by path only the files you changed (never `git add -A` or `git add .`, nothing in `.bf/` except `.bf/conventions/`). If there were none, commit nothing.
