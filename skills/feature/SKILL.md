@@ -162,7 +162,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
   [--gh-issue 42]                          # only if GitHub issue detected
 ```
 
-   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `true`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently. It also includes `auto_fix_style` (same source, defaults to `false`), which Phase 4.75 uses.
+   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `true`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently. It also includes `auto_fix_style` (same source, defaults to `false`), which Phases 4.75 and 5 use.
 
 6. **Stub the session log.** Immediately after `state-ops.sh --init`, create `paths.session_log` with empty block headers so the file is visible from the start of the session:
 
@@ -192,7 +192,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
 
 Use `paths.*` from `state-ops.sh` instead of constructing paths manually.
 
-**Feature flags:** `parallel_audit` — when `true`, Phases 4.75 and 5 collapse into a single 3-way concurrent fan-out (complexity-gate + consistency-gate + review-impl). See Phase 4.75 for details. `auto_fix_style` — when `true`, Phase 4.75 fixes style-only findings without asking.
+**Feature flags:** `parallel_audit` — when `true`, Phases 4.75 and 5 collapse into a single 3-way concurrent fan-out (complexity-gate + consistency-gate + review-impl). See Phase 4.75 for details. `auto_fix_style` — when `true`, Phases 4.75 and 5 fix style-only findings without asking.
 
 ## Phase 1 — Brainstorm (full mode only)
 
@@ -343,9 +343,9 @@ Print banner: `── feature | Audit Stack ────────────
 
 **Out-of-scope fixes (applies here and in Phase 5).** If a fix needs a file outside `changed_files`, or a path the spec or plan said not to touch, restate that in one line before dispatching the fix agent (see **Restate a wide effect** in `plugin-main.md`). Then append a `## Decisions` entry to `paths.session_log` recording the user's ruling (Block Writing Pattern, accumulate), and name the extra files in the fix prompt. A scope change recorded at the moment it is made is not later flagged by review-impl as an unexplained violation.
 
-**Style-only auto-fix (applies to both "Should I fix these issues?" questions below).** If `auto_fix_style` (from `state-ops.sh` read) is `true` and every finding to fix (blocked issues, and review-impl concerns in parallel mode) is style-only — naming, formatting, comments, docstrings, layout, never behaviour or design — skip the question and treat the answer as yes. Any behaviour or design finding means ask as usual. Pushes still wait for the Phase 6 gate.
+**Style-only auto-fix (applies to both "Should I fix these issues?" questions below and to Phase 5's "Should I fix these concerns?").** If `auto_fix_style` (from `state-ops.sh` read) is `true` and every finding to fix (blocked issues, review-impl concerns) is style-only — naming, formatting, comments, docstrings, layout, never behaviour or design — skip the question and treat the answer as yes. Any behaviour or design finding means ask as usual. Pushes still wait for the Phase 6 gate.
 
-**Pending fixes (applies to every fix agent in this phase).** Number the findings by position: `C<n>` = nth `- ` bullet under Blocked Issues in `## Complexity Report`, `K<n>` = nth `- ` bullet under BLOCK in `## Consistency Report`, `R<n>` = nth `- ` bullet under Concerns in `## Implementation Review`. Before dispatch, run `state-ops.sh pending_fixes=<chosen IDs, comma-separated>`. Add to the fix prompt: "Fix these findings: <one line each: ID — `file:line`>. After each fix, run `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh\" pending_fixes=<IDs still open>` (`null` when none)." When the agent returns, run `state-ops.sh pending_fixes=null`.
+**Pending fixes (applies to every fix agent in this phase and in Phase 5).** Number the findings by position: `C<n>` = nth `- ` bullet under Blocked Issues in `## Complexity Report`, `K<n>` = nth `- ` bullet under BLOCK in `## Consistency Report`, `R<n>` = nth `- ` bullet under Concerns in `## Implementation Review`. Before dispatch, run `state-ops.sh pending_fixes=<chosen IDs, comma-separated>`. Add to the fix prompt: "Fix these findings: <one line each: ID — `file:line`>. After each fix, run `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh\" pending_fixes=<IDs still open>` (`null` when none)." When the agent returns, run `state-ops.sh pending_fixes=null`.
 
 **Recurring rules.** When a fix round resolves gate BLOCK findings, append one line per rule they broke to the `## Decisions` block of `paths.session_log` (Block Writing Pattern, accumulate): `- Recurring rule: <the rule, one line>`. Skip a rule already listed. do-todo's self-check reads these lines on later runs.
 
@@ -432,8 +432,8 @@ Run up to 3 analyze → fix cycles:
 3. If output is `PASS`: proceed to step 5
 4. If output is `CONCERN`:
    - Show the concerns to the user
-   - Ask: "Should I fix these concerns?"
-   - If yes: dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), applying the out-of-scope rule from Phase 4.75 first, then go back to step 1
+   - Ask: "Should I fix these concerns?" — unless **Style-only auto-fix** (Phase 4.75) answers yes
+   - If yes: record **Pending fixes** (Phase 4.75), then dispatch `feature/review-impl/fix/SKILL.md` as an Agent (model: sonnet), applying the out-of-scope rule from Phase 4.75 first, then go back to step 1
    - If no (user accepts as-is): proceed to step 5
    - If this was already the 3rd cycle: log the duration the clock reports — `echo "Audit stack wall-clock: $(( $(date -u +%s) - <audit_started_at> ))s (sequential)"`, reading `audit_started_at` from state. Then tell the user "Max review cycles reached. Review the implementation manually." and stop
 5. ```
