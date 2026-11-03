@@ -4,7 +4,8 @@
 # Usage:
 #   onboard-probe.sh init [slug]        # slug defaults to "<repo>-onboarding"; always slugified
 #   onboard-probe.sh verify <workspace> # lists lesson/reference links whose target file is missing;
-#                                       # links quoted inside <pre>/<code> are sample text, not links
+#                                       # links quoted inside <pre>/<code> are sample text, not links;
+#                                       # unequal_quizzes lists lesson-kit quizzes whose <button> options differ in word count
 #   onboard-probe.sh promote <staging> <workspace>
 #                                       # copies staged lessons/ and reference/ pages into the workspace;
 #                                       # never overwrites, so an existing page is a conflict, not copied
@@ -191,9 +192,15 @@ case "${1:-init}" in
   verify)
     ws=${2:?usage: onboard-probe.sh verify <workspace>}
     [ -d "$ws/lessons" ] || { jq -nc --arg ws "$ws" '{error:"no_lessons_dir", workspace:$ws}'; exit 1; }
-    broken=()
+    broken=(); unequal=()
     for page in "$ws"/lessons/*.html "$ws"/reference/*.html; do
       [ -f "$page" ] || continue
+      # Each quiz runs from one class="quiz" to the next; its nested .fb div closes first, so </div> cannot bound it.
+      while IFS= read -r q; do
+        [ -n "$q" ] && unequal+=("${page#"$ws"/} -> $q")
+      done <<< "$(perl -0777 -ne 'my @q = split /class="quiz"/; shift @q; my $n = 0;
+        for (@q) { $n++; my @c = map { (my $t = $_) =~ s/<[^>]*>//g; scalar(() = $t =~ /\S+/g) } /<button\b[^>]*>(.*?)<\/button>/gis;
+          my %u = map { $_ => 1 } @c; print "quiz $n: ", join(",", @c), "\n" if @c > 1 && keys(%u) > 1 }' "$page")"
       dir=$(dirname "$page")
       while IFS= read -r href; do
         target=${href%%#*}
@@ -206,7 +213,8 @@ case "${1:-init}" in
       --argjson lessons "$(find "$ws/lessons" -name '*.html' ! -name '0000-*' | wc -l | tr -d ' ')" \
       --argjson references "$( (find "$ws/reference" -name '*.html' 2>/dev/null || true) | wc -l | tr -d ' ')" \
       --argjson broken "$(printf '%s\n' "${broken[@]:-}" | json_lines)" \
-      '{lessons:$lessons, references:$references, broken_links:$broken}'
+      --argjson unequal "$(printf '%s\n' "${unequal[@]:-}" | json_lines)" \
+      '{lessons:$lessons, references:$references, broken_links:$broken, unequal_quizzes:$unequal}'
     ;;
   promote)
     staging=${2:?usage: onboard-probe.sh promote <staging> <workspace>}

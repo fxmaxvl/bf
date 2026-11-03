@@ -140,13 +140,13 @@ Then write the rest of the workspace files that bf:teach expects:
 - `NOTES.md`: the generation snapshot (`sha`, date), the **candidate glossary terms** from `onb-purpose` and the writers, for teach to promote later, and every **inferred** claim, as questions to ask the team.
 - Write no `learning-records/` files. None of teach's triggers fires during generation.
 
-Then check every link:
+Then check every link and quiz:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/onboard-project/scripts/onboard-probe.sh" verify "<workspace>"
 ```
 
-Fix every link in `broken_links` and re-run until the list is empty.
+Fix every link in `broken_links` and every quiz in `unequal_quizzes`, and re-run until both lists are empty. Then make a light content pass: step through each worked example's arithmetic, and spot-check about five `path:line` citations against the repo. Fix what is wrong.
 
 ## Phase 6 — Hand off
 
