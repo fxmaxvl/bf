@@ -346,6 +346,8 @@ Print banner: `── feature | Audit Stack ────────────
 
 **Pending fixes (applies to every fix agent in this phase).** Number the findings by position: `C<n>` = nth Blocked Issue in `## Complexity Report`, `K<n>` = nth BLOCK item in `## Consistency Report`, `R<n>` = nth concern in `## Implementation Review`. Before dispatch, run `state-ops.sh pending_fixes=<chosen IDs, comma-separated>`. Add to the fix prompt: "Fix these findings: <one line each: ID — `file:line`>. After each fix, run `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh\" pending_fixes=<IDs still open>` (`null` when none)." When the agent returns, run `state-ops.sh pending_fixes=null`.
 
+**Recurring rules.** When a fix round resolves gate BLOCK findings, append one line per rule they broke to the `## Decisions` block of `paths.session_log` (Block Writing Pattern, accumulate): `- Recurring rule: <the rule, one line>`. Skip a rule already listed. do-todo's self-check reads these lines on later runs.
+
 **Branch on `parallel_audit`** (read from build-state.json via `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` (no args) which prints the persisted `parallel_audit` from build-state.json — do NOT use `--read-config` here, which would re-read config.json and ignore the init-time snapshot):
 
 ### If `parallel_audit` is `false` (opt-out — sequential)
