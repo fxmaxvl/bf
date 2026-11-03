@@ -161,7 +161,7 @@ Print the workspace path, the lesson and reference counts, any skipped areas, an
 | Argument already states role or task | Skip the mission question. |
 | Area absent (e.g. no DB, no CI) | Skip its lesson, list it in the course map and in MISSION's Out of scope. |
 | `units.mode` is `dir` | Architecture lessons say the topology was inferred from directories, not build units. |
-| Survey or lesson agent fails or writes nothing | Re-spawn that one agent once. If it fails again, mark its lessons missing in the course map. Never present a partial course as complete. |
+| Survey or lesson agent fails or writes nothing | Re-spawn that one agent once. A spawn error (terminal or pane resource error) uses that retry: spawn the failed agents in waves of half as many at once, or do the work inline. If it fails again, mark its lessons missing in the course map. Never present a partial course as complete. |
 | `promote` reports `conflicts` | Stop before Phase 5's remaining files. Name each conflicting page; the workspace already holds a page with that name, so this course must not replace it. |
 | Survey agent or lesson writer still running but silent past the stall check | Follow **Watch for a silent writer** in Phase 4: message it once, then stop it and re-spawn it or do its work inline. |
 | Repo docs contradict the code | Teach what the code does, cite both sides, and add the discrepancy to NOTES.md as a question for the team. |
