@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for state-ops.sh's parallel_audit resolution against a throwaway HOME and repo.
+# Smoke test for state-ops.sh's config flag resolution against a throwaway HOME and repo.
 #
 # Usage: state-ops-smoke.sh
 # Output: one PASS/FAIL line per case; exit 0 when every case passes, 1 otherwise.
@@ -12,7 +12,8 @@ trap 'rm -rf "$tmp"' EXIT
 fails=0
 eq() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1: got [$2], want [$3]"; fails=$((fails+1)); fi; }
 
-flag() { python3 -c 'import json,sys; print(json.load(sys.stdin)["parallel_audit"])'; }
+key=parallel_audit
+flag() { python3 -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$key"; }
 
 # $1 case name, $2 config.json contents ("-" for no file)
 resolve() {
@@ -31,6 +32,12 @@ eq "explicit false opts out" "$(resolve off '{"parallel_audit": false}' | tr '\n
 eq "malformed config -> default on" "$(resolve bad '{oops' | tr '\n' ' ')" "True True "
 eq "malformed config warns on each read" "$(warned bad)" 2
 eq "readable config warns nothing" "$(warned none)$(warned empty)$(warned off)" "000"
+
+key=auto_fix_style
+eq "auto_fix_style: no config -> default off" "$(resolve afs-none - | tr '\n' ' ')" "False False "
+eq "auto_fix_style: explicit true opts in" "$(resolve afs-on '{"auto_fix_style": true}' | tr '\n' ' ')" "True True "
+eq "auto_fix_style: malformed config -> default off" "$(resolve afs-bad '{oops' | tr '\n' ' ')" "False False "
+eq "auto_fix_style: read mode returns the init-time snapshot" "$(cd "$tmp/afs-on/repo" && HOME=$tmp/afs-none/home bash "$script" | flag)" True
 
 
 repo=$tmp/baseline/repo home=$tmp/baseline/home

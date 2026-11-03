@@ -39,11 +39,13 @@ def git_root():
     return r.stdout.strip()
 
 PARALLEL_AUDIT_DEFAULT = True
+AUTO_FIX_STYLE_DEFAULT = False
+CONFIG_DEFAULTS = {'parallel_audit': PARALLEL_AUDIT_DEFAULT, 'auto_fix_style': AUTO_FIX_STYLE_DEFAULT}
 
 def read_config():
     """Read ~/.bf/config.json and return resolved feature flags.
 
-    Returns a dict with at least {'parallel_audit': bool}.
+    Returns a dict with {'parallel_audit': bool, 'auto_fix_style': bool}.
     Each flag takes its default when the file is missing, malformed, or the key is absent;
     an explicit `"parallel_audit": false` opts out of the concurrent audit stack.
     """
@@ -51,14 +53,12 @@ def read_config():
     try:
         with open(config_path) as f:
             data = json.load(f)
-        return {
-            'parallel_audit': bool(data.get('parallel_audit', PARALLEL_AUDIT_DEFAULT)),
-        }
+        return {k: bool(data.get(k, d)) for k, d in CONFIG_DEFAULTS.items()}
     except FileNotFoundError:
-        return {'parallel_audit': PARALLEL_AUDIT_DEFAULT}
+        return dict(CONFIG_DEFAULTS)
     except (json.JSONDecodeError, OSError) as e:
         print(f"Warning: could not read {config_path}: {e}", file=sys.stderr)
-        return {'parallel_audit': PARALLEL_AUDIT_DEFAULT}
+        return dict(CONFIG_DEFAULTS)
 
 def set_nested(obj, dotted_key, value):
     keys = dotted_key.split('.')
@@ -122,6 +122,7 @@ def read_output(root, state):
         'phase':           state['phase'],
         'phase_status':    state['phase_status'],
         'parallel_audit':  state.get('parallel_audit', PARALLEL_AUDIT_DEFAULT),
+        'auto_fix_style':  state.get('auto_fix_style', AUTO_FIX_STYLE_DEFAULT),
         'collect_todos':   state.get('collect_todos'),
         'audit_started_at': state.get('audit_started_at'),
         'pending_fixes':   state.get('pending_fixes'),
@@ -212,7 +213,7 @@ if args and args[0] == '--init':
             'pending_questions': None,
         },
         'collect_todos': None,
-        'parallel_audit': read_config()['parallel_audit'],
+        **read_config(),
         'artifacts': {'spec': None, 'plan': None, 'todo': None, 'backlog': None},
         'created_at': iso_now,
         'updated_at': iso_now,
@@ -233,6 +234,7 @@ if args and args[0] == '--init':
         'mode':            mode,
         'phase':           state['phase'],
         'parallel_audit':  state['parallel_audit'],
+        'auto_fix_style':  state['auto_fix_style'],
         'artifacts_dir':   adir,
         'artifact_prefix': prefix,
         'paths':           artifact_paths(adir, prefix),

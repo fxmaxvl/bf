@@ -162,7 +162,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
   [--gh-issue 42]                          # only if GitHub issue detected
 ```
 
-   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `true`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently.
+   The script creates `.bf/sessions/build-state.json`, computes `build_timestamp` in `YYYYMMDDTHH` format, and outputs JSON with `slug`, `build_timestamp`, `mode`, `paths.*`, `jira`, and `github_issue` — use these values for the rest of the session instead of re-reading state. The output also includes `parallel_audit` (boolean, sourced from `~/.bf/config.json`, defaults to `true`). Remember this value — phases 4.75 and 5 use it to decide whether to fan out the audit stack concurrently. It also includes `auto_fix_style` (same source, defaults to `false`), which Phase 4.75 uses.
 
 6. **Stub the session log.** Immediately after `state-ops.sh --init`, create `paths.session_log` with empty block headers so the file is visible from the start of the session:
 
@@ -192,7 +192,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
 
 Use `paths.*` from `state-ops.sh` instead of constructing paths manually.
 
-**Feature flags:** `parallel_audit` — when `true`, Phases 4.75 and 5 collapse into a single 3-way concurrent fan-out (complexity-gate + consistency-gate + review-impl). See Phase 4.75 for details.
+**Feature flags:** `parallel_audit` — when `true`, Phases 4.75 and 5 collapse into a single 3-way concurrent fan-out (complexity-gate + consistency-gate + review-impl). See Phase 4.75 for details. `auto_fix_style` — when `true`, Phase 4.75 fixes style-only findings without asking.
 
 ## Phase 1 — Brainstorm (full mode only)
 
@@ -341,6 +341,8 @@ Print banner: `── feature | Verify ─────────────�
 Print banner: `── feature | Audit Stack ───────────────────────────────`
 
 **Out-of-scope fixes (applies here and in Phase 5).** If a fix needs a file outside `changed_files`, or a path the spec or plan said not to touch, restate that in one line before dispatching the fix agent (see **Restate a wide effect** in `plugin-main.md`). Then append a `## Decisions` entry to `paths.session_log` recording the user's ruling (Block Writing Pattern, accumulate), and name the extra files in the fix prompt. A scope change recorded at the moment it is made is not later flagged by review-impl as an unexplained violation.
+
+**Style-only auto-fix (applies to both "Should I fix these issues?" questions below).** If `auto_fix_style` (from `state-ops.sh` read) is `true` and every finding to fix (blocked issues, and review-impl concerns in parallel mode) is style-only — naming, formatting, comments, docstrings, layout, never behaviour or design — skip the question and treat the answer as yes. Any behaviour or design finding means ask as usual. Pushes still wait for the Phase 6 gate.
 
 **Pending fixes (applies to every fix agent in this phase).** Number the findings by position: `C<n>` = nth Blocked Issue in `## Complexity Report`, `K<n>` = nth BLOCK item in `## Consistency Report`, `R<n>` = nth concern in `## Implementation Review`. Before dispatch, run `state-ops.sh pending_fixes=<chosen IDs, comma-separated>`. Add to the fix prompt: "Fix these findings: <one line each: ID — `file:line`>. After each fix, run `bash \"${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh\" pending_fixes=<IDs still open>` (`null` when none)." When the agent returns, run `state-ops.sh pending_fixes=null`.
 
