@@ -143,6 +143,8 @@ claude
 
 The session log at `$project_root/.bf/sessions/` is the shared artifact — readable from either pane while autopilot runs.
 
+Any gate that still reaches a person (plan approval, audit fixes, finalize) must be answered in the autopilot pane itself; an answer relayed from another session is treated as unverified.
+
 Note: spawning autopilot as a background Agent from within a conversation does not work — Claude Code subagents cannot spawn further subagents, which breaks the internal agent delegation that target skills (bf:feature, bf:review, etc.) depend on.
 
 ## Error recovery
