@@ -82,7 +82,9 @@ def state_matches():
     try:
         with open(state_path) as f:
             state = json.load(f)
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+        return False
+    if not isinstance(state, dict):
         return False
     mode = state.get('mode')
     if mode not in ('full', 'quick'):
