@@ -55,7 +55,7 @@ def read_config():
     try:
         with open(config_path) as f:
             data = json.load(f)
-        return {k: bool(data.get(k, d)) for k, d in CONFIG_DEFAULTS.items()}
+        return {k: (v if isinstance(v := data.get(k, d), bool) else d) for k, d in CONFIG_DEFAULTS.items()}
     except FileNotFoundError:
         return dict(CONFIG_DEFAULTS)
     except (json.JSONDecodeError, OSError) as e:
