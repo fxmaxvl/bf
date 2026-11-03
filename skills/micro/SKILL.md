@@ -114,7 +114,7 @@ Print banner: `── micro | Execute ──────────────
 
 Dispatch `micro/execute/SKILL.md` as an Agent (model: sonnet). If `## Target Repos` is non-empty, paste its lines into the prompt.
 
-When it completes:
+When it completes, if `## Target Repos` is non-empty, write a `## Changed Paths` block to `paths.session_log`: for each checkout, one line per entry of `git -C <checkout> diff --name-status origin/HEAD...HEAD`, as `<owner/repo> <status> <type> <path>`. `<type>` is `docs` for `.md`, `.mdx`, `.rst`, `.adoc`, else `code`. Then:
 ```
 bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=verify phase_status=in_progress
 ```
@@ -136,7 +136,9 @@ When tests and lint are green: proceed immediately to Phase 4. **Do not update `
 Print banner: `── micro | Complexity Guard ───────────────────────────────`
 
 **Non-code change check.** Both this phase and Phase 5 spawn opus agents to reason about
-new code. When the task produced none, they cost two round-trips and find nothing:
+new code. When the task produced none, they cost two round-trips and find nothing.
+
+Read the record first: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.session_log> --block "## Changed Paths"`. If every line has type `docs`, skip. Otherwise apply the test below to its entries. Empty output means no record, so fall back to:
 
 ```bash
 git diff --name-status origin/HEAD...HEAD
