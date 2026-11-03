@@ -125,7 +125,7 @@ Quick mode skips **only** brainstorm and review-design. Every other phase — re
    - If `phase_status` is `"awaiting_approval"`:
      - If `phase` is `"finalize"`: re-ask the pre-finalization gate per Phase 6 step 2 (one question in quick mode, two in full mode). If not ready: exit. If ready: set `phase_status` to `"in_progress"`, save `collect_todos` per Phase 6 step 2 (user's answer in full mode, `false` automatically in quick mode), update state, continue Phase 6 from step 3 (skip silent verify — it already passed).
      - Otherwise: ask "Paused before [current phase]. Ready to proceed?" — if yes, set `phase_status` to `"in_progress"`, update state, execute the current phase; if no, exit
-   - Otherwise: resume the current phase from where it left off. **Note:** when `parallel_audit` is `true`, `phase=verify phase_status=in_progress` after Phase 4.5 completes means the orchestrator is about to enter the audit-stack fan-out in Phase 4.75 — resume goes directly into Phase 4.75 (not a mid-fan-out partial state). When `parallel_audit` is `false`, `phase=review-impl phase_status=in_progress` means the sequential complexity+consistency gates in Phase 4.75 are complete — resume re-enters Phase 5 as usual.
+   - Otherwise: resume the current phase from where it left off. **Note:** when `parallel_audit` is `true`, `phase=verify phase_status=in_progress` after Phase 4.5 completes means the orchestrator is about to enter the audit-stack fan-out in Phase 4.75 — resume goes directly into Phase 4.75 (not a mid-fan-out partial state). When `parallel_audit` is `false`, `phase=review-impl phase_status=in_progress` means the sequential complexity+consistency gates in Phase 4.75 are complete — resume re-enters Phase 5 as usual. If `pending_fixes` is non-null, do not redo the scan: apply the transient-error rule in **Error Recovery** (restore, then re-spawn the fix agent of the current loop — Phase 5 when `phase=review-impl`, else Phase 4.75 — with only those IDs), then continue that loop at its step 1.
 
 4. If `has_state` is `false`: proceed to Phase 0 (init).
 
@@ -545,7 +545,7 @@ Multiple key=value pairs can be passed in a single call. Boolean values (`true`/
 
 - If the session ends mid-phase, the next `/bf:feature` invocation reads `.bf/sessions/build-state.json` and resumes
 - If that state belongs to another run (`state_matches` is `false`), ask resume / archive / abort per On Invocation step 2 instead of resuming
-- If a fix or audit agent dies mid-run (no return, an error, a transient API or network failure), re-spawn it once with only what is left: a fix agent gets only the IDs still in `pending_fixes`; a fan-out re-spawns only the agents that did not return. If the retry also fails, stop and tell the user
+- If any sub-agent dies mid-run on a transient error (network, auth, no return): run `git status --short` and restore the half-applied edits it left: for a fix agent, only the edits for the first ID still in `pending_fixes`; for verify, leftover mutations. Never touch finished work or changes that were there before it started. Then re-spawn it once with only what is left: a fix agent gets only the IDs still in `pending_fixes`; a fan-out re-spawns only the agents that did not return. If the retry also fails, stop and tell the user
 - If the branch `feat/<slug>` already exists, switch to it instead of creating a new one
 - If state shows phase `done`, tell the user the build is already complete
 
