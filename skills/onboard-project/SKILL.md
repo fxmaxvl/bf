@@ -111,7 +111,7 @@ Like the survey agents, each writer's final act is its one-line result to `team-
 
 - **If it has no file in `<facts_dir>/staging/lessons/` that starts with its batch's first number, it is stalled.** Message it once by name, and start one more background `sleep 300`.
 - **If it is still silent after that, stop it.** Then re-spawn its batch, or write the batch inline. Re-spawning uses the one re-spawn allowed in the edge-case table.
-- **If its first file exists, it is working.** Leave it be.
+- **If its first file exists, it is working.** Leave it be. From then on, apply Phase 2's growth test to the total `wc -c` of its batch's staged lessons, and start another background `sleep 600` while any writer has not reported.
 
 Writers follow `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md` for lesson and reference design, with these overrides:
 
