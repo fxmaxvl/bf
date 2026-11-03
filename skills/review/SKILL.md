@@ -200,7 +200,7 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      diff_file=$(mktemp)
      gh pr diff <pr_number> > "$diff_file"
      changed_files=$(sed -n 's#^diff --git a/.* b/##p' "$diff_file")
-     pr_head_branch=$(gh pr view <pr_number> --json headRefName -q .headRefName)
+     read -r pr_head_branch pr_head_sha < <(gh pr view <pr_number> --json headRefName,headRefOid -q '"\(.headRefName) \(.headRefOid)"')
      scope_description="PR <pr_number>"
      ```
      `gh pr diff` can come back empty even when the PR has changes. When `$diff_file` is
@@ -215,6 +215,8 @@ Before spawning any Agent, compute the review scope from `$ARGUMENTS` (after `--
      Then read `files` and `diff_file` from `$scope` as the non-PR case does. If the fetch
      fails, print the git error and stop — a failed fetch is an error, never an empty scope
      or `NOTHING_TO_REVIEW`.
+
+   **Check the PR head.** Phase 4 and the post step run this first. Compare `gh pr view <pr_number> --json headRefOid -q .headRefOid` with `pr_head_sha`. If they differ, print `⚠ PR <pr_number> has new commits since the review. Refreshing the diff.`, re-run this PR case, and update `pr_head_sha`. Line numbers then anchor to the new diff.
 
    For file-path inputs where the diff may be empty (e.g. unmodified files explicitly
    listed), fall back to the literal paths from `$ARGUMENTS` for `changed_files`.
@@ -600,7 +602,7 @@ Wait for reply.
 
 ### PR review: check out the PR branch
 
-If `pr_head_branch` is non-empty:
+If `pr_head_branch` is non-empty, run **Check the PR head** (Phase 1), then:
 
 ```bash
 git fetch origin "$pr_head_branch"
@@ -783,6 +785,7 @@ List remaining concerns by ID and label if any exist.
 
 | Condition | Handling |
 |-----------|----------|
+| PR head moved since the review | **Check the PR head** warns, refreshes the diff and updates `pr_head_sha` before fixing or posting. |
 | Fix Agent fails | Inform the user, skip re-review, print original report path only. |
 | User never answers the fix-selection question | Mark every concern `[deferred]` in the saved report before exiting, so the next reader can tell the concerns were surfaced and left unruled rather than never raised. |
 | Re-review finds new concerns not in the original | Include in "remaining" count, label `[new]`. |
