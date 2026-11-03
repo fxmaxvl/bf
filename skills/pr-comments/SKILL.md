@@ -322,7 +322,7 @@ After approval, run the state check again before anything else; the answer may h
 
 On **commit and push**, follow the `git` convention:
 - Stage only the files Phase 3 changed, and commit them.
-- `git fetch origin <head>`. If `git rev-list --count HEAD..origin/<head>` is not `0`, someone else pushed: stop before pushing, report the count, and offer to rebase the fix commit onto `origin/<head>` (one question). On a rebase conflict, `git rebase --abort` and stop; post nothing.
+- Fetch the push target, which for a fork PR is not `origin`: `git rev-parse --abbrev-ref @{u}`, then `git fetch <remote>` with the part before the first `/`. If `@{u}` does not resolve or the fetch fails, stop before pushing, report the error, and post nothing. If `git rev-list --count HEAD..@{u}` is not `0`, someone else pushed: stop before pushing, report the count, and offer to rebase the fix commit onto `@{u}` (one question). On a rebase conflict, `git rebase --abort` and stop; post nothing.
 - `git push`, and post only after the push succeeds. If it fails, stop before posting: replies would point at code the reviewer cannot see. Report the push error, and leave the replies for a rerun.
 
 Never one question per comment: it breaks the one-question rule and is unusable at fifteen comments.
@@ -378,5 +378,6 @@ cannot see yet.
 | A reply fails to post but its thread resolved (or vice versa) | The `results[]` entry shows the split. Report it and leave the triage file unmarked for that entry — a rerun retries only what failed |
 | Reviewer has already replied since the fetch | The rerun's `answered_by_viewer` filter does not cover reviewer replies. On a `failed` post, refetch before retrying so the reply lands in context |
 | PR is merged or closed at the closing gate, before or after the answer | Follow the state check: `MERGED` offers a follow-up PR off the base, `CLOSED` offers a reopen, a failed call stops with the `gh` error. Never push to the branch of a PR that is not `OPEN`, and post replies on a merged PR only with the follow-up link |
-| Remote PR head moved since the fetch (someone else pushed) | Stop before pushing and offer a rebase onto `origin/<head>` (see commit and push). On conflict, abort and post nothing |
+| Remote PR head moved since the fetch (someone else pushed) | Stop before pushing and offer a rebase onto `@{u}` (see commit and push). On conflict, abort and post nothing |
+| No upstream for the branch, or fetching it fails, before the push | Stop before pushing, report the error, and post nothing |
 | User wants to argue with a verdict at the gate | Take the correction, redraft that reply, and re-ask the gate once — the batch stays intact |
