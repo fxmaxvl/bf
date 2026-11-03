@@ -171,9 +171,10 @@ the most expensive mistake available here: it is public, it is argued, and it le
 instance sitting in the branch.
 
 **Check a "blocked by" claim before choosing.** When a reviewer flags this work as blocked by another
-change, read that change. If this PR breaks or cannot work without it, the block is real — judge it
-like any other valid concern. If the two only need to merge in a given order, it is a merge-order
-dependency, not a defect: `reject` the block, with the required merge order as the argument.
+change, read that change. If this PR is complete and correct once that change lands, it is only a
+merge-order dependency, not a defect: `reject` the block, with the required merge order as the
+argument. If this PR still needs its own change, or something the other change does not provide, the
+block is real — judge it like any other valid concern.
 
 ### Escalation
 
