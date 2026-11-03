@@ -605,9 +605,12 @@ Wait for reply.
 If `pr_head_branch` is non-empty, run **Check the PR head** (Phase 1), then:
 
 ```bash
-git fetch origin "$pr_head_branch"
+git fetch origin "+$pr_head_branch:refs/remotes/origin/$pr_head_branch"
 git checkout "$pr_head_branch"
+git merge --ff-only "origin/$pr_head_branch"
 ```
+
+A local branch that already existed may be behind the remote, so the merge brings it up to date. If the merge fails, the local branch has diverged: tell the user "Local branch `<pr_head_branch>` has diverged from origin. Reconcile it, then re-run the fixes." and exit Phase 4.
 
 Then run the Phase 1 `resolve-conventions.sh` call again and use the new paths in every prompt from here on. A project-tier convention can exist on one branch and not on the other.
 
@@ -786,6 +789,7 @@ List remaining concerns by ID and label if any exist.
 | Condition | Handling |
 |-----------|----------|
 | PR head moved since the review | **Check the PR head** warns, refreshes the diff and updates `pr_head_sha` before fixing or posting. |
+| Local PR branch cannot fast-forward to `origin/<pr_head_branch>` | Tell the user it has diverged and exit Phase 4. Never merge or reset it. |
 | Fix Agent fails | Inform the user, skip re-review, print original report path only. |
 | User never answers the fix-selection question | Mark every concern `[deferred]` in the saved report before exiting, so the next reader can tell the concerns were surfaced and left unruled rather than never raised. |
 | Re-review finds new concerns not in the original | Include in "remaining" count, label `[new]`. |
