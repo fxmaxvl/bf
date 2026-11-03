@@ -52,7 +52,7 @@ is_bot, body, replies[], diff_hunk, answered_by_viewer}` (`review` entries also 
 The script drops resolved threads, threads whose conversation already contains a reply from
 `viewer`, and `viewer`'s own PR-level comments and reviews, so a second run does not double-post to a public PR. `notes[]` says what it dropped;
 print those lines. Pass `--all` only when the user explicitly asks to revisit answered or resolved
-feedback. Under `--all`, a `viewer` entry may be this skill's own earlier reply; triage only notes the user wrote.
+feedback. Under `--all`, the fetch drops this skill's own earlier replies (`post-replies.sh` marks them with `<!-- bf:pr-comments -->`), so any `viewer` entry left is a note the user wrote.
 
 On `{"error": ...}`: print `detail` and stop.
 

@@ -87,7 +87,7 @@ for ((i=0; i<COUNT; i++)); do
         FAILED=$((FAILED+1))
       fi
     else
-      if OUT=$(gh api "repos/$OWNER/$REPO/issues/$NUM/comments" -f body="$BODY" 2>&1); then
+      if OUT=$(gh api "repos/$OWNER/$REPO/issues/$NUM/comments" -f body="$BODY"$'\n\n<!-- bf:pr-comments -->' 2>&1); then
         RSTAT="ok"; POSTED=$((POSTED+1))
         DETAIL=$(printf '%s' "$OUT" | jq -r '.html_url // empty' 2>/dev/null)
       else

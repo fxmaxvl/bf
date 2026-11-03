@@ -16,7 +16,7 @@
 #                  resolved, author, is_bot, body, replies[], diff_hunk,
 #                  answered_by_viewer}   (kind "review" entries also carry `state`;
 #                  kind "issue" entries carry `updated_at`)
-#     files[]   = {path, additions, deletions, change_type} — the PR's changed files,
+#     files[]   = {path, additions, deletions, change_type}: the PR's changed files,
 #                 DELETED ones excluded; this is the search surface for sibling instances
 #       kind: "thread" (line-anchored, resolvable) | "issue" (PR-level) | "review" (review summary body)
 #   notes[] = human-readable lines about what was filtered and why
@@ -97,7 +97,7 @@ read -r HEAD_NWO HEAD_REF HEAD_OID < <(printf '%s' "$RAW" | jq -r '.data.reposit
   | [(.headRepository.nameWithOwner // "-"), (.headRefName // "-"), (.headRefOid // "-")] | @tsv')
 if [ "$HEAD_NWO" != "-" ] && [ "$HEAD_REF" != "-" ] && [ "$HEAD_OID" != "-" ]; then
   PUSHED=$( (gh api "repos/$HEAD_NWO/activity" -X GET -f ref="refs/heads/$HEAD_REF" -f per_page=30 2>/dev/null || echo '[]') \
-    | jq -r --arg oid "$HEAD_OID" '[.[]? | select(.after == $oid and (.activity_type == "push" or .activity_type == "force_push"))]
+    | jq -r --arg oid "$HEAD_OID" '[.[]? | select(.after == $oid)]
       | first | .timestamp // empty' 2>/dev/null)
 fi
 
@@ -131,7 +131,7 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" --arg pushed "$PUSHED" '
 
   | ( [ $pr.comments.nodes[]
         | select((.body // "") | test("\\S"))
-        | select($all or (.author.login // "") != $me)
+        | select(if (.author.login // "") == $me then $all and ((.body // "") | contains("<!-- bf:pr-comments -->") | not) else true end)
         | {
             kind: "issue",
             thread_id: null, comment_id: null,
@@ -146,7 +146,7 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" --arg pushed "$PUSHED" '
 
   | ( [ $pr.reviews.nodes[]
         | select((.body // "") | test("\\S"))
-        | select($all or (.author.login // "") != $me)
+        | select(if (.author.login // "") == $me then $all and ((.body // "") | contains("<!-- bf:pr-comments -->") | not) else true end)
         | {
             kind: "review",
             thread_id: null, comment_id: null,
@@ -202,20 +202,20 @@ printf '%s' "$RAW" | jq --argjson all "$INCLUDE_ALL" --arg pushed "$PUSHED" '
       },
       notes: (
         [ ( ([ $every[] | select(.resolved) ] | length) as $r
-            | if ($r > 0 and ($all|not)) then "\($r) resolved thread(s) skipped — rerun with --all to include" else empty end ),
+            | if ($r > 0 and ($all|not)) then "\($r) resolved thread(s) skipped; rerun with --all to include" else empty end ),
           ( ([ $every[] | select(.answered_by_viewer) ] | length) as $a
-            | if ($a > 0 and ($all|not)) then "\($a) thread(s) already answered by \($me) skipped — rerun with --all to include" else empty end ),
-          ( if ($own > 0 and ($all|not)) then "\($own) PR-level comment(s) or review(s) by \($me) skipped — rerun with --all to include" else empty end ),
+            | if ($a > 0 and ($all|not)) then "\($a) thread(s) already answered by \($me) skipped; rerun with --all to include" else empty end ),
+          ( if ($own > 0 and ($all|not)) then "\($own) PR-level comment(s) or review(s) by \($me) skipped; rerun with --all to include" else empty end ),
           ( ([ $open[] | select(.outdated) ] | length) as $o
-            | if $o > 0 then "\($o) actionable thread(s) are outdated — the code they point at has moved" else empty end ),
+            | if $o > 0 then "\($o) actionable thread(s) are outdated: the code they point at has moved" else empty end ),
           ( if ($bot_review != null and $bot_review.sha != null and $head_sha != null and $bot_review.sha != $head_sha)
-            then "\($bot_review.author) last reviewed \($bot_review.sha[0:7]), not the head \($head_sha[0:7]) — a re-review of the latest push may still be running"
+            then "\($bot_review.author) last reviewed \($bot_review.sha[0:7]), not the head \($head_sha[0:7]); a re-review of the latest push may still be running"
             else empty end ),
           ( if (($pr.reviews.totalCount // 0) > 100)
-            then "PR has \($pr.reviews.totalCount) reviews; only the newest 100 were fetched — older review bodies are not listed"
+            then "PR has \($pr.reviews.totalCount) reviews; only the newest 100 were fetched, so older review bodies are not listed"
             else empty end ),
           ( if (($pr.files.totalCount // 0) > 100)
-            then "PR touches \($pr.files.totalCount) files; only the first 100 are listed — the sibling-instance search surface is incomplete"
+            then "PR touches \($pr.files.totalCount) files; only the first 100 are listed, so the sibling-instance search surface is incomplete"
             else empty end ) ]
       )
     }'

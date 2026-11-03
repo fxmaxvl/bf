@@ -39,7 +39,8 @@ case "$1 $2" in
  "baseRefName":"main","headRefName":"feat","headRepository":{"nameWithOwner":"o/r"},"commits":{"nodes":[{"commit":{"oid":"$BOT_SHA","committedDate":"2026-01-02T00:00:00Z"}}]},
  "files":{"totalCount":0,"nodes":[]},"comments":{"nodes":[{"author":{"login":"bot","__typename":"Bot"},
    "body":"No open findings.","createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-03T00:00:00Z"},
-   {"author":{"login":"me","__typename":"User"},"body":"my note","createdAt":"x","updatedAt":"x"}]},
+   {"author":{"login":"me","__typename":"User"},"body":"my note","createdAt":"x","updatedAt":"x"},
+   {"author":{"login":"me","__typename":"User"},"body":"Fixed in abc.\n\n<!-- bf:pr-comments -->","createdAt":"x","updatedAt":"x"}]},
  "reviews":{"totalCount":2,"nodes":[{"author":{"login":"bot2","__typename":"Bot"},"body":"",
    "state":"COMMENTED","submittedAt":"2025-12-31T00:00:00Z","commit":{"oid":"old0000"}},
    {"author":{"login":"bot","__typename":"Bot"},"body":"",
@@ -53,6 +54,7 @@ JSON
   "api repos/o/r/activity")
     # the head's push; NO_PUSH=1 leaves only an older push, so the push time is unknown
     if [ -n "${NO_PUSH:-}" ]; then echo '[{"activity_type":"push","after":"old0000","timestamp":"2025-12-30T00:00:00Z"}]'
+    elif [ -n "${FIRST_PUSH:-}" ]; then echo '[{"activity_type":"branch_creation","after":"'"$BOT_SHA"'","timestamp":"2026-01-02T06:00:00Z"}]'
     else echo '[{"activity_type":"push","after":"'"$BOT_SHA"'","timestamp":"2026-01-02T05:00:00Z"}]'; fi ;;
   *) echo "stub gh: unexpected call: $*" >&2; exit 1 ;;
 esac
@@ -75,7 +77,8 @@ eq "fetch gives a PR-level post its edit time" "$(field '[.threads[] | select(.k
 eq "fetch drops the viewer's own PR-level comment" "$(field '[.threads[] | select(.author == "me")] | length' "$out")" 0
 eq "fetch notes the dropped own comment" "$(field '[.notes[] | select(test("by me skipped"))] | length' "$out")" 1
 out=$(bash "$fetch" "125 --all")
-eq "fetch --all keeps the viewer's own PR-level comment" "$(field '[.threads[] | select(.author == "me")] | length' "$out")" 1
+eq "fetch --all keeps the viewer's own note but not the skill's marked reply" "$(field '[.threads[] | select(.author == "me")] | length' "$out")" 1
+eq "fetch takes a branch's first push (branch_creation) as the push time" "$(FIRST_PUSH=1 bash "$fetch" 125 | jq -r .head_pushed_at)" 2026-01-02T06:00:00Z
 
 out=$(bash "$fetch" "125 --timout 600")
 eq "fetch unknown flag --timout -> bad_args" "$(field .error "$out")" bad_args
