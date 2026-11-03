@@ -71,7 +71,7 @@ Give each agent its areas, the relevant `signals` samples, the mission, and thes
 - **Write the fact sheet's header first**, then fill it as you go.
 - **Report back.** The agent's final act is its one-line result to `team-lead`. The orchestrator blocks until every agent has reported.
 
-Watch for a silent survey agent with Phase 4's **Watch for a silent writer** procedure. The progress test is whether `<facts_dir>/<agent-name>.md` exists.
+Watch for a silent survey agent with Phase 4's **Watch for a silent writer** procedure, but with a different progress test, since the header lands in seconds. On each wake, record the byte size of `<facts_dir>/<agent-name>.md` (`wc -c`). An agent whose sheet is missing, or has not grown since the previous wake, is stalled. While any working agent has not reported, start another background `sleep 600`.
 
 If `tracked_files` < 50, do the survey inline instead. Fanning out over a tiny repo buys nothing.
 
