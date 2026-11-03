@@ -70,7 +70,7 @@ Print banner: `── micro | Init ───────────────
 4. **Branch selection**:
    - If on `master` (or the repo's main branch): create and checkout `feat/<slug>` from master.
    - If on a non-master branch: ask "You're on `<branch>`. Continue here or create a new branch `feat/<slug>` from master?" — act on the answer.
-   - **Targets in other repos** (files to change live outside the session repo): skip both bullets above — the session repo stays untouched. Per target repo, under one `mktemp -d` scratch dir: if a local checkout exists, `git -C <source> fetch origin`, then, if `git -C <source> rev-parse --verify -q origin/HEAD` fails, `git -C <source> remote set-head origin -a` (if that fails too, `remote set-head origin <name>` with `<name>` from `gh repo view <owner/repo> --json defaultBranchRef -q .defaultBranchRef.name`), then `git -C <source> worktree add <scratch>/<repo> -b feat/<slug> origin/HEAD`; otherwise `gh repo clone <owner/repo> <scratch>/<repo>` and `git -C <scratch>/<repo> checkout -b feat/<slug>`. After step 5, write a `## Target Repos` block to `paths.session_log`, one line per repo: `<owner/repo> <checkout> feat/<slug> [<source>]`. Later phases and resumes read it with `read-block.sh`.
+   - **Targets in other repos** (files to change live outside the session repo): skip both bullets above — the session repo stays untouched. Per target repo, under one `mktemp -d` scratch dir: if a local checkout exists, `git -C <source> fetch origin`, then, if `git -C <source> rev-parse --verify -q origin/HEAD` fails, `git -C <source> remote set-head origin -a` (if that fails too, `remote set-head origin <name>` with `<name>` from `gh repo view <owner/repo> --json defaultBranchRef -q .defaultBranchRef.name`), then `git -C <source> worktree add <scratch>/<repo> -b feat/<slug> origin/HEAD`. If that fails because `feat/<slug>` exists: when no `git -C <source> worktree list --porcelain` entry has `branch refs/heads/feat/<slug>` and `git -C <source> rev-list feat/<slug> --not --remotes` is empty, `branch -D` it and retry; otherwise leave it and use the first free `feat/<slug>-<n>` (n=2, 3, ...), so no unpushed commit is lost or pulled into this PR. Without a local checkout: `gh repo clone <owner/repo> <scratch>/<repo>` and `git -C <scratch>/<repo> checkout -b feat/<slug>`. After step 5, write a `## Target Repos` block to `paths.session_log`, one line per repo: `<owner/repo> <checkout> <branch> [<source>]`. Later phases and resumes read it with `read-block.sh`.
 5. Initialize state:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" --init \
@@ -275,7 +275,7 @@ Multiple key=value pairs can be passed in a single call.
 ## Error Recovery
 
 - If session ends mid-phase, the next `/bf:micro` invocation reads `build-state.json` and resumes.
-- If branch `feat/<slug>` already exists, switch to it.
+- If branch `feat/<slug>` already exists in the session repo, switch to it. In a target repo, Phase 0 handles it.
 - If state shows phase `done`, tell the user the build is already complete.
 
 Here is the instruction:
