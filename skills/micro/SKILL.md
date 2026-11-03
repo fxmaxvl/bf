@@ -224,6 +224,8 @@ Print banner: `── micro | Finalize ─────────────�
    - **PR body**: Micro mode produces no spec — read the `## QA` block with `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.temp> --block "## QA"` and derive a 2–3 sentence summary describing what was refactored and why.
    - **Coverage note**: when the change adds logic with more than one outcome, name which branches were actually executed during verify and which were only reasoned about. Cheap-to-drive paths and paths needing conditions that do not exist in the repo right now are not the same claim, and the undriven one is where the first real-use defect lands. A body that says "verified" without that split overstates coverage. Omit the note entirely when the change has no branching behaviour of its own.
 5. **Run git finalize:**
+   **Target repos first:** if `## Target Repos` is non-empty, skip `finalize-git.sh` (in the session repo it could push to main). Instead, per line: `git -C <checkout> push -u origin <branch>`, then `gh pr create -R <owner/repo> --head <branch> --title "<pr title>" --body-file -` with the body in a quoted heredoc (`<<'PRBODY'`), never in double quotes: backticks there run as commands. Collect every PR URL and go to step 6.
+   Otherwise run:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/finalize-git.sh" \
      --commit-msg "<commit message>" \
@@ -241,7 +243,6 @@ Print banner: `── micro | Finalize ─────────────�
    The script stages tracked edits, every untracked file made since the session started (anything not in `paths.untracked_baseline`), the `--add` files and `.bf/conventions/`. It commits if there are changes, pushes, creates the PR, and outputs the PR URL.
    **Exit 3** means files that were already untracked when the session started are still untracked. The script lists them on stderr and has staged and pushed nothing. Show the list and ask which of them belong to the change (one question). Rerun with `--add` for those, plus `--leave-untracked` when any remain. Under `/bf:autopilot`, rerun with `--leave-untracked`: a file that was there before the session never goes into the commit unasked.
    **Exit 1** with a git error means an `--add` path is missing, ignored, or outside the repo. Nothing was staged. Drop that path and rerun.
-   **Target repos** (`## Target Repos` non-empty): do not run `finalize-git.sh`. Per line: `git -C <checkout> push -u origin <branch>`, then `gh pr create -R <owner/repo> --head <branch> --title "<pr title>" --body-file -` with the body in a quoted heredoc (`<<'PRBODY'`), never in double quotes: backticks there run as commands. Collect every PR URL.
 6. If `jira.enabled`:
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
