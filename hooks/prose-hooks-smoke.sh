@@ -98,6 +98,11 @@ semi_note "git commit --message" 'git commit --message "a; b"'
 semi_note "git commit --message=" 'git commit --message="a; b"'
 semi_note "git commit -am" 'git commit -am "a; b"'
 semi_note "git commit escaped quote" 'git commit -m "say \"x\"; y"'
+semi_note "git -C commit" 'git -C /some/dir commit -m "a; b"'
+semi_note "git -C quoted dir commit" 'git -C "my dir" commit -m "a; b"'
+semi_note "git -c commit" 'git -c user.name=x commit -m "a; b"'
+hook prose-pre-bash.sh "$(bash_in "$repo" 'git -C dir log -m "a; b"')"
+eq "pre-bash git -C other subcommand" "$out" ""
 semi_note "git commit after other command" 'git add a && git commit -m "a; b"'
 semi_note "gh pr create --body" 'gh pr create --body "a; b"'
 semi_note "gh pr create --body=" 'gh pr create --body="a; b"'
