@@ -164,6 +164,7 @@ eq "tokenizer continuation after git" "$(vals $'git \\\ncommit -m "a; b"')" "a; 
 eq "tokenizer heredoc body with an apostrophe" "$(vals $'gh pr create --title "fix: a; b" --body-file - <<\'PRBODY\'\nFix the parser\'s output.\nPRBODY')" "fix: a; b"
 eq "tokenizer heredoc body with an odd count of double quotes" "$(vals $'git commit -m "a; b" -m "$(cat <<\'EOF\'\nsay "hi\nEOF\n)"')" "a; b"
 eq "tokenizer continuation inside single quotes is kept" "$(vals $'git commit -m \'a \\\nb\'')" $'a \\\nb'
+eq "tokenizer << inside a plain quoted value is not a heredoc" "$(vals $'git commit -m "use <<EOF here" &&\ngit commit -m "c; d"\nEOF')" "c; d"
 hook prose-pre-bash.sh "$(bash_in "$repo" 'git status')"
 eq "pre-bash other command" "$out" ""
 hook prose-pre-bash.sh "$(bash_in "$repo" 'git commit -m "clean message"')"

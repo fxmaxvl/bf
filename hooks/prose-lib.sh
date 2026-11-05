@@ -203,8 +203,8 @@ function heredoc_delim(s, j,   d, k, w) {
   w = substr(s, j)
   return match(w, /^[A-Za-z0-9_]+/) ? substr(w, 1, RLENGTH) : ""
 }
-function prep(s,   n, i, c, d, r, q, delim, strip, nx) {
-  n = length(s); r = ""; q = ""; delim = ""; strip = 0
+function prep(s,   n, i, c, d, r, q, delim, strip, nx, subst) {
+  n = length(s); r = ""; q = ""; delim = ""; strip = 0; subst = 0
   for (i = 1; i <= n; i++) {
     c = substr(s, i, 1)
     if (c == "\n" && delim != "") {
@@ -214,14 +214,16 @@ function prep(s,   n, i, c, d, r, q, delim, strip, nx) {
     }
     if (q == sq) { if (c == sq) q = ""; r = r c; continue }
     if (c == bs) { d = substr(s, i + 1, 1); i++; if (d != "\n") r = r c d; continue }
-    if (c == dq) { q = (q == dq) ? "" : dq; r = r c; continue }
+    if (c == dq) { q = (q == dq) ? "" : dq; subst = 0; r = r c; continue }
+    # Inside double quotes, << starts a heredoc only within a $( substitution.
+    if (q == dq && c == "$" && substr(s, i + 1, 1) == "(") subst = 1
     if (q == "" && c == sq) { q = sq; r = r c; continue }
     if (q == "" && c == "#" && (i == 1 || substr(s, i - 1, 1) ~ /[ \t\n;&|(]/)) {
       while (i <= n && substr(s, i, 1) != "\n") { r = r substr(s, i, 1); i++ }
       i--
       continue
     }
-    if (c == "<" && delim == "" && substr(s, i + 1, 1) == "<" && substr(s, i - 1, 1) != "<" && substr(s, i + 2, 1) != "<") {
+    if ((q == "" || subst) && c == "<" && delim == "" && substr(s, i + 1, 1) == "<" && substr(s, i - 1, 1) != "<" && substr(s, i + 2, 1) != "<") {
       strip = substr(s, i + 2, 1) == "-"
       delim = heredoc_delim(s, i + 2 + strip)
     }
