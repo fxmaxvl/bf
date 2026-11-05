@@ -262,6 +262,39 @@ The `conventions/` directory contains language- and action-specific guidelines C
 
 To override a convention, create the `.bf/conventions/` directory in the right location and add files with the same names as above (for example, `dev.md`, `git.md`). A matching file fully replaces the plugin default. There is no merging.
 
+## Prose hooks
+
+bf ships six plugin hooks in `hooks/hooks.json`. They check the text bf writes for three hard markers: the em dash, the semicolon, and the contraction. The lint script is `skills/plain/scripts/prose-lint.sh`, and it reads its rules from the `prose-lint` block of the resolved `prose.md`.
+
+| Hook | What it checks |
+|------|----------------|
+| SessionStart (`compact`) | Returns the Self-lint section of `prose.md` after context compaction. |
+| PostToolUse (`Write`, `Edit`) | Lints the new text of a prose file (`.md`, `.markdown`, `.txt`) and the comments of a code file (`.sh`, `.py`, `.ts`, `.js`). Adds a note on a hard marker. It skips `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, and every path under `conventions/`, `agents/`, `references/` and `.claude/` in the repo. A file outside any repo is matched on its full path. |
+| PreToolUse (`Bash`) | Lints plain quoted text in `git commit`, `gh pr create`, and `finalize-git.sh`. Adds a note on a hard marker. |
+| Stop | Lints the last reply and records the result. Sends nothing. |
+| UserPromptSubmit | Shows the recorded result of the last reply in one line, once. |
+| SubagentStop | Blocks a sub-agent whose final text has a hard marker, and asks it to fix the text. |
+
+Only SubagentStop can block. It blocks only when the resolved `prose.md` has a `prose-lint` block. Every other hook adds a note or does nothing, and every hook ends with exit 0 when it fails.
+
+To turn off every hook, set `BF_PROSE_HOOK` to `off` in the `env` block of a settings file:
+
+```json
+{ "env": { "BF_PROSE_HOOK": "off" } }
+```
+
+This does not turn off the lint that `bf:plain` runs.
+
+Limits:
+
+- The hooks run in every session where bf is on, in any repo, also when no bf skill is active.
+- SubagentStop fires for every sub-agent, including Explore and agents from other plugins. The reference also says it fires for internal agents such as /btw side questions. A hit costs one extra turn.
+- Commit and PR text from a heredoc, `-F`, or `--body-file` is not linted. This includes the default Claude Code commit form. The hook lints the other plain values of the same command.
+- The commit and PR note arrives before the command runs. If the command runs, fix the text after it with `gh pr edit`, or with `git commit --amend`. Before you amend, check that the commit exists and is not pushed.
+- `.bf/` artifacts written through `write-block.sh` are not linted, because they are Bash calls.
+- When git finds no repo for a file, or git fails, the skip list matches the full path. Then a file under any parent directory named `conventions`, `agents` or `references` is skipped, and gets no note.
+- Unverified: a team agent that sends its report through `SendMessage` may fire SubagentStop with only a short closing line. Then the hook lints the closing line and not the report.
+
 ## Optional: TypeSafe boosting
 
 **bf works fully without this.** You can skip the section and miss nothing. No skill requires it, no
