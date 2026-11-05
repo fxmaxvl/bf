@@ -151,8 +151,14 @@ case "$ACTION" in
       "$GLOBAL_STATE_FILE" > "$tmp" && mv "$tmp" "$GLOBAL_STATE_FILE"
 
     # Step 4: Write per-repo file (per-repo lock; checked by stop.sh).
+    # The lead session and its process own the run. The hooks read them, see lib.sh.
+    lead_pid="${CLAUDE_PID:-}"
+    lead_started=""
+    [[ -z "$lead_pid" ]] || lead_started=$(ps -p "$lead_pid" -o lstart= 2>/dev/null || true)
     jq -n --arg pid "$PROJECT_ID" --arg ts "$started_at" --arg root "$REPO_ROOT" \
-      '{active: true, project_id: $pid, started_at: $ts, repo_root: $root}' > "$REPO_STATE_FILE"
+      --arg sid "${CLAUDE_CODE_SESSION_ID:-}" --arg lpid "$lead_pid" --arg lstart "$lead_started" \
+      '{active: true, project_id: $pid, started_at: $ts, repo_root: $root,
+        session_id: $sid, lead_pid: $lpid, lead_started: $lstart}' > "$REPO_STATE_FILE"
 
     add_hook "$CLAUDE_SETTINGS"
 

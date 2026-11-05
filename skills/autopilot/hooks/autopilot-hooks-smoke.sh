@@ -36,7 +36,8 @@ repo=$tmp/repo
 git init -q "$repo"
 git -C "$repo" remote add origin git@github.com:acme/widget.git
 state=$HOME/.bf/autopilot/acme-widget.json
-on() { (cd "$repo" && bash "$dir/install.sh" on >/dev/null 2>&1); }
+lead_pid=999999
+on() { (cd "$repo" && CLAUDE_CODE_SESSION_ID=lead-1 CLAUDE_PID=$lead_pid bash "$dir/install.sh" on >/dev/null 2>&1); }
 in_repo() { (cd "$repo" && printf '%s' "$2" | bash "$dir/$1"); }
 
 eq "stop.sh lets a session without autopilot stop" "$(in_repo stop.sh '{}')" ""
@@ -86,5 +87,44 @@ eq "input without a prompt ends the run" "$([ -f "$state" ] && echo yes || echo 
 on
 (cd "$repo" && bash "$dir/session-start-cleanup.sh" </dev/null >/dev/null)
 eq "session start still ends the run" "$([ -f "$state" ] && echo yes || echo no)" no
+
+gone() { [ -f "$state" ] && echo kept || echo gone; }
+
+on
+eq "install records the lead session" "$(jq -r .session_id "$state")" lead-1
+eq "stop.sh lets another session stop" "$(in_repo stop.sh '{"session_id":"other-2"}')" ""
+eq "stop.sh blocks the lead by its session ID" "$(in_repo stop.sh '{"session_id":"lead-1"}' | jq -r .decision)" block
+eq "a prompt in another session adds nothing" "$(in_repo user-prompt-cleanup.sh '{"session_id":"other-2","prompt":"so?"}')" ""
+in_repo user-prompt-cleanup.sh '{"session_id":"other-2","prompt":"stop"}' >/dev/null
+eq "a stop word in another session leaves the run" "$(gone)" kept
+in_repo user-prompt-cleanup.sh '{"session_id":"lead-1","prompt":"stop"}' >/dev/null
+eq "a stop word in the lead session ends the run" "$(gone)" gone
+
+on
+in_repo stop.sh '{"session_id":"lead-1","session_crons":[{"id":"c1","schedule":"*/5 * * * *","recurring":true,"prompt":"check the deploy"},{"id":"c2","schedule":"0 9 * * *","recurring":true,"prompt":"abcdef… [+40 chars]"}]}' >/dev/null
+eq "stop.sh saves the cron prompts" "$(jq -c .cron_prompts "$state")" '["check the deploy","abcdef… [+40 chars]"]'
+ctx() { in_repo user-prompt-cleanup.sh "$(jq -nc --arg p "$1" '{session_id:"lead-1",prompt:$p}')" | jq -r .hookSpecificOutput.additionalContext; }
+eq "a cron prompt is a scheduled turn" "$(ctx 'check the deploy' | grep -c 'scheduled prompt')" 1
+eq "a clipped cron prompt matches on its prefix" "$(ctx 'abcdef and the rest of it' | grep -c 'scheduled prompt')" 1
+eq "a longer typed prompt is not a cron turn" "$(ctx 'check the deploy now' | grep -c 'scheduled prompt')" 0
+eq "a scheduled turn gets no stop instruction" "$(ctx 'check the deploy' | grep -c 'install.sh off')" 0
+
+off() { (cd "$repo" && bash "$dir/install.sh" off >/dev/null 2>&1); }
+off
+sleep 300 >/dev/null 2>&1 &
+lead=$!
+trap 'kill "$lead" 2>/dev/null || true; rm -rf "$tmp"' EXIT
+lead_pid=$lead
+on
+lead_pid=999999
+(cd "$repo" && printf '{"session_id":"other-2","source":"startup"}' | bash "$dir/session-start-cleanup.sh" >/dev/null)
+eq "a second session start leaves a live lead's run" "$(gone)" kept
+(cd "$repo" && printf '{"session_id":"lead-1","source":"resume"}' | bash "$dir/session-start-cleanup.sh" >/dev/null)
+eq "the lead session's own resume ends the run" "$(gone)" gone
+kill "$lead" 2>/dev/null || true
+wait "$lead" 2>/dev/null || true
+on
+(cd "$repo" && printf '{"session_id":"other-2","source":"startup"}' | bash "$dir/session-start-cleanup.sh" >/dev/null)
+eq "a session start after the lead ended ends the run" "$(gone)" gone
 
 [ "$fails" -eq 0 ]
