@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared helpers for the prose hooks. Source this file; do not execute it.
+# Shared helpers for the prose hooks. Source this file. Do not execute it.
 #
 # A hook must never break a session, and Claude Code reads exit 2 as a block. The EXIT trap makes
 # every hook end with exit 0 whatever fails. Each caller captures the lint result as
