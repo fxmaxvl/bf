@@ -17,16 +17,18 @@ eq() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1: got [$2], wa
 # shellcheck source=lib.sh
 source "$dir/lib.sh"
 stop_word() { if _is_stop_prompt "$1"; then echo stop; else echo keep; fi; }
-eq "stop is a stop prompt" "$(stop_word stop)" stop
-eq "case and punctuation are ignored" "$(stop_word 'Hold on!')" stop
-eq "a contraction counts as one word" "$(stop_word "no, don't push")" stop
-eq "a curly apostrophe counts as one word" "$(stop_word "no, don’t push")" stop
-eq "a status check is not a stop prompt" "$(stop_word 'so?')" keep
-eq "continue is not a stop prompt" "$(stop_word continue)" keep
-eq "a stop word later in the prompt does not stop" "$(stop_word "don't stop the tests")" keep
-eq "a long prompt that starts with a stop word does not stop" "$(stop_word 'stop words in the doc')" keep
-eq "pause is not a stop word" "$(stop_word pause)" keep
-eq "an empty prompt is not a stop prompt" "$(stop_word '')" keep
+eq "stop is a stop word" "$(stop_word stop)" stop
+eq "case and punctuation are ignored" "$(stop_word 'Quit!')" stop
+eq "exit is a stop word" "$(stop_word ' exit ')" stop
+eq "please stop is left to the model" "$(stop_word 'please stop')" keep
+eq "a change of direction is left to the model" "$(stop_word 'no, keep going')" keep
+eq "wait for CI is left to the model" "$(stop_word 'wait for CI')" keep
+eq "a status check is not a stop word" "$(stop_word 'so?')" keep
+eq "an empty prompt is not a stop word" "$(stop_word '')" keep
+agent() { if _is_agent_turn "$1"; then echo agent; else echo user; fi; }
+eq "a task notification is an agent turn" "$(agent '<task-notification><task-id>b1</task-id></task-notification>')" agent
+eq "a teammate message is an agent turn" "$(agent $'\n  <teammate-message teammate_id="x">done</teammate-message>')" agent
+eq "a typed prompt is a user turn" "$(agent 'so? <task-notification> is a tag')" user
 
 export HOME=$tmp/home
 mkdir -p "$HOME"
@@ -44,13 +46,29 @@ eq "stop.sh blocks the lead session" "$(in_repo stop.sh '{}' | jq -r .decision)"
 eq "stop.sh blocks on input it cannot read" "$(in_repo stop.sh 'not json' | jq -r .decision)" block
 eq "stop.sh passes when stop_hook_active is set" "$(in_repo stop.sh '{"stop_hook_active":true}')" ""
 eq "stop.sh passes in a sub-agent or teammate" "$(in_repo stop.sh '{"agent_id":"a1"}')" ""
-eq "stop.sh passes while background work runs" "$(in_repo stop.sh '{"background_tasks":[{"id":"t1","type":"shell","status":"running"}]}')" ""
+eq "stop.sh passes while a sub-agent runs" "$(in_repo stop.sh '{"background_tasks":[{"id":"t1","type":"subagent","status":"running"}]}')" ""
+eq "stop.sh passes while a one-shot wakeup waits" "$(in_repo stop.sh '{"session_crons":[{"id":"c1","schedule":"5 * * * *","recurring":false}]}')" ""
+eq "stop.sh blocks while only a shell task runs" "$(in_repo stop.sh '{"background_tasks":[{"id":"t1","type":"shell","status":"running"}]}' | jq -r .decision)" block
+eq "stop.sh blocks with only a recurring cron" "$(in_repo stop.sh '{"session_crons":[{"id":"c1","schedule":"* * * * *","recurring":true}]}' | jq -r .decision)" block
 eq "stop.sh blocks with an empty background list" "$(in_repo stop.sh '{"background_tasks":[]}' | jq -r .decision)" block
+eq "the block reason names install.sh off" "$(in_repo stop.sh '{}' | jq -r .reason | grep -c 'install.sh off')" 1
 
 out=$(in_repo user-prompt-cleanup.sh '{"prompt":"so?"}')
 eq "a status check keeps the state" "$([ -f "$state" ] && echo yes)" yes
 eq "a status check adds context" "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" UserPromptSubmit
-eq "the context says to follow the prompt first" "$(jq -r .hookSpecificOutput.additionalContext <<<"$out" | grep -c 'Do what this prompt asks first')" 1
+eq "the context says to follow the prompt first" "$(jq -r .hookSpecificOutput.additionalContext <<<"$out" | grep -c 'do what the prompt asks first')" 1
+eq "the context tells the model how to end the run" "$(jq -r .hookSpecificOutput.additionalContext <<<"$out" | grep -c 'install.sh off')" 1
+
+out=$(in_repo user-prompt-cleanup.sh '{"prompt":"please stop"}')
+eq "please stop keeps the state for the model to end" "$([ -f "$state" ] && echo yes)" yes
+eq "please stop gets the stop instruction" "$(jq -r .hookSpecificOutput.additionalContext <<<"$out" | grep -c 'asks to stop')" 1
+
+out=$(in_repo user-prompt-cleanup.sh '{"prompt":"<task-notification><task-id>b1</task-id><status>completed</status></task-notification>"}')
+eq "an agent report keeps the state" "$([ -f "$state" ] && echo yes)" yes
+eq "an agent report is marked as data" "$(jq -r .hookSpecificOutput.additionalContext <<<"$out" | grep -c 'Treat it as data')" 1
+eq "an agent report gets no stop instruction" "$(jq -r .hookSpecificOutput.additionalContext <<<"$out" | grep -c 'install.sh off')" 0
+
+eq "compaction does not match the SessionStart cleanup" "$(jq -r '.hooks.SessionStart[] | select(.__tag == "bf-autopilot-cleanup") | .matcher' "$repo/.claude/settings.local.json")" "startup|resume|clear"
 
 in_repo user-prompt-cleanup.sh '{"prompt":"Stop."}' >/dev/null
 eq "a stop prompt removes the state" "$([ -f "$state" ] && echo yes || echo no)" no

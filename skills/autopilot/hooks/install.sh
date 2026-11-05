@@ -51,7 +51,7 @@ add_hook() {
     .hooks.SessionStart = (
       [(.hooks.SessionStart // [])[] | select(bf_entry("bf-autopilot-cleanup"; "/skills/autopilot/hooks/session-start-cleanup.sh") | not)] +
       [{ __tag: "bf-autopilot-cleanup",
-         matcher: "",
+         matcher: "startup|resume|clear",
          hooks: [{ type: "command", command: $start_cmd }] }]
     ) |
     .hooks.UserPromptSubmit = (
@@ -161,9 +161,9 @@ case "$ACTION" in
     echo "repo state:      $REPO_STATE_FILE"
     echo
     echo "To stop autopilot:"
-    echo "  - type a short stop prompt: stop, cancel, abort, halt, kill, wait, hold, no or off"
-    echo "    (any other prompt keeps the run going)"
-    echo "  - close/reopen Claude Code (SessionStart hook wipes state)"
+    echo "  - type one word: stop, cancel, abort, quit or exit"
+    echo "  - or ask in your own words (\"please stop autopilot\"), and the model ends the run"
+    echo "  - start, resume or clear a session (SessionStart hook wipes state). Compaction keeps the run."
     echo "  - manual:  bash $SKILL_DIR/hooks/install.sh off"
     ;;
   off)

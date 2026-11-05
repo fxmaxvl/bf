@@ -14,15 +14,25 @@ _derive_project_id() {
   echo "$pid"
 }
 
-# A stop prompt has at most three words and starts with a stop word. So "hold on" and
-# "no, don't push" stop the run, and "don't stop the tests" or a status check like "so?" do not.
-# There is no resume, so "pause" is not a stop word.
+# A word list cannot read intent: it misses "please stop" and stops on "no, keep going". So the
+# hook ends the run itself only on one bare word, and leaves every other stop request to the model.
 _is_stop_prompt() {
   local words
-  words=$(printf '%s' "$1" | sed "s/[’']//g" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' ' ')
+  words=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z' ' ')
   # shellcheck disable=SC2086
   set -- $words
-  [ "$#" -ge 1 ] && [ "$#" -le 3 ] || return 1
-  case $1 in stop|cancel|abort|halt|kill|wait|hold|no|off) return 0 ;; esac
+  [ "$#" -eq 1 ] || return 1
+  case $1 in stop|cancel|abort|quit|exit) return 0 ;; esac
+  return 1
+}
+
+# The hook input has no field for the source of a turn. Task notifications and messages from
+# other sessions reach UserPromptSubmit too, and only their opening tag tells them apart.
+_is_agent_turn() {
+  local head
+  head=$(printf '%s' "$1" | sed -n '/[^[:space:]]/{p;q;}' | sed 's/^[[:space:]]*//')
+  case $head in
+    '<task-notification'*|'<teammate-message'*|'<cross-session-message'*) return 0 ;;
+  esac
   return 1
 }

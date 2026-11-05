@@ -12,8 +12,12 @@ fi
 # Settings hooks also fire in sub-agents and teammates. Only the lead session runs the workflow.
 [[ -z "$(field '.agent_id // empty')" ]] || exit 0
 
-# Claude Code wakes the session when background work ends, so a stop while it runs is a pause.
-case "$(field '(.background_tasks // []) | length')" in
+# A stop is a pause only while work runs that wakes the session when it ends: an agent, a
+# workflow, or a one-shot wakeup. A shell task can run forever (a dev server, tail -f), so it
+# does not count, or the run would stall with bypass mode on.
+WAKERS='[(.background_tasks // [])[] | select(.type == "subagent" or .type == "teammate" or .type == "workflow" or .type == "cloud session")]
+  + [(.session_crons // [])[] | select(.recurring == false)] | length'
+case "$(field "$WAKERS")" in
   ''|0) ;;
   *) exit 0 ;;
 esac
@@ -31,4 +35,4 @@ REPO_STATE_FILE="$HOME/.bf/autopilot/${PROJECT_ID}.json"
 
 [[ -f "$REPO_STATE_FILE" ]] || exit 0
 
-jq -n '{decision: "block", reason: "bf:autopilot is active. Do not stop. Return to the autopilot SKILL.md and continue executing the current phase. Use critic for all decisions — do not wait for user input."}'
+jq -n --arg off "bash $SCRIPT_DIR/install.sh off" '{decision: "block", reason: ("bf:autopilot is active. If the user asked to stop or end autopilot, run `" + $off + "` and then stop. Otherwise return to the autopilot SKILL.md and continue the current phase. Use the oracle for all decisions and do not wait for user input.")}'
