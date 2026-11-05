@@ -292,6 +292,7 @@ Limits:
 - Commit and PR text from a heredoc, `-F`, or `--body-file` is not linted. This includes the default Claude Code commit form. The hook lints the other plain values of the same command.
 - The commit and PR note arrives before the command runs. If the command runs, fix the text after it with `gh pr edit`, or with `git commit --amend`. Before you amend, check that the commit exists and is not pushed.
 - `.bf/` artifacts written through `write-block.sh` are not linted, because they are Bash calls.
+- When git finds no repo for a file, or git fails, the skip list matches the full path. Then a file under any parent directory named `conventions`, `agents` or `references` is skipped, and gets no note.
 - Unverified: a team agent that sends its report through `SendMessage` may fire SubagentStop with only a short closing line. Then the hook lints the closing line and not the report.
 
 ## Optional: TypeSafe boosting
