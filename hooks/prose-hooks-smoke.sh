@@ -131,7 +131,8 @@ eq "pre-bash -F skipped" "$out" ""
 hook prose-pre-bash.sh "$(bash_in "$repo" $'git commit -m "$(cat <<\'EOF\'\nfix: a; b\nEOF\n)"')"
 eq "pre-bash heredoc commit skipped" "$out" ""
 hook prose-pre-bash.sh "$(bash_in "$repo" $'bash x/finalize-git.sh --commit-msg "fix: a; b" --pr-title "t '"$dash"$' u" --pr-body "$(cat <<\'EOF\'\nIt\'s done\nEOF\n)"')"
-eq "pre-bash finalize lints message and title, skips body" "$(ctx | grep -c '1 em dash, 1 semicolon, ')" 1
+eq "pre-bash finalize lints message and title, skips body" "$(ctx | grep -c '1 em dash, 1 semicolon\.')" 1
+eq "pre-bash note lists hard markers only" "$(ctx | grep -c 'words')" 0
 eq "pre-bash finalize skipped body has no contraction" "$(ctx | grep -c contraction)" 0
 hook prose-pre-bash.sh "$(bash_in "$repo" 'git status')"
 eq "pre-bash other command" "$out" ""

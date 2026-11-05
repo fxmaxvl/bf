@@ -103,4 +103,4 @@ rc=0
 out=$(printf '%s\n' "$values" | prose_lint "$cwd" commit) || rc=$?
 [ "$rc" -eq 1 ] || exit 0
 
-prose_context PreToolUse "Prose lint found hard markers in the commit or PR text of this command: $(jq -r .summary <<<"$out"). The command already ran. To fix the text, use gh pr edit, or git commit --amend after you check that the commit is not pushed."
+prose_context PreToolUse "Prose lint found hard markers in the commit or PR text of this command: $(jq -r .hard_summary <<<"$out"). The command already ran. To fix the text, use gh pr edit, or git commit --amend after you check that the commit is not pushed."
