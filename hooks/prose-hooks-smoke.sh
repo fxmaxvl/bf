@@ -52,6 +52,11 @@ hook prose-session-start.sh "$(input "$gone")"
 eq "no lint result output" "$out" ""; eq "no lint result exit" "$rc" 0
 
 
+# prose-lib precondition: prose_field before prose_read_raw names the error and prints nothing
+lib_err=$(bash -c 'source "$1"; prose_field .cwd' _ "$hooks/prose-lib.sh" 2>&1 >/dev/null || true)
+eq "prose_field before read names the error" "$(grep -c 'called before prose_read_raw' <<<"$lib_err")" 1
+eq "prose_field before read prints nothing" "$(bash -c 'source "$1"; prose_field .cwd' _ "$hooks/prose-lib.sh" 2>/dev/null)" ""
+
 # PostToolUse
 mkdir -p "$tmp/conventions"
 repo2=$tmp/conventions/repo2

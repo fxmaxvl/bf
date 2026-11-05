@@ -10,8 +10,6 @@ trap 'exit 0' EXIT
 _prose_hooks_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 _prose_lint_script=$_prose_hooks_dir/../skills/plain/scripts/prose-lint.sh
 
-PROSE_INPUT=
-
 prose_off() { [ "${BF_PROSE_HOOK:-}" = off ]; }
 
 # Reads the hook input once. Input that is not JSON, or a missing jq, ends the hook with exit 0.
@@ -24,8 +22,14 @@ prose_read_input() {
   prose_validate_input
 }
 
-prose_field() { printf '%s' "$PROSE_INPUT" | jq -r "$1 // empty" 2>/dev/null || true; }
+# prose_field <jq path>: needs PROSE_INPUT, so call prose_read_raw or prose_read_input first. When PROSE_INPUT is
+# unset, the shell prints the error to stderr and the call returns nothing.
+prose_field() {
+  : "${PROSE_INPUT?prose_field called before prose_read_raw}"
+  printf '%s' "$PROSE_INPUT" | jq -r "$1 // empty" 2>/dev/null || true
+}
 
+# prose_cwd: the cwd of the hook input. It has the same precondition as prose_field.
 prose_cwd() {
   local c
   c=$(prose_field .cwd)
