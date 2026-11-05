@@ -95,6 +95,8 @@ EOF
   eq "html entity is not a semicolon" "$rc" 0; eq "html entity count" "$(jf .hard.semicolon)" 0
   lint_text 'Use &lt;div&gt; here; then stop. Also a; b.' --rules "$full" --format json
   eq "semicolon beside an entity still counts" "$(jf .hard.semicolon)" 2
+  lint_text 'AT&T; then R&D; ok.' --rules "$full" --format json
+  eq "a one-letter name after & is not an entity" "$(jf .hard.semicolon)" 2
   lint_text $'| a | b; c |\n|---|---|' --rules "$full" --format json
   eq "table row counts" "$(jf .hard.semicolon)" 1
   lint_text "> quoted; text" --rules "$full" --format json
@@ -359,7 +361,8 @@ case $filt in
 esac
 
 # An HTML entity (&name; or &#123; or &#x1F;) is not a semicolon: the entity loses its closing mark here.
-sed -E 's/(&(#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]*));/\1/g' "$stripped" > "$work/entities" && mv "$work/entities" "$stripped"
+# A name needs two or more characters, so AT&T; and R&D; keep their semicolons.
+sed -E 's/(&(#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]+));/\1/g' "$stripped" > "$work/entities" && mv "$work/entities" "$stripped"
 
 findings=$work/findings
 : > "$findings"
