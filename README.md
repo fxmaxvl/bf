@@ -269,7 +269,7 @@ bf ships six plugin hooks in `hooks/hooks.json`. They check the text bf writes f
 | Hook | What it checks |
 |------|----------------|
 | SessionStart (`compact`) | Returns the Self-lint section of `prose.md` after context compaction. |
-| PostToolUse (`Write`, `Edit`) | Lints the new text of a prose file (`.md`, `.markdown`, `.txt`) and the comments of a code file (`.sh`, `.py`, `.ts`, `.js`). Adds a note on a hard marker. |
+| PostToolUse (`Write`, `Edit`) | Lints the new text of a prose file (`.md`, `.markdown`, `.txt`) and the comments of a code file (`.sh`, `.py`, `.ts`, `.js`). Adds a note on a hard marker. It skips `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, and every path under `conventions/`, `agents/`, `references/` and `.claude/` in the repo. |
 | PreToolUse (`Bash`) | Lints plain quoted text in `git commit`, `gh pr create`, and `finalize-git.sh`. Adds a note on a hard marker. |
 | Stop | Lints the last reply and records the result. Sends nothing. |
 | UserPromptSubmit | Shows the recorded result of the last reply in one line, once. |
