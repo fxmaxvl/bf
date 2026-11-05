@@ -12,7 +12,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/prose-lib.sh"
 prose_off && exit 0
 prose_read_raw
 case $PROSE_INPUT in
-  *"git commit"*|*"gh pr create"*|*finalize-git.sh*) ;;
+  *"git "*commit*|*"gh pr create"*|*finalize-git.sh*) ;;
   *) exit 0 ;;
 esac
 prose_validate_input
@@ -21,8 +21,9 @@ cmd=$(prose_field .tool_input.command)
 [ -n "$cmd" ] || exit 0
 
 # The tokenizer reads quotes and escapes and never evaluates the text. It prints the plain quoted values
-# of the handled flags, separated by a blank line. A value is skipped when it is unquoted, glued to its
-# flag, supplied by -F or --body-file, or holds a heredoc, a command substitution or a backtick.
+# of the handled flags, separated by a blank line. A value is skipped when it is unquoted, glued to a
+# short flag (such as -m"x"), supplied by -F or --body-file, or holds a heredoc, a command substitution
+# or a backtick.
 values=$(printf '%s\n' "$cmd" | awk '
 function ok(v) { return v != "" && !index(v, "<<") && !index(v, "$(") && !index(v, "`") }
 function add(v) { if (ok(v)) out = out (out == "" ? "" : "\n\n") v }
@@ -32,7 +33,7 @@ function takes(ctx, flag) {
   if (ctx == "fin") return flag == "--commit-msg" || flag == "--pr-title" || flag == "--pr-body"
   return 0
 }
-function reset() { ctx = ""; want = ""; p1 = ""; p2 = "" }
+function reset() { ctx = ""; want = ""; p1 = ""; p2 = ""; g = 0 }
 function endtok(   v, flag) {
   if (!intok) return
   intok = 0
@@ -42,7 +43,10 @@ function endtok(   v, flag) {
   if (want == "skip") { want = ""; p2 = p1; p1 = ""; return }
   if (text ~ /(^|\/)finalize-git\.sh$/) { ctx = "fin"; p2 = p1; p1 = text; return }
   if (nseg == 0) {
-    if (text == "commit" && p1 == "git") ctx = "commit"
+    if (text == "git") g = 1
+    else if (g && ctx == "" && (text == "-C" || text == "-c")) want = "skip"
+    else if (g && ctx == "" && text == "commit") { ctx = "commit"; g = 0 }
+    else if (g && ctx == "" && text !~ /^-/) g = 0
     else if (text == "create" && p1 == "pr" && p2 == "gh") ctx = "pr"
     else if (ctx == "commit") {
       if (takes(ctx, text) || text ~ /^-[A-Za-z]+m$/) want = "take"
