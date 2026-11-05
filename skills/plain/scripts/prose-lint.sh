@@ -244,7 +244,7 @@ if [ "${1:-}" = "--classify" ]; then
   exit 0
 fi
 
-command -v jq >/dev/null 2>&1 || { printf '{"error":"jq_missing","detail":"jq not installed"}\n' >&2; exit 2; }
+command -v jq >/dev/null 2>&1 || die jq_missing "jq not installed"
 
 mode=file format=text rules= cwd=. ext= input= digest=0
 while [ $# -gt 0 ]; do
