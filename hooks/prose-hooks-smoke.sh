@@ -86,4 +86,47 @@ eq "post-write no lint result output" "$out" ""; eq "post-write no lint result e
 hook prose-post-write.sh "$(write_in "$repo" Read "$repo/README.md" content "A${dash}B.")"
 eq "post-write other tool" "$out" ""
 
+
+# PreToolUse
+bash_in() { jq -cn --arg cwd "$1" --arg c "$2" '{cwd:$cwd, tool_name:"Bash", tool_input:{command:$c}}'; }
+semi_note() { hook prose-pre-bash.sh "$(bash_in "$repo" "$2")"; eq "pre-bash $1" "$(ctx | grep -c '1 semicolon')" 1; }
+semi_note "git commit -m" 'git commit -m "a; b"'
+semi_note "git commit -m single quotes" "git commit -m 'a; b'"
+semi_note "git commit --message" 'git commit --message "a; b"'
+semi_note "git commit --message=" 'git commit --message="a; b"'
+semi_note "git commit -am" 'git commit -am "a; b"'
+semi_note "git commit escaped quote" 'git commit -m "say \"x\"; y"'
+semi_note "git commit after other command" 'git add a && git commit -m "a; b"'
+semi_note "gh pr create --body" 'gh pr create --body "a; b"'
+semi_note "gh pr create --body=" 'gh pr create --body="a; b"'
+semi_note "gh pr create -b" 'gh pr create -b "a; b"'
+semi_note "gh pr create --title" 'gh pr create --title "a; b"'
+semi_note "gh pr create --body-file with plain title" 'gh pr create --body-file x.md --title "a; b"'
+semi_note "finalize --commit-msg" 'bash "$P/finalize-git.sh" --commit-msg "a; b"'
+semi_note "finalize --pr-title" 'bash "$P/finalize-git.sh" --pr-title "a; b"'
+semi_note "finalize --pr-body" 'bash "$P/finalize-git.sh" --pr-body "a; b"'
+hook prose-pre-bash.sh "$(bash_in "$repo" 'git commit -m "a; b"')"
+eq "pre-bash event name" "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" PreToolUse
+eq "pre-bash no permissionDecision" "$(jq -r '.hookSpecificOutput | has("permissionDecision")' <<<"$out")" false
+eq "pre-bash no top-level decision" "$(jq -r 'has("decision")' <<<"$out")" false
+hook prose-pre-bash.sh "$(bash_in "$repo" 'git commit -m"a; b"')"
+eq "pre-bash glued value skipped" "$out" ""
+hook prose-pre-bash.sh "$(bash_in "$repo" 'git commit -m a; ls')"
+eq "pre-bash unquoted value skipped" "$out" ""
+hook prose-pre-bash.sh "$(bash_in "$repo" 'git commit -F msg.txt')"
+eq "pre-bash -F skipped" "$out" ""
+hook prose-pre-bash.sh "$(bash_in "$repo" $'git commit -m "$(cat <<\'EOF\'\nfix: a; b\nEOF\n)"')"
+eq "pre-bash heredoc commit skipped" "$out" ""
+hook prose-pre-bash.sh "$(bash_in "$repo" $'bash x/finalize-git.sh --commit-msg "fix: a; b" --pr-title "t '"$dash"$' u" --pr-body "$(cat <<\'EOF\'\nIt\'s done\nEOF\n)"')"
+eq "pre-bash finalize lints message and title, skips body" "$(ctx | grep -c '1 em dash, 1 semicolon, ')" 1
+eq "pre-bash finalize skipped body has no contraction" "$(ctx | grep -c contraction)" 0
+hook prose-pre-bash.sh "$(bash_in "$repo" 'git status')"
+eq "pre-bash other command" "$out" ""
+hook prose-pre-bash.sh "$(bash_in "$repo" 'git commit -m "clean message"')"
+eq "pre-bash clean message" "$out" ""
+hook prose-pre-bash.sh "$(bash_in "$repo" 'git commit -m "unbalanced; quote')"
+eq "pre-bash parse failure" "$out" ""; eq "pre-bash parse failure exit" "$rc" 0
+hook prose-pre-bash.sh "$(bash_in "$gone" 'git commit -m "a; b"')"
+eq "pre-bash no lint result output" "$out" ""; eq "pre-bash no lint result exit" "$rc" 0
+
 [ "$fails" -eq 0 ]

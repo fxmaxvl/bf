@@ -15,9 +15,13 @@ PROSE_INPUT=
 prose_off() { [ "${BF_PROSE_HOOK:-}" = off ]; }
 
 # Reads the hook input once. Input that is not JSON, or a missing jq, ends the hook with exit 0.
+prose_read_raw() { PROSE_INPUT=$(cat); }
+
+prose_validate_input() { printf '%s' "$PROSE_INPUT" | jq -e . >/dev/null 2>&1 || exit 0; }
+
 prose_read_input() {
-  PROSE_INPUT=$(cat)
-  printf '%s' "$PROSE_INPUT" | jq -e . >/dev/null 2>&1 || exit 0
+  prose_read_raw
+  prose_validate_input
 }
 
 prose_field() { printf '%s' "$PROSE_INPUT" | jq -r "$1 // empty" 2>/dev/null || true; }
