@@ -299,7 +299,7 @@ check_options() {
 
 resolve_rules() {
   if [ -z "$rules" ]; then
-    [ -x "$resolver" ] || [ -f "$resolver" ] || die resolver_missing "$resolver"
+    [ -f "$resolver" ] || die resolver_missing "$resolver"
     rules=$( (cd "$cwd" && bash "$resolver" prose) 2>/dev/null | jq -r '.prose // empty' ) || rules=
     [ -n "$rules" ] || die rules_unresolved "no prose.md found from $cwd"
   fi
@@ -378,7 +378,7 @@ strip_nonprose() {
 
   # An HTML entity (&name; or &#123; or &#x1F;) is not a semicolon: the entity loses its closing mark here.
   # A name needs two or more characters, so AT&T; and R&D; keep their semicolons.
-  sed -E 's/(&(#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]+));/\1/g' "$stripped" > "$work/entities" && mv "$work/entities" "$stripped"
+  sed -E 's/(&(#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]+));/\1/g' "$stripped" > "$work/entities" && mv "$work/entities" "$stripped" || true
 }
 
 # emit <marker> <label|-> <grep args...>: one finding row per match. The label replaces the matched text.
