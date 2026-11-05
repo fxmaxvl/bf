@@ -17,5 +17,5 @@ out=$(printf '%s\n' "$(prose_field .last_assistant_message)" | prose_lint "$(pro
 [ "$rc" -eq 1 ] || exit 0
 [ "$(jq -r .rules_block <<<"$out")" = true ] || exit 0
 
-jq -n --arg s "$(jq -r .summary <<<"$out")" \
-  '{decision:"block", reason:("Your final text has hard prose markers: " + $s + ". Remove the em dashes, semicolons and contractions from your final text, then return it again.")}'
+jq -n --arg s "$(jq -r .hard_summary <<<"$out")" \
+  '{decision:"block", reason:("Your final text has hard prose markers: " + $s + ". Remove them from your final text, then return it again.")}'

@@ -6,7 +6,8 @@
 #        prose-lint.sh --digest [--rules <prose.md>] [--cwd <dir>]
 #        prose-lint.sh --selftest
 # Output: json: one object {hard:{em_dash,semicolon,contraction}, soft:{replace,banned,long_sentence},
-#         words, long_reply, rules_block, summary}. rules_block is true when the resolved file has a
+#         words, long_reply, rules_block, summary, hard_summary}. hard_summary counts only the markers in
+#         the hard list. rules_block is true when the resolved file has a
 #         prose-lint block. text: one finding per line, "<line>: <marker>: <text>". --digest prints the
 #         Self-lint section of the resolved prose.md.
 # Exit:   0 no hard marker, 1 at least one hard marker, 2 usage or runtime error. Only a hard marker
@@ -96,6 +97,9 @@ EOF
   eq "text format" "$(printf '%s' "$out" | tr '\n' '|')" "1: em_dash: ${dash}|1: semicolon: ;"
   lint_text "A${dash}B; C" --rules "$full" --format json
   eq "summary" "$(jf .summary)" "1 em dash, 1 semicolon, 2 words"
+  eq "hard summary" "$(jf .hard_summary)" "1 em dash, 1 semicolon"
+  lint_text "one; two${dash}x" --rules "$dashonly" --format json
+  eq "hard summary only lists hard-list markers" "$(jf .hard_summary)" "1 em dash"
 
   # usage errors
   run --rules "$full"; eq "no input exits 2" "$rc" 2
@@ -362,21 +366,24 @@ summary=
 for p in "${parts[@]}"; do summary="$summary, $p"; done
 summary=${summary#, }
 
-hard_hit=0
+# The hard summary lists only the markers that are in the hard list and have a count above zero.
+hard_hit=0 hard_summary=
 for h in $r_hard; do
   case $h in
-    em_dash) [ "$c_dash" -eq 0 ] || hard_hit=1 ;;
-    semicolon) [ "$c_semi" -eq 0 ] || hard_hit=1 ;;
-    contraction) [ "$c_contr" -eq 0 ] || hard_hit=1 ;;
+    em_dash) n=$c_dash label=$(plural "$c_dash" "em dash" "em dashes") ;;
+    semicolon) n=$c_semi label=$(plural "$c_semi" semicolon semicolons) ;;
+    contraction) n=$c_contr label=$(plural "$c_contr" contraction contractions) ;;
   esac
+  [ "$n" -eq 0 ] || { hard_hit=1; hard_summary="$hard_summary, $label"; }
 done
+hard_summary=${hard_summary#, }
 
 if [ "$format" = json ]; then
   jq -cn --argjson d "$c_dash" --argjson s "$c_semi" --argjson c "$c_contr" \
     --argjson r "$c_repl" --argjson b "$c_ban" --argjson l "$c_long" \
-    --argjson w "$words" --argjson lr "$long_reply" --argjson rb "$rules_block" --arg sum "$summary" \
+    --argjson w "$words" --argjson lr "$long_reply" --argjson rb "$rules_block" --arg sum "$summary" --arg hs "$hard_summary" \
     '{hard:{em_dash:$d, semicolon:$s, contraction:$c}, soft:{replace:$r, banned:$b, long_sentence:$l},
-      words:$w, long_reply:$lr, rules_block:$rb, summary:$sum}'
+      words:$w, long_reply:$lr, rules_block:$rb, summary:$sum, hard_summary:$hs}'
 else
   sort -n -s -t "$(printf '\t')" -k1,1 "$findings" | awk -F'\t' '{ printf "%s: %s: %s\n", $1, $2, $3 }'
 fi

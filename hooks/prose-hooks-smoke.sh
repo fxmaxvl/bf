@@ -177,8 +177,15 @@ sub_in() { jq -cn --arg cwd "$1" --arg m "$2" --argjson a "$3" '{cwd:$cwd, last_
 hook prose-subagent-stop.sh "$(sub_in "$plain" "one; two" false)"
 eq "subagent block decision" "$(jq -r .decision <<<"$out")" block
 eq "subagent reason names the count" "$(jq -r .reason <<<"$out" | grep -c '1 semicolon')" 1
+eq "subagent reason lists hard markers only" "$(jq -r .reason <<<"$out")" "Your final text has hard prose markers: 1 semicolon. Remove them from your final text, then return it again."
 eq "subagent block is top-level" "$(jq -r 'has("hookSpecificOutput")' <<<"$out")" false
 eq "subagent block exit" "$rc" 0
+hook prose-subagent-stop.sh "$(sub_in "$plain" "one; two${dash}x" false)"
+eq "subagent reason names every hard marker" "$(jq -r .reason <<<"$out" | grep -c '1 em dash, 1 semicolon\.')" 1
+mkdir -p "$tmp/dashonly/.bf/conventions"; git init -q "$tmp/dashonly"
+printf '# P\n\n```prose-lint\nhard: em_dash\n```\n' > "$tmp/dashonly/.bf/conventions/prose.md"
+hook prose-subagent-stop.sh "$(sub_in "$tmp/dashonly" "one; two${dash}x" false)"
+eq "subagent reason skips markers outside the hard list" "$(jq -r .reason <<<"$out")" "Your final text has hard prose markers: 1 em dash. Remove them from your final text, then return it again."
 hook prose-subagent-stop.sh "$(sub_in "$plain" "one; two" true)"
 eq "subagent stop_hook_active guard" "$out" ""
 hook prose-subagent-stop.sh "$(sub_in "$repo" "one; two" false)"
