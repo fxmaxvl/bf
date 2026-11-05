@@ -129,4 +129,46 @@ eq "pre-bash parse failure" "$out" ""; eq "pre-bash parse failure exit" "$rc" 0
 hook prose-pre-bash.sh "$(bash_in "$gone" 'git commit -m "a; b"')"
 eq "pre-bash no lint result output" "$out" ""; eq "pre-bash no lint result exit" "$rc" 0
 
+
+# Stop and UserPromptSubmit record
+uid=$(id -u)
+recroot=$tmp/rec
+recdir=$recroot/bf-prose-$uid
+stop_in() { jq -cn --arg cwd "$1" --arg s "$2" --arg m "$3" '{cwd:$cwd, session_id:$s, last_assistant_message:$m}'; }
+prompt_in() { jq -cn --arg s "$1" '{cwd:"/", session_id:$s, prompt:"hi"}'; }
+nwords() { local i=0 w=; while [ "$i" -lt "$1" ]; do w="$w word"; i=$((i+1)); done; printf '%s' "${w# }"; }
+rec() { BF_PROSE_RECORD_ROOT=$recroot "$@"; }
+
+hook prose-stop.sh "$(stop_in "$repo" s1 "A${dash}B is done.")" BF_PROSE_RECORD_ROOT=$recroot
+eq "stop prints nothing" "$out" ""
+eq "stop writes the record" "$(test -f "$recdir/s1" && echo yes)" yes
+eq "record dir mode" "$(ls -ld "$recdir" | cut -c1-10)" "drwx------"
+hook prose-user-prompt.sh "$(prompt_in s1)" BF_PROSE_RECORD_ROOT=$recroot
+eq "prompt event name" "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" UserPromptSubmit
+eq "prompt note" "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" "last reply: 1 em dash, 3 words"
+eq "record deleted after take" "$(test -f "$recdir/s1" && echo yes || echo no)" no
+hook prose-user-prompt.sh "$(prompt_in s1)" BF_PROSE_RECORD_ROOT=$recroot
+eq "second prompt prints nothing" "$out" ""
+hook prose-stop.sh "$(stop_in "$repo" s2 "$(nwords 200).")" BF_PROSE_RECORD_ROOT=$recroot
+eq "long reply writes a record" "$(test -f "$recdir/s2" && echo yes)" yes
+hook prose-stop.sh "$(stop_in "$repo" s2 "Short and clean.")" BF_PROSE_RECORD_ROOT=$recroot
+eq "clean reply clears the record" "$(test -f "$recdir/s2" && echo yes || echo no)" no
+hook prose-stop.sh "$(stop_in "$repo" s3 "A${dash}B.")" BF_PROSE_RECORD_ROOT=$recroot
+hook prose-stop.sh "$(stop_in "$repo" s3 "one; two")" BF_PROSE_RECORD_ROOT=$recroot
+eq "second stop overwrites" "$(cat "$recdir/s3")" "1 semicolon, 2 words"
+hook prose-stop.sh "$(stop_in "$repo" "../../x" "one; two")" BF_PROSE_RECORD_ROOT=$recroot
+eq "session id is sanitized" "$(test -f "$recdir/x" && echo yes)" yes
+eq "nothing escapes the record dir" "$(test -e "$tmp/x" && echo yes || echo no)" no
+before=$(find "$recroot" -type f | wc -l | tr -d ' ')
+hook prose-stop.sh "$(stop_in "$repo" "///" "one; two")" BF_PROSE_RECORD_ROOT=$recroot
+eq "empty session id writes nothing" "$(find "$recroot" -type f | wc -l | tr -d ' ')" "$before"
+hook prose-stop.sh "$(stop_in "$repo" s4 "one; two")" BF_PROSE_RECORD_ROOT=$tmp/rec2 BF_PROSE_UID=99999
+eq "foreign owner writes nothing" "$(find "$tmp/rec2" -type f 2>/dev/null | wc -l | tr -d ' ')" 0
+eq "foreign owner exit" "$rc" 0
+hook prose-stop.sh "$(stop_in "$gone" s5 "one; two")" BF_PROSE_RECORD_ROOT=$recroot
+eq "stop no lint result output" "$out" ""; eq "stop no lint result exit" "$rc" 0
+eq "stop no lint result writes nothing" "$(test -f "$recdir/s5" && echo yes || echo no)" no
+hook prose-user-prompt.sh "$(prompt_in nothing)" BF_PROSE_RECORD_ROOT=$recroot
+eq "prompt without record" "$out" ""; eq "prompt without record exit" "$rc" 0
+
 [ "$fails" -eq 0 ]

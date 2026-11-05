@@ -53,3 +53,61 @@ prose_digest() {
 prose_context() {
   jq -n --arg e "$1" --arg t "$2" '{hookSpecificOutput:{hookEventName:$e, additionalContext:$t}}'
 }
+
+# Record of the last reply, for the Stop and UserPromptSubmit pair. It lives in a per-user 0700 directory
+# because a shared /tmp can hold a directory that another user made first, and mkdir -m does not change
+# an existing one. BF_PROSE_RECORD_ROOT and BF_PROSE_UID are the test seam for the owner check.
+_prose_record_uid() { printf '%s' "${BF_PROSE_UID:-$(id -u)}"; }
+
+_prose_record_dir() { printf '%s/bf-prose-%s' "${BF_PROSE_RECORD_ROOT:-${TMPDIR:-/tmp}}" "$(_prose_record_uid)"; }
+
+# prose_record_path <session_id>: fails when nothing is left of the id after sanitizing.
+prose_record_path() {
+  local sid
+  sid=$(printf '%s' "$1" | tr -cd 'A-Za-z0-9_-')
+  [ -n "$sid" ] || return 1
+  printf '%s/%s' "$(_prose_record_dir)" "$sid"
+}
+
+# Ls prints the owner uid in field 3 on both BSD and GNU, where stat flags differ.
+_prose_record_dir_owned() {
+  local dir=$1 owner
+  [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
+  owner=$(ls -nd "$dir" | awk '{print $3}')
+  [ "$owner" = "$(_prose_record_uid)" ]
+}
+
+prose_record_dir_ok() {
+  local dir=$1
+  [ ! -L "$dir" ] || return 1
+  mkdir -p -m 700 "$dir" 2>/dev/null || return 1
+  _prose_record_dir_owned "$dir"
+}
+
+# prose_record_write <session_id> <line>: overwrites the record. It never appends, because autopilot can
+# stop many times before the next prompt.
+prose_record_write() {
+  local path
+  path=$(prose_record_path "$1") || return 0
+  prose_record_dir_ok "$(dirname "$path")" || return 0
+  [ ! -L "$path" ] || return 0
+  printf '%s\n' "$2" > "$path"
+}
+
+# prose_record_take <session_id>: prints the record, then deletes it.
+prose_record_take() {
+  local path line
+  path=$(prose_record_path "$1") || return 0
+  _prose_record_dir_owned "$(dirname "$path")" || return 0
+  [ -f "$path" ] && [ ! -L "$path" ] || return 0
+  line=$(cat "$path")
+  rm -f "$path"
+  printf '%s' "$line"
+}
+
+prose_record_clear() {
+  local path
+  path=$(prose_record_path "$1") || return 0
+  _prose_record_dir_owned "$(dirname "$path")" || return 0
+  rm -f "$path"
+}
