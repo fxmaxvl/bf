@@ -35,7 +35,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.
 
 Read the path it prints. A project or user `prose.md` replaces the plugin default.
 
-Then take the "before" lint result. For a file target, run:
+Then take the "before" lint result. For a file target, run the command below. For a code file, add `--mode comment --ext <ext>` so the counts cover comments only.
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/plain/scripts/prose-lint.sh" <file> --rules <resolved path> --format json
@@ -68,7 +68,7 @@ If the text already passes the self-lint, leave it as it is. Second-language and
 
 ## Phase 3 — Self-lint
 
-Run the lint command from Phase 1 on the result for the "after" result. For a file, rewrite first, then lint the file. For pasted text, pass the rewritten text on stdin the same way.
+Run the lint command from Phase 1 on the result for the "after" result. The edit is not written yet, so pass the rewritten text on stdin with `-` for both a file and pasted text. Do not lint the file path here, because the file still holds the old text.
 
 Run the Self-lint checklist from `prose.md` on the result for the rules the script cannot check. Fix each failure, then run the checklist and the lint again.
 
@@ -80,7 +80,7 @@ Run the Self-lint checklist from `prose.md` on the result for the rules the scri
 
 1. Print a short change summary: sentences split, words replaced, passives made active, em dashes and semicolons removed, hollow passages flagged. Add one line with both lint counts, for example `Lint: 4 em dashes, 2 semicolons before, 0 after`.
 2. State the effect in one line: `This rewrites README.md in place.`
-3. Edit the file in place. Git is the undo, so do not write a copy under `.bf/`.
+3. Edit the file in place. The "after" counts come from the Phase 3 lint of the rewritten text. Git is the undo, so do not write a copy under `.bf/`.
 
 ## Edge Cases & Errors
 
