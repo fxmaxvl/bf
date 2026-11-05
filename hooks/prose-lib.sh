@@ -131,20 +131,20 @@ prose_record_clear() {
 # A value made only of quoted parts and backslash escapes, such as 'don'\''t', is printed. A value is skipped
 # when it has a bare part, is glued to a short flag (such as -m"x"), comes from -F or --body-file, or holds a
 # heredoc, a command substitution or a backtick. A value in the form --flag="value" is printed.
-# The context (ctx) is commit, pr or fin (finalize-git.sh). Each context has one row in takes and skips.
+# The context (ctx) is commit, pr or fin (finalize-git.sh). Each context has one row in takes. commit and pr also have one in skips.
 prose_commit_values() {
   printf '%s\n' "$1" | awk '
 function ok(v) { return v != "" && !index(v, "<<") && !index(v, "$(") && !index(v, "`") }
 function add(v) { if (ok(v)) out = out (out == "" ? "" : "\n\n") v }
-function takes(c, f) {
-  if (c == "commit") return f == "-m" || f == "--message" || f ~ /^-[A-Za-z]+m$/
-  if (c == "pr") return f == "--body" || f == "-b" || f == "--title" || f == "-t"
-  if (c == "fin") return f == "--commit-msg" || f == "--pr-title" || f == "--pr-body"
+function takes(context, word) {
+  if (context == "commit") return word == "-m" || word == "--message" || word ~ /^-[A-Za-z]+m$/
+  if (context == "pr") return word == "--body" || word == "-b" || word == "--title" || word == "-t"
+  if (context == "fin") return word == "--commit-msg" || word == "--pr-title" || word == "--pr-body"
   return 0
 }
-function skips(c, f) {
-  if (c == "commit") return f == "-F" || f == "--file"
-  if (c == "pr") return f == "--body-file" || f == "-F"
+function skips(context, word) {
+  if (context == "commit") return word == "-F" || word == "--file"
+  if (context == "pr") return word == "--body-file" || word == "-F"
   return 0
 }
 function reset() { ctx = ""; want = ""; p1 = ""; p2 = ""; g = 0 }
