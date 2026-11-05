@@ -16,10 +16,10 @@ Adapted from [jjsnack/technical-language-skill](https://github.com/jjsnack/techn
 
 WORDS
 - Use one name for one thing. Do not call the same item by two names.
-- Use the short common word: start (not begin/commence/initiate), use (not utilize/leverage), help (not facilitate), make sure (not ensure), before (not prior to), after (not subsequent to), about (not regarding), get (not obtain/acquire), show (not demonstrate), also (not additionally/furthermore/moreover).
+- Use the short common word: start (not begin), use (not utilize), before (not prior to). The `replace` key of the `prose-lint` block below is the full list.
 - Give each word one meaning. "fall" means to move down, not to decrease.
-- No marketing adjectives: seamless, robust, powerful, cutting-edge, effortless, world-class, battle-tested.
-- No hollow intensifiers: genuinely, truly, "worth noting", "it is important to note". State the fact.
+- No marketing adjectives: seamless, robust, powerful. The `banned` key of the `prose-lint` block is the full list.
+- No hollow intensifiers: genuinely, truly, "worth noting". State the fact.
 - No noun clusters of more than three nouns. Break them up with articles and prepositions.
 - American spelling.
 
@@ -43,6 +43,19 @@ STRUCTURE
 - One topic per paragraph, at most six sentences. Keep tense and point of view constant inside a paragraph.
 - Steps go in a numbered list, one action per item, imperative form. Put a condition before its command: "If the build fails, read the log".
 - Put a warning before the step it applies to.
+
+## Lint rules
+
+`skills/plain/scripts/prose-lint.sh` reads this block. Each line is `key: value`. Lists are space-separated, `from>to` is a pair, and `_` stands for one space. Keep the block free of em dashes and semicolons.
+
+```prose-lint
+hard: em_dash semicolon contraction
+cap_instruction: 20
+cap_descriptive: 25
+long_reply_words: 150
+replace: utilize>use leverage>use begin>start commence>start initiate>start facilitate>help ensure>make_sure prior_to>before subsequent_to>after regarding>about obtain>get acquire>get demonstrate>show additionally>also furthermore>also moreover>also
+banned: seamless robust powerful cutting-edge effortless world-class battle-tested genuinely truly worth_noting it_is_important_to_note
+```
 
 ## Modes
 
