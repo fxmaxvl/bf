@@ -110,6 +110,18 @@ EOF
   run --classify a/b.js; eq "classify js" "$out" "comment js"
   run --classify a/b.json; eq "classify unsupported output" "$out" ""; eq "classify unsupported exit" "$rc" 1
 
+  # rules validation
+  sed 's/^hard: .*/hard: em-dash/' "$full" > "$tmp/badhard.md"
+  lint_text "one; two" --rules "$tmp/badhard.md" --format json
+  eq "unknown hard name exits 2" "$rc" 2
+  sed 's/^cap_instruction:/cap_instrucion:/' "$full" > "$tmp/badkey.md"
+  lint_text "one; two" --rules "$tmp/badkey.md" --format json
+  eq "unknown key exits 2" "$rc" 2
+  sed 's/^```prose-lint$/```prose-lint-old/' "$full" > "$tmp/oldfence.md"
+  lint_text "one; two" --rules "$tmp/oldfence.md" --format json
+  eq "prose-lint-old is no block" "$(jf .rules_block)" false
+  eq "prose-lint-old keeps hard markers on" "$rc" 1
+
   # usage errors
   run --rules "$full"; eq "no input exits 2" "$rc" 2
   run "$tmp/missing.md" --rules "$full"; eq "unreadable file exits 2" "$rc" 2
@@ -182,7 +194,7 @@ EOF
 
   # the plugin's own prose.md
   local real=${self%/skills/plain/scripts/prose-lint.sh}/conventions/prose.md
-  if grep -q '^```prose-lint' "$real" 2>/dev/null; then
+  if grep -q '^```prose-lint[[:space:]]*$' "$real" 2>/dev/null; then
     lint_text "A robust tool." --rules "$real" --format json
     eq "real file rules_block" "$(jf .rules_block)" true
     eq "real file banned list" "$(jf .soft.banned)" 1
@@ -256,10 +268,12 @@ trap 'rm -rf "$work"' EXIT
 # The prose-lint block: "key: value" lines between a ```prose-lint fence and the next fence.
 rules_block=false
 r_hard= r_cap_i=20 r_cap_d=25 r_long=150 r_replace= r_banned=
-awk '/^```prose-lint[ \t]*$/ {inb=1; next} inb && /^```/ {exit} inb' "$rules" > "$work/block"
-if grep -q '^```prose-lint' "$rules"; then
+# The awk pass decides whether a block exists, so one fence pattern covers the parser and the flag.
+awk -v flag="$work/found" '/^```prose-lint[ \t]*$/ {inb=1; print "" > flag; next} inb && /^```/ {exit} inb' "$rules" > "$work/block"
+if [ -f "$work/found" ]; then
   rules_block=true
   while IFS= read -r l; do
+    [ -n "${l//[[:space:]]/}" ] || continue
     k=${l%%:*}; v=${l#*:}; v=${v# }
     case $k in
       hard) r_hard=$v ;;
@@ -268,11 +282,15 @@ if grep -q '^```prose-lint' "$rules"; then
       long_reply_words) r_long=$v ;;
       replace) r_replace=$v ;;
       banned) r_banned=$v ;;
+      *) die rules_invalid "unknown key in the prose-lint block: $k" ;;
     esac
   done < "$work/block"
 fi
 [ "$rules_block" = true ] || r_hard="em_dash semicolon contraction"
 case $r_cap_i$r_cap_d$r_long in *[!0-9]*) die rules_invalid "caps and long_reply_words must be numbers" ;; esac
+for h in $r_hard; do
+  case $h in em_dash|semicolon|contraction) ;; *) die rules_invalid "unknown hard marker: $h" ;; esac
+done
 
 if [ "$digest" = 1 ]; then
   d=$(awk '
