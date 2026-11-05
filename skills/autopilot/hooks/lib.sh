@@ -14,9 +14,13 @@ _derive_project_id() {
   echo "$pid"
 }
 
+_state_dir() {
+  echo "$HOME/.bf/autopilot"
+}
+
 # The per-repo state file is the lock every hook checks.
 _state_file() {
-  echo "$HOME/.bf/autopilot/$(_derive_project_id).json"
+  echo "$(_state_dir)/$(_derive_project_id).json"
 }
 
 # A word list cannot read intent: it misses "please stop" and stops on "no, keep going". So the

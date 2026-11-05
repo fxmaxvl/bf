@@ -5,16 +5,10 @@ set -euo pipefail
 ACTION="${1:-}"
 
 SKILL_DIR=$(cd "$(dirname "$0")/.." && pwd)
-HOOK_PATH="$SKILL_DIR/hooks/stop.sh"
-CLEANUP_PATH="$SKILL_DIR/hooks/session-start-cleanup.sh"
-PROMPT_CLEANUP_PATH="$SKILL_DIR/hooks/user-prompt-cleanup.sh"
-chmod +x "$HOOK_PATH" "$CLEANUP_PATH" "$PROMPT_CLEANUP_PATH"
-
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-STATE_DIR="$HOME/.bf/autopilot"
-
 # shellcheck source=hooks/lib.sh
 source "$SKILL_DIR/hooks/lib.sh"
+STATE_DIR=$(_state_dir)
 PROJECT_ID=$(_derive_project_id)
 
 GLOBAL_STATE_FILE="$STATE_DIR/state.json"
@@ -40,6 +34,7 @@ HOOK_TABLE='[
   {"event": "SessionStart", "tag": "bf-autopilot-cleanup", "script": "session-start-cleanup.sh", "matcher": "startup|resume|clear"},
   {"event": "UserPromptSubmit", "tag": "bf-autopilot-user-cleanup", "script": "user-prompt-cleanup.sh", "matcher": ""}
 ]'
+while read -r script; do chmod +x "$SKILL_DIR/hooks/$script"; done < <(jq -r '.[].script' <<<"$HOOK_TABLE")
 
 add_hook() {
   local path="$1"

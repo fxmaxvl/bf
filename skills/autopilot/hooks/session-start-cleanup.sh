@@ -14,7 +14,8 @@ SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || 
 SOURCE=$(printf '%s' "$INPUT" | jq -r '.source // empty' 2>/dev/null || true)
 STATE_FILE=$(_state_file)
 
-# Without CLAUDE_PID a clear is the only sign of the lead's own session.
+# Claude Code sets CLAUDE_PID in hook commands from v2.1.214. On an older version a clear is the
+# only sign of the lead's own session, so a lead resume into another conversation keeps the run.
 from_lead() {
   local lead_pid
   lead_pid=$(jq -r '.lead_pid // empty' "$STATE_FILE" 2>/dev/null || true)

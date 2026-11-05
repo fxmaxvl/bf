@@ -3,8 +3,8 @@
 # scheduled prompt is a task. Neither can end the run or change its direction. For any other
 # prompt the model reads the intent: it ends the run when the user asks to stop, and otherwise
 # does what the prompt asks and continues. A prompt in another session leaves the run alone,
-# even when its text cannot be read. Input with no readable session ID and no readable prompt
-# ends the run, because bypass mode is on while autopilot runs.
+# even when its text cannot be read. Input with no readable prompt ends the run, unless it comes
+# from another session, because bypass mode is on while autopilot runs.
 
 # No -e: a failing step must not block the user's prompt, so every path ends in exit 0.
 set -uo pipefail

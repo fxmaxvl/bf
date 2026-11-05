@@ -118,7 +118,6 @@ lead=$!
 trap 'kill "$lead" 2>/dev/null || true; rm -rf "$tmp"' EXIT
 lead_pid=$lead
 on
-lead_pid=999999
 start() { (cd "$repo" && printf '%s' "$2" | env CLAUDE_PID="$1" bash "$dir/session-start-cleanup.sh"); }
 start_unset() { (cd "$repo" && printf '%s' "$1" | env -u CLAUDE_PID bash "$dir/session-start-cleanup.sh"); }
 out=$(start 4242 '{"session_id":"other-2","source":"startup"}')
@@ -136,16 +135,18 @@ eq "a clear with no process ID ends the run" "$(gone)" gone
 on
 start 4242 '{"session_id":"lead-1","source":"resume"}' >/dev/null
 eq "the lead session's own resume ends the run" "$(gone)" gone
-lead_pid=$lead
 on
 jq '.lead_started = "x"' "$state" > "$state.new" && mv "$state.new" "$state"
 start 4242 '{"session_id":"other-2","source":"startup"}' >/dev/null
 eq "a live PID with another start time counts as ended" "$(gone)" gone
-lead_pid=$lead
 on
 kill "$lead" 2>/dev/null || true
 wait "$lead" 2>/dev/null || true
 start 4242 '{"session_id":"other-2","source":"startup"}' >/dev/null
 eq "a session start after the lead ended ends the run" "$(gone)" gone
+
+warn=$(cd "$repo" && env -u CLAUDE_PID CLAUDE_CODE_SESSION_ID=lead-1 bash "$dir/install.sh" on 2>&1 >/dev/null || true)
+eq "install warns when the process ID is missing" "$(grep -c 'warning:' <<<"$warn")" 1
+off
 
 [ "$fails" -eq 0 ]
