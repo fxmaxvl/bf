@@ -23,7 +23,7 @@ prose_read_input() {
 }
 
 # prose_field <jq path>: needs PROSE_INPUT, so call prose_read_raw or prose_read_input first. When PROSE_INPUT is
-# unset, the shell prints the error to stderr and the call returns nothing.
+# unset, the shell prints the error to stderr and exits, so the EXIT trap ends the hook with exit 0.
 prose_field() {
   : "${PROSE_INPUT?prose_field called before prose_read_raw}"
   printf '%s' "$PROSE_INPUT" | jq -r "$1 // empty" 2>/dev/null || true
