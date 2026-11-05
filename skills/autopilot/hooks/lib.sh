@@ -13,3 +13,16 @@ _derive_project_id() {
   [ -z "$pid" ] && pid=$(basename "$repo_root")
   echo "$pid"
 }
+
+# A stop prompt has at most three words and starts with a stop word. So "hold on" and
+# "no, don't push" stop the run, and "don't stop the tests" or a status check like "so?" do not.
+# There is no resume, so "pause" is not a stop word.
+_is_stop_prompt() {
+  local words
+  words=$(printf '%s' "$1" | sed "s/[’']//g" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' ' ')
+  # shellcheck disable=SC2086
+  set -- $words
+  [ "$#" -ge 1 ] && [ "$#" -le 3 ] || return 1
+  case $1 in stop|cancel|abort|halt|kill|wait|hold|no|off) return 0 ;; esac
+  return 1
+}

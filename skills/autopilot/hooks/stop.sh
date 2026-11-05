@@ -2,11 +2,21 @@
 
 set -euo pipefail
 
-STOP_HOOK_ACTIVE=$(jq -r '.stop_hook_active // false' 2>/dev/null || printf 'false')
+INPUT=$(cat)
+field() { printf '%s' "$INPUT" | jq -r "$1" 2>/dev/null || true; }
 
-if [[ "$STOP_HOOK_ACTIVE" == "true" ]]; then
+if [[ "$(field '.stop_hook_active // false')" == "true" ]]; then
   exit 0
 fi
+
+# Settings hooks also fire in sub-agents and teammates. Only the lead session runs the workflow.
+[[ -z "$(field '.agent_id // empty')" ]] || exit 0
+
+# Claude Code wakes the session when background work ends, so a stop while it runs is a pause.
+case "$(field '(.background_tasks // []) | length')" in
+  ''|0) ;;
+  *) exit 0 ;;
+esac
 
 # Derive PROJECT_ID via shared helper (same derivation as install.sh).
 # stop.sh assumes it runs in the project cwd (Claude Code Stop hook behaviour).

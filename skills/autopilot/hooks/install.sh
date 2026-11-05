@@ -161,7 +161,8 @@ case "$ACTION" in
     echo "repo state:      $REPO_STATE_FILE"
     echo
     echo "To stop autopilot:"
-    echo "  - type anything at the prompt (UserPromptSubmit hook wipes state)"
+    echo "  - type a short stop prompt: stop, cancel, abort, halt, kill, wait, hold, no or off"
+    echo "    (any other prompt keeps the run going)"
     echo "  - close/reopen Claude Code (SessionStart hook wipes state)"
     echo "  - manual:  bash $SKILL_DIR/hooks/install.sh off"
     ;;

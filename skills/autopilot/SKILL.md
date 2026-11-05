@@ -68,7 +68,7 @@ The bypass is a convenience, not a prerequisite — everything downstream works 
 
 If `install_exit` is zero: print `install_output` and continue normally.
 
-Install maintains a global registry (`~/.bf/autopilot/state.json`) shaped `{"entries": {"<project-id>": {started_at, repo_root}, ...}}` alongside a per-repo lock file (`~/.bf/autopilot/<project-id>.json`). The registry tracks all active per-repo autopilot sessions; the per-repo file is the authoritative lock that `stop.sh` checks. Multiple autopilots can run concurrently across distinct repos — COLLISION fires only when the same project-id is already present in the registry or per-repo file. Install also flips `permissions.defaultMode` to `"bypassPermissions"` in the project's `.claude/settings.local.json` (stashing the prior value) so cross-directory reads and non-allowlisted Bash commands run without prompts. Uninstall restores the prior value; the SessionStart and UserPromptSubmit cleanup hooks also call `install.sh off`, so the bypass mode never survives across sessions.
+Install maintains a global registry (`~/.bf/autopilot/state.json`) shaped `{"entries": {"<project-id>": {started_at, repo_root}, ...}}` alongside a per-repo lock file (`~/.bf/autopilot/<project-id>.json`). The registry tracks all active per-repo autopilot sessions; the per-repo file is the authoritative lock that `stop.sh` checks. Multiple autopilots can run concurrently across distinct repos — COLLISION fires only when the same project-id is already present in the registry or per-repo file. Install also flips `permissions.defaultMode` to `"bypassPermissions"` in the project's `.claude/settings.local.json` (stashing the prior value) so cross-directory reads and non-allowlisted Bash commands run without prompts. Uninstall restores the prior value; the SessionStart cleanup hook also calls `install.sh off`, so the bypass mode never survives across sessions. The UserPromptSubmit hook calls it on a stop prompt (see Error recovery).
 
 ## Step 3 — Execute with the oracle rule
 
@@ -154,4 +154,4 @@ If the session ends mid-run, the stop hook keeps state alive. On re-entry:
 2. Read `build-state.json` (if the target skill uses one) and resume from the current phase.
 3. Apply the oracle rule from that point forward.
 
-To interrupt autopilot: type anything at the prompt — the UserPromptSubmit hook wipes state immediately.
+To interrupt autopilot, type a short stop prompt: at most three words that start with stop, cancel, abort, halt, kill, wait, hold, no or off (for example `stop` or `hold on`). The UserPromptSubmit hook then wipes state at once. Any other prompt, such as a status check, keeps the run going: the hook tells the model to do what the prompt asks first, including a change of direction, and then continue.
