@@ -75,6 +75,8 @@ EOF
   eq "curly apostrophe" "$(jf .hard.contraction)" 1
   lint_text "It's late. That's fine. Here we go." --rules "$full" --format json
   eq "It's and That's" "$(jf .hard.contraction)" 2
+  lint_text "It's what's here." --rules "$full" --format json
+  eq "adjacent 's forms" "$(jf .hard.contraction)" 2
   lint_text "The parser's output and the dogs' bowls." --rules "$full" --format json
   eq "possessive exit" "$rc" 0; eq "possessive count" "$(jf .hard.contraction)" 0
   lint_text "Use the 'main' branch when the job is 'done' and 'really' ready." --rules "$full" --format json
@@ -345,7 +347,9 @@ emit() {
 apos=$'(\'|\xE2\x80\x99)'
 emit em_dash - -F $'\xE2\x80\x94'
 emit semicolon - -F ';'
-emit contraction - -E -i "[A-Za-z]n${apos}t([^A-Za-z]|\$)|[A-Za-z]${apos}(re|ve|ll|m|d)([^A-Za-z]|\$)|(^|[^A-Za-z])(it|that|let|there|here|what|who)${apos}s([^A-Za-z]|\$)"
+emit contraction - -E -i "[A-Za-z]n${apos}t([^A-Za-z]|\$)|[A-Za-z]${apos}(re|ve|ll|m|d)([^A-Za-z]|\$)"
+# The 's forms use -w so the boundary is not consumed and adjacent forms count separately.
+emit contraction - -E -i -w "(it|that|let|there|here|what|who)${apos}s"
 
 if [ "$soft" = 1 ]; then
   for pair in $r_replace; do
