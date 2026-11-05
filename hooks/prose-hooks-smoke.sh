@@ -220,12 +220,16 @@ printf 'keep\n' > "$tmp/victim"
 ln -s "$tmp/victim" "$recdir/s8"
 hook prose-stop.sh "$(stop_in "$repo" s8 "one; two")" BF_PROSE_RECORD_ROOT=$recroot
 eq "symlinked record file is not written through" "$(cat "$tmp/victim")" keep
+rm -f "$recdir/s8"; ln -s "$tmp/victim" "$recdir/s8"
 hook prose-user-prompt.sh "$(prompt_in s8)" BF_PROSE_RECORD_ROOT=$recroot
 eq "symlinked record file is not read" "$out" ""
 rm -f "$recdir/s8"
 hook prose-stop.sh "$(stop_in "$gone" s5 "one; two")" BF_PROSE_RECORD_ROOT=$recroot
 eq "stop no lint result output" "$out" ""; eq "stop no lint result exit" "$rc" 0
 eq "stop no lint result writes nothing" "$(test -f "$recdir/s5" && echo yes || echo no)" no
+hook prose-stop.sh "$(stop_in "$repo" s9 "one; two")" BF_PROSE_RECORD_ROOT=$recroot
+hook prose-stop.sh "$(stop_in "$gone" s9 "Short and clean.")" BF_PROSE_RECORD_ROOT=$recroot
+eq "stop no lint result clears the older record" "$(test -f "$recdir/s9" && echo yes || echo no)" no
 hook prose-user-prompt.sh "$(prompt_in nothing)" BF_PROSE_RECORD_ROOT=$recroot
 eq "prompt without record" "$out" ""; eq "prompt without record exit" "$rc" 0
 
