@@ -51,4 +51,39 @@ eq "bad json output" "$out" ""; eq "bad json exit" "$rc" 0
 hook prose-session-start.sh "$(input "$gone")"
 eq "no lint result output" "$out" ""; eq "no lint result exit" "$rc" 0
 
+
+# PostToolUse
+mkdir -p "$tmp/conventions"
+repo2=$tmp/conventions/repo2
+git init -q "$repo2"
+write_in() { jq -cn --arg cwd "$1" --arg tool "$2" --arg p "$3" --arg k "$4" --arg t "$5" \
+  '{cwd:$cwd, tool_name:$tool, tool_input:({file_path:$p} + {($k):$t})}'; }
+ctx() { jq -r '.hookSpecificOutput.additionalContext // empty' <<<"$out"; }
+
+hook prose-post-write.sh "$(write_in "$repo" Write "$repo/README.md" content "A${dash}B.")"
+eq "post-write event name" "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" PostToolUse
+eq "post-write md em dash" "$(ctx | grep -c '1 em dash')" 1
+eq "post-write note names the path" "$(ctx | grep -c "$repo/README.md")" 1
+hook prose-post-write.sh "$(write_in "$repo" Write "$repo/skills/x/SKILL.md" content "A${dash}B.")"
+eq "post-write SKILL.md skipped" "$out" ""
+hook prose-post-write.sh "$(write_in "$repo" Write "$repo/.bf/conventions/prose.md" content "A${dash}B.")"
+eq "post-write conventions skipped" "$out" ""
+hook prose-post-write.sh "$(write_in "$repo2" Write "$repo2/README.md" content "A${dash}B.")"
+eq "post-write parent conventions dir not skipped" "$(ctx | grep -c '1 em dash')" 1
+hook prose-post-write.sh "$(write_in "$repo" Edit "$repo/README.md" new_string "clean text.")"
+eq "post-write edit clean new_string" "$out" ""
+hook prose-post-write.sh "$(write_in "$repo" Edit "$repo/README.md" new_string "one; two")"
+eq "post-write edit hit" "$(ctx | grep -c '1 semicolon')" 1
+eq "post-write edit fence warning" "$(ctx | grep -c 'code fence')" 1
+hook prose-post-write.sh "$(write_in "$repo" Write "$repo/a.ts" content $'  #count = 0;\nconst x = 1;')"
+eq "post-write ts private field" "$out" ""
+hook prose-post-write.sh "$(write_in "$repo" Write "$repo/a.sh" content $'echo hi\n# one; two')"
+eq "post-write sh comment hit" "$(ctx | grep -c '1 semicolon')" 1
+hook prose-post-write.sh "$(write_in "$repo" Write "$repo/a.json" content "A${dash}B")"
+eq "post-write json skipped" "$out" ""
+hook prose-post-write.sh "$(write_in "$gone" Write "$gone/README.md" content "A${dash}B.")"
+eq "post-write no lint result output" "$out" ""; eq "post-write no lint result exit" "$rc" 0
+hook prose-post-write.sh "$(write_in "$repo" Read "$repo/README.md" content "A${dash}B.")"
+eq "post-write other tool" "$out" ""
+
 [ "$fails" -eq 0 ]
