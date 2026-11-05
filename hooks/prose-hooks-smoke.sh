@@ -188,4 +188,34 @@ eq "subagent long reply alone does not block" "$out" ""
 hook prose-subagent-stop.sh "$(sub_in "$gone" "one; two" false)"
 eq "subagent no lint result output" "$out" ""; eq "subagent no lint result exit" "$rc" 0
 
+
+# hooks.json wiring
+cfg=$hooks/hooks.json
+eq "hooks.json parses" "$(jq -e . "$cfg" >/dev/null 2>&1 && echo yes)" yes
+eq "hooks.json events" "$(jq -r '.hooks | keys | join(",")' "$cfg")" "PostToolUse,PreToolUse,SessionStart,Stop,SubagentStop,UserPromptSubmit"
+eq "hooks.json timeouts" "$(jq -r '[.hooks[][].hooks[].timeout] | unique | join(",")' "$cfg")" 5
+eq "hooks.json matchers" "$(jq -r '[.hooks.SessionStart[0].matcher, .hooks.PostToolUse[0].matcher, .hooks.PreToolUse[0].matcher, (.hooks.Stop[0] | has("matcher")), (.hooks.SubagentStop[0] | has("matcher"))] | join(",")' "$cfg")" "compact,Write|Edit,Bash,false,false"
+missing=0
+for s in $(jq -r '.hooks[][].hooks[].command' "$cfg" | sed 's/.*hooks\/\(prose-[a-z-]*\.sh\).*/\1/'); do
+  [ -f "$hooks/$s" ] || missing=$((missing+1))
+done
+eq "hooks.json scripts exist" "$missing" 0
+eq "hooks.json script count" "$(jq -r '[.hooks[][].hooks[]] | length' "$cfg")" 6
+
+# off switch for all six hooks, with dirty input
+dirty="A${dash}B; it's"
+off_ok=0
+for pair in \
+  "prose-session-start.sh|$(input "$repo")" \
+  "prose-post-write.sh|$(write_in "$repo" Write "$repo/README.md" content "$dirty")" \
+  "prose-pre-bash.sh|$(bash_in "$repo" "git commit -m \"$dirty\"")" \
+  "prose-stop.sh|$(stop_in "$repo" soff "$dirty")" \
+  "prose-user-prompt.sh|$(prompt_in soff)" \
+  "prose-subagent-stop.sh|$(sub_in "$plain" "$dirty" false)"; do
+  hook "${pair%%|*}" "${pair#*|}" BF_PROSE_HOOK=off BF_PROSE_RECORD_ROOT=$recroot
+  if [ -z "$out" ] && [ "$rc" -eq 0 ]; then off_ok=$((off_ok+1)); fi
+done
+eq "off switch silences all six hooks" "$off_ok" 6
+eq "off switch writes no record" "$(test -f "$recdir/soff" && echo yes || echo no)" no
+
 [ "$fails" -eq 0 ]
