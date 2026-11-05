@@ -91,6 +91,10 @@ EOF
   eq "single-quoted words" "$(jf .hard.contraction)" 0
   lint_text $'```\na; b\n```\nUse `x; y` here.' --rules "$full" --format json
   eq "fence and code span ignored" "$(jf .hard.semicolon)" 0
+  lint_text 'Use &lt;div&gt; and &#123; and &#x1F; and &nbsp; here.' --rules "$full" --format json
+  eq "html entity is not a semicolon" "$rc" 0; eq "html entity count" "$(jf .hard.semicolon)" 0
+  lint_text 'Use &lt;div&gt; here; then stop. Also a; b.' --rules "$full" --format json
+  eq "semicolon beside an entity still counts" "$(jf .hard.semicolon)" 2
   lint_text $'| a | b; c |\n|---|---|' --rules "$full" --format json
   eq "table row counts" "$(jf .hard.semicolon)" 1
   lint_text "> quoted; text" --rules "$full" --format json
@@ -353,6 +357,9 @@ case $filt in
       $0 ~ lead { gsub(/`[^`]*`/, ""); print; next }
       { print "" }' "$raw" > "$stripped" ;;
 esac
+
+# An HTML entity (&name; or &#123; or &#x1F;) is not a semicolon: the entity loses its closing mark here.
+sed -E 's/(&(#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]*));/\1/g' "$stripped" > "$work/entities" && mv "$work/entities" "$stripped"
 
 findings=$work/findings
 : > "$findings"
