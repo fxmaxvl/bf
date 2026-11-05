@@ -14,6 +14,11 @@ _derive_project_id() {
   echo "$pid"
 }
 
+# The per-repo state file is the lock every hook checks.
+_state_file() {
+  echo "$HOME/.bf/autopilot/$(_derive_project_id).json"
+}
+
 # A word list cannot read intent: it misses "please stop" and stops on "no, keep going". So the
 # hook ends the run itself only on one bare word, and leaves every other stop request to the model.
 _is_stop_prompt() {
@@ -27,8 +32,7 @@ _is_stop_prompt() {
 }
 
 # Claude Code reloads settings files, so a session already open in the repo gets the hooks too.
-# The run belongs to the session that ran install.sh on. An empty ID on either side counts as the
-# owner, so a state file from before this check keeps working.
+# The run belongs to the session that ran install.sh on. An empty ID on either side matches any session.
 _owns_run() {
   local owner
   owner=$(jq -r '.session_id // empty' "$1" 2>/dev/null || true)

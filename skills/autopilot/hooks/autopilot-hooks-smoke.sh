@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Smoke test for the autopilot hooks: the stop-prompt matcher, stop.sh (sub-agents, teammates and
-# background work pass through) and user-prompt-cleanup.sh (a stop prompt ends the run, any other
-# prompt keeps it). Runs install.sh against a throwaway repo and HOME.
+# Smoke test for the autopilot hooks: stop.sh, user-prompt-cleanup.sh, session-start-cleanup.sh and
+# the helpers in lib.sh (sub-agents, teammates and background work, stop words, agent and scheduled
+# turns, the lead session and its process, the second-session warning). Runs install.sh against a
+# throwaway repo and HOME.
 #
 # Usage: autopilot-hooks-smoke.sh
 # Output: one PASS/FAIL line per case. Exit 0 when every case passes, 1 otherwise.
@@ -97,6 +98,7 @@ eq "stop.sh blocks the lead by its session ID" "$(in_repo stop.sh '{"session_id"
 eq "a prompt in another session adds nothing" "$(in_repo user-prompt-cleanup.sh '{"session_id":"other-2","prompt":"so?"}')" ""
 in_repo user-prompt-cleanup.sh '{"session_id":"other-2","prompt":"stop"}' >/dev/null
 eq "a stop word in another session leaves the run" "$(gone)" kept
+eq "an unreadable prompt in another session leaves the run" "$(in_repo user-prompt-cleanup.sh '{"session_id":"other-2","prompt":null}' >/dev/null; gone)" kept
 in_repo user-prompt-cleanup.sh '{"session_id":"lead-1","prompt":"stop"}' >/dev/null
 eq "a stop word in the lead session ends the run" "$(gone)" gone
 
@@ -117,14 +119,33 @@ trap 'kill "$lead" 2>/dev/null || true; rm -rf "$tmp"' EXIT
 lead_pid=$lead
 on
 lead_pid=999999
-(cd "$repo" && printf '{"session_id":"other-2","source":"startup"}' | bash "$dir/session-start-cleanup.sh" >/dev/null)
+start() { (cd "$repo" && printf '%s' "$2" | env CLAUDE_PID="$1" bash "$dir/session-start-cleanup.sh"); }
+start_unset() { (cd "$repo" && printf '%s' "$1" | env -u CLAUDE_PID bash "$dir/session-start-cleanup.sh"); }
+out=$(start 4242 '{"session_id":"other-2","source":"startup"}')
 eq "a second session start leaves a live lead's run" "$(gone)" kept
-(cd "$repo" && printf '{"session_id":"lead-1","source":"resume"}' | bash "$dir/session-start-cleanup.sh" >/dev/null)
+eq "a second session start gets a warning" "$(jq -r .systemMessage <<<"$out" | grep -c 'install.sh off')" 1
+eq "the warning reaches the model" "$(jq -r .hookSpecificOutput.additionalContext <<<"$out" | grep -c 'permission checks')" 1
+eq "the warning names the hook event" "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" SessionStart
+start_unset '{"session_id":"other-2","source":"startup"}' >/dev/null
+eq "a startup with no process ID leaves a live lead's run" "$(gone)" kept
+start "$lead" '{"session_id":"lead-2","source":"clear"}' >/dev/null
+eq "a clear with a new session ID from the lead process ends the run" "$(gone)" gone
+on
+start_unset '{"session_id":"lead-2","source":"clear"}' >/dev/null
+eq "a clear with no process ID ends the run" "$(gone)" gone
+on
+start 4242 '{"session_id":"lead-1","source":"resume"}' >/dev/null
 eq "the lead session's own resume ends the run" "$(gone)" gone
+lead_pid=$lead
+on
+jq '.lead_started = "x"' "$state" > "$state.new" && mv "$state.new" "$state"
+start 4242 '{"session_id":"other-2","source":"startup"}' >/dev/null
+eq "a live PID with another start time counts as ended" "$(gone)" gone
+lead_pid=$lead
+on
 kill "$lead" 2>/dev/null || true
 wait "$lead" 2>/dev/null || true
-on
-(cd "$repo" && printf '{"session_id":"other-2","source":"startup"}' | bash "$dir/session-start-cleanup.sh" >/dev/null)
+start 4242 '{"session_id":"other-2","source":"startup"}' >/dev/null
 eq "a session start after the lead ended ends the run" "$(gone)" gone
 
 [ "$fails" -eq 0 ]

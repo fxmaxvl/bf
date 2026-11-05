@@ -2,9 +2,11 @@
 # A bare stop word ends the run. A report from an agent or another session is data, and a
 # scheduled prompt is a task. Neither can end the run or change its direction. For any other
 # prompt the model reads the intent: it ends the run when the user asks to stop, and otherwise
-# does what the prompt asks and continues. Input that cannot be read ends the run, because
-# bypass mode is on while autopilot runs. A prompt in another session leaves the run alone.
+# does what the prompt asks and continues. A prompt in another session leaves the run alone,
+# even when its text cannot be read. Input with no readable session ID and no readable prompt
+# ends the run, because bypass mode is on while autopilot runs.
 
+# No -e: a failing step must not block the user's prompt, so every path ends in exit 0.
 set -uo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
@@ -12,15 +14,18 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 source "$SCRIPT_DIR/lib.sh"
 
 INPUT=$(cat)
+STATE_FILE=$(_state_file)
+SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+if [[ -n "$SESSION_ID" && -f "$STATE_FILE" ]] && ! _owns_run "$STATE_FILE" "$SESSION_ID"; then
+  exit 0
+fi
+
 if ! PROMPT=$(printf '%s' "$INPUT" | jq -er '.prompt' 2>/dev/null); then
   bash "$SCRIPT_DIR/install.sh" off >/dev/null 2>&1 || true
   exit 0
 fi
 
-PROJECT_ID=$(_derive_project_id)
-STATE_FILE="$HOME/.bf/autopilot/${PROJECT_ID}.json"
 [[ -f "$STATE_FILE" ]] || exit 0
-_owns_run "$STATE_FILE" "$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)" || exit 0
 
 if _is_stop_prompt "$PROMPT"; then
   bash "$SCRIPT_DIR/install.sh" off >/dev/null 2>&1 || true
@@ -36,3 +41,5 @@ else
 fi
 
 jq -n --arg ctx "$CONTEXT" '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: $ctx}}'
+
+exit 0

@@ -8,20 +8,21 @@ field() { printf '%s' "$INPUT" | jq -r "$1" 2>/dev/null || true; }
 # Settings hooks also fire in sub-agents and teammates. Only the lead session runs the workflow.
 [[ -z "$(field '.agent_id // empty')" ]] || exit 0
 
-# Derive PROJECT_ID via shared helper (same derivation as install.sh).
 # stop.sh assumes it runs in the project cwd (Claude Code Stop hook behaviour).
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source=hooks/lib.sh
 source "$SCRIPT_DIR/lib.sh"
-PROJECT_ID=$(_derive_project_id)
 
 # Check per-repo file (not global state.json) — it is the per-repo lock.
 # See install.sh for the two-step write invariant.
-REPO_STATE_FILE="$HOME/.bf/autopilot/${PROJECT_ID}.json"
+REPO_STATE_FILE=$(_state_file)
 
 [[ -f "$REPO_STATE_FILE" ]] || exit 0
 _owns_run "$REPO_STATE_FILE" "$(field '.session_id // empty')" || exit 0
 
+# user-prompt-cleanup.sh (_is_cron_turn) reads cron_prompts to tell a scheduled turn from a typed
+# one. The save runs before the stop_hook_active check because Stop also fires on the stop that
+# hook forces, and the prompts must be current at the next turn.
 CRONS=$(field '[(.session_crons // [])[] | .prompt // empty]')
 if [[ -n "$CRONS" ]]; then
   tmp=$(mktemp)
