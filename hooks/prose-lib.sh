@@ -131,7 +131,10 @@ prose_record_clear() {
 # A value made only of quoted parts and backslash escapes, such as 'don'\''t', is printed. A value is skipped
 # when it has a bare part, is glued to a short flag (such as -m"x"), comes from -F or --body-file, or holds a
 # heredoc, a command substitution or a backtick. A value in the form --flag="value" is printed.
-# The context (ctx) is commit, pr or fin (finalize-git.sh). Each context has one row in takes. commit and pr also have one in skips.
+# The context (ctx) is commit, pr or fin (finalize-git.sh). Each context has one row in takes.
+# commit and pr also have one in skips.
+# A first pass removes the text that bash does not read as words: a backslash before a newline outside
+# single quotes, and the body of each heredoc.
 prose_commit_values() {
   printf '%s\n' "$1" | awk '
 function ok(v) { return v != "" && !index(v, "<<") && !index(v, "$(") && !index(v, "`") }
@@ -178,9 +181,58 @@ function endtok() {
   if (text ~ /(^|\/)finalize-git\.sh$/) { ctx = "fin"; push(text); return }
   if (nseg == 0) bare_token(); else quoted_token()
 }
+function cut_heredoc(s, i, delim, strip,   pos, e, line, t, nx) {
+  pos = i
+  while (pos <= length(s)) {
+    e = index(substr(s, pos), "\n")
+    if (e == 0) { line = substr(s, pos); nx = length(s) + 1 } else { line = substr(s, pos, e - 1); nx = pos + e }
+    t = line
+    if (strip) sub(/^\t+/, "", t)
+    if (t == delim) return nx
+    pos = nx
+  }
+  return 0
+}
+function heredoc_delim(s, j,   d, k, w) {
+  while (substr(s, j, 1) == " " || substr(s, j, 1) == "\t") j++
+  d = substr(s, j, 1)
+  if (d == sq || d == dq) {
+    k = index(substr(s, j + 1), d)
+    return k > 0 ? substr(s, j + 1, k - 1) : ""
+  }
+  w = substr(s, j)
+  return match(w, /^[A-Za-z0-9_]+/) ? substr(w, 1, RLENGTH) : ""
+}
+function prep(s,   n, i, c, d, r, q, delim, strip, nx) {
+  n = length(s); r = ""; q = ""; delim = ""; strip = 0
+  for (i = 1; i <= n; i++) {
+    c = substr(s, i, 1)
+    if (c == "\n" && delim != "") {
+      nx = cut_heredoc(s, i + 1, delim, strip)
+      delim = ""
+      if (nx) { r = r c; i = nx - 1; continue }
+    }
+    if (q == sq) { if (c == sq) q = ""; r = r c; continue }
+    if (c == bs) { d = substr(s, i + 1, 1); i++; if (d != "\n") r = r c d; continue }
+    if (c == dq) { q = (q == dq) ? "" : dq; r = r c; continue }
+    if (q == "" && c == sq) { q = sq; r = r c; continue }
+    if (q == "" && c == "#" && (i == 1 || substr(s, i - 1, 1) ~ /[ \t\n;&|(]/)) {
+      while (i <= n && substr(s, i, 1) != "\n") { r = r substr(s, i, 1); i++ }
+      i--
+      continue
+    }
+    if (c == "<" && delim == "" && substr(s, i + 1, 1) == "<" && substr(s, i - 1, 1) != "<" && substr(s, i + 2, 1) != "<") {
+      strip = substr(s, i + 2, 1) == "-"
+      delim = heredoc_delim(s, i + 2 + strip)
+    }
+    r = r c
+  }
+  return r
+}
 BEGIN { sq = sprintf("%c", 39); dq = "\""; bs = "\\"; q = "" }
 { cmd = cmd (NR > 1 ? "\n" : "") $0 }
 END {
+  cmd = prep(cmd)
   n = length(cmd)
   for (i = 1; i <= n; i++) {
     c = substr(cmd, i, 1)
