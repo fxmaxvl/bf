@@ -19,7 +19,7 @@ WORDS
 - Use the short common word: start (not begin), use (not utilize), before (not prior to). The `replace` key of the `prose-lint` block below is the full list.
 - Give each word one meaning. "fall" means to move down, not to decrease.
 - No marketing adjectives: seamless, robust, powerful. The `banned` key of the `prose-lint` block is the full list.
-- No hollow intensifiers: genuinely, truly, "worth noting". State the fact.
+- No hollow intensifiers: genuinely, truly, "worth noting". State the fact. The `banned` key also lists these.
 - No noun clusters of more than three nouns. Break them up with articles and prepositions.
 - American spelling.
 

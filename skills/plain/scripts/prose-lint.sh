@@ -73,7 +73,6 @@ EOF
   sed 's/^hard: .*/hard: em_dash/' "$full" > "$dashonly"
   printf '# Fixture\n\n```prose-lint\nhard: em_dash\n```\n' > "$dashnosec"
 
-  # hard markers
   lint_text "A${dash}B" --rules "$full" --format json
   eq "em dash exit" "$rc" 1; eq "em dash count" "$(jf .hard.em_dash)" 1
   lint_text "one; two" --rules "$full" --format json
@@ -114,8 +113,12 @@ EOF
   eq "hard summary" "$(jf .hard_summary)" "1 em dash, 1 semicolon"
   lint_text "one; two${dash}x" --rules "$dashonly" --format json
   eq "hard summary only lists hard-list markers" "$(jf .hard_summary)" "1 em dash"
+  sed 's/^hard: .*/hard: semicolon em_dash/' "$full" > "$tmp/swapped.md"
+  lint_text "one; two${dash}x" --rules "$tmp/swapped.md" --format json
+  eq "hard summary follows the hard list order" "$(jf .hard_summary)" "1 semicolon, 1 em dash"
+  eq "summary follows the marker table order" "$(jf .summary)" "1 em dash, 1 semicolon, 2 words"
+  eq "json hard keys" "$(jf '.hard | keys_unsorted | join(",")')" "em_dash,semicolon,contraction"
 
-  # classify
   run --classify a/b.md; eq "classify md" "$out" file
   run --classify a/b.sh; eq "classify sh" "$out" "comment sh"
   run --classify a/b.js; eq "classify js" "$out" "comment js"
@@ -128,7 +131,6 @@ EOF
   eq "selftest without jq exits 2" "$rc" 2
   run --classify a/b.json; eq "classify unsupported output" "$out" ""; eq "classify unsupported exit" "$rc" 1
 
-  # rules validation
   sed 's/^hard: .*/hard: em-dash/' "$full" > "$tmp/badhard.md"
   lint_text "one; two" --rules "$tmp/badhard.md" --format json
   eq "unknown hard name exits 2" "$rc" 2
@@ -140,7 +142,6 @@ EOF
   eq "prose-lint-old is no block" "$(jf .rules_block)" false
   eq "prose-lint-old keeps hard markers on" "$rc" 1
 
-  # usage errors
   run --rules "$full"; eq "no input exits 2" "$rc" 2
   run "$tmp/missing.md" --rules "$full"; eq "unreadable file exits 2" "$rc" 2
   run "$full" --bogus; eq "unknown flag exits 2" "$rc" 2
@@ -148,7 +149,6 @@ EOF
   run "$full" --rules "$tmp/missing.md"; eq "unreadable rules exits 2" "$rc" 2
   run "$full" --format yaml --rules "$full"; eq "unknown format exits 2" "$rc" 2
 
-  # soft findings
   lint_text "We utilize it." --rules "$full" --format json
   eq "replace word" "$(jf .soft.replace)" 1; eq "soft only exit" "$rc" 0
   lint_text "Do it prior to launch." --rules "$full" --format json
@@ -174,7 +174,6 @@ EOF
   lint_text "We utilize it." --rules "$full" --format json
   eq "soft in summary" "$(jf .summary)" "1 replaceable word, 3 words"
 
-  # modes
   lint_text "$(nwords 160)." --mode chat --rules "$full" --format json
   eq "long reply" "$(jf .long_reply)" true
   lint_text "$(nwords 160). "$'\n'"| a | b |" --mode chat --rules "$full" --format json
@@ -212,7 +211,6 @@ EOF
   run --digest --rules "$dashnosec"
   eq "digest fallback uses hard list" "$out" "Hard markers in force: em dash."
 
-  # the plugin's own prose.md
   local real=${self%/skills/plain/scripts/prose-lint.sh}/conventions/prose.md
   if grep -q '^```prose-lint[[:space:]]*$' "$real" 2>/dev/null; then
     lint_text "A robust tool." --rules "$real" --format json
@@ -285,6 +283,13 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
+# One row per hard marker: name|singular|plural. A new hard marker needs a row here and an emit call below.
+hard_table='em_dash|em dash|em dashes
+semicolon|semicolon|semicolons
+contraction|contraction|contractions'
+hard_names=$(printf '%s\n' "$hard_table" | cut -d'|' -f1 | tr '\n' ' ')
+hard_names=${hard_names% }
+
 # The prose-lint block: "key: value" lines between a ```prose-lint fence and the next fence.
 rules_block=false
 r_hard= r_cap_i=20 r_cap_d=25 r_long=150 r_replace= r_banned=
@@ -306,10 +311,10 @@ if [ -f "$work/found" ]; then
     esac
   done < "$work/block"
 fi
-[ "$rules_block" = true ] || r_hard="em_dash semicolon contraction"
+[ "$rules_block" = true ] || r_hard=$hard_names
 case $r_cap_i$r_cap_d$r_long in *[!0-9]*) die rules_invalid "caps and long_reply_words must be numbers" ;; esac
 for h in $r_hard; do
-  case $h in em_dash|semicolon|contraction) ;; *) die rules_invalid "unknown hard marker: $h" ;; esac
+  case " $hard_names " in *" $h "*) ;; *) die rules_invalid "unknown hard marker: $h" ;; esac
 done
 
 if [ "$digest" = 1 ]; then
@@ -405,7 +410,6 @@ if [ "$caps" = 1 ] && [ "$rules_block" = true ]; then
 fi
 
 count() { awk -F'\t' -v m="$1" '$2 == m {n++} END {print n + 0}' "$findings"; }
-c_dash=$(count em_dash) c_semi=$(count semicolon) c_contr=$(count contraction)
 c_repl=$(count replace) c_ban=$(count banned) c_long=$(count long_sentence)
 words=$(wc -w < "$stripped" | tr -d ' ')
 
@@ -416,10 +420,17 @@ if [ "$longreply" = 1 ] && [ "$words" -gt "$r_long" ] \
 fi
 
 plural() { if [ "$1" -eq 1 ]; then printf '%s %s' "$1" "$2"; else printf '%s %s' "$1" "$3"; fi; }
+# hard_label <name>: the count of one hard marker with its singular or plural label.
+hard_label() {
+  local row one many
+  row=$(printf '%s\n' "$hard_table" | grep "^$1|")
+  one=${row#*|}; many=${one#*|}; one=${one%%|*}
+  plural "$(count "$1")" "$one" "$many"
+}
 parts=()
-[ "$c_dash" -eq 0 ] || parts+=("$(plural "$c_dash" "em dash" "em dashes")")
-[ "$c_semi" -eq 0 ] || parts+=("$(plural "$c_semi" semicolon semicolons)")
-[ "$c_contr" -eq 0 ] || parts+=("$(plural "$c_contr" contraction contractions)")
+for h in $hard_names; do
+  [ "$(count "$h")" -eq 0 ] || parts+=("$(hard_label "$h")")
+done
 [ "$c_repl" -eq 0 ] || parts+=("$(plural "$c_repl" "replaceable word" "replaceable words")")
 [ "$c_ban" -eq 0 ] || parts+=("$(plural "$c_ban" "banned word" "banned words")")
 [ "$c_long" -eq 0 ] || parts+=("$(plural "$c_long" "long sentence" "long sentences")")
@@ -431,20 +442,17 @@ summary=${summary#, }
 # The hard summary lists only the markers that are in the hard list and have a count above zero.
 hard_hit=0 hard_summary=
 for h in $r_hard; do
-  case $h in
-    em_dash) n=$c_dash label=$(plural "$c_dash" "em dash" "em dashes") ;;
-    semicolon) n=$c_semi label=$(plural "$c_semi" semicolon semicolons) ;;
-    contraction) n=$c_contr label=$(plural "$c_contr" contraction contractions) ;;
-  esac
-  [ "$n" -eq 0 ] || { hard_hit=1; hard_summary="$hard_summary, $label"; }
+  [ "$(count "$h")" -eq 0 ] || { hard_hit=1; hard_summary="$hard_summary, $(hard_label "$h")"; }
 done
 hard_summary=${hard_summary#, }
 
 if [ "$format" = json ]; then
-  jq -cn --argjson d "$c_dash" --argjson s "$c_semi" --argjson c "$c_contr" \
+  hard_json=$(for h in $hard_names; do printf '%s\t%s\n' "$h" "$(count "$h")"; done \
+    | jq -Rn '[inputs | split("\t") | {(.[0]): (.[1] | tonumber)}] | add')
+  jq -cn --argjson h "$hard_json" \
     --argjson r "$c_repl" --argjson b "$c_ban" --argjson l "$c_long" \
     --argjson w "$words" --argjson lr "$long_reply" --argjson rb "$rules_block" --arg sum "$summary" --arg hs "$hard_summary" \
-    '{hard:{em_dash:$d, semicolon:$s, contraction:$c}, soft:{replace:$r, banned:$b, long_sentence:$l},
+    '{hard:$h, soft:{replace:$r, banned:$b, long_sentence:$l},
       words:$w, long_reply:$lr, rules_block:$rb, summary:$sum, hard_summary:$hs}'
 else
   sort -n -s -t "$(printf '\t')" -k1,1 "$findings" | awk -F'\t' '{ printf "%s: %s: %s\n", $1, $2, $3 }'

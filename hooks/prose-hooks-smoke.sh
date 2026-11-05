@@ -38,7 +38,6 @@ hook() {
 }
 input() { jq -cn --arg cwd "$1" '{cwd:$cwd}'; }
 
-# SessionStart
 hook prose-session-start.sh "$(input "$repo")" BF_PROSE_HOOK=off
 eq "off switch output" "$out" ""; eq "off switch exit" "$rc" 0
 hook prose-session-start.sh "$(input "$repo")"
@@ -57,7 +56,6 @@ lib_err=$(bash -c 'source "$1"; prose_field .cwd' _ "$hooks/prose-lib.sh" 2>&1 >
 eq "prose_field before read names the error" "$(grep -c 'called before prose_read_raw' <<<"$lib_err")" 1
 eq "prose_field before read prints nothing" "$(bash -c 'source "$1"; prose_field .cwd' _ "$hooks/prose-lib.sh" 2>/dev/null)" ""
 
-# PostToolUse
 mkdir -p "$tmp/conventions"
 repo2=$tmp/conventions/repo2
 git init -q "$repo2"
@@ -76,6 +74,14 @@ hook prose-post-write.sh "$(write_in "$repo" Write "$repo/.bf/conventions/prose.
 eq "post-write conventions skipped" "$out" ""
 hook prose-post-write.sh "$(write_in "$repo2" Write "$repo2/README.md" content "A${dash}B.")"
 eq "post-write parent conventions dir not skipped" "$(ctx | grep -c '1 em dash')" 1
+hook prose-post-write.sh "$(write_in "$repo" Write "$repo2/README.md" content "A${dash}B.")"
+eq "post-write file in another repo than the cwd" "$(ctx | grep -c '1 em dash')" 1
+mkdir -p "$repo2/conventions"
+hook prose-post-write.sh "$(write_in "$repo" Write "$repo2/conventions/x.md" content "A${dash}B.")"
+eq "post-write conventions dir in another repo skipped" "$out" ""
+mkdir -p "$tmp/conventions/loose"
+hook prose-post-write.sh "$(write_in "$repo" Write "$tmp/conventions/loose/notes.md" content "A${dash}B.")"
+eq "post-write file outside any repo not skipped" "$(ctx | grep -c '1 em dash')" 1
 hook prose-post-write.sh "$(write_in "$repo" Edit "$repo/README.md" new_string "clean text.")"
 eq "post-write edit clean new_string" "$out" ""
 hook prose-post-write.sh "$(write_in "$repo" Edit "$repo/README.md" new_string "one; two")"
@@ -95,7 +101,6 @@ hook prose-post-write.sh "$(write_in "$repo" Read "$repo/README.md" content "A${
 eq "post-write other tool" "$out" ""
 
 
-# PreToolUse
 bash_in() { jq -cn --arg cwd "$1" --arg c "$2" '{cwd:$cwd, tool_name:"Bash", tool_input:{command:$c}}'; }
 semi_note() { hook prose-pre-bash.sh "$(bash_in "$repo" "$2")"; eq "pre-bash $1" "$(ctx | grep -c '1 semicolon')" 1; }
 semi_note "git commit -m" 'git commit -m "a; b"'
@@ -113,6 +118,7 @@ semi_note "git commit after other command" 'git add a && git commit -m "a; b"'
 semi_note "gh pr create --body" 'gh pr create --body "a; b"'
 semi_note "gh pr create --body=" 'gh pr create --body="a; b"'
 semi_note "gh pr create -b" 'gh pr create -b "a; b"'
+semi_note "gh pr create -t" 'gh pr create -t "a; b" --body "ok"'
 semi_note "gh pr create --title" 'gh pr create --title "a; b"'
 semi_note "gh pr create --body-file with plain title" 'gh pr create --body-file x.md --title "a; b"'
 semi_note "finalize --commit-msg" 'bash "$P/finalize-git.sh" --commit-msg "a; b"'
@@ -138,6 +144,14 @@ hook prose-pre-bash.sh "$(bash_in "$repo" $'bash x/finalize-git.sh --commit-msg 
 eq "pre-bash finalize lints message and title, skips body" "$(ctx | grep -c '1 em dash, 1 semicolon\.')" 1
 eq "pre-bash note lists hard markers only" "$(ctx | grep -c 'words')" 0
 eq "pre-bash finalize skipped body has no contraction" "$(ctx | grep -c contraction)" 0
+vals() { bash -c 'source "$1"; prose_commit_values "$2"' _ "$hooks/prose-lib.sh" "$1"; }
+eq "tokenizer commit -m" "$(vals 'git commit -m "a; b"')" "a; b"
+eq "tokenizer pr title and body" "$(vals 'gh pr create -t "T" --body "B"' | paste -sd'|' -)" "T||B"
+eq "tokenizer finalize flags" "$(vals 'bash x/finalize-git.sh --commit-msg "M" --pr-title "T"' | paste -sd'|' -)" "M||T"
+eq "tokenizer glued long flag" "$(vals 'git commit --message="G"')" "G"
+eq "tokenizer skips the -F file" "$(vals 'git commit -F msg.txt -m "K"')" "K"
+eq "tokenizer ignores other git subcommands" "$(vals 'git log -m "x"')" ""
+eq "tokenizer ignores flags after a command separator" "$(vals 'git commit -m "A"; echo -m "B"')" "A"
 hook prose-pre-bash.sh "$(bash_in "$repo" 'git status')"
 eq "pre-bash other command" "$out" ""
 hook prose-pre-bash.sh "$(bash_in "$repo" 'git commit -m "clean message"')"
@@ -148,7 +162,6 @@ hook prose-pre-bash.sh "$(bash_in "$gone" 'git commit -m "a; b"')"
 eq "pre-bash no lint result output" "$out" ""; eq "pre-bash no lint result exit" "$rc" 0
 
 
-# Stop and UserPromptSubmit record
 uid=$(id -u)
 recroot=$tmp/rec
 recdir=$recroot/bf-prose-$uid
@@ -183,6 +196,21 @@ eq "empty session id writes nothing" "$(find "$recroot" -type f | wc -l | tr -d 
 hook prose-stop.sh "$(stop_in "$repo" s4 "one; two")" BF_PROSE_RECORD_ROOT=$tmp/rec2 BF_PROSE_UID=99999
 eq "foreign owner writes nothing" "$(find "$tmp/rec2" -type f 2>/dev/null | wc -l | tr -d ' ')" 0
 eq "foreign owner exit" "$rc" 0
+mkdir -p "$tmp/rec3/target" "$tmp/rec4/bf-prose-$uid"
+ln -s "$tmp/rec3/target" "$tmp/rec3/bf-prose-$uid"
+hook prose-stop.sh "$(stop_in "$repo" s6 "one; two")" BF_PROSE_RECORD_ROOT=$tmp/rec3
+eq "symlinked record dir writes nothing through the link" "$(find "$tmp/rec3/target" -type f | wc -l | tr -d ' ')" 0
+eq "symlinked record dir exit" "$rc" 0
+chmod 755 "$tmp/rec4/bf-prose-$uid"
+hook prose-stop.sh "$(stop_in "$repo" s7 "one; two")" BF_PROSE_RECORD_ROOT=$tmp/rec4
+eq "wide record dir mode writes nothing" "$(find "$tmp/rec4" -type f | wc -l | tr -d ' ')" 0
+printf 'keep\n' > "$tmp/victim"
+ln -s "$tmp/victim" "$recdir/s8"
+hook prose-stop.sh "$(stop_in "$repo" s8 "one; two")" BF_PROSE_RECORD_ROOT=$recroot
+eq "symlinked record file is not written through" "$(cat "$tmp/victim")" keep
+hook prose-user-prompt.sh "$(prompt_in s8)" BF_PROSE_RECORD_ROOT=$recroot
+eq "symlinked record file is not read" "$out" ""
+rm -f "$recdir/s8"
 hook prose-stop.sh "$(stop_in "$gone" s5 "one; two")" BF_PROSE_RECORD_ROOT=$recroot
 eq "stop no lint result output" "$out" ""; eq "stop no lint result exit" "$rc" 0
 eq "stop no lint result writes nothing" "$(test -f "$recdir/s5" && echo yes || echo no)" no
@@ -190,7 +218,6 @@ hook prose-user-prompt.sh "$(prompt_in nothing)" BF_PROSE_RECORD_ROOT=$recroot
 eq "prompt without record" "$out" ""; eq "prompt without record exit" "$rc" 0
 
 
-# SubagentStop
 sub_in() { jq -cn --arg cwd "$1" --arg m "$2" --argjson a "$3" '{cwd:$cwd, last_assistant_message:$m, stop_hook_active:$a}'; }
 hook prose-subagent-stop.sh "$(sub_in "$plain" "one; two" false)"
 eq "subagent block decision" "$(jq -r .decision <<<"$out")" block
@@ -214,7 +241,6 @@ hook prose-subagent-stop.sh "$(sub_in "$gone" "one; two" false)"
 eq "subagent no lint result output" "$out" ""; eq "subagent no lint result exit" "$rc" 0
 
 
-# hooks.json wiring
 cfg=$hooks/hooks.json
 eq "hooks.json parses" "$(jq -e . "$cfg" >/dev/null 2>&1 && echo yes)" yes
 eq "hooks.json events" "$(jq -r '.hooks | keys | join(",")' "$cfg")" "PostToolUse,PreToolUse,SessionStart,Stop,SubagentStop,UserPromptSubmit"
@@ -227,7 +253,6 @@ done
 eq "hooks.json scripts exist" "$missing" 0
 eq "hooks.json script count" "$(jq -r '[.hooks[][].hooks[]] | length' "$cfg")" 6
 
-# off switch for all six hooks, with dirty input
 dirty="A${dash}B; it's"
 off_ok=0
 for pair in \
