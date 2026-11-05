@@ -22,7 +22,15 @@ export LC_ALL=C
 self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
 resolver=$(cd "$(dirname "$self")/../../scan-conventions/scripts" && pwd)/resolve-conventions.sh
 
-die() { jq -cn --arg e "$1" --arg d "$2" '{error:$e, detail:$d}' >&2; exit 2; }
+# Without jq, die prints the same JSON by hand, so a usage error still exits 2 (never 127).
+die() {
+  if command -v jq >/dev/null 2>&1; then
+    jq -cn --arg e "$1" --arg d "$2" '{error:$e, detail:$d}' >&2
+  else
+    printf '{"error":"%s","detail":"%s"}\n' "$1" "$(printf '%s' "$2" | sed 's/[\\"]/\\&/g')" >&2
+  fi
+  exit 2
+}
 
 # The selftest fixtures run the script as a child process, so the real command line is the test seam.
 selftest() {
@@ -111,6 +119,13 @@ EOF
   run --classify a/b.md; eq "classify md" "$out" file
   run --classify a/b.sh; eq "classify sh" "$out" "comment sh"
   run --classify a/b.js; eq "classify js" "$out" "comment js"
+  # a PATH without jq: usage errors and the selftest guard must exit 2, never 127
+  mkdir -p "$tmp/nojq"
+  for t in bash dirname basename sed; do ln -sf "$(command -v "$t")" "$tmp/nojq/$t"; done
+  rc=0; PATH=$tmp/nojq bash "$self" --classify >/dev/null 2>&1 || rc=$?
+  eq "classify usage error without jq exits 2" "$rc" 2
+  rc=0; PATH=$tmp/nojq bash "$self" --selftest >/dev/null 2>&1 || rc=$?
+  eq "selftest without jq exits 2" "$rc" 2
   run --classify a/b.json; eq "classify unsupported output" "$out" ""; eq "classify unsupported exit" "$rc" 1
 
   # rules validation
