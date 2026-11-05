@@ -1,6 +1,6 @@
 ---
 name: session-summary
-description: Create a summary of the current session with efficiency insights and observations.
+description: Create a summary of the current session with efficiency insights and observations, and check where a hook could have caught a problem.
 model: sonnet
 disable-model-invocation: true
 allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(mkdir *), Bash(gh issue create *)
@@ -52,6 +52,24 @@ Not candidates:
 - Session-specific details (cost, what we built today)
 - Observations about the user's project or code
 
+### Hook lens
+
+An instruction the model must remember fails in long sessions. A hook runs every time. So for each problem the session hit, ask: "Could a hook have caught or prevented this, without the model remembering?" Look for:
+
+- A correction the user or a reviewer made more than once
+- A rule in a skill or convention that the model forgot
+- A manual step repeated by hand, such as a reinstall or a re-check
+- A wasted turn, such as a forced continuation or a duplicate notification
+
+Propose a hook only when its check is mechanical: a path, a command pattern, a field in the hook input, a lint result. A judgment call stays in the skill text. For each candidate, name the event (`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SubagentStop`, `SessionStart`), the matcher, what it checks, and whether it blocks or only advises. Prefer advice. A hook should block only when a miss is worse than a false block. The event and input reference is https://code.claude.com/docs/en/hooks.
+
+Sort each candidate:
+
+- **bf could ship it**: it helps any bf user, for example a check on a bf script or a bf workflow step. It joins the Step 3 candidates with a `hook:` prefix.
+- **Setup-specific**: it fits only this user's tools, commands or repos. Append it to the summary file under a `## Hooks for your setup` section, with a `settings.json` snippet. List it only, never install it, and never put it in the GitHub issue.
+
+A hook that the session already ran, from bf or from the user's settings, is not a candidate. If it fired and still missed the problem, suggest a fix to that hook instead.
+
 ## Step 3 — Propose a GitHub issue
 
 If you found any candidates, present them all as a bulleted list and ask:
@@ -68,7 +86,7 @@ gh issue create \
   --body "..."
 ```
 
-The body should list each insight as a bullet point, written as a general improvement suggestion (no session-specific details). Keep each point concise and actionable.
+The body should list each insight as a bullet point, written as a general improvement suggestion (no session-specific details). Keep each point concise and actionable. Start a hook candidate with `hook:` and name its event, matcher and check.
 
 
 ---
@@ -83,3 +101,4 @@ The body should list each insight as a bullet point, written as a general improv
 | The session has nothing worth summarizing | Say so in one line and write nothing rather than padding a file. |
 | `gh issue create` fails or `gh` is unauthenticated | Keep the written summary, report the failure, and print the issue body so the user can file it by hand. |
 | The user declines the improvement issue | Write the summary only. Do not re-ask. |
+| The only candidates are setup-specific hooks | Append them to the summary and skip the GitHub question, since there is nothing to file. |
