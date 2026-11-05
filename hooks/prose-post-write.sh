@@ -39,7 +39,7 @@ rc=0
 out=$(printf '%s\n' "$text" | prose_lint "$cwd" "$mode" ${args[@]+"${args[@]}"}) || rc=$?
 [ "$rc" -eq 1 ] || exit 0
 
-note="Prose lint found hard markers in the new text of $path: $(jq -r .summary <<<"$out"). Rewrite them under the prose convention."
+note="Prose lint found hard markers in the new text of $path: $(jq -r .hard_summary <<<"$out"). Rewrite them under the prose convention."
 if [ "$tool" = Edit ]; then
   note="$note An edit is linted as a fragment, so text inside a code fence can give a false positive."
 fi

@@ -68,6 +68,7 @@ ctx() { jq -r '.hookSpecificOutput.additionalContext // empty' <<<"$out"; }
 hook prose-post-write.sh "$(write_in "$repo" Write "$repo/README.md" content "A${dash}B.")"
 eq "post-write event name" "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" PostToolUse
 eq "post-write md em dash" "$(ctx | grep -c '1 em dash')" 1
+eq "post-write note lists hard markers only" "$(ctx | grep -c 'words')" 0
 eq "post-write note names the path" "$(ctx | grep -c "$repo/README.md")" 1
 hook prose-post-write.sh "$(write_in "$repo" Write "$repo/skills/x/SKILL.md" content "A${dash}B.")"
 eq "post-write SKILL.md skipped" "$out" ""
