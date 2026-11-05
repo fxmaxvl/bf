@@ -290,7 +290,7 @@ Limits:
 - The hooks run in every session where bf is on, in any repo, also when no bf skill is active.
 - SubagentStop fires for every sub-agent, including Explore and agents from other plugins. The reference also says it fires for internal agents such as /btw side questions. A hit costs one extra turn.
 - Commit and PR text from a heredoc, `-F`, or `--body-file` is not linted. This includes the default Claude Code commit form. The hook lints the other plain values of the same command.
-- The commit and PR note arrives after the command runs. To fix the text, use `gh pr edit`, or `git commit --amend` after you check that the commit is not pushed.
+- The commit and PR note arrives before the command runs. If the command runs, fix the text after it with `gh pr edit`, or with `git commit --amend`. Before you amend, check that the commit exists and is not pushed.
 - `.bf/` artifacts written through `write-block.sh` are not linted, because they are Bash calls.
 - Unverified: a team agent that sends its report through `SendMessage` may fire SubagentStop with only a short closing line. Then the hook lints the closing line and not the report.
 

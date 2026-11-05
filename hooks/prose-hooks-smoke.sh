@@ -109,6 +109,8 @@ eq "post-write other tool" "$out" ""
 bash_in() { jq -cn --arg cwd "$1" --arg c "$2" '{cwd:$cwd, tool_name:"Bash", tool_input:{command:$c}}'; }
 semi_note() { hook prose-pre-bash.sh "$(bash_in "$repo" "$2")"; eq "pre-bash $1" "$(ctx | grep -c '1 semicolon')" 1; }
 semi_note "git commit -m" 'git commit -m "a; b"'
+eq "pre-bash note does not claim the command ran" "$(ctx | grep -c 'already ran')" 0
+eq "pre-bash note says to check the commit before an amend" "$(ctx | grep -c 'If the command runs.*check that the commit exists')" 1
 semi_note "git commit -m single quotes" "git commit -m 'a; b'"
 semi_note "git commit --message" 'git commit --message "a; b"'
 semi_note "git commit --message=" 'git commit --message="a; b"'
