@@ -37,7 +37,7 @@ selftest() {
   nwords() { local i=0 w=; while [ "$i" -lt "$1" ]; do w="$w word"; i=$((i+1)); done; printf '%s' "${w# }"; }
 
   local dash=$'\xE2\x80\x94' curly=$'\xE2\x80\x99'
-  local full=$tmp/full.md noblock=$tmp/noblock.md dashonly=$tmp/dashonly.md
+  local full=$tmp/full.md noblock=$tmp/noblock.md dashonly=$tmp/dashonly.md dashnosec=$tmp/dashnosec.md
   cat > "$full" <<'EOF'
 # Fixture rules
 
@@ -63,6 +63,7 @@ banned: robust worth_noting
 EOF
   printf '# Fixture\n\nNo block here.\n' > "$noblock"
   sed 's/^hard: .*/hard: em_dash/' "$full" > "$dashonly"
+  printf '# Fixture\n\n```prose-lint\nhard: em_dash\n```\n' > "$dashnosec"
 
   # hard markers
   lint_text "A${dash}B" --rules "$full" --format json
@@ -192,7 +193,9 @@ EOF
   run --digest --rules "$noblock"
   eq "digest fallback" "$out" "Hard markers in force: em dash, semicolon, contraction."
   run --digest --rules "$dashonly"
-  eq "digest fallback uses hard list" "$(printf '%s' "$out" | grep -c 'Check these')" 1
+  eq "digest keeps the section with a custom hard list" "$(printf '%s' "$out" | grep -c 'Check these')" 1
+  run --digest --rules "$dashnosec"
+  eq "digest fallback uses hard list" "$out" "Hard markers in force: em dash."
 
   # the plugin's own prose.md
   local real=${self%/skills/plain/scripts/prose-lint.sh}/conventions/prose.md
