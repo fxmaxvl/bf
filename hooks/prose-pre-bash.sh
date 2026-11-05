@@ -23,7 +23,7 @@ cmd=$(prose_field .tool_input.command)
 # The tokenizer reads quotes and escapes and never evaluates the text. It prints the plain quoted values
 # of the handled flags, separated by a blank line. A value is skipped when it is unquoted, glued to a
 # short flag (such as -m"x"), supplied by -F or --body-file, or holds a heredoc, a command substitution
-# or a backtick.
+# or a backtick. A value in the form --flag="value" is linted.
 values=$(printf '%s\n' "$cmd" | awk '
 function ok(v) { return v != "" && !index(v, "<<") && !index(v, "$(") && !index(v, "`") }
 function add(v) { if (ok(v)) out = out (out == "" ? "" : "\n\n") v }
