@@ -24,4 +24,6 @@ each prints one PASS/FAIL line per case and exits non-zero on any failure. Run t
 | `skills/bug-hunt/scripts/bug-hunt-smoke.sh` | `hunt-init.sh`, `findings.sh` |
 | `skills/essence/scripts/essence-smoke.sh` | `essence-init.sh`, `ledger-check.sh` |
 | `skills/pr-comments/scripts/pr-comments-smoke.sh` | `fetch-pr-comments.sh`, `wait-for-review.sh` (argument parsing, `--all`, push time, `--head` and `--bot`, against a stub `gh`) |
+| `hooks/prose-hooks-smoke.sh` | the `hooks/prose-*.sh` hooks and `prose-lib.sh` (skip list, record directory guards, `prose_commit_values` tokenizer) |
+| `skills/plain/scripts/prose-lint.sh --selftest` | `prose-lint.sh` (hard markers, rules validation, modes, `--digest`, `--classify`) |
 | `skills/feature/scripts/report-template-smoke.sh` | `## <Name> Report` / `## <Name> Review` examples in every SKILL.md: sub-sections stay `###` or deeper, so `read-block.sh` reads the whole block |

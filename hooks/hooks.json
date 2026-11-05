@@ -1,0 +1,38 @@
+{
+  "description": "Prose enforcement: lint the text bf writes for hard markers (em dash, semicolon, contraction). Set BF_PROSE_HOOK=off to turn every hook off.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prose-session-start.sh\"", "timeout": 5}]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prose-post-write.sh\"", "timeout": 5}]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prose-pre-bash.sh\"", "timeout": 5}]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prose-stop.sh\"", "timeout": 5}]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prose-user-prompt.sh\"", "timeout": 5}]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prose-subagent-stop.sh\"", "timeout": 5}]
+      }
+    ]
+  }
+}

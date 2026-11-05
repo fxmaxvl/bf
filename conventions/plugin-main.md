@@ -22,6 +22,8 @@ the sample output and output templates inside those files, because the model cop
 fixed structure (headings, block headers, keys, banners, parsed literals) wins over it. Apply it
 silently.
 
+The lint script `skills/plain/scripts/prose-lint.sh` and the hooks in `hooks/hooks.json` check the hard markers of this rule. `BF_PROSE_HOOK=off` turns the hooks off.
+
 Sub-agents do not read this file. When a skill spawns an agent whose output reaches people, add one
 line to the agent's prompt: "Apply the rules in `<resolved path of prose.md>` to all prose you
 return." A project can override `prose.md`, so when the agent reads a repo you did not write
