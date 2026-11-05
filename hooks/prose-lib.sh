@@ -181,6 +181,14 @@ function endtok() {
   if (text ~ /(^|\/)finalize-git\.sh$/) { ctx = "fin"; push(text); return }
   if (nseg == 0) bare_token(); else quoted_token()
 }
+function quoted_char(c,   d) {
+  if (c == q) { q = ""; return }
+  if (q == dq && c == bs) {
+    d = substr(cmd, i + 1, 1)
+    if (d == dq || d == bs || d == "$" || d == "`") { text = text d; i++; return }
+  }
+  text = text c
+}
 function cut_heredoc(s, i, delim, strip,   pos, e, line, t, nx) {
   pos = i
   while (pos <= length(s)) {
@@ -238,15 +246,7 @@ END {
   n = length(cmd)
   for (i = 1; i <= n; i++) {
     c = substr(cmd, i, 1)
-    if (q != "") {
-      if (c == q) { q = ""; continue }
-      if (q == dq && c == bs) {
-        d = substr(cmd, i + 1, 1)
-        if (d == dq || d == bs || d == "$" || d == "`") { text = text d; i++; continue }
-      }
-      text = text c
-      continue
-    }
+    if (q != "") { quoted_char(c); continue }
     if (c == sq || c == dq) {
       if (!intok) { intok = 1; text = ""; nseg = 0; tail = 0; pre = ""; bare = 0 }
       nseg++
