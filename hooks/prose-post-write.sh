@@ -26,11 +26,14 @@ read -r mode ext <<<"$cls"
 cwd=$(prose_cwd)
 
 # The skip list matches path segments relative to the root of the repo that holds the file, so a parent
-# directory such as ~/work/conventions/ does not cause a skip. A file outside any repo has no directory
-# segments to match. git gives the prefix, so a path through a symlink still matches.
+# directory such as ~/work/conventions/ does not cause a skip. A file outside any repo has no repo root, so
+# the list matches the full path. git gives the prefix, so a path through a symlink still matches.
 case ${path##*/} in SKILL.md|CLAUDE.md|AGENTS.md) exit 0 ;; esac
-prefix=$(git -C "$(dirname "$path")" rev-parse --show-prefix 2>/dev/null || true)
-rel=$prefix${path##*/}
+if prefix=$(git -C "$(dirname "$path")" rev-parse --show-prefix 2>/dev/null); then
+  rel=$prefix${path##*/}
+else
+  rel=$path
+fi
 case "/$rel" in */conventions/*|*/agents/*|*/references/*|*/.claude/*) exit 0 ;; esac
 
 args=()
