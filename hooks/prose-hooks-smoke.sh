@@ -122,6 +122,10 @@ hook prose-pre-bash.sh "$(bash_in "$repo" 'git commit -m "a; b"')"
 eq "pre-bash event name" "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" PreToolUse
 eq "pre-bash no permissionDecision" "$(jq -r '.hookSpecificOutput | has("permissionDecision")' <<<"$out")" false
 eq "pre-bash no top-level decision" "$(jq -r 'has("decision")' <<<"$out")" false
+hook prose-pre-bash.sh "$(bash_in "$repo" "git commit -m 'don'\\''t'")"
+eq "pre-bash all-quoted multi-segment value" "$(ctx | grep -c '1 contraction')" 1
+hook prose-pre-bash.sh "$(bash_in "$repo" 'git commit -m "a; "b')"
+eq "pre-bash value with a bare part skipped" "$out" ""
 hook prose-pre-bash.sh "$(bash_in "$repo" 'git commit -m"a; b"')"
 eq "pre-bash glued value skipped" "$out" ""
 hook prose-pre-bash.sh "$(bash_in "$repo" 'git commit -m a; ls')"

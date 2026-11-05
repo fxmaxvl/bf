@@ -21,7 +21,8 @@ cmd=$(prose_field .tool_input.command)
 [ -n "$cmd" ] || exit 0
 
 # The tokenizer reads quotes and escapes and never evaluates the text. It prints the plain quoted values
-# of the handled flags, separated by a blank line. A value is skipped when it is unquoted, glued to a
+# of the handled flags, separated by a blank line. A value made only of quoted parts and backslash escapes,
+# such as 'don'\''t', is linted. A value is skipped when it has a bare part, is glued to a
 # short flag (such as -m"x"), supplied by -F or --body-file, or holds a heredoc, a command substitution
 # or a backtick. A value in the form --flag="value" is linted.
 values=$(printf '%s\n' "$cmd" | awk '
@@ -37,7 +38,7 @@ function reset() { ctx = ""; want = ""; p1 = ""; p2 = ""; g = 0 }
 function endtok(   v, flag) {
   if (!intok) return
   intok = 0
-  whole = (nseg == 1 && !tail && pre == "")
+  whole = (nseg >= 1 && !bare)
   glued = (nseg == 1 && !tail && pre ~ /^--[A-Za-z-]+=$/)
   if (want == "take") { want = ""; if (whole) add(text); p2 = p1; p1 = ""; return }
   if (want == "skip") { want = ""; p2 = p1; p1 = ""; return }
@@ -79,7 +80,7 @@ END {
       continue
     }
     if (c == sq || c == dq) {
-      if (!intok) { intok = 1; text = ""; nseg = 0; tail = 0; pre = "" }
+      if (!intok) { intok = 1; text = ""; nseg = 0; tail = 0; pre = ""; bare = 0 }
       nseg++
       if (nseg == 1) pre = text
       q = c
@@ -88,8 +89,8 @@ END {
     if (c == " " || c == "\t") { endtok(); continue }
     if (c == "\n" || c == ";" || c == "&" || c == "|" || c == "(" || c == ")") { endtok(); reset(); continue }
     if (c == "#" && !intok) { while (i < n && substr(cmd, i + 1, 1) != "\n") i++; continue }
-    if (!intok) { intok = 1; text = ""; nseg = 0; tail = 0; pre = "" }
-    if (c == bs) { c = substr(cmd, i + 1, 1); i++ }
+    if (!intok) { intok = 1; text = ""; nseg = 0; tail = 0; pre = ""; bare = 0 }
+    if (c == bs) { c = substr(cmd, i + 1, 1); i++ } else bare = 1
     text = text c
     if (nseg >= 1) tail = 1
   }
