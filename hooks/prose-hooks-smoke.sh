@@ -171,4 +171,21 @@ eq "stop no lint result writes nothing" "$(test -f "$recdir/s5" && echo yes || e
 hook prose-user-prompt.sh "$(prompt_in nothing)" BF_PROSE_RECORD_ROOT=$recroot
 eq "prompt without record" "$out" ""; eq "prompt without record exit" "$rc" 0
 
+
+# SubagentStop
+sub_in() { jq -cn --arg cwd "$1" --arg m "$2" --argjson a "$3" '{cwd:$cwd, last_assistant_message:$m, stop_hook_active:$a}'; }
+hook prose-subagent-stop.sh "$(sub_in "$plain" "one; two" false)"
+eq "subagent block decision" "$(jq -r .decision <<<"$out")" block
+eq "subagent reason names the count" "$(jq -r .reason <<<"$out" | grep -c '1 semicolon')" 1
+eq "subagent block is top-level" "$(jq -r 'has("hookSpecificOutput")' <<<"$out")" false
+eq "subagent block exit" "$rc" 0
+hook prose-subagent-stop.sh "$(sub_in "$plain" "one; two" true)"
+eq "subagent stop_hook_active guard" "$out" ""
+hook prose-subagent-stop.sh "$(sub_in "$repo" "one; two" false)"
+eq "subagent no block without prose-lint block" "$out" ""
+hook prose-subagent-stop.sh "$(sub_in "$plain" "$(nwords 300)." false)"
+eq "subagent long reply alone does not block" "$out" ""
+hook prose-subagent-stop.sh "$(sub_in "$gone" "one; two" false)"
+eq "subagent no lint result output" "$out" ""; eq "subagent no lint result exit" "$rc" 0
+
 [ "$fails" -eq 0 ]
