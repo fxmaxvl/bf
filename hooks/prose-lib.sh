@@ -45,6 +45,11 @@ prose_lint() {
   esac
 }
 
+# prose_classify <path>: prints "<mode> [ext]" for a supported path. Fails for any other path.
+prose_classify() {
+  bash "$_prose_lint_script" --classify "$1" 2>/dev/null
+}
+
 prose_digest() {
   bash "$_prose_lint_script" --digest --cwd "$1" 2>/dev/null
 }

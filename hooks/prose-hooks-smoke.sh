@@ -79,6 +79,8 @@ hook prose-post-write.sh "$(write_in "$repo" Write "$repo/a.ts" content $'  #cou
 eq "post-write ts private field" "$out" ""
 hook prose-post-write.sh "$(write_in "$repo" Write "$repo/a.sh" content $'echo hi\n# one; two')"
 eq "post-write sh comment hit" "$(ctx | grep -c '1 semicolon')" 1
+hook prose-post-write.sh "$(write_in "$repo" Write "$repo/a.js" content $'// one; two')"
+eq "post-write js comment hit (mode from lint)" "$(ctx | grep -c '1 semicolon')" 1
 hook prose-post-write.sh "$(write_in "$repo" Write "$repo/a.json" content "A${dash}B")"
 eq "post-write json skipped" "$out" ""
 hook prose-post-write.sh "$(write_in "$gone" Write "$gone/README.md" content "A${dash}B.")"

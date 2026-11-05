@@ -19,15 +19,9 @@ case $tool in
 esac
 [ -n "$path" ] && [ -n "$text" ] || exit 0
 
-ext=
-case $path in
-  *.md|*.markdown|*.txt) mode=file ;;
-  *.sh) mode=comment ext=sh ;;
-  *.py) mode=comment ext=py ;;
-  *.ts) mode=comment ext=ts ;;
-  *.js) mode=comment ext=js ;;
-  *) exit 0 ;;
-esac
+# The lint owns the list of supported files. An unsupported path ends the hook.
+cls=$(prose_classify "$path") || exit 0
+read -r mode ext <<<"$cls"
 
 cwd=$(prose_cwd)
 

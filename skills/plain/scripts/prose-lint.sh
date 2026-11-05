@@ -4,12 +4,15 @@
 # Usage: prose-lint.sh <file|-> [--mode file|chat|commit|comment] [--rules <prose.md>]
 #                      [--cwd <dir>] [--ext sh|py|ts|js] [--format text|json]
 #        prose-lint.sh --digest [--rules <prose.md>] [--cwd <dir>]
+#        prose-lint.sh --classify <path>
 #        prose-lint.sh --selftest
 # Output: json: one object {hard:{em_dash,semicolon,contraction}, soft:{replace,banned,long_sentence},
 #         words, long_reply, rules_block, summary, hard_summary}. hard_summary counts only the markers in
 #         the hard list. rules_block is true when the resolved file has a
 #         prose-lint block. text: one finding per line, "<line>: <marker>: <text>". --digest prints the
 #         Self-lint section of the resolved prose.md.
+#         --classify prints the mode and extension for a path ("file" or "comment sh"), and exits 1 with
+#         no output when the lint does not support the path. This script owns the list of supported files.
 # Exit:   0 no hard marker, 1 at least one hard marker, 2 usage or runtime error. Only a hard marker
 #         decides the exit code, never a score or a ratio, and a soft finding never does.
 # Errors: {"error":...,"detail":...} on stderr + exit 2.
@@ -101,6 +104,12 @@ EOF
   lint_text "one; two${dash}x" --rules "$dashonly" --format json
   eq "hard summary only lists hard-list markers" "$(jf .hard_summary)" "1 em dash"
 
+  # classify
+  run --classify a/b.md; eq "classify md" "$out" file
+  run --classify a/b.sh; eq "classify sh" "$out" "comment sh"
+  run --classify a/b.js; eq "classify js" "$out" "comment js"
+  run --classify a/b.json; eq "classify unsupported output" "$out" ""; eq "classify unsupported exit" "$rc" 1
+
   # usage errors
   run --rules "$full"; eq "no input exits 2" "$rc" 2
   run "$tmp/missing.md" --rules "$full"; eq "unreadable file exits 2" "$rc" 2
@@ -188,6 +197,19 @@ if [ "${1:-}" = "--selftest" ]; then
   command -v jq >/dev/null 2>&1 || die jq_missing "jq not installed"
   selftest
   exit $?
+fi
+
+if [ "${1:-}" = "--classify" ]; then
+  [ $# -eq 2 ] || die usage "--classify needs one path"
+  case $2 in
+    *.md|*.markdown|*.txt) echo file ;;
+    *.sh) echo comment sh ;;
+    *.py) echo comment py ;;
+    *.ts) echo comment ts ;;
+    *.js) echo comment js ;;
+    *) exit 1 ;;
+  esac
+  exit 0
 fi
 
 command -v jq >/dev/null 2>&1 || { printf '{"error":"jq_missing","detail":"jq not installed"}\n' >&2; exit 2; }
