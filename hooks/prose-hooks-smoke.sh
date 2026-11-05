@@ -2,7 +2,7 @@
 # Smoke test for the prose hooks. Runs each hook script with sample hook input in a throwaway HOME and repo.
 #
 # Usage: prose-hooks-smoke.sh
-# Output: one PASS/FAIL line per case; exit 0 when every case passes, 1 otherwise.
+# Output: one PASS or FAIL line per case. Exit 0 when every case passes, 1 otherwise.
 set -euo pipefail
 
 hooks=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
