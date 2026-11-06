@@ -59,7 +59,8 @@ modules=$(jq -R -s '
 
 # One row per signal: group id regex. POSIX ERE matched case-insensitively. A word boundary is spelled
 # (^|[^[:alnum:]_])...([^[:alnum:]_]|$) because BSD grep has no \b. Fields split on whitespace, so a
-# regex must use [[:space:]] and never a literal space.
+# regex must use [[:space:]] and never a literal space. The unowned rows own the bug-class ids; the smoke
+# check keeps the SKILL.md class table equal to them.
 signals() {
   cat <<'SIGNALS'
 lens errors (^|[^[:alnum:]_])(try|catch|except|finally|rescue|throw|raise|retry|retries)([^[:alnum:]_]|$)|err[[:space:]]*!=[[:space:]]*nil|[|][|][[:space:]]*true|2>/dev/null

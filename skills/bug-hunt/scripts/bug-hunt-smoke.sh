@@ -54,7 +54,6 @@ out=$(bash "$init")
 check "profile: branch scope counts added and removed lines" "$(q "$out" '.profile.lines_changed == {"added":1,"removed":0}')"
 bogus=$(bash "$init" --lenses bogus | jq -r '.detail | sub(".*valid: "; "") | rtrimstr(")") | split(" ") | sort | @json')
 check "profile: lens keys match the LENSES list" "$(q "$out" ".profile.lenses | keys == $bogus")"
-check "profile: unowned class keys" "$(q "$out" '.profile.unowned | keys == ["cache-invalidation","numeric-precision","resource-leak","time"]')"
 table_ids() { # table name: the backticked ids in the first column of the SKILL.md table headed "| id | <name> |"
   awk -v h="| id | $1 |" 'index($0, h) == 1 { on = 1; next } on && /^\|/ { if ($0 !~ /^\|[-| ]+\|$/) { split($0, c, "`"); print c[2] } next } { on = 0 }' "$skill" | sort | tr '\n' ' '
 }
