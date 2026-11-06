@@ -86,6 +86,25 @@ When `profile` is `null`, the line is `Profile: unavailable`. Then one line per 
 
 With an override, the signal part is `signal: --lenses`. With a judgment pick, it is `signal: none, judged from the file list`.
 
+### Missing-lens check
+
+Some bug classes have no lens. The check flags the ones the scope shows signs of. It runs on every hunt, also when `lenses` is set, because it is about classes no lens owns and not about the pick. It is skipped only when `profile` is `null`. A suggestion is only reported. Never run it and never invent a hunter for it.
+
+`profile.suggestions` lists the class ids to report. A class is listed when `profile.unowned.<id>` is at least 1 and at least a tenth of `profile.scanned`. The classes are:
+
+| id | Class | Covers | Signal |
+|----|-------|--------|--------|
+| `resource-leak` | Resource leaks | file handles, sockets, pools and listeners that are not closed | open, stream, socket, pool and listener calls |
+| `time` | Time and timezone | clock reads, timezone conversion and date math | date and time API calls |
+| `numeric-precision` | Numeric precision | float rounding, money math and integer overflow | float parsing and rounding calls |
+| `cache-invalidation` | Cache invalidation | eviction, TTL and cache keys that outlive the data. `concurrency` already owns a stale snapshot read after a change | cache, memo and TTL code |
+
+The suggestion output is one line per listed class:
+
+`Lens suggestion: <id> (<covers>). No current lens owns it. Signal: <n> of <scanned> files have <signal>.`
+
+`<n>` is `profile.unowned.<id>` and `<scanned>` is `profile.scanned`. When nothing is listed, or the check was skipped, the output is the single line `Lens suggestions: none`. Every later mention of the suggestion output means these lines or this line. Print it right after the pick lines.
+
 ## Phase 2 — Hunt (parallel fan-out)
 
 Spawn every hunter in **one message** per **Parallel Fan-Out**: `Agent`, `subagent_type: general-purpose`, `model: opus`, named `hunter-<lens>` (`hunter-<lens>-2` for a repeat). Each prompt carries:
@@ -104,7 +123,7 @@ Wait for every hunter. Right after the spawn, start the silent-agent watch from 
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" merge "<run_dir>"
 ```
 
-It dedupes on file and anchored line ±2, counts `sources` by distinct hunter (never by lens), drops nothing, and packs directory groups into at most 6 verifier `batches`. Hunters in its `invalid` list are coverage gaps too. Zero findings → skip Phases 4 and 5 and report "No findings" with the coverage section.
+It dedupes on file and anchored line ±2, counts `sources` by distinct hunter (never by lens), drops nothing, and packs directory groups into at most 6 verifier `batches`. Hunters in its `invalid` list are coverage gaps too. Zero findings → skip Phases 4 and 5 and report "No findings" with the Coverage and Lens suggestions sections.
 
 ## Phase 4 — Verify (parallel fan-out)
 
@@ -182,17 +201,20 @@ Severity · Location · Lenses · Verdict
 ## Coverage
 <lenses run; coverage gaps (failed hunters, invalid output, failed batches); stray files in `ignored`; analysis failure ("analysis failed twice: <detail>. No groups."); hunters_capped note>
 
+## Lens suggestions
+<the suggestion output>
+
 ## Handoff
 <filled in after Phase 7>
 ```
 
 Folded ids leave the table and have no Details entry of their own. Their location appears under the kept finding's Details and the group's Members.
 
-Print to the conversation: the report path, one line per group (`G1 · <kind> · <title> · <member ids>`), the Findings table, and the coverage gaps.
+Print to the conversation: the report path, one line per group (`G1 · <kind> · <title> · <member ids>`), the Findings table, the coverage gaps, and the suggestion output.
 
 ## Phase 7 — Handoff
 
-**Embedded:** ask nothing. If `SESSION_LOG` is set, append a `## Bug Hunt` block (report path, counts, coverage gaps) using the block-write pattern in `plugin-main.md`. Return:
+**Embedded:** ask nothing. If `SESSION_LOG` is set, append a `## Bug Hunt` block (report path, counts, coverage gaps, the suggestion output) using the block-write pattern in `plugin-main.md`. Return:
 
 ```
 report_path: <absolute path>
@@ -200,6 +222,7 @@ final_json: <run_dir>/final.json
 counts: <confirmed / refined / pre-existing / rejected / unverified; groups / folded> (verdict counts include folded findings, so folded is a subset)
 analyzed_json: <run_dir>/analyzed.json
 coverage_gaps: <list or none>
+lens_suggestions: <class ids, or none>
 ```
 
 **Standalone, with at least one confirmed or refined finding:** ask exactly one question:
@@ -225,7 +248,8 @@ Record the choice under `## Handoff` in the report before invoking anything. No 
 | `counts.surviving` below 2 | Skip the analyst; run `analyze` on an empty analysis. No groups, no `## Root causes`, F ids only in the handoff. |
 | Analyst fails twice or `findings.sh analyze` errors twice | Run `analyze` on an empty analysis, note it under Coverage, hand off with F ids only. The hunt does not fail. |
 | Hunter or verifier fails twice | Continue; its lens or batch is a coverage gap in the report. Its findings stay `unverified`. |
-| Every hunter failed | Write the report with only the Coverage section and stop — no verify phase, no handoff. |
+| Every hunter failed | Write the report with only the Coverage and Lens suggestions sections and stop — no verify phase, no handoff. |
+| `profile` is `null` (the profile helper failed) | Pick lenses by judgment, skip the missing-lens check, and add one line under Coverage. The suggestion output is `Lens suggestions: none`. |
 | More than 6 directories with findings | `findings.sh merge` packs neighbours into ≤6 batches; never drop findings to fit. |
 | A hunter or verifier edits project files | Out of contract: note it under Coverage and tell the user which files changed; never commit them. |
 | User asks to also review conventions or complexity | Out of scope — point to `/bf:review`. |

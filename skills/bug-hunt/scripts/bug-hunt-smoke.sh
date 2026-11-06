@@ -58,6 +58,8 @@ table_ids() { # table name: the backticked ids in the first column of the SKILL.
   awk -v h="| id | $1 |" 'index($0, h) == 1 { on = 1; next } on && /^\|/ { if ($0 !~ /^\|[-| ]+\|$/) { split($0, c, "`"); print c[2] } next } { on = 0 }' "$skill" | sort | tr '\n' ' '
 }
 check "profile: lens keys match the SKILL.md lens table" "$([ "$(table_ids Lens)" = "$(jq -r '.profile.lenses | keys | join(" ") + " "' <<< "$out")" ]; echo $?)"
+check "profile: class keys match the SKILL.md class table" "$([ "$(table_ids Class)" = "$(jq -r '.profile.unowned | keys | join(" ") + " "' <<< "$out")" ]; echo $?)"
+check "SKILL.md report template: Lens suggestions sits between Coverage and Handoff" "$(awk '/^## Coverage$/ { c = NR } /^## Lens suggestions$/ { l = NR } /^## Handoff$/ { h = NR } END { exit !(c && l > c && h > l) }' "$skill"; echo $?)"
 check "profile: every file kind key is present" "$(q "$out" '.profile.file_kinds | keys == ["code","config","docs","other","skill","style","test"]')"
 check "help text names the profile key" "$(bash "$init" --help | grep -q profile; echo $?)"
 
