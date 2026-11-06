@@ -3,7 +3,7 @@ name: session-summary
 description: Create a summary of the current session with efficiency insights and observations, and check where a hook could have caught a problem.
 model: sonnet
 disable-model-invocation: true
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(mkdir *), Bash(gh issue create *), WebFetch(domain:code.claude.com)
+allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(mkdir *), WebFetch(domain:code.claude.com)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
@@ -78,7 +78,7 @@ The candidates are the Step 2 insights and the bf hook candidates. Setup hooks a
 
 > "Want me to file these as a single GitHub issue on `fxmaxvl/bf`? (yes/no)"
 
-If the user says yes, create one consolidated issue:
+If the user says yes, create one consolidated issue. The pre-approval in `allowed-tools` clears when the user answers, so Claude Code asks for permission before `gh issue create` runs. That prompt is expected, and it is the right check before a public post.
 
 ```
 gh issue create \
