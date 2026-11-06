@@ -28,7 +28,8 @@ command -v jq >/dev/null || { printf '{"error":"no_jq","detail":"jq is required"
 diff_file="${1:-}"
 existing=$(while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done)
 
-# Prompt-like files (SKILL.md, conventions, agents) are code here because the flow lens hunts them.
+# Prompt-like files (SKILL.md, conventions, agents) are kind skill. They are grepped for lens signals
+# but not for bug classes. The flow lens hunts them.
 # Docs, style and other files are not grepped: a README that says "cache" is not a cache.
 kinds=""
 [ -z "$existing" ] || kinds=$(jq -R -r '
