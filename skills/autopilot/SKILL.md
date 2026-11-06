@@ -80,8 +80,6 @@ Run the target skill's full workflow using `target_args` as `$ARGUMENTS`, with t
 
 **Hard rule — a descriptive deliverable stays descriptive:** apply **An embedded question stays embedded** from `plugin-main.md`. The oracle resolves decisions *encountered while producing* the deliverable; it never promotes a clause of the request into the task. Check the target skill's framing against the request's named artifact before its first phase.
 
-**Cycle limit with only trivial findings left:** when a review or audit loop in the target skill reaches its cycle limit and the skill says to stop (for example "Max review cycles reached" or "Max audit cycles reached"), read the findings that remain first. If every one is a trivial fix, call `decide` with `A) apply them inline and continue | B) stop as the skill says`. A trivial fix names its exact change, touches one line or one short block in one file, and changes no design or behaviour beyond what the finding states. On A, apply them yourself, re-run the phase's checks the skill names for that code (tests, smoke scripts or lint), log the verdict in the session log, and continue to the next phase. If a check fails, or if any finding is not trivial, stop as the skill says. The skill's own stop stays in force for interactive runs. This rule applies only under autopilot.
-
 Do not stop. Do not wait. Resolve every decision via an oracle and continue.
 
 ## Step 4 — Picking the oracle
