@@ -17,6 +17,8 @@
 # the session started (state-ops.sh paths.untracked_baseline). Untracked files not in it were made
 # during the session and are staged too. Without --baseline, every untracked file needs --add.
 # --add takes paths relative to the current directory or absolute. It skips paths under .bf/.
+# An untracked directory that holds its own .git (a nested clone or a worktree) is skipped unless
+# named with --add, so it cannot land in the commit as a gitlink.
 #
 # Exit 3: untracked files outside .bf/ that are neither named with --add nor new since the
 # baseline. The list goes to stderr. Rerun with --add for the files that belong to the change, or
@@ -117,6 +119,10 @@ fi
 STAGE=(${NAMED[@]+"${NAMED[@]}"})
 STRAY=()
 while IFS= read -r -d '' F; do
+    if [[ "$F" == */ && -e "${F}.git" ]]; then
+        echo "Note: skipping $F: it is a nested git repo." >&2
+        continue
+    fi
     in_list "$F" ${NAMED[@]+"${NAMED[@]}"} && continue
     if [[ -n "$BASELINE" ]] && ! in_list "$F" ${AT_START[@]+"${AT_START[@]}"}; then
         STAGE+=("$F")

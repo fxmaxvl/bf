@@ -111,6 +111,17 @@ rc=0; finalize --baseline "$tmp/no-such-file" || rc=$?
 eq "missing baseline file -> strict mode, exit 3" "$rc" 3
 rm old-stray.md n2.txt
 
+: > "$tmp/empty-baseline"
+git worktree add -q .worktrees/w
+git init -q inner && (cd inner && git commit -q --allow-empty -m i)
+echo fresh > fresh.txt
+rc=0; finalize --baseline "$tmp/empty-baseline" || rc=$?
+eq "nested repos -> no exit 3" "$rc" 0
+eq "nested repos skipped, normal new file staged" "$(git show --name-only --format= HEAD)" "fresh.txt"
+eq "nested repos -> no gitlink in the index" "$(git ls-files -s | grep -c '^160000' || true)" 0
+eq "nested repos -> both noted" "$(grep -c 'nested git repo' "$tmp/err")" 2
+git worktree remove .worktrees/w && rm -rf .worktrees inner
+
 before=$(head_sha)
 echo r2 > .bf/reviews/r2.md
 mkdir -p .bf/audit && echo a > .bf/audit/a.md
