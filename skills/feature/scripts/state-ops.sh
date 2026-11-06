@@ -18,6 +18,7 @@
 #   phase_status=in_progress
 #   artifacts.plan=20260409T14-dark-mode-session-log.md
 #   collect_todos=true
+#   commit_only=true
 #   jira.enabled=true
 #
 # Boolean values (true/false) and null are written as JSON primitives, not strings.
@@ -143,6 +144,7 @@ def read_output(root, state):
         'auto_fix_style':  state.get('auto_fix_style', AUTO_FIX_STYLE_DEFAULT),
         'skip_plan_gates': state.get('skip_plan_gates', SKIP_PLAN_GATES_DEFAULT),
         'collect_todos':   state.get('collect_todos'),
+        'commit_only':     state.get('commit_only'),
         'audit_started_at': state.get('audit_started_at'),
         'pending_fixes':   state.get('pending_fixes'),
         'fix_base':        state.get('fix_base'),
@@ -247,6 +249,7 @@ if args and args[0] == '--init':
             'pending_questions': None,
         },
         'collect_todos': None,
+        'commit_only': None,
         **read_config(),
         'artifacts': {'spec': None, 'plan': None, 'todo': None, 'backlog': None},
         'created_at': iso_now,

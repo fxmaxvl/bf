@@ -124,7 +124,7 @@ BF_ARGS
 
 3. If `has_state` is `true`: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` to load state and resume:
    - If `phase_status` is `"awaiting_approval"`:
-     - If `phase` is `"finalize"`: re-ask the pre-finalization gate per Phase 6 step 2 (one question in quick mode, two in full mode). If not ready: exit. If ready: set `phase_status` to `"in_progress"`, save `collect_todos` per Phase 6 step 2 (user's answer in full mode, `false` automatically in quick mode), update state, continue Phase 6 from step 3 (skip silent verify — it already passed).
+     - If `phase` is `"finalize"`: re-ask the pre-finalization gate per Phase 6 step 2 (one question in quick mode, two in full mode). If not ready: exit. If ready: set `phase_status` to `"in_progress"` and save `collect_todos` and `commit_only` per Phase 6 step 2. In quick mode `collect_todos` is `false`. Then continue Phase 6 from step 3, and skip the silent verify, because it already passed.
      - Otherwise: ask "Paused before [current phase]. Ready to proceed?" — if yes, set `phase_status` to `"in_progress"`, update state, execute the current phase; if no, exit
    - Otherwise: resume the current phase from where it left off. **Note:** when `parallel_audit` is `true`, `phase=verify phase_status=in_progress` after Phase 4.5 completes means the orchestrator is about to enter the audit-stack fan-out in Phase 4.75 — resume goes directly into Phase 4.75 (not a mid-fan-out partial state). When `parallel_audit` is `false`, `phase=review-impl phase_status=in_progress` means the sequential complexity+consistency gates in Phase 4.75 are complete — resume re-enters Phase 5 as usual. If `pending_fixes` is non-null, do not redo the scan: apply the transient-error rule in **Error Recovery** (re-spawn the fix agent of the current loop — Phase 5 when `phase=review-impl`, else Phase 4.75 — with only those IDs), then continue that loop at its step 1.
 
@@ -435,18 +435,18 @@ Print banner: `── feature | Finalize ─────────────
    **If `mode != "quick"` (full mode):** Ask the user one question at a time:
    1. Ask: "Ready to finalize (commit, push, PR)? Reply `yes`, `commit only` to commit locally without a push or PR, or `no`."
       - If no: **Exit** (re-invoke `/bf:feature` when ready).
-      - If `commit only`: treat it as yes, and pass `--commit-only` in step 5.
+      - If `commit only`: treat it as yes. Save `commit_only=true` with the next state write. A `yes` saves `commit_only=false`.
       - If yes: continue to next question.
    2. Ask: "Should I scan for TODO comments and collect them to the backlog after?"
       - Save the answer in state as `collect_todos: true/false` so it survives session interruptions.
-   Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=<true|false>` — continue.
+   Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=<true|false> commit_only=<true|false>`, then continue.
 
    **If `mode == "quick"` (quick mode):**
    1. Ask: "Ready to finalize (commit, push, PR)? Reply `yes`, `commit only` to commit locally without a push or PR, or `no`."
       - If no: **Exit** (re-invoke `/bf:feature` when ready).
-      - If `commit only`: treat it as yes, and pass `--commit-only` in step 5.
+      - If `commit only`: treat it as yes. Save `commit_only=true` with the next state write. A `yes` saves `commit_only=false`.
       - If yes: continue.
-   Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=false` — continue. (TODO scanning is always skipped in quick mode.)
+   Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=false commit_only=<true|false>`, then continue. (TODO scanning is always skipped in quick mode.)
 3. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions. Resolve and act on it before composing the commit.
 4. **Compose commit message and PR content** (reasoning — model writes this):
    - **Commit message:** `feat:` prefix with a concise description. Include issue/ticket if enabled (e.g., `feat(#12): address review concerns`, `feat(PROJ-123): address review concerns`).
@@ -460,7 +460,7 @@ Print banner: `── feature | Finalize ─────────────
      --pr-title "<pr title>" \
      --pr-body "<pr body text>" \
      --baseline <paths.untracked_baseline> \
-     [--commit-only]                          # only if the gate answer was commit only \
+     [--commit-only]                          # only if state commit_only is true \
      [--add <path>]...                        # only on a rerun after exit 3 \
      [--leave-untracked]                      # only on a rerun after exit 3 \
      [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
@@ -473,10 +473,10 @@ Print banner: `── feature | Finalize ─────────────
    **Exit 4** means the branch already has a MERGED or CLOSED PR, so a push would never reach the base branch. Nothing was staged or pushed. Show the stderr and follow its recovery, then rerun. For MERGED, it prints the commands that move only the post-merge commits onto the base. For CLOSED, it says to reopen the PR or branch from HEAD.
    **Exit 5** means gh could not read the PR state, for example on an auth failure. Nothing was staged or pushed. Show the stderr, ask the user to fix gh (`gh auth status`), and rerun.
    **Exit 6** means the commit and the push are done, but the PR step failed. Do not create a new branch. Show the stderr, ask the user to fix gh, then rerun to open or update the PR.
-6. **If `jira.enabled` is `true` and the run was not `--commit-only`:**
+6. **If `jira.enabled` is `true` and state `commit_only` is not `true`:**
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-7. Tell the user: "The PR is open at <pr_url>. The build is complete." After `--commit-only`, say instead: "The change is committed locally. Nothing was pushed and no PR was opened." When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
+7. Tell the user: "The PR is open at <pr_url>. The build is complete." When state `commit_only` is `true`, say instead: "The change is committed locally. Nothing was pushed and no PR was opened." When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
 8. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=collect-todos phase_status=in_progress
    ```

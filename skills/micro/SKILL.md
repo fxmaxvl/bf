@@ -53,7 +53,8 @@ git rev-parse --show-toplevel
 
 If `.bf/sessions/build-state.json` exists at the git root:
 - Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` to load state
-- If `phase_status` is `"awaiting_approval"`: ask "Paused before [current phase]. Ready to proceed?" — if yes, set `phase_status=in_progress`, continue; if no, exit
+- If `phase_status` is `"awaiting_approval"` and `phase` is `"finalize"`: ask the finalize gate question again (Finalize step 2), and save its answer the same way.
+- If `phase_status` is `"awaiting_approval"` in any other phase: ask "Paused before [current phase]. Ready to proceed?" If yes, set `phase_status=in_progress` and continue. If no, exit.
 - Otherwise: resume the current phase
 
 If not found: start from Phase 0.
@@ -205,9 +206,9 @@ Print banner: `── micro | Finalize ─────────────�
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=awaiting_approval
    ```
-   Ask: "Ready to finalize (commit, push, PR)?"
+   Ask: "Ready to finalize (commit, push, PR)? Reply `yes`, `commit only` to commit locally without a push or PR, or `no`."
    - If no: **Exit** (re-invoke `/bf:micro` when ready).
-   - If yes: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress` — continue.
+   - If yes or `commit only`: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress commit_only=<true|false>` (`true` for `commit only`), then continue. A session that shares the branch and does not own push and PR answers `commit only`.
 3. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions. Resolve and act on it before committing.
 4. **Compose commit message and PR content** (reasoning — model writes this), following the `git` convention (resolved via the lookup in `plugin-main.md`):
    - **Commit message**: `refactor:` prefix with a concise description. If `github_issue.enabled`, include the issue number (e.g., `refactor(#12): split processOrder into smaller methods`); if `jira.enabled`, include the ticket key.
@@ -226,21 +227,23 @@ Print banner: `── micro | Finalize ─────────────�
    PRBODY
    )" \
      --baseline <paths.untracked_baseline> \
+     [--commit-only]                          # only if state commit_only is true \
      [--add <path>]...                        # only on a rerun after exit 3 \
      [--leave-untracked]                      # only on a rerun after exit 3 \
      [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
      [--jira-url <jira.ticket_url>]           # only if jira.enabled
    ```
+   With `--commit-only` the script stops after the commit: it does not push, open a PR or print a URL. With target repos, a true `commit_only` skips the push and PR commands above.
    The script stages tracked edits, every untracked file made since the session started (anything not in `paths.untracked_baseline`), the `--add` files and `.bf/conventions/`. It commits if there are changes, pushes, creates the PR, and outputs the PR URL.
    **Exit 3** means files that were already untracked when the session started are still untracked. The script lists them on stderr and has staged and pushed nothing. Show the list and ask which of them belong to the change (one question). Rerun with `--add` for those, plus `--leave-untracked` when any remain. Under `/bf:autopilot`, rerun with `--leave-untracked`: a file that was there before the session never goes into the commit unasked.
    **Exit 1** with a git error means an `--add` path is missing, ignored, or outside the repo. Nothing was staged. Drop that path and rerun.
    **Exit 4** means the branch already has a MERGED or CLOSED PR, so a push would never reach the base branch. Nothing was staged or pushed. Show the stderr and follow its recovery, then rerun. For MERGED, it prints the commands that move only the post-merge commits onto the base. For CLOSED, it says to reopen the PR or branch from HEAD.
    **Exit 5** means gh could not read the PR state, for example on an auth failure. Nothing was staged or pushed. Show the stderr, ask the user to fix gh (`gh auth status`), and rerun.
    **Exit 6** means the commit and the push are done, but the PR step failed. Do not create a new branch. Show the stderr, ask the user to fix gh, then rerun to open or update the PR.
-6. If `jira.enabled`:
+6. If `jira.enabled` and state `commit_only` is not `true`:
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-7. Tell the user: "PR is up at <pr_url>. Build complete!" For target repos, list one PR URL per repo. When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
+7. Tell the user: "PR is up at <pr_url>. Build complete!" For target repos, list one PR URL per repo. When state `commit_only` is `true`, say instead: "The change is committed locally. Nothing was pushed and no PR was opened." When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
 8. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=done phase_status=in_progress
    ```
