@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Profile a hunt scope: size, file kinds, per-lens signal counts and the bug classes no lens owns.
 #
-# Usage: profile.sh [diff_file]
+# Usage: HUNT_LENSES="<id> <id>..." profile.sh [diff_file]
+#   HUNT_LENSES: the lens ids, space separated. hunt-init.sh owns the list. Every id except logic needs a
+#          "lens" row in signals(), else the script fails with no_signal.
 #   stdin: newline-separated repo-relative paths. Cwd is the repo root. Paths that are not regular
 #          files (deleted in the diff) are dropped before anything is counted.
 #   diff_file: optional unified diff. It only feeds lines_changed.
@@ -10,7 +12,7 @@
 #   code or config: the only files grepped for the unowned classes, and the denominator of the suggestion
 #   rule; the lens counts also grep test and skill files),
 #   modules (distinct first path segments, a root-level file counts as "."), file_kinds (code, test, docs,
-#   skill, config, style, other), lenses (one count per lens id), unowned (one count per bug class no
+#   skill, config, style, other), lenses (one count per HUNT_LENSES id), unowned (one count per bug class no
 #   lens owns), suggestions (unowned classes with count >= 1 and count * 10 >= scanned, table order).
 #   Every count is a number of files with at least one matching line. lenses.logic is the number of code,
 #   test and skill files. lenses.contracts is at least 1 when the scope spans 2 or more modules.
@@ -22,6 +24,7 @@ if [ "${1:-}" = -h ] || [ "${1:-}" = --help ]; then
 fi
 command -v jq >/dev/null || { printf '{"error":"no_jq","detail":"jq is required"}\n'; exit 1; }
 
+[ -n "${HUNT_LENSES:-}" ] || { printf '{"error":"no_lenses","detail":"set HUNT_LENSES to the lens id list"}\n'; exit 1; }
 diff_file="${1:-}"
 existing=$(while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done)
 
@@ -72,6 +75,11 @@ unowned cache-invalidation (^|[^[:alnum:]_])(cache|memoize|ttl|evict|lru|redis)(
 SIGNALS
 }
 
+for id in $HUNT_LENSES; do
+  [ "$id" = logic ] || signals | grep -q "^lens $id " ||
+    { printf '{"error":"no_signal","detail":"lens %s has no signal row"}\n' "$id"; exit 1; }
+done
+
 counts=$(signals | while read -r group id re; do
   list=$scan_list; [ "$group" = unowned ] && list=$class_list
   n=$(printf '%s\n' "$list" | tr '\n' '\0' | xargs -0 grep -lIiE -e "$re" -- /dev/null 2>/dev/null | grep -c . || true)
@@ -85,7 +93,7 @@ if [ -n "$diff_file" ] && [ -r "$diff_file" ]; then
   lines_changed=$(jq -nc --argjson a "$added" --argjson r "$removed" '{added: $a, removed: $r}')
 fi
 
-jq -nc --argjson lines "$lines_changed" --argjson scanned "$scanned" --argjson modules "$modules" \
+jq -nc --arg ids "$HUNT_LENSES" --argjson lines "$lines_changed" --argjson scanned "$scanned" --argjson modules "$modules" \
   --argjson kinds "$file_kinds" --arg counts "$counts" '
   ($counts | split("\n") | map(select(length > 0) | split("\t"))) as $rows
   | ([$rows[] | select(.[0] == "lens") | {key: .[1], value: (.[2] | tonumber)}] | from_entries) as $lens

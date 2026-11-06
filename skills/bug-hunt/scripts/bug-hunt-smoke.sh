@@ -63,6 +63,10 @@ check "profile: class keys match the SKILL.md class table" "$(same "$(table_ids 
 check "SKILL.md report template: Lens suggestions sits between Coverage and Handoff" "$(same "$(awk '/^## Coverage$/ { c = NR } /^## Lens suggestions$/ { l = NR } /^## Handoff$/ { h = NR } END { print (c && l > c && h > l) ? "ok" : "bad" }' "$skill")" ok)"
 check "profile: every file kind key is present" "$(q "$out" '.profile.file_kinds | keys == ["code","config","docs","other","skill","style","test"]')"
 check "help text names the profile key" "$(same "$(bash "$init" --help | grep -q profile && echo y)" y)"
+out=$(echo lib/b.js | HUNT_LENSES="logic bogus" bash "$here/profile.sh")
+check "profile: a lens id with no signal row is an error" "$(q "$out" '.error == "no_signal"')"
+out=$(echo lib/b.js | env -u HUNT_LENSES bash "$here/profile.sh")
+check "profile: missing HUNT_LENSES is an error" "$(q "$out" '.error == "no_lenses"')"
 
 # A second repo keeps the $tmp/r assertions (file_count, files) valid.
 mkdir -p "$tmp/sig-origin/src" "$tmp/sig-origin/web" "$tmp/sig-origin/skills/x" "$tmp/sig-origin/docs"

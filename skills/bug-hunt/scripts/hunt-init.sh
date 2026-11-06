@@ -131,7 +131,7 @@ count=$(jq 'length' <<< "$files_json")
 
 # Advisory: a failed helper must not stop a hunt, so the key degrades to null.
 diff_path=$(jq -r '. // empty' <<< "$diff_file")
-profile_json=$(jq -r '.[]' <<< "$files_json" | bash "$here/profile.sh" "$diff_path" 2>/dev/null) || profile_json=null
+profile_json=$(jq -r '.[]' <<< "$files_json" | HUNT_LENSES="$LENSES" bash "$here/profile.sh" "$diff_path" 2>/dev/null) || profile_json=null
 jq -e type <<< "$profile_json" >/dev/null 2>&1 || profile_json=null
 
 stamp=$(date +%Y%m%d-%H%M%S)
