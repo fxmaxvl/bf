@@ -30,4 +30,13 @@ mkdir -p .bf/sessions && echo s > .bf/sessions/s.md
 git init -q nested
 eq "uncommitted and untracked listed, .bf/ and nested repo left out" "$(files)" "committed.txt,edited.txt,untracked.txt"
 
+echo o > old-stray.txt
+printf '{"build_timestamp":"20260101T00","slug":"s"}' > .bf/sessions/build-state.json
+printf 'old-stray.txt\0nested/\0' > .bf/sessions/20260101T00-s-untracked-at-start
+eq "a stray in the session baseline is left out" "$(files)" "committed.txt,edited.txt,untracked.txt"
+
+echo x > "café.txt"
+git init -q "résumé"
+eq "a non-ASCII name is listed unquoted and a non-ASCII nested repo is left out" "$(files)" "café.txt,committed.txt,edited.txt,untracked.txt"
+
 [ "$fails" -eq 0 ]
