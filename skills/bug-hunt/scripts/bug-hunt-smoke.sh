@@ -19,6 +19,7 @@ check() { # name, condition-exit-status
   if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1"; fail=1; fi
 }
 q() { jq -e "$2" <<< "$1" >/dev/null; echo $?; }
+same() { [ "$1" = "$2" ]; echo $?; }
 
 mkdir -p "$tmp/origin" && cd "$tmp/origin" && git init -q -b main . && git config user.email t@t && git config user.name t
 mkdir -p src/api lib && echo a > src/api/a.js && echo b > lib/b.js && git add . && git commit -qm init
@@ -57,11 +58,11 @@ check "profile: unowned class keys" "$(q "$out" '.profile.unowned | keys == ["ca
 table_ids() { # table name: the backticked ids in the first column of the SKILL.md table headed "| id | <name> |"
   awk -v h="| id | $1 |" 'index($0, h) == 1 { on = 1; next } on && /^\|/ { if ($0 !~ /^\|[-| ]+\|$/) { split($0, c, "`"); print c[2] } next } { on = 0 }' "$skill" | sort | tr '\n' ' '
 }
-check "profile: lens keys match the SKILL.md lens table" "$([ "$(table_ids Lens)" = "$(jq -r '.profile.lenses | keys | join(" ") + " "' <<< "$out")" ]; echo $?)"
-check "profile: class keys match the SKILL.md class table" "$([ "$(table_ids Class)" = "$(jq -r '.profile.unowned | keys | join(" ") + " "' <<< "$out")" ]; echo $?)"
-check "SKILL.md report template: Lens suggestions sits between Coverage and Handoff" "$(awk '/^## Coverage$/ { c = NR } /^## Lens suggestions$/ { l = NR } /^## Handoff$/ { h = NR } END { exit !(c && l > c && h > l) }' "$skill"; echo $?)"
+check "profile: lens keys match the SKILL.md lens table" "$(same "$(table_ids Lens)" "$(jq -r '.profile.lenses | keys | join(" ") + " "' <<< "$out")")"
+check "profile: class keys match the SKILL.md class table" "$(same "$(table_ids Class)" "$(jq -r '.profile.unowned | keys | join(" ") + " "' <<< "$out")")"
+check "SKILL.md report template: Lens suggestions sits between Coverage and Handoff" "$(same "$(awk '/^## Coverage$/ { c = NR } /^## Lens suggestions$/ { l = NR } /^## Handoff$/ { h = NR } END { print (c && l > c && h > l) ? "ok" : "bad" }' "$skill")" ok)"
 check "profile: every file kind key is present" "$(q "$out" '.profile.file_kinds | keys == ["code","config","docs","other","skill","style","test"]')"
-check "help text names the profile key" "$(bash "$init" --help | grep -q profile; echo $?)"
+check "help text names the profile key" "$(same "$(bash "$init" --help | grep -q profile && echo y)" y)"
 
 # A second repo keeps the $tmp/r assertions (file_count, files) valid.
 mkdir -p "$tmp/sig-origin/src" "$tmp/sig-origin/web" "$tmp/sig-origin/skills/x" "$tmp/sig-origin/docs"
@@ -85,7 +86,7 @@ out=$(bash "$init")
 check "profile branch: a deleted file is listed but not counted" "$(q "$out" '(.files | index("old.js")) != null and .profile.unowned["resource-leak"] == 0 and .profile.lines_changed.added == 2 and .profile.lines_changed.removed == 1')"
 out=$(bash "$init" --lenses security)
 check "profile survives a lens override" "$(q "$out" '.lenses == ["security"] and .profile.scanned >= 1')"
-cd "$tmp/r"
+cd "$tmp/r" || exit 1
 
 run="$tmp/run"; mkdir -p "$run/hunters" "$run/verifiers"
 cat > "$run/hunters/h1.json" <<'J'
