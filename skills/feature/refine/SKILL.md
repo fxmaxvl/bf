@@ -18,6 +18,7 @@ Ask questions one at a time, building on previous answers. A topic below may lis
 2. **Edge cases** — Are there tricky scenarios to handle?
 3. **Approach** — Do you have a preferred implementation approach, or should I decide?
 4. **Acceptance criteria** — How will we know this is done?
+5. **Complexity trade-off** (only when the idea names a speed or throughput goal): "Faster but more complex, or simpler but slower?" Ask it in its own turn, even when you stop early. This choice is expensive to undo after it is built and merged.
 
 ## Knowing when to stop
 
