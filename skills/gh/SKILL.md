@@ -72,15 +72,23 @@ Present a concise table:
 | 3 | <short summary> | Partial | <file:line> |
 ```
 
-For any resolved items, post a comment on the issue noting what addressed them:
+If any items are resolved, draft a comment for the issue that notes what addressed them, and show it under the table. Comments and closing are public writes, so ask one question before either and wait:
+
+- If some items are still open or partial: "Post this comment on #<number>? (yes/no)"
+- If all items are resolved: "Post this comment and close #<number>? (yes/no)"
+
+On yes, run the write the question named. Comment first, then close:
 
 ```
 gh issue comment <number> --repo <owner/repo> --body "<comment>"
+gh issue close <number> --repo <owner/repo>
 ```
+
+On any other answer, post nothing and close nothing. If no item is resolved, there is no comment and no question.
 
 ### 5. Handle open/partial items
 
-If all items are resolved: tell the user, close the issue (`gh issue close <number> --repo <owner/repo>`), and stop.
+If all items are resolved: tell the user the result of the step 4 question (posted and closed, or left as is), and stop.
 
 If any items are open or partial: ask "Want to work on these? (full workflow / quick mode / skip)"
 
