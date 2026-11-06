@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke check for hunt-init.sh scope resolution and findings.sh merge/resolve/analyze/mark/timing, against throwaway repos.
+# Smoke check for hunt-init.sh scope resolution, profile.sh signal counts and suggestions, and findings.sh merge/resolve/analyze/mark/timing, against throwaway repos.
 #
 # Usage: bug-hunt-smoke.sh
 # Contract: exits 0 when every case passes, 1 otherwise; prints one PASS/FAIL line per case.
@@ -8,6 +8,7 @@ set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 init="$here/hunt-init.sh"
 findings="$here/findings.sh"
+skill="$here/../SKILL.md"
 command -v jq >/dev/null || { echo "FAIL jq is required"; exit 1; }
 
 tmp=$(mktemp -d)
@@ -18,6 +19,7 @@ check() { # name, condition-exit-status
   if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1"; fail=1; fi
 }
 q() { jq -e "$2" <<< "$1" >/dev/null; echo $?; }
+same() { [ "$1" = "$2" ]; echo $?; }
 
 mkdir -p "$tmp/origin" && cd "$tmp/origin" && git init -q -b main . && git config user.email t@t && git config user.name t
 mkdir -p src/api lib && echo a > src/api/a.js && echo b > lib/b.js && git add . && git commit -qm init
@@ -45,6 +47,70 @@ out=$(perl -e 'alarm 5; exec @ARGV' bash "$init" --bogus)
 check "unknown flag is unknown_flag, not a hang" "$(q "$out" '.error == "unknown_flag"')"
 r1=$(bash "$init" | jq -r .report_path); touch "$r1"; r2=$(bash "$init" | jq -r .report_path)
 check "report path never collides" "$([ "$r1" != "$r2" ]; echo $?)"
+
+out=$(bash "$init" lib)
+check "profile: paths scope has no diff, one code file, no signals" "$(q "$out" '.profile.lines_changed == null and .profile.scanned == 1 and .profile.modules == 1 and .profile.file_kinds.code == 1 and .profile.lenses.logic == 1 and ([.profile.lenses | del(.logic)[]] | add) == 0 and ([.profile.unowned[]] | add) == 0 and .profile.suggestions == []')"
+out=$(bash "$init")
+check "profile: branch scope counts added and removed lines" "$(q "$out" '.profile.lines_changed == {"added":1,"removed":0}')"
+bogus=$(bash "$init" --lenses bogus | jq -r '.detail | sub(".*valid: "; "") | rtrimstr(")") | split(" ") | sort | @json')
+check "profile: lens keys match the LENSES list" "$(q "$out" ".profile.lenses | keys == $bogus")"
+table_ids() { # table name: the backticked ids in the first column of the SKILL.md table headed "| id | <name> |"
+  awk -v h="| id | $1 |" 'index($0, h) == 1 { on = 1; next } on && /^\|/ { if ($0 !~ /^\|[-| ]+\|$/) { split($0, c, "`"); print c[2] } next } { on = 0 }' "$skill" | sort | tr '\n' ' '
+}
+check "profile: lens keys match the SKILL.md lens table" "$(same "$(table_ids Lens)" "$(jq -r '.profile.lenses | keys | join(" ") + " "' <<< "$out")")"
+check "profile: class keys match the SKILL.md class table" "$(same "$(table_ids Class)" "$(jq -r '.profile.unowned | keys | join(" ") + " "' <<< "$out")")"
+check "SKILL.md report template: Lens suggestions sits between Coverage and Handoff" "$(same "$(awk '/^## Coverage$/ { c = NR } /^## Lens suggestions$/ { l = NR } /^## Handoff$/ { h = NR } END { print (c && l > c && h > l) ? "ok" : "bad" }' "$skill")" ok)"
+check "profile: every file kind key is present" "$(q "$out" '.profile.file_kinds | keys == ["code","config","docs","other","skill","style","test"]')"
+check "help text names the profile key" "$(same "$(bash "$init" --help | grep -q profile && echo y)" y)"
+out=$(echo lib/b.js | HUNT_LENSES="logic bogus" bash "$here/profile.sh")
+check "profile: a lens id with no signal row is an error" "$(q "$out" '.error == "no_signal"')"
+out=$(echo lib/b.js | env -u HUNT_LENSES bash "$here/profile.sh")
+check "profile: missing HUNT_LENSES is an error" "$(q "$out" '.error == "no_lenses"')"
+
+# A second repo keeps the $tmp/r assertions (file_count, files) valid.
+mkdir -p "$tmp/sig-origin/src" "$tmp/sig-origin/web" "$tmp/sig-origin/skills/x" "$tmp/sig-origin/docs"
+cd "$tmp/sig-origin" && git init -q -b main . && git config user.email t@t && git config user.name t
+printf '%s\n' 'async function run() {' 'await fetch(u)' 'try {' '} catch (e) {' 'const t = new Date()' 'x.toFixed(2)' > src/job.js
+printf '%s\n' '// author: bob' 'const x = 1' > src/plain.js
+echo 'a { color: red }' > web/a.css
+printf '%s\n' '## Phase 1 - Pick' '## Phase 2 - Run' > skills/x/SKILL.md
+echo 'const p = createPool()' > old.js
+echo 'cache secret retry' > docs/notes.md
+git add . && git commit -qm init
+git clone -q "$tmp/sig-origin" "$tmp/sig" && cd "$tmp/sig" && git config user.email t@t && git config user.name t
+git switch -qc feat && printf '%s\n' 'const y = 2' 'const z = 3' >> src/job.js && git rm -q old.js && git commit -qam change
+
+out=$(bash "$init" src)
+check "profile signals: fire where the content matches and stay 0 elsewhere" "$(q "$out" '.profile.lines_changed == null and .profile.lenses.concurrency == 1 and .profile.lenses.errors == 1 and .profile.lenses.security == 0 and .profile.unowned.time == 1 and .profile.unowned["numeric-precision"] == 1 and .profile.unowned["resource-leak"] == 0 and .profile.unowned["cache-invalidation"] == 0')"
+check "profile suggestions: classes at 10% of scanned files, in table order" "$(q "$out" '.profile.scanned == 2 and .profile.suggestions == ["time","numeric-precision"]')"
+out=$(bash "$init" --repo)
+check "profile repo: kinds, modules, and docs files add no signal" "$(q "$out" '.profile.file_kinds.style == 1 and .profile.file_kinds.skill == 1 and .profile.file_kinds.docs == 1 and .profile.file_kinds.code == 2 and .profile.lenses.flow >= 1 and .profile.lenses.logic == 3 and .profile.unowned["cache-invalidation"] == 0 and .profile.lenses.security == 0 and .profile.modules == 4 and .profile.lenses.contracts >= 1 and .profile.scanned == 2')"
+out=$(bash "$init")
+check "profile branch: a deleted file is listed but not counted" "$(q "$out" '(.files | index("old.js")) != null and .profile.unowned["resource-leak"] == 0 and .profile.lines_changed.added == 2 and .profile.lines_changed.removed == 1')"
+out=$(bash "$init" --lenses security)
+check "profile survives a lens override" "$(q "$out" '.lenses == ["security"] and .profile.scanned >= 1')"
+
+# Blank lines and content that starts with ++ or -- are diff lines, not headers.
+mkdir -p "$tmp/ln-origin" && cd "$tmp/ln-origin" && git init -q -b main . && git config user.email t@t && git config user.name t
+printf '%s\n' 'a' '-- old comment' 'b' > q.sql && git add . && git commit -qm init
+git clone -q "$tmp/ln-origin" "$tmp/ln" && cd "$tmp/ln" && git config user.email t@t && git config user.name t
+git switch -qc feat && printf '%s\n' 'a' 'b' '' '++i' '-- new comment' > q.sql && git commit -qam change
+out=$(bash "$init")
+check "profile lines_changed: blank, ++ and -- content lines count inside hunks" "$(q "$out" '.profile.lines_changed == {"added":3,"removed":1}')"
+
+# A signal that only a test file carries is not real use: the class stays 0 and nothing is suggested.
+mkdir -p "$tmp/tt" && cd "$tmp/tt" && git init -q -b main . && git config user.email t@t && git config user.name t
+printf '%s\n' 'const t = new Date()' > a.test.js && echo 'const x = 1' > b.js && git add . && git commit -qm init
+out=$(bash "$init" --repo)
+check "profile: a signal in a test file only leaves the class at 0" "$(q "$out" '.profile.unowned.time == 0 and .profile.suggestions == [] and .profile.scanned == 1')"
+out=$(echo gone.js | HUNT_LENSES="logic errors" bash "$here/profile.sh" 2>&1)
+check "profile: a scope of deleted files gives zero counts and no stderr" "$(q "$out" '.scanned == 0 and .modules == 0 and .lenses == {"logic":0,"errors":0} and .suggestions == []')"
+# A copy of the plugin scripts without profile.sh makes the helper fail.
+mkdir -p "$tmp/plug/skills" && cp -R "$here/.." "$tmp/plug/skills/bug-hunt" && cp -R "$here/../../coherence" "$tmp/plug/skills/coherence"
+rm "$tmp/plug/skills/bug-hunt/scripts/profile.sh"
+out=$(bash "$tmp/plug/skills/bug-hunt/scripts/hunt-init.sh" --repo)
+check "profile: a failing helper gives a null profile and the hunt goes on" "$(q "$out" '.profile == null and .mode == "repo" and .file_count == 2')"
+cd "$tmp/r" || exit 1
 
 run="$tmp/run"; mkdir -p "$run/hunters" "$run/verifiers"
 cat > "$run/hunters/h1.json" <<'J'

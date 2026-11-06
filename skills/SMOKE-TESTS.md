@@ -21,7 +21,7 @@ each prints one PASS/FAIL line per case and exits non-zero on any failure. Run t
 | `skills/self-audit/scripts/audit-static-smoke.sh` | `audit-static.sh` (kit-template reference check) |
 | `skills/onboard-project/scripts/onboard-probe-smoke.sh` | `onboard-probe.sh` (`init`, `verify`, `promote` and `brief`) |
 | `skills/visualize/scripts/visualize-smoke.sh` | `viz-paths.sh`, `resolve-spec.sh`, `install-likec4.sh`, `classify-output.sh`, `c4-facts.sh`, `build.sh` (the install and real-build cases need the network and print SKIP offline) |
-| `skills/bug-hunt/scripts/bug-hunt-smoke.sh` | `hunt-init.sh`, `findings.sh` |
+| `skills/bug-hunt/scripts/bug-hunt-smoke.sh` | `hunt-init.sh`, `profile.sh`, `findings.sh` |
 | `skills/autopilot/hooks/autopilot-hooks-smoke.sh` | `stop.sh`, `user-prompt-cleanup.sh`, `session-start-cleanup.sh`, the helpers in `lib.sh` (sub-agents, teammates and background work, stop words, agent and scheduled turns, the lead session and its process, the second-session warning) |
 | `skills/essence/scripts/essence-smoke.sh` | `essence-init.sh`, `ledger-check.sh` |
 | `skills/pr-comments/scripts/pr-comments-smoke.sh` | `fetch-pr-comments.sh`, `wait-for-review.sh` (argument parsing, `--all`, push time, `--head` and `--bot`, against a stub `gh`) |

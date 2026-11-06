@@ -36,7 +36,7 @@ Translate it to the same flags as standalone (`branch` → no target, `pr <n>` �
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/hunt-init.sh" <flags and targets>
 ```
 
-It returns `{mode, base, pr, files, file_count, diff_file, lenses, hunters, hunters_capped, repro, run_dir, report_path, slug}`, or `{error, detail}` — print the detail and stop. Every later path comes from this result; do not re-derive any of them.
+It returns `{mode, base, pr, files, file_count, diff_file, profile, lenses, hunters, hunters_capped, repro, run_dir, report_path, slug}`, or `{error, detail}`. On an error, print the detail and stop. Every later path comes from this result, so do not re-derive any of them.
 
 Timing: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" mark "<run_dir>" <step>` with `hunt` just before the hunter spawn message, `verify` just before the verifier spawn message, and `report` after writing `report_path`; the scripts stamp everything else. A failed mark never stops the hunt. `findings.sh timing "<run_dir>"` prints the durations on request.
 
@@ -52,9 +52,58 @@ Timing: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" ma
 | `contracts` | Contract mismatches — callers and callees disagreeing on shape, units, nullability, or a doc, comment, header or example that no longer matches behavior | changes spanning modules or public APIs |
 | `flow` | Flow — trace each entry point or instruction path end to end, including control flow in prompts and SKILL.md files: dead branches, gates with no exit, routes that never fire, state handed between steps. It owns path continuity across steps. The "entry points" starting point for repeat hunters only says where a hunter begins. | multi-step paths: orchestrators, pipelines, handlers that chain calls, skill or prompt files with phases or gates |
 
-- `lenses` set → use exactly those. Otherwise read the file list (and `diff_file` in branch and pr mode) and pick **2–6** that fit; a CSS-only diff gets no `concurrency` hunter.
-- `hunters` set → that many hunters. When it exceeds the lens count, extra hunters repeat lenses with a different starting point (entry points, error paths, data layer, integration seams), assigned by you, never chosen by the hunter. Hard cap: 6 hunters, not configurable; when `hunters_capped`, say so.
-- Print the pick before launching — one line per hunter: `<hunter_id> · <lens> · <why it fits this scope>`. Do not wait for approval.
+### Scaling rules
+
+`profile` is the target analysis from `hunt-init.sh`. A count in `profile.lenses` is a number of files with at least one matching line. Two lenses are exceptions. `logic` counts the code, test and skill files, so it usually ranks first. `contracts` is at least 1 when the scope spans 2 or more modules, even with no matching line. `profile` is `null` when the helper failed. Use it like this:
+
+1. A lens fits when `profile.lenses.<id>` is at least 1. Rank the fitting lenses by that count, highest first. A tie keeps the lens table order.
+2. Pick the size tier, then the hunters for it:
+
+   | Tier | With `profile.lines_changed` (branch, pr) | Without it (paths, repo) | Hunters |
+   |------|-------------------------------------------|--------------------------|---------|
+   | small | `added + removed` under 80 and `file_count` 3 or fewer | `file_count` 3 or fewer | the top 2 fitting lenses, with `logic` first when it fits |
+   | medium | anything between small and large | `file_count` 4 to 15 | one per fitting lens, the top 4 when more fit |
+   | large | `added + removed` 400 or more, or `file_count` over 15 | `file_count` over 15 | one per fitting lens up to 6, then repeats of the top-ranked lens up to 6 |
+
+3. Fewer than 2 lenses fit, or `profile` is `null` → use judgment instead. Read the file list (and `diff_file` in branch and pr mode) and pick **2–6** lenses that fit. A CSS-only diff gets no `concurrency` hunter.
+
+A repeat hunter takes a different starting point, such as entry points, error paths, the data layer or integration seams. You assign it. The hunter never chooses it.
+
+Overrides win over the scaling rules:
+
+- `lenses` set → use exactly those lenses, and `hunters` defaults to the lens count.
+- `hunters` set, `lenses` unset → take the top `hunters` lenses from the ranked fitting list. When nothing is ranked, use the judgment pick from rule 3. If the count is still not reached, fill it with repeats of the first lens taken.
+- Both set → both win.
+- Hard cap: 6 hunters, not configurable. When `hunters_capped`, say so.
+
+Print the pick before launching. Do not wait for approval. First one profile line:
+
+`Profile: <tier> · <added + removed> lines or no diff · <file_count> files · <modules> modules`
+
+When `profile` is `null`, the line is `Profile: unavailable`. Then one line per hunter:
+
+`<hunter_id> · <lens> · <why it fits this scope> · signal: <lens> <n> files`
+
+With an override, the signal part is `signal: --lenses`. With a judgment pick, it is `signal: none, judged from the file list`.
+
+### Missing-lens check
+
+Some bug classes have no lens. The check flags the ones the scope shows signs of. It runs on every hunt, also when `lenses` is set, because it is about classes no lens owns and not about the pick. It is skipped only when `profile` is `null`. A suggestion is only reported. Never run it and never invent a hunter for it.
+
+Report the class ids that `profile.suggestions` lists. `profile.sh` holds the rule that fills it. The classes are:
+
+| id | Class | Covers | Signal |
+|----|-------|--------|--------|
+| `resource-leak` | Resource leaks | file handles, sockets, pools and listeners that are not closed | open, stream, socket, pool and listener calls |
+| `time` | Time and timezone | clock reads, timezone conversion and date math | date and time API calls |
+| `numeric-precision` | Numeric precision | float rounding, money math and integer overflow | float parsing and rounding calls |
+| `cache-invalidation` | Cache invalidation | eviction, TTL and cache keys that outlive the data. `concurrency` already owns a stale snapshot read after a change | cache, memo and TTL code |
+
+The suggestion output is one line per listed class:
+
+`Lens suggestion: <id> (<covers>). No current lens owns it. Signal: <n> of <scanned> files have <signal>.`
+
+`<n>` is `profile.unowned["<id>"]` and `<scanned>` is `profile.scanned`. When nothing is listed, or the check was skipped, the output is the single line `Lens suggestions: none`. Every later mention of the suggestion output means these lines or this line. Print it right after the pick lines.
 
 ## Phase 2 — Hunt (parallel fan-out)
 
@@ -74,7 +123,7 @@ Wait for every hunter. Right after the spawn, start the silent-agent watch from 
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" merge "<run_dir>"
 ```
 
-It dedupes on file and anchored line ±2, counts `sources` by distinct hunter (never by lens), drops nothing, and packs directory groups into at most 6 verifier `batches`. Hunters in its `invalid` list are coverage gaps too. Zero findings → skip Phases 4 and 5 and report "No findings" with the coverage section.
+It dedupes on file and anchored line ±2, counts `sources` by distinct hunter (never by lens) and drops nothing. It packs directory groups into at most 6 verifier `batches`. Hunters in its `invalid` list are coverage gaps too. Zero findings → skip Phases 4 and 5 and report "No findings" with the Coverage and Lens suggestions sections.
 
 ## Phase 4 — Verify (parallel fan-out)
 
@@ -152,17 +201,20 @@ Severity · Location · Lenses · Verdict
 ## Coverage
 <lenses run; coverage gaps (failed hunters, invalid output, failed batches); stray files in `ignored`; analysis failure ("analysis failed twice: <detail>. No groups."); hunters_capped note>
 
+## Lens suggestions
+<the suggestion output>
+
 ## Handoff
 <filled in after Phase 7>
 ```
 
 Folded ids leave the table and have no Details entry of their own. Their location appears under the kept finding's Details and the group's Members.
 
-Print to the conversation: the report path, one line per group (`G1 · <kind> · <title> · <member ids>`), the Findings table, and the coverage gaps.
+Print to the conversation: the report path, one line per group (`G1 · <kind> · <title> · <member ids>`), the Findings table, the coverage gaps, and the suggestion output.
 
 ## Phase 7 — Handoff
 
-**Embedded:** ask nothing. If `SESSION_LOG` is set, append a `## Bug Hunt` block (report path, counts, coverage gaps) using the block-write pattern in `plugin-main.md`. Return:
+**Embedded:** ask nothing. If `SESSION_LOG` is set, append a `## Bug Hunt` block (report path, counts, coverage gaps, the suggestion output) using the block-write pattern in `plugin-main.md`. Return:
 
 ```
 report_path: <absolute path>
@@ -170,6 +222,7 @@ final_json: <run_dir>/final.json
 counts: <confirmed / refined / pre-existing / rejected / unverified; groups / folded> (verdict counts include folded findings, so folded is a subset)
 analyzed_json: <run_dir>/analyzed.json
 coverage_gaps: <list or none>
+lens_suggestions: <class ids, or none>
 ```
 
 **Standalone, with at least one confirmed or refined finding:** ask exactly one question:
@@ -195,7 +248,8 @@ Record the choice under `## Handoff` in the report before invoking anything. No 
 | `counts.surviving` below 2 | Skip the analyst; run `analyze` on an empty analysis. No groups, no `## Root causes`, F ids only in the handoff. |
 | Analyst fails twice or `findings.sh analyze` errors twice | Run `analyze` on an empty analysis, note it under Coverage, hand off with F ids only. The hunt does not fail. |
 | Hunter or verifier fails twice | Continue; its lens or batch is a coverage gap in the report. Its findings stay `unverified`. |
-| Every hunter failed | Write the report with only the Coverage section and stop — no verify phase, no handoff. |
+| Every hunter failed | Write the report with only the Coverage and Lens suggestions sections and stop. No verify phase, no handoff. |
+| `profile` is `null` (the profile helper failed) | Pick lenses by judgment, skip the missing-lens check, and add one line under Coverage. The suggestion output is `Lens suggestions: none`. |
 | More than 6 directories with findings | `findings.sh merge` packs neighbours into ≤6 batches; never drop findings to fit. |
 | A hunter or verifier edits project files | Out of contract: note it under Coverage and tell the user which files changed; never commit them. |
 | User asks to also review conventions or complexity | Out of scope — point to `/bf:review`. |
