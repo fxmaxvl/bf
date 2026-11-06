@@ -24,7 +24,9 @@
 # baseline. The list goes to stderr. Rerun with --add for the files that belong to the change, or
 # with --leave-untracked to commit without them.
 # Exit 1 before staging: an --add path is missing, ignored, or outside the repo.
-# Nothing is staged or pushed on either exit.
+# Exit 4: the branch already has a PR that is MERGED or CLOSED, so a push would never reach the
+# base branch. The state and URL go to stderr. Start a new branch from HEAD and rerun.
+# Nothing is staged or pushed on any of these exits.
 #
 # Outputs the PR URL on stdout.
 # Skips the commit step if there are no uncommitted changes.
@@ -98,6 +100,14 @@ for A in ${ADD[@]+"${ADD[@]}"}; do
 done
 cd "$ROOT"
 
+PR_INFO=$(gh pr view --json state,url -q '.state + " " + .url' 2>/dev/null || true)
+PR_STATE=${PR_INFO%% *}
+EXISTING_PR=${PR_INFO#* }
+if [[ "$PR_STATE" == MERGED || "$PR_STATE" == CLOSED ]]; then
+    echo "Error: the PR for this branch is $PR_STATE ($EXISTING_PR). Nothing was staged or pushed. Start a new branch from HEAD and rerun." >&2
+    exit 4
+fi
+
 in_list() {
     local f="$1" a; shift
     for a in "$@"; do
@@ -152,7 +162,6 @@ fi
 
 git push -u origin HEAD
 
-EXISTING_PR=$(gh pr view --json url -q '.url' 2>/dev/null || true)
 if [[ -n "$EXISTING_PR" ]]; then
     gh pr edit --title "$PR_TITLE" --body "$BODY"
     PR_URL="$EXISTING_PR"

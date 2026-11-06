@@ -52,3 +52,7 @@ feat: implement new vector search algorithm
 - No period at the end of the message
 - Be specific about what changed, not why it changed
 - Do not add to staged changes, only analyze what is already staged
+
+## Pushing to a PR branch
+
+- Before any push to a branch that has a PR, run `gh pr view --json state`. If the state is MERGED or CLOSED, do not push: the commits would never reach the base branch. Start a new branch from HEAD instead.

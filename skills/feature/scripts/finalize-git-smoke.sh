@@ -17,7 +17,7 @@ cat > "$tmp/bin/gh" <<'STUB'
 #!/bin/sh
 case "$1 $2" in
   "pr create") echo "https://example.test/pr/1" ;;
-  "pr view") exit 1 ;;
+  "pr view") [ -n "${GH_PR_STATE:-}" ] || exit 1; echo "$GH_PR_STATE https://example.test/pr/9" ;;
 esac
 STUB
 chmod +x "$tmp/bin/gh"
@@ -134,5 +134,18 @@ eq "clean tree -> no new commit" "$(head_sha)" "$before"
 mkdir -p .bf/conventions && echo c > .bf/conventions/style.md
 finalize
 eq "only a .bf/conventions change -> committed alone" "$(git show --name-only --format= HEAD)" ".bf/conventions/style.md"
+
+echo m >> top.txt
+before=$(head_sha) before_remote=$(remote_sha)
+rc=0; GH_PR_STATE=MERGED finalize || rc=$?
+eq "merged PR -> exit 4" "$rc" 4
+eq "merged PR -> state named" "$(grep -c 'PR for this branch is MERGED' "$tmp/err")" 1
+eq "merged PR -> no commit, nothing staged" "$(head_sha) $(git diff --cached --name-only)" "$before "
+eq "merged PR -> remote unchanged" "$(remote_sha)" "$before_remote"
+rc=0; GH_PR_STATE=CLOSED finalize || rc=$?
+eq "closed PR -> exit 4" "$rc" 4
+url=$(GH_PR_STATE=OPEN bash "$script" --commit-msg "feat: x" --pr-title t --pr-body b 2>"$tmp/err")
+eq "open PR -> committed and pushed" "$(git show --name-only --format= HEAD) $(remote_sha)" "top.txt $(head_sha)"
+eq "open PR -> existing PR url" "$(printf "%s\n" "$url" | tail -n1)" "https://example.test/pr/9"
 
 [ "$fails" -eq 0 ]
