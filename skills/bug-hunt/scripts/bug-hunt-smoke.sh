@@ -86,6 +86,14 @@ out=$(bash "$init")
 check "profile branch: a deleted file is listed but not counted" "$(q "$out" '(.files | index("old.js")) != null and .profile.unowned["resource-leak"] == 0 and .profile.lines_changed.added == 2 and .profile.lines_changed.removed == 1')"
 out=$(bash "$init" --lenses security)
 check "profile survives a lens override" "$(q "$out" '.lenses == ["security"] and .profile.scanned >= 1')"
+
+# Blank lines and content that starts with ++ or -- are diff lines, not headers.
+mkdir -p "$tmp/ln-origin" && cd "$tmp/ln-origin" && git init -q -b main . && git config user.email t@t && git config user.name t
+printf '%s\n' 'a' '-- old comment' 'b' > q.sql && git add . && git commit -qm init
+git clone -q "$tmp/ln-origin" "$tmp/ln" && cd "$tmp/ln" && git config user.email t@t && git config user.name t
+git switch -qc feat && printf '%s\n' 'a' 'b' '' '++i' '-- new comment' > q.sql && git commit -qam change
+out=$(bash "$init")
+check "profile lines_changed: blank, ++ and -- content lines count inside hunks" "$(q "$out" '.profile.lines_changed == {"added":3,"removed":1}')"
 cd "$tmp/r" || exit 1
 
 run="$tmp/run"; mkdir -p "$run/hunters" "$run/verifiers"

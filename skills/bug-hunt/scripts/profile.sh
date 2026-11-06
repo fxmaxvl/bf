@@ -80,8 +80,8 @@ done)
 
 lines_changed=null
 if [ -n "$diff_file" ] && [ -r "$diff_file" ]; then
-  added=$(grep -c '^+[^+]' "$diff_file" || true)
-  removed=$(grep -c '^-[^-]' "$diff_file" || true)
+  # Only lines after an @@ header are content; the ---/+++ file headers come before it.
+  read -r added removed < <(awk '/^diff /{h=0} /^@@/{h=1; next} h && /^\+/{a++} h && /^-/{r++} END{print a+0, r+0}' "$diff_file")
   lines_changed=$(jq -nc --argjson a "$added" --argjson r "$removed" '{added: $a, removed: $r}')
 fi
 
