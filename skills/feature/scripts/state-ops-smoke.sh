@@ -98,7 +98,7 @@ mkdir -p "$co" && git -C "$co" init -q
 co_read() { (cd "$co" && HOME=$tmp/commit-only bash "$script" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("commit_only", "missing"))'); }
 (cd "$co" && HOME=$tmp/commit-only bash "$script" --init --slug t --idea x --mode quick >/dev/null 2>&1)
 eq "commit_only: init reads back as null" "$(co_read)" None
-(cd "$co" && bash "$script" commit_only=true >/dev/null)
+(cd "$co" && HOME=$tmp/commit-only bash "$script" commit_only=true >/dev/null)
 eq "commit_only: a saved answer survives a read" "$(co_read)" True
 
 [ "$fails" -eq 0 ]

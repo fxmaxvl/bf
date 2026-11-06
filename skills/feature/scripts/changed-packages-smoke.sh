@@ -30,13 +30,14 @@ mkdir -p .bf/sessions && echo s > .bf/sessions/s.md
 git init -q nested
 eq "uncommitted and untracked listed, .bf/ and nested repo left out" "$(files)" "committed.txt,edited.txt,untracked.txt"
 
-echo o > old-stray.txt
-printf '{"build_timestamp":"20260101T00","slug":"s"}' > .bf/sessions/build-state.json
-printf 'old-stray.txt\0nested/\0' > .bf/sessions/20260101T00-s-untracked-at-start
-eq "a stray in the session baseline is left out" "$(files)" "committed.txt,edited.txt,untracked.txt"
+mkdir -p "$tmp/home"
+HOME=$tmp/home bash "$dir/state-ops.sh" --init --slug s --idea x --mode quick >/dev/null 2>&1
+eq "files untracked when state-ops.sh --init ran are left out" "$(files)" "committed.txt,edited.txt"
+echo f > fresh.txt
+eq "a file made after state-ops.sh --init is listed" "$(files)" "committed.txt,edited.txt,fresh.txt"
 
 echo x > "café.txt"
 git init -q "résumé"
-eq "a non-ASCII name is listed unquoted and a non-ASCII nested repo is left out" "$(files)" "café.txt,committed.txt,edited.txt,untracked.txt"
+eq "a non-ASCII name is listed unquoted and a non-ASCII nested repo is left out" "$(files)" "café.txt,committed.txt,edited.txt,fresh.txt"
 
 [ "$fails" -eq 0 ]

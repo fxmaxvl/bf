@@ -12,10 +12,11 @@ each prints one PASS/FAIL line per case and exits non-zero on any failure. Run t
 | `skills/scan-conventions/scripts/host-rules-smoke.sh` | `host-rules.sh` |
 | `skills/feature/scripts/finalize-git-smoke.sh` | `finalize-git.sh` |
 | `skills/feature/scripts/check-report-status-smoke.sh` | `check-report-status.sh` (one block, several blocks, the `OVERALL` escalation) |
-| `skills/feature/scripts/changed-packages-smoke.sh` | `changed-packages.sh` `changed_files` (committed, uncommitted and untracked files, `.bf/` and nested repos left out) |
+| `skills/feature/scripts/changed-packages-smoke.sh` | `changed-packages.sh` `changed_files` (committed, uncommitted and untracked files, `.bf/` and nested repos left out, the session baseline read from `state-ops.sh --init`) |
+| `skills/feature/scripts/session-untracked-smoke.sh` | `session-untracked.sh` (baseline entries and directory entries, `.bf/` and nested repos left out, non-ASCII names, missing baseline) |
 | `skills/feature/scripts/rename-only-smoke.sh` | `rename-only.sh` (pure rename, rename with edits, path-string-only edits, adds) |
 | `skills/feature/scripts/write-block-smoke.sh` | `write-block.sh` |
-| `skills/feature/scripts/state-ops-smoke.sh` | `state-ops.sh` (`parallel_audit`, `auto_fix_style`, `skip_plan_gates`, `pending_fixes`, `--archive` with a corrupt state and a same-hour name collision) |
+| `skills/feature/scripts/state-ops-smoke.sh` | `state-ops.sh` (`parallel_audit`, `auto_fix_style`, `skip_plan_gates`, `commit_only`, `pending_fixes`, `--archive` with a corrupt state and a same-hour name collision) |
 | `skills/feature/scripts/init-probe-smoke.sh` | `init-probe.sh` (`state_matches` for a leftover build state) |
 | `skills/review/scripts/merge-gate-reports-smoke.sh` | `merge-gate-reports.sh` (renumbering, severity mapping, `UNKNOWN`, STATUS escalation) |
 | `skills/review/scripts/pr-review-payload-smoke.sh` | `pr-review-payload.sh` (inline vs body placement against the diff) |

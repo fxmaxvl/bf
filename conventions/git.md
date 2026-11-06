@@ -55,4 +55,4 @@ feat: implement new vector search algorithm
 
 ## Pushing to a PR branch
 
-- Before any push to a branch that has a PR, run `gh pr view --json state`. If the state is MERGED or CLOSED, do not push: the commits would never reach the base branch. A squash or rebase merge leaves the old commits out of the base. So for MERGED, move only the later commits onto the base: `git rebase --autostash --onto origin/<base> <headRefOid>` on a new branch. For CLOSED, reopen the PR or start a new branch from HEAD.
+- Before any push to a branch that has a PR, check the PR state. Do not push to a MERGED or CLOSED PR: the commits would never reach the base branch. `finalize-git.sh` makes this check and owns the recovery steps (see its header). Outside it, use `gh pr list --head <branch> --state all --json state,headRefOid,baseRefName`, because `gh pr view` also exits 1 when the call fails.

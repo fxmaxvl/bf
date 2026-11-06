@@ -18,14 +18,17 @@ cat > "$tmp/bin/gh" <<'STUB'
 echo "$*" >> "${GH_LOG:-/dev/null}"
 if [ -n "${GH_FAIL:-}" ]; then echo "HTTP 401: Bad credentials" >&2; exit 1; fi
 state=${GH_PR_STATE:-}
-if [ -n "${GH_LOOKUPS:-}" ]; then
-  [ -s "$GH_LOOKUPS" ] && state=${GH_PR_STATE_AFTER:-}
-  case "$1 $2" in "pr view"|"pr list") echo x >> "$GH_LOOKUPS" ;; esac
+if [ -n "${GH_LOOKUPS:-}" ] && [ "$1 $2" = "pr list" ]; then
+  if [ -s "$GH_LOOKUPS" ]; then
+    [ -z "${GH_FAIL_LOOKUP_AFTER:-}" ] || { echo "HTTP 502" >&2; exit 1; }
+    state=${GH_PR_STATE_AFTER:-}
+  fi
+  echo x >> "$GH_LOOKUPS"
 fi
 case "$1 $2" in
   "pr create") [ -z "${GH_FAIL_CREATE:-}" ] || exit 4; echo "https://example.test/pr/1" ;;
-  "pr view") [ -n "$state" ] || exit 1; echo "$state https://example.test/pr/9" ;;
-  "pr list") [ -z "$state" ] || echo "$state https://example.test/pr/9 0123abc main" ;;
+  "pr edit") [ -z "${GH_FAIL_EDIT:-}" ] || exit 4 ;;
+  "pr list") [ -z "$state" ] || echo "$state https://example.test/pr/9 ${GH_PR_HEAD:-0123abc} main" ;;
 esac
 STUB
 chmod +x "$tmp/bin/gh"
@@ -145,20 +148,32 @@ eq "only a .bf/conventions change -> committed alone" "$(git show --name-only --
 
 echo m >> top.txt
 before=$(head_sha) before_remote=$(remote_sha)
-rc=0; GH_PR_STATE=MERGED finalize || rc=$?
+pr_head=$(head_sha)
+rc=0; GH_PR_STATE=MERGED GH_PR_HEAD=$pr_head finalize || rc=$?
 eq "merged PR -> exit 4" "$rc" 4
 eq "merged PR -> state named" "$(grep -c 'PR for this branch is MERGED' "$tmp/err")" 1
 eq "merged PR -> no commit, nothing staged" "$(head_sha) $(git diff --cached --name-only)" "$before "
 eq "merged PR -> remote unchanged" "$(remote_sha)" "$before_remote"
-eq "merged PR -> recovery moves only the new commits onto the base" "$(grep -c 'rebase --autostash --onto origin/main 0123abc' "$tmp/err")" 1
-rc=0; GH_PR_STATE=CLOSED finalize || rc=$?
+eq "merged PR -> recovery moves only the new commits onto the base" "$(grep -c "rebase --autostash --onto origin/main $pr_head" "$tmp/err")" 1
+rc=0; GH_PR_STATE=CLOSED GH_PR_HEAD=$pr_head finalize || rc=$?
 eq "closed PR -> exit 4" "$rc" 4
 eq "closed PR -> recovery branches from HEAD" "$(grep -c 'new branch from HEAD' "$tmp/err") $(grep -c 'rebase' "$tmp/err" || true)" "1 0"
+echo ru >> top.txt
+before_remote=$(remote_sha)
+rc=0; GH_PR_STATE=MERGED finalize || rc=$?
+eq "merged PR from a reused branch name (head not in history) -> proceeds" "$rc" 0
+eq "reused branch name -> committed and pushed" "$(git show --name-only --format= HEAD) $(remote_sha)" "top.txt $(head_sha)"
+echo ru2 >> top.txt
+: > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_PR_STATE=CLOSED finalize
+eq "closed PR from a reused branch name -> new PR created" "$(grep -c '^pr create' "$tmp/gh.log" || true)" 1
+echo op >> top.txt
 url=$(GH_PR_STATE=OPEN bash "$script" --commit-msg "feat: x" --pr-title t --pr-body b 2>"$tmp/err")
 eq "open PR -> committed and pushed" "$(git show --name-only --format= HEAD) $(remote_sha)" "top.txt $(head_sha)"
 eq "open PR -> existing PR url" "$(printf "%s\n" "$url" | tail -n1)" "https://example.test/pr/9"
 
 echo co >> top.txt
+: > "$tmp/gh.log"
 before=$(head_sha) before_remote=$(remote_sha)
 rc=0; GH_LOG="$tmp/gh.log" GH_PR_STATE=MERGED bash "$script" --commit-only --commit-msg "feat: local" >"$tmp/out" 2>"$tmp/err" || rc=$?
 eq "commit-only -> exit 0" "$rc" 0
@@ -177,6 +192,22 @@ eq "failed PR lookup -> remote unchanged" "$(remote_sha)" "$before_remote"
 rc=0; GH_FAIL_CREATE=1 finalize || rc=$?
 eq "failed PR create after push -> exit 6, not 4" "$rc" 6
 eq "failed PR create after push -> remote moved" "$(remote_sha)" "$(head_sha)"
+
+echo fe >> top.txt
+rc=0; GH_PR_STATE=OPEN GH_FAIL_EDIT=1 finalize || rc=$?
+eq "failed PR edit after push -> exit 6" "$rc" 6
+
+echo fl >> top.txt
+: > "$tmp/lookups"
+rc=0; GH_LOOKUPS="$tmp/lookups" GH_FAIL_LOOKUP_AFTER=1 finalize || rc=$?
+eq "failed PR lookup after push -> exit 6" "$rc" 6
+eq "failed PR lookup after push -> remote moved" "$(remote_sha)" "$(head_sha)"
+
+echo mg >> top.txt
+: > "$tmp/lookups"
+rc=0; GH_LOOKUPS="$tmp/lookups" GH_PR_HEAD=$(head_sha) GH_PR_STATE_AFTER=MERGED finalize || rc=$?
+eq "PR merged during the push -> exit 6" "$rc" 6
+eq "PR merged during the push -> state named" "$(grep -c 'became MERGED' "$tmp/err")" 1
 
 echo race >> top.txt
 : > "$tmp/lookups"; : > "$tmp/gh.log"

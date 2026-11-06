@@ -18,24 +18,33 @@
 # the session started (state-ops.sh paths.untracked_baseline). Untracked files not in it were made
 # during the session and are staged too. Without --baseline, every untracked file needs --add.
 # --add takes paths relative to the current directory or absolute. It skips paths under .bf/.
-# An untracked directory that holds its own .git (a nested clone or a worktree) is skipped unless
-# named with --add, so it cannot land in the commit as a gitlink.
-#
-# Exit 3: untracked files outside .bf/ that are neither named with --add nor new since the
-# baseline. The list goes to stderr. Rerun with --add for the files that belong to the change, or
-# with --leave-untracked to commit without them.
-# Exit 1 before staging: an --add path is missing, ignored, or outside the repo.
-# Exit 4: the branch already has a PR that is MERGED or CLOSED, so a push would never reach the
-# base branch. The state, the URL and the recovery commands go to stderr. Run them, then rerun.
-# Exit 5: gh could not read the PR state for the branch, for example on an auth failure.
-# Nothing is staged or pushed on any of these exits.
-# Exit 6: the commit and the push are done, but the PR step failed (the PR lookup after the push,
-# gh pr edit or gh pr create), or the PR became MERGED or CLOSED during the push.
-#
-# Outputs the PR URL on stdout.
+# session-untracked.sh owns which untracked files count (nested repos are never staged).
 # Skips the commit step if there are no uncommitted changes.
-# --commit-only stages and commits as usual, then exits 0 before the PR check, the push and the PR.
+# Outputs the PR URL on stdout.
+#
+# --commit-only skips the PR check, stages and commits as usual, then exits 0 before the push.
 # --pr-title and --pr-body are optional with it, and no PR URL is printed.
+#
+# Exit codes and recovery. This header is the one place that defines them. Show the stderr to the
+# user, follow the recovery, then rerun.
+# Exit 1: an argument is invalid, or an --add path is missing, ignored, or outside the repo.
+#   Nothing is staged. Drop the bad path and rerun.
+# Exit 3: untracked files outside .bf/ that are neither named with --add nor new since the
+#   baseline. Nothing is staged or pushed. The list goes to stderr. Ask which of them belong to the
+#   change (one question), then rerun with --add for those, plus --leave-untracked when any remain.
+#   An autonomous run reruns with --leave-untracked: a file that was there before the session never
+#   goes into the commit unasked.
+# Exit 4: the branch has a PR that is MERGED or CLOSED, and the PR's head is in this branch's
+#   history. A push would never reach the base branch. A PR from an older branch that reused the
+#   name does not count. Nothing is staged or pushed. For MERGED, stderr prints the commands that
+#   move only the post-merge commits onto a new branch off the base. For CLOSED, it says to reopen
+#   the PR (gh pr reopen) or start a new branch from HEAD.
+# Exit 5: gh could not read the PR state, for example on an auth failure. Nothing is staged or
+#   pushed. Fix gh (gh auth status) and rerun.
+# Exit 6: the commit and the push are done, but the PR step failed. That step is the PR lookup
+#   after the push, gh pr edit or gh pr create. It also fails when the PR became MERGED or CLOSED
+#   during the push. Do not create a new branch. Fix gh and rerun to open or update the PR. After
+#   a MERGED or CLOSED exit 6, the rerun ends in exit 4: follow that recovery.
 
 set -euo pipefail
 
@@ -83,6 +92,7 @@ if [[ -n "$JIRA_URL" ]]; then
     BODY="${BODY}"$'\n\n'"Jira: ${JIRA_URL}"
 fi
 
+SESSION_UNTRACKED="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/session-untracked.sh"
 ROOT=$(git rev-parse --show-toplevel)
 PREFIX=$(git rev-parse --show-prefix)
 
@@ -111,15 +121,31 @@ done
 cd "$ROOT"
 
 # gh pr view exits 1 both for "no PR" and for a failed call, so it cannot tell them apart.
-# gh pr list exits 0 with no output when the branch has no PR. An open PR wins over older ones.
+# gh pr list exits 0 with no output when the branch has no PR. It prints one line per PR, open
+# ones first.
 pr_lookup() {
     gh pr list --head "$(git rev-parse --abbrev-ref HEAD)" --state all --json state,url,headRefOid,baseRefName \
-        -q '((map(select(.state == "OPEN")) + .)[0] // empty) | [.state, .url, .headRefOid, .baseRefName] | join(" ")'
+        -q '(map(select(.state == "OPEN")) + map(select(.state != "OPEN")))[] | [.state, .url, .headRefOid, .baseRefName] | join(" ")'
+}
+
+# Prints the first PR that belongs to this branch, or nothing. A MERGED or CLOSED PR belongs to it
+# only when its head is in this branch's history. Otherwise it came from an older branch that
+# reused the name.
+pick_pr() {
+    local lines state url head base
+    lines=$(pr_lookup) || return 1
+    while read -r state url head base; do
+        [[ -n "$state" ]] || continue
+        if [[ "$state" == OPEN ]] || git merge-base --is-ancestor "$head" HEAD 2>/dev/null; then
+            printf '%s %s %s %s' "$state" "$url" "$head" "$base"
+            return 0
+        fi
+    done <<<"$lines"
 }
 
 PR_INFO=""
 if [[ "$COMMIT_ONLY" -eq 0 ]]; then
-    if ! PR_INFO=$(pr_lookup); then
+    if ! PR_INFO=$(pick_pr); then
         echo "Error: could not read the PR state for this branch. Nothing was staged or pushed. Check gh (gh auth status) and rerun." >&2
         exit 5
     fi
@@ -149,12 +175,13 @@ in_list() {
     done
     return 1
 }
-AT_START=()
-if [[ -n "$BASELINE" && -f "$BASELINE" ]]; then
-    while IFS= read -r -d '' F; do AT_START+=("$F"); done < "$BASELINE"
-elif [[ -n "$BASELINE" ]]; then
+if [[ -n "$BASELINE" && ! -f "$BASELINE" ]]; then
     echo "Note: baseline $BASELINE not found; every untracked file needs --add." >&2
     BASELINE=""
+fi
+NEW=()
+if [[ -n "$BASELINE" ]]; then
+    while IFS= read -r -d '' F; do NEW+=("$F"); done < <(bash "$SESSION_UNTRACKED" --baseline "$BASELINE" 2>/dev/null)
 fi
 
 # .bf/ holds workflow artifacts, never part of the change, except .bf/conventions/ (the project
@@ -163,17 +190,13 @@ fi
 STAGE=(${NAMED[@]+"${NAMED[@]}"})
 STRAY=()
 while IFS= read -r -d '' F; do
-    if [[ "$F" == */ && -e "${F}.git" ]]; then
-        echo "Note: skipping $F: it is a nested git repo." >&2
-        continue
-    fi
     in_list "$F" ${NAMED[@]+"${NAMED[@]}"} && continue
-    if [[ -n "$BASELINE" ]] && ! in_list "$F" ${AT_START[@]+"${AT_START[@]}"}; then
+    if in_list "$F" ${NEW[@]+"${NEW[@]}"}; then
         STAGE+=("$F")
     else
         STRAY+=("$F")
     fi
-done < <(git ls-files -z --others --exclude-standard -- . ':!.bf')
+done < <(bash "$SESSION_UNTRACKED")
 if [[ ${#STRAY[@]} -gt 0 && "$LEAVE_UNTRACKED" -eq 0 ]]; then
     {
         echo "Error: untracked files that are not part of the change:"
@@ -202,7 +225,7 @@ pushed_pr_failed() {
     exit 6
 }
 # A PR can be opened or merged while the push runs, so the edit-or-create choice uses a fresh read.
-PR_INFO=$(pr_lookup) || pushed_pr_failed "could not read the PR state"
+PR_INFO=$(pick_pr) || pushed_pr_failed "could not read the PR state"
 read -r PR_STATE PR_URL _ <<<"$PR_INFO" || true
 case "$PR_STATE" in
     OPEN)
