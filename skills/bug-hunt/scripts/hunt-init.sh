@@ -10,9 +10,7 @@
 #
 # Output keys: root, mode, base (branch and pr, else null), pr (pr only, else null), files, file_count,
 #   diff_file (branch and pr only),
-#   profile (profile.sh output: size, file kinds, per-lens and per-class file counts with at least one
-#   match, and the suggested missing lenses. scanned counts code and config files, the base of the class
-#   counts. lines_changed is null without a diff. The whole key is null when the helper fails, and the hunt
+#   profile (profile.sh output, see `profile.sh --help`. The key is null when the helper fails, and the hunt
 #   goes on),
 #   lenses (validated override or null), hunters (override or null), hunters_capped, repro,
 #   run_dir (created; holds hunters/, verifiers/ and timing.jsonl, which gets an init row), report_path
