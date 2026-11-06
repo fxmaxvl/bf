@@ -3,7 +3,7 @@ name: session-summary
 description: Create a summary of the current session with efficiency insights and observations, and check where a hook could have caught a problem.
 model: sonnet
 disable-model-invocation: true
-allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(mkdir *), Bash(gh issue create *)
+allowed-tools: Read, Write, Grep, Glob, Bash(git *), Bash(mkdir *), Bash(gh issue create *), WebFetch(domain:code.claude.com)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
@@ -54,25 +54,27 @@ Not candidates:
 
 ### Hook lens
 
-An instruction the model must remember fails in long sessions. A hook runs every time. So for each problem the session hit, ask: "Could a hook have caught or prevented this, without the model remembering?" Look for:
+An instruction the model must remember fails in long sessions. A hook runs each time its event fires. So for each problem the session hit, ask: "Could a hook have caught or prevented this, without the model remembering?" Look for:
 
 - A correction the user or a reviewer made more than once
 - A rule in a skill or convention that the model forgot
 - A manual step repeated by hand, such as a reinstall or a re-check
 - A wasted turn, such as a forced continuation or a duplicate notification
 
-Propose a hook only when its check is mechanical: a path, a command pattern, a field in the hook input, a lint result. A judgment call stays in the skill text. For each candidate, name the event (`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SubagentStop`, `SessionStart`), the matcher, what it checks, and whether it blocks or only advises. Prefer advice. A hook should block only when a miss is worse than a false block. The event and input reference is https://code.claude.com/docs/en/hooks.
+Propose a hook only when its check is mechanical: a path, a command pattern, a field in the hook input, a lint result. A judgment call stays in the skill text. For each hook idea, name the event, what it checks, and whether it blocks or only advises. Name a matcher only when the event takes one. Prefer advice. A hook should block only when a miss is worse than a false block.
 
-Sort each candidate:
+Pick the event from the hooks reference at https://code.claude.com/docs/en/hooks, for example `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SubagentStop`, `SessionStart`, `PreCompact` or `Notification`. The list is not complete, and some events take no matcher. Fetch the reference only when a hook idea needs an event, an input field or a snippet that you have not checked yet in this run. Never write an event name or a field from memory.
 
-- **bf could ship it**: it helps any bf user, for example a check on a bf script or a bf workflow step. It joins the Step 3 candidates with a `hook:` prefix.
-- **Setup-specific**: it fits only this user's tools, commands or repos. Append it to the summary file under a `## Hooks for your setup` section, with a `settings.json` snippet. List it only, never install it, and never put it in the GitHub issue.
+Before you propose a hook, check the hooks already in force. Read only the `hooks` key of each of these files that exists: `${CLAUDE_PLUGIN_ROOT}/hooks/hooks.json`, `~/.claude/settings.json`, and the project's `.claude/settings.json` and `.claude/settings.local.json`. A settings file can hold tokens, so never copy any other value from it into the summary or the issue. A hook that is already in force is not a new idea. If it ran and still missed the problem, propose a fix to that hook instead.
 
-A hook that the session already ran, from bf or from the user's settings, is not a candidate. If it fired and still missed the problem, suggest a fix to that hook instead.
+Sort each hook idea, including a fix to a hook in force:
+
+- **bf hook candidate**: it helps any bf user, for example a check on a bf script, a bf workflow step, or a fix to a hook in bf's `hooks/hooks.json`. It joins the Step 3 candidates with a `hook:` prefix.
+- **Setup hook**: it fits only this user's tools, commands or repos, or it fixes a hook in the user's own settings. It is not a Step 3 candidate. Append it to the summary file under a `## Hooks for your setup` section, with a `settings.json` snippet. List it only, never install it, and never put it in the GitHub issue.
 
 ## Step 3 — Propose a GitHub issue
 
-If you found any candidates, present them all as a bulleted list and ask:
+The candidates are the Step 2 insights and the bf hook candidates. Setup hooks are never candidates. If you found any candidates, present them all as a bulleted list and ask:
 
 > "Want me to file these as a single GitHub issue on `fxmaxvl/bf`? (yes/no)"
 
@@ -95,10 +97,11 @@ The body should list each insight as a bullet point, written as a general improv
 
 | Condition | Handling |
 |---|---|
-| Neither `<project_root>/.bf/` nor `~/.bf/` is writable | Print the summary to the conversation and say it could not be persisted. Never drop it silently. |
+| Neither `<project_root>/.bf/` nor `~/.bf/` is writable | Print the summary to the conversation, including any `## Hooks for your setup` section, and say it could not be persisted. Never drop it silently. |
 | Not in a git repository | Use the `~/.bf/sessions` fallback; the summary does not need a repo. |
 | In a git repo, but `.bf/sessions` is not git-ignored | Use the `~/.bf/sessions` fallback, so the summary does not show up in the repo. |
 | The session has nothing worth summarizing | Say so in one line and write nothing rather than padding a file. |
 | `gh issue create` fails or `gh` is unauthenticated | Keep the written summary, report the failure, and print the issue body so the user can file it by hand. |
 | The user declines the improvement issue | Write the summary only. Do not re-ask. |
-| The only candidates are setup-specific hooks | Append them to the summary and skip the GitHub question, since there is nothing to file. |
+| The only hook ideas are setup hooks, and there are no other candidates | Append them to the summary and skip the GitHub question, since there is nothing to file. |
+| The hooks reference cannot be fetched | Do not guess event names or fields. Name the hook idea and its check, and mark the event and snippet as unchecked. |
