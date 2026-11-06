@@ -34,6 +34,7 @@ Use the Block Reading Pattern from `plugin-main.md` to extract each block.
 - The authoritative list of requirements comes from the input already read above: in full mode, the **Functional requirements** bullet inside the `## Spec` block (it is a bullet, not a `##` header of its own); in quick and micro mode, the `## QA` block.
 - For each requirement in that list, verify it is implemented by checking the actual code
 - Flag any requirement that is missing or partially implemented
+- When the change adds a check that reads a table, file or config, find the code that the check protects. Confirm that this code writes that same source in the same environment. A guard that reads the right source in the wrong place passes every unit test.
 
 ### 2. Dev conventions
 - Check against the `dev` convention (resolved via the lookup in `plugin-main.md`):
