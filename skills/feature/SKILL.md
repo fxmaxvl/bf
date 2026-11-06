@@ -471,6 +471,8 @@ Print banner: `── feature | Finalize ─────────────
    **Exit 1** with a git error means an `--add` path is missing, ignored, or outside the repo. Nothing was staged. Drop that path and rerun.
    With `--commit-only` the script stops after the commit: it does not push, open a PR or print a URL.
    **Exit 4** means the branch already has a MERGED or CLOSED PR, so a push would never reach the base branch. Nothing was staged or pushed. Show the state and URL from stderr, create a new branch from HEAD, and rerun.
+   **Exit 5** means gh could not read the PR state, for example on an auth failure. Nothing was staged or pushed. Show the stderr, ask the user to fix gh (`gh auth status`), and rerun.
+   **Exit 6** means the commit and the push are done, but the PR step failed. Do not create a new branch. Show the stderr, ask the user to fix gh, then rerun to open or update the PR.
 6. **If `jira.enabled` is `true` and the run was not `--commit-only`:**
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`

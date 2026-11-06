@@ -27,7 +27,10 @@
 # Exit 1 before staging: an --add path is missing, ignored, or outside the repo.
 # Exit 4: the branch already has a PR that is MERGED or CLOSED, so a push would never reach the
 # base branch. The state and URL go to stderr. Start a new branch from HEAD and rerun.
+# Exit 5: gh could not read the PR state for the branch, for example on an auth failure.
 # Nothing is staged or pushed on any of these exits.
+# Exit 6: the commit and the push are done, but the PR step failed (the PR lookup after the push,
+# gh pr edit or gh pr create), or the PR became MERGED or CLOSED during the push.
 #
 # Outputs the PR URL on stdout.
 # Skips the commit step if there are no uncommitted changes.
@@ -107,12 +110,23 @@ for A in ${ADD[@]+"${ADD[@]}"}; do
 done
 cd "$ROOT"
 
+# gh pr view exits 1 both for "no PR" and for a failed call, so it cannot tell them apart.
+# gh pr list exits 0 with no output when the branch has no PR. An open PR wins over older ones.
+pr_lookup() {
+    gh pr list --head "$(git rev-parse --abbrev-ref HEAD)" --state all --json state,url \
+        -q '((map(select(.state == "OPEN")) + .)[0] // empty) | .state + " " + .url'
+}
+
 PR_INFO=""
-[[ "$COMMIT_ONLY" -eq 1 ]] || PR_INFO=$(gh pr view --json state,url -q '.state + " " + .url' 2>/dev/null || true)
+if [[ "$COMMIT_ONLY" -eq 0 ]]; then
+    if ! PR_INFO=$(pr_lookup); then
+        echo "Error: could not read the PR state for this branch. Nothing was staged or pushed. Check gh (gh auth status) and rerun." >&2
+        exit 5
+    fi
+fi
 PR_STATE=${PR_INFO%% *}
-EXISTING_PR=${PR_INFO#* }
 if [[ "$PR_STATE" == MERGED || "$PR_STATE" == CLOSED ]]; then
-    echo "Error: the PR for this branch is $PR_STATE ($EXISTING_PR). Nothing was staged or pushed. Start a new branch from HEAD and rerun." >&2
+    echo "Error: the PR for this branch is $PR_STATE (${PR_INFO#* }). Nothing was staged or pushed. Start a new branch from HEAD and rerun." >&2
     exit 4
 fi
 
@@ -171,10 +185,19 @@ fi
 
 git push -u origin HEAD
 
-if [[ -n "$EXISTING_PR" ]]; then
-    gh pr edit --title "$PR_TITLE" --body "$BODY"
-    PR_URL="$EXISTING_PR"
-else
-    PR_URL=$(gh pr create --title "$PR_TITLE" --body "$BODY")
-fi
+pushed_pr_failed() {
+    echo "Error: the branch is pushed, but the PR step failed: $1. Check gh (gh auth status), then rerun or open the PR by hand." >&2
+    exit 6
+}
+# A PR can be opened or merged while the push runs, so the edit-or-create choice uses a fresh read.
+PR_INFO=$(pr_lookup) || pushed_pr_failed "could not read the PR state"
+case "${PR_INFO%% *}" in
+    OPEN)
+        PR_URL=${PR_INFO#* }
+        gh pr edit --title "$PR_TITLE" --body "$BODY" || pushed_pr_failed "gh pr edit failed" ;;
+    "")
+        PR_URL=$(gh pr create --title "$PR_TITLE" --body "$BODY") || pushed_pr_failed "gh pr create failed" ;;
+    *)
+        pushed_pr_failed "the PR for this branch became ${PR_INFO%% *} (${PR_INFO#* })" ;;
+esac
 echo "$PR_URL"

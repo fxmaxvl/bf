@@ -16,9 +16,16 @@ mkdir "$tmp/bin"
 cat > "$tmp/bin/gh" <<'STUB'
 #!/bin/sh
 echo "$*" >> "${GH_LOG:-/dev/null}"
+if [ -n "${GH_FAIL:-}" ]; then echo "HTTP 401: Bad credentials" >&2; exit 1; fi
+state=${GH_PR_STATE:-}
+if [ -n "${GH_LOOKUPS:-}" ]; then
+  [ -s "$GH_LOOKUPS" ] && state=${GH_PR_STATE_AFTER:-}
+  case "$1 $2" in "pr view"|"pr list") echo x >> "$GH_LOOKUPS" ;; esac
+fi
 case "$1 $2" in
-  "pr create") echo "https://example.test/pr/1" ;;
-  "pr view") [ -n "${GH_PR_STATE:-}" ] || exit 1; echo "$GH_PR_STATE https://example.test/pr/9" ;;
+  "pr create") [ -z "${GH_FAIL_CREATE:-}" ] || exit 4; echo "https://example.test/pr/1" ;;
+  "pr view") [ -n "$state" ] || exit 1; echo "$state https://example.test/pr/9" ;;
+  "pr list") [ -z "$state" ] || echo "$state https://example.test/pr/9" ;;
 esac
 STUB
 chmod +x "$tmp/bin/gh"
@@ -157,5 +164,21 @@ eq "commit-only -> local commit made" "$(git log -1 --format=%s) $(git show --na
 eq "commit-only -> HEAD moved" "$([ "$(head_sha)" != "$before" ] && echo moved)" moved
 eq "commit-only -> remote unchanged" "$(remote_sha)" "$before_remote"
 eq "commit-only -> no gh call, no PR url" "$([ -s "$tmp/gh.log" ] && echo called || echo none) $(grep -c example.test "$tmp/out" || true)" "none 0"
+
+echo gf >> top.txt
+before=$(head_sha) before_remote=$(remote_sha)
+rc=0; GH_FAIL=1 finalize || rc=$?
+eq "failed PR lookup -> exit 5" "$rc" 5
+eq "failed PR lookup -> no commit, nothing staged" "$(head_sha) $(git diff --cached --name-only)" "$before "
+eq "failed PR lookup -> remote unchanged" "$(remote_sha)" "$before_remote"
+
+rc=0; GH_FAIL_CREATE=1 finalize || rc=$?
+eq "failed PR create after push -> exit 6, not 4" "$rc" 6
+eq "failed PR create after push -> remote moved" "$(remote_sha)" "$(head_sha)"
+
+echo race >> top.txt
+: > "$tmp/lookups"; : > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_LOOKUPS="$tmp/lookups" GH_PR_STATE_AFTER=OPEN finalize
+eq "PR opened during the push -> edited, not created" "$(grep -c '^pr create' "$tmp/gh.log" || true) $(grep -c '^pr edit' "$tmp/gh.log" || true)" "0 1"
 
 [ "$fails" -eq 0 ]
