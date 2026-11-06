@@ -97,6 +97,17 @@ git clone -q "$tmp/ln-origin" "$tmp/ln" && cd "$tmp/ln" && git config user.email
 git switch -qc feat && printf '%s\n' 'a' 'b' '' '++i' '-- new comment' > q.sql && git commit -qam change
 out=$(bash "$init")
 check "profile lines_changed: blank, ++ and -- content lines count inside hunks" "$(q "$out" '.profile.lines_changed == {"added":3,"removed":1}')"
+
+# A signal that only a test file carries is not real use: the class stays 0 and nothing is suggested.
+mkdir -p "$tmp/tt" && cd "$tmp/tt" && git init -q -b main . && git config user.email t@t && git config user.name t
+printf '%s\n' 'const t = new Date()' > a.test.js && echo 'const x = 1' > b.js && git add . && git commit -qm init
+out=$(bash "$init" --repo)
+check "profile: a signal in a test file only leaves the class at 0" "$(q "$out" '.profile.unowned.time == 0 and .profile.suggestions == [] and .profile.scanned == 1')"
+# A copy of the plugin scripts without profile.sh makes the helper fail.
+mkdir -p "$tmp/plug/skills" && cp -R "$here/.." "$tmp/plug/skills/bug-hunt" && cp -R "$here/../../coherence" "$tmp/plug/skills/coherence"
+rm "$tmp/plug/skills/bug-hunt/scripts/profile.sh"
+out=$(bash "$tmp/plug/skills/bug-hunt/scripts/hunt-init.sh" --repo)
+check "profile: a failing helper gives a null profile and the hunt goes on" "$(q "$out" '.profile == null and .mode == "repo" and .file_count == 2')"
 cd "$tmp/r" || exit 1
 
 run="$tmp/run"; mkdir -p "$run/hunters" "$run/verifiers"
