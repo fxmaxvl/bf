@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke check for hunt-init.sh scope resolution and findings.sh merge/resolve/analyze/mark/timing, against throwaway repos.
+# Smoke check for hunt-init.sh scope resolution, profile.sh signal counts and suggestions, and findings.sh merge/resolve/analyze/mark/timing, against throwaway repos.
 #
 # Usage: bug-hunt-smoke.sh
 # Contract: exits 0 when every case passes, 1 otherwise; prints one PASS/FAIL line per case.
@@ -45,6 +45,16 @@ out=$(perl -e 'alarm 5; exec @ARGV' bash "$init" --bogus)
 check "unknown flag is unknown_flag, not a hang" "$(q "$out" '.error == "unknown_flag"')"
 r1=$(bash "$init" | jq -r .report_path); touch "$r1"; r2=$(bash "$init" | jq -r .report_path)
 check "report path never collides" "$([ "$r1" != "$r2" ]; echo $?)"
+
+out=$(bash "$init" lib)
+check "profile: paths scope has no diff, one code file, no signals" "$(q "$out" '.profile.lines_changed == null and .profile.scanned == 1 and .profile.modules == 1 and .profile.file_kinds.code == 1 and .profile.lenses.logic == 1 and ([.profile.lenses | del(.logic)[]] | add) == 0 and ([.profile.unowned[]] | add) == 0 and .profile.suggestions == []')"
+out=$(bash "$init")
+check "profile: branch scope counts added and removed lines" "$(q "$out" '.profile.lines_changed == {"added":1,"removed":0}')"
+bogus=$(bash "$init" --lenses bogus | jq -r '.detail | sub(".*valid: "; "") | rtrimstr(")") | split(" ") | sort | @json')
+check "profile: lens keys match the LENSES list" "$(q "$out" ".profile.lenses | keys == $bogus")"
+check "profile: unowned class keys" "$(q "$out" '.profile.unowned | keys == ["cache-invalidation","numeric-precision","resource-leak","time"]')"
+check "profile: every file kind key is present" "$(q "$out" '.profile.file_kinds | keys == ["code","config","docs","other","skill","style","test"]')"
+check "help text names the profile key" "$(bash "$init" --help | grep -q profile; echo $?)"
 
 run="$tmp/run"; mkdir -p "$run/hunters" "$run/verifiers"
 cat > "$run/hunters/h1.json" <<'J'

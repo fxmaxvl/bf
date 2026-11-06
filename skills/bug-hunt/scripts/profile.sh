@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Profile a hunt scope: size, file kinds, per-lens signal counts and the bug classes no lens owns.
+#
+# Usage: profile.sh [diff_file]
+#   stdin: newline-separated repo-relative paths. Cwd is the repo root. Paths that are not regular
+#          files (deleted in the diff) are dropped before anything is counted.
+#   diff_file: optional unified diff. It only feeds lines_changed.
+#
+# Output keys: lines_changed ({added, removed}, or null without a readable diff), scanned (files of kind
+#   code, test, skill or config: the only files grepped, and the denominator of the suggestion rule),
+#   modules (distinct first path segments, a root-level file counts as "."), file_kinds (code, test, docs,
+#   skill, config, style, other), lenses (one count per lens id), unowned (one count per bug class no
+#   lens owns), suggestions (unowned classes with count >= 1 and count * 10 >= scanned, table order).
+#   Every count is a number of files with at least one matching line. lenses.logic is the number of code,
+#   test and skill files. lenses.contracts is at least 1 when the scope spans 2 or more modules.
+# Errors: {"error":"<code>","detail":"..."} on stdout, exit 1.
+set -uo pipefail
+
+if [ "${1:-}" = -h ] || [ "${1:-}" = --help ]; then
+  awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"; exit 0
+fi
+command -v jq >/dev/null || { printf '{"error":"no_jq","detail":"jq is required"}\n'; exit 1; }
+
+diff_file="${1:-}"
+existing=$(while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done)
+
+# Prompt-like files (SKILL.md, conventions, agents) are code here because the flow lens hunts them.
+# Docs, style and other files are not grepped: a README that says "cache" is not a cache.
+kinds=$(jq -R -r '
+  def base: split("/") | last;
+  def dirs: split("/")[:-1];
+  def ext: (base | ascii_downcase) as $b | if ($b | contains(".")) then "." + ($b | split(".") | last) else "" end;
+  . as $p
+  | (if (base == "SKILL.md") or (ext == ".md" and (dirs | any(. == "conventions" or . == "agents"))) then "skill"
+     elif (dirs | any(. == "test" or . == "tests" or . == "__tests__" or . == "spec" or . == "it"))
+       or (base | test("\\.test\\.|\\.spec\\.|_test\\.|-smoke\\.|_spec\\.")) then "test"
+     elif ext | IN(".css", ".scss", ".sass", ".less") then "style"
+     elif ext | IN(".md", ".mdx", ".txt", ".rst", ".adoc") then "docs"
+     elif (ext | IN(".json", ".yml", ".yaml", ".toml", ".ini", ".cfg", ".conf", ".xml", ".lock", ".bazel"))
+       or (base | IN("Dockerfile", "BUILD")) then "config"
+     elif ext | IN(".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".py", ".rb", ".go", ".rs", ".java", ".kt", ".scala",
+                   ".sh", ".bash", ".zsh", ".php", ".cs", ".c", ".h", ".cpp", ".swift", ".sql", ".lua") then "code"
+     else "other" end) as $k
+  | "\($p)\t\($k)"' <<< "$existing")
+
+scan_list=$(printf '%s\n' "$kinds" | awk -F '\t' '$2 == "code" || $2 == "test" || $2 == "skill" || $2 == "config" { print $1 }')
+scanned=$(printf '%s\n' "$scan_list" | grep -c . || true)
+
+file_kinds=$(jq -R -s '
+  split("\n") | map(select(length > 0) | split("\t")[1]) as $ks
+  | ["code","test","docs","skill","config","style","other"] | map(. as $k | {key: $k, value: ($ks | map(select(. == $k)) | length)}) | from_entries' <<< "$kinds")
+modules=$(jq -R -s '
+  split("\n") | map(select(length > 0) | split("\t")[0] | if contains("/") then split("/")[0] else "." end) | unique | length' <<< "$kinds")
+
+# One row per signal: group id regex. POSIX ERE matched case-insensitively. A word boundary is spelled
+# (^|[^[:alnum:]_])...([^[:alnum:]_]|$) because BSD grep has no \b. Fields split on whitespace, so a
+# regex must use [[:space:]] and never a literal space.
+signals() {
+  cat <<'SIGNALS'
+lens errors a^
+lens concurrency a^
+lens data a^
+lens security a^
+lens contracts a^
+lens flow a^
+unowned resource-leak a^
+unowned time a^
+unowned numeric-precision a^
+unowned cache-invalidation a^
+SIGNALS
+}
+
+counts=$(signals | while read -r group id re; do
+  n=$(printf '%s\n' "$scan_list" | tr '\n' '\0' | xargs -0 grep -lIiE -e "$re" -- /dev/null 2>/dev/null | grep -c . || true)
+  printf '%s\t%s\t%s\n' "$group" "$id" "$n"
+done)
+
+lines_changed=null
+if [ -n "$diff_file" ] && [ -r "$diff_file" ]; then
+  added=$(grep -c '^+[^+]' "$diff_file" || true)
+  removed=$(grep -c '^-[^-]' "$diff_file" || true)
+  lines_changed=$(jq -nc --argjson a "$added" --argjson r "$removed" '{added: $a, removed: $r}')
+fi
+
+jq -nc --argjson lines "$lines_changed" --argjson scanned "$scanned" --argjson modules "$modules" \
+  --argjson kinds "$file_kinds" --arg counts "$counts" '
+  ($counts | split("\n") | map(select(length > 0) | split("\t"))) as $rows
+  | ([$rows[] | select(.[0] == "lens") | {key: .[1], value: (.[2] | tonumber)}] | from_entries) as $lens
+  | ([$rows[] | select(.[0] == "unowned") | {key: .[1], value: (.[2] | tonumber)}] | from_entries) as $unowned
+  | {lines_changed: $lines, scanned: $scanned, modules: $modules, file_kinds: $kinds,
+     lenses: ({logic: ($kinds.code + $kinds.test + $kinds.skill)} + $lens
+              | if $modules >= 2 and .contracts < 1 then .contracts = 1 else . end),
+     unowned: $unowned,
+     suggestions: [$rows[] | select(.[0] == "unowned") | select((.[2] | tonumber) >= 1 and (.[2] | tonumber) * 10 >= $scanned) | .[1]]}'

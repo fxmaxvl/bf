@@ -10,6 +10,9 @@
 #
 # Output keys: root, mode, base (branch and pr, else null), pr (pr only, else null), files, file_count,
 #   diff_file (branch and pr only),
+#   profile (profile.sh output: size, file kinds, per-lens and per-class file counts with at least one
+#   match, and the suggested missing lenses. lines_changed is null without a diff. The whole key is null
+#   when the helper fails, and the hunt goes on),
 #   lenses (validated override or null), hunters (override or null), hunters_capped, repro,
 #   run_dir (created; holds hunters/, verifiers/ and timing.jsonl, which gets an init row), report_path
 #   (collision-free), slug.
@@ -125,6 +128,11 @@ fi
 count=$(jq 'length' <<< "$files_json")
 [ "$count" -gt 0 ] || die empty_scope "no files in $mode scope"
 
+# Advisory: a failed helper must not stop a hunt, so the key degrades to null.
+diff_path=$(jq -r '. // empty' <<< "$diff_file")
+profile_json=$(jq -r '.[]' <<< "$files_json" | bash "$here/profile.sh" "$diff_path" 2>/dev/null) || profile_json=null
+jq -e type <<< "$profile_json" >/dev/null 2>&1 || profile_json=null
+
 stamp=$(date +%Y%m%d-%H%M%S)
 case "$mode" in
   branch) label=$(git rev-parse --abbrev-ref HEAD) ;;
@@ -143,9 +151,9 @@ mkdir -p "$run_dir/hunters" "$run_dir/verifiers" "$run_dir/repro"
 jq -nc --argjson a "$t0" '{step: "init", label: "", by: "script", start: $a, end: now}' >> "$run_dir/timing.jsonl" 2>/dev/null || true
 
 jq -nc --arg root "$root" --arg mode "$mode" --argjson base "$base" --argjson pr "$pr_json" --argjson files "$files_json" \
-  --argjson diff_file "$diff_file" --argjson lenses "$lenses_json" --argjson hunters "$hunters_json" \
+  --argjson diff_file "$diff_file" --argjson profile "$profile_json" --argjson lenses "$lenses_json" --argjson hunters "$hunters_json" \
   --argjson capped "$capped" --argjson repro "$repro" --arg run_dir "$run_dir" \
   --arg report "$report" --arg slug "$slug" \
-  '{root:$root, mode:$mode, base:$base, pr:$pr, files:$files, file_count:($files|length), diff_file:$diff_file,
+  '{root:$root, mode:$mode, base:$base, pr:$pr, files:$files, file_count:($files|length), diff_file:$diff_file, profile:$profile,
     lenses:$lenses, hunters:$hunters, hunters_capped:$capped, repro:$repro,
     run_dir:$run_dir, report_path:$report, slug:$slug}'
