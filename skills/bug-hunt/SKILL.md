@@ -72,7 +72,7 @@ A repeat hunter takes a different starting point, such as entry points, error pa
 Overrides win over the scaling rules:
 
 - `lenses` set → use exactly those lenses, and `hunters` defaults to the lens count.
-- `hunters` set, `lenses` unset → take the ranked fitting lenses, then fill the count with repeats of the top-ranked lens.
+- `hunters` set, `lenses` unset → take the top `hunters` lenses from the ranked fitting list. When nothing is ranked, use the judgment pick from rule 3. If the count is still not reached, fill it with repeats of the first lens taken.
 - Both set → both win.
 - Hard cap: 6 hunters, not configurable. When `hunters_capped`, say so.
 
@@ -103,7 +103,7 @@ The suggestion output is one line per listed class:
 
 `Lens suggestion: <id> (<covers>). No current lens owns it. Signal: <n> of <scanned> files have <signal>.`
 
-`<n>` is `profile.unowned.<id>` and `<scanned>` is `profile.scanned`. When nothing is listed, or the check was skipped, the output is the single line `Lens suggestions: none`. Every later mention of the suggestion output means these lines or this line. Print it right after the pick lines.
+`<n>` is `profile.unowned["<id>"]` and `<scanned>` is `profile.scanned`. When nothing is listed, or the check was skipped, the output is the single line `Lens suggestions: none`. Every later mention of the suggestion output means these lines or this line. Print it right after the pick lines.
 
 ## Phase 2 — Hunt (parallel fan-out)
 
