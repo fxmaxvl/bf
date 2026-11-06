@@ -7,7 +7,8 @@
 #   diff_file: optional unified diff. It only feeds lines_changed.
 #
 # Output keys: lines_changed ({added, removed}, or null without a readable diff), scanned (files of kind
-#   code, test, skill or config: the only files grepped, and the denominator of the suggestion rule),
+#   code or config: the only files grepped for the unowned classes, and the denominator of the suggestion
+#   rule; the lens counts also grep test and skill files),
 #   modules (distinct first path segments, a root-level file counts as "."), file_kinds (code, test, docs,
 #   skill, config, style, other), lenses (one count per lens id), unowned (one count per bug class no
 #   lens owns), suggestions (unowned classes with count >= 1 and count * 10 >= scanned, table order).
@@ -44,7 +45,8 @@ kinds=$(jq -R -r '
   | "\($p)\t\($k)"' <<< "$existing")
 
 scan_list=$(printf '%s\n' "$kinds" | awk -F '\t' '$2 == "code" || $2 == "test" || $2 == "skill" || $2 == "config" { print $1 }')
-scanned=$(printf '%s\n' "$scan_list" | grep -c . || true)
+class_list=$(printf '%s\n' "$kinds" | awk -F '\t' '$2 == "code" || $2 == "config" { print $1 }')
+scanned=$(printf '%s\n' "$class_list" | grep -c . || true)
 
 file_kinds=$(jq -R -s '
   split("\n") | map(select(length > 0) | split("\t")[1]) as $ks
@@ -71,7 +73,8 @@ SIGNALS
 }
 
 counts=$(signals | while read -r group id re; do
-  n=$(printf '%s\n' "$scan_list" | tr '\n' '\0' | xargs -0 grep -lIiE -e "$re" -- /dev/null 2>/dev/null | grep -c . || true)
+  list=$scan_list; [ "$group" = unowned ] && list=$class_list
+  n=$(printf '%s\n' "$list" | tr '\n' '\0' | xargs -0 grep -lIiE -e "$re" -- /dev/null 2>/dev/null | grep -c . || true)
   printf '%s\t%s\t%s\n' "$group" "$id" "$n"
 done)
 
