@@ -9,8 +9,8 @@
 #   diff_file: optional unified diff. It only feeds lines_changed.
 #
 # Output keys: lines_changed ({added, removed}, or null without a readable diff), scanned (files of kind
-#   code or config: the only files grepped for the unowned classes, and the denominator of the suggestion
-#   rule; the lens counts also grep test and skill files),
+#   code or config. Only these files are grepped for the unowned classes, and they are the denominator of the
+#   suggestion rule. The lens counts also grep test and skill files),
 #   modules (distinct first path segments, a root-level file counts as "."), file_kinds (code, test, docs,
 #   skill, config, style, other), lenses (one count per HUNT_LENSES id), unowned (one count per bug class no
 #   lens owns), suggestions (unowned classes with count >= 1 and count * 10 >= scanned, table order).
@@ -61,7 +61,7 @@ modules=$(jq -R -s '
 
 # POSIX ERE matched case-insensitively. A word boundary is spelled
 # (^|[^[:alnum:]_])...([^[:alnum:]_]|$) because BSD grep has no \b. Fields split on whitespace, so a
-# regex must use [[:space:]] and never a literal space. The unowned rows own the bug-class ids; the smoke
+# regex must use [[:space:]] and never a literal space. The unowned rows own the bug-class ids. The smoke
 # check keeps the SKILL.md class table equal to them.
 signals() {
   cat <<'SIGNALS'
@@ -91,7 +91,7 @@ done)
 
 lines_changed=null
 if [ -n "$diff_file" ] && [ -r "$diff_file" ]; then
-  # Only lines after an @@ header are content; the ---/+++ file headers come before it.
+  # Only lines after an @@ header are content. The ---/+++ file headers come before it.
   read -r added removed < <(awk '/^diff /{h=0} /^@@/{h=1; next} h && /^\+/{a++} h && /^-/{r++} END{print a+0, r+0}' "$diff_file")
   lines_changed=$(jq -nc --argjson a "$added" --argjson r "$removed" '{added: $a, removed: $r}')
 fi
