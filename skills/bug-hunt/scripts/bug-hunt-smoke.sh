@@ -103,6 +103,8 @@ mkdir -p "$tmp/tt" && cd "$tmp/tt" && git init -q -b main . && git config user.e
 printf '%s\n' 'const t = new Date()' > a.test.js && echo 'const x = 1' > b.js && git add . && git commit -qm init
 out=$(bash "$init" --repo)
 check "profile: a signal in a test file only leaves the class at 0" "$(q "$out" '.profile.unowned.time == 0 and .profile.suggestions == [] and .profile.scanned == 1')"
+out=$(echo gone.js | HUNT_LENSES="logic errors" bash "$here/profile.sh" 2>&1)
+check "profile: a scope of deleted files gives zero counts and no stderr" "$(q "$out" '.scanned == 0 and .modules == 0 and .lenses == {"logic":0,"errors":0} and .suggestions == []')"
 # A copy of the plugin scripts without profile.sh makes the helper fail.
 mkdir -p "$tmp/plug/skills" && cp -R "$here/.." "$tmp/plug/skills/bug-hunt" && cp -R "$here/../../coherence" "$tmp/plug/skills/coherence"
 rm "$tmp/plug/skills/bug-hunt/scripts/profile.sh"

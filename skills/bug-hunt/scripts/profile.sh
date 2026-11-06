@@ -30,7 +30,8 @@ existing=$(while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done)
 
 # Prompt-like files (SKILL.md, conventions, agents) are code here because the flow lens hunts them.
 # Docs, style and other files are not grepped: a README that says "cache" is not a cache.
-kinds=$(jq -R -r '
+kinds=""
+[ -z "$existing" ] || kinds=$(jq -R -r '
   def base: split("/") | last;
   def dirs: split("/")[:-1];
   def ext: (base | ascii_downcase) as $b | if ($b | contains(".")) then "." + ($b | split(".") | last) else "" end;
