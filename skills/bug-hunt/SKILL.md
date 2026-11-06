@@ -54,7 +54,7 @@ Timing: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" ma
 
 ### Scaling rules
 
-`profile` is the target analysis from `hunt-init.sh`. Every count in it is a number of files with at least one matching line. It is `null` when the helper failed. Use it like this:
+`profile` is the target analysis from `hunt-init.sh`. A count in `profile.lenses` is a number of files with at least one matching line, with two exceptions: `logic` counts the code, test and skill files, so it usually ranks first, and `contracts` is at least 1 when the scope spans 2 or more modules, even with no matching line. `profile` is `null` when the helper failed. Use it like this:
 
 1. A lens fits when `profile.lenses.<id>` is at least 1. Rank the fitting lenses by that count, highest first. A tie keeps the lens table order.
 2. Pick the size tier, then the hunters for it:
