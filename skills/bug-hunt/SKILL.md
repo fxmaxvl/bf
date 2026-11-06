@@ -36,7 +36,7 @@ Translate it to the same flags as standalone (`branch` → no target, `pr <n>` �
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/hunt-init.sh" <flags and targets>
 ```
 
-It returns `{mode, base, pr, files, file_count, diff_file, lenses, hunters, hunters_capped, repro, run_dir, report_path, slug}`, or `{error, detail}` — print the detail and stop. Every later path comes from this result; do not re-derive any of them.
+It returns `{mode, base, pr, files, file_count, diff_file, profile, lenses, hunters, hunters_capped, repro, run_dir, report_path, slug}`, or `{error, detail}` — print the detail and stop. Every later path comes from this result; do not re-derive any of them.
 
 Timing: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" mark "<run_dir>" <step>` with `hunt` just before the hunter spawn message, `verify` just before the verifier spawn message, and `report` after writing `report_path`; the scripts stamp everything else. A failed mark never stops the hunt. `findings.sh timing "<run_dir>"` prints the durations on request.
 
@@ -52,9 +52,39 @@ Timing: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" ma
 | `contracts` | Contract mismatches — callers and callees disagreeing on shape, units, nullability, or a doc, comment, header or example that no longer matches behavior | changes spanning modules or public APIs |
 | `flow` | Flow — trace each entry point or instruction path end to end, including control flow in prompts and SKILL.md files: dead branches, gates with no exit, routes that never fire, state handed between steps. It owns path continuity across steps. The "entry points" starting point for repeat hunters only says where a hunter begins. | multi-step paths: orchestrators, pipelines, handlers that chain calls, skill or prompt files with phases or gates |
 
-- `lenses` set → use exactly those. Otherwise read the file list (and `diff_file` in branch and pr mode) and pick **2–6** that fit; a CSS-only diff gets no `concurrency` hunter.
-- `hunters` set → that many hunters. When it exceeds the lens count, extra hunters repeat lenses with a different starting point (entry points, error paths, data layer, integration seams), assigned by you, never chosen by the hunter. Hard cap: 6 hunters, not configurable; when `hunters_capped`, say so.
-- Print the pick before launching — one line per hunter: `<hunter_id> · <lens> · <why it fits this scope>`. Do not wait for approval.
+### Scaling rules
+
+`profile` is the target analysis from `hunt-init.sh`. Every count in it is a number of files with at least one matching line. It is `null` when the helper failed. Use it like this:
+
+1. A lens fits when `profile.lenses.<id>` is at least 1. Rank the fitting lenses by that count, highest first. A tie keeps the lens table order.
+2. Pick the size tier, then the hunters for it:
+
+   | Tier | With `profile.lines_changed` (branch, pr) | Without it (paths, repo) | Hunters |
+   |------|-------------------------------------------|--------------------------|---------|
+   | small | `added + removed` under 80 and `file_count` 3 or fewer | `file_count` 3 or fewer | the top 2 fitting lenses, with `logic` first when it fits |
+   | medium | anything between small and large | `file_count` 4 to 15 | one per fitting lens, the top 4 when more fit |
+   | large | `added + removed` 400 or more, or `file_count` over 15 | `file_count` over 15 | one per fitting lens up to 6, then repeats of the top-ranked lens up to 6 |
+
+3. Fewer than 2 lenses fit, or `profile` is `null` → use judgment instead. Read the file list (and `diff_file` in branch and pr mode) and pick **2–6** lenses that fit. A CSS-only diff gets no `concurrency` hunter.
+
+A repeat hunter takes a different starting point, such as entry points, error paths, the data layer or integration seams. You assign it. The hunter never chooses it.
+
+Overrides win over the scaling rules:
+
+- `lenses` set → use exactly those lenses, and `hunters` defaults to the lens count.
+- `hunters` set, `lenses` unset → take the ranked fitting lenses, then fill the count with repeats of the top-ranked lens.
+- Both set → both win.
+- Hard cap: 6 hunters, not configurable. When `hunters_capped`, say so.
+
+Print the pick before launching. Do not wait for approval. First one profile line:
+
+`Profile: <tier> · <added + removed> lines or no diff · <file_count> files · <modules> modules`
+
+When `profile` is `null`, the line is `Profile: unavailable`. Then one line per hunter:
+
+`<hunter_id> · <lens> · <why it fits this scope> · signal: <lens> <n> files`
+
+With an override, the signal part is `signal: --lenses`. With a judgment pick, it is `signal: none, judged from the file list`.
 
 ## Phase 2 — Hunt (parallel fan-out)
 

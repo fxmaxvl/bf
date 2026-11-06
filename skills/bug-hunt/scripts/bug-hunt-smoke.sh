@@ -8,6 +8,7 @@ set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 init="$here/hunt-init.sh"
 findings="$here/findings.sh"
+skill="$here/../SKILL.md"
 command -v jq >/dev/null || { echo "FAIL jq is required"; exit 1; }
 
 tmp=$(mktemp -d)
@@ -53,6 +54,10 @@ check "profile: branch scope counts added and removed lines" "$(q "$out" '.profi
 bogus=$(bash "$init" --lenses bogus | jq -r '.detail | sub(".*valid: "; "") | rtrimstr(")") | split(" ") | sort | @json')
 check "profile: lens keys match the LENSES list" "$(q "$out" ".profile.lenses | keys == $bogus")"
 check "profile: unowned class keys" "$(q "$out" '.profile.unowned | keys == ["cache-invalidation","numeric-precision","resource-leak","time"]')"
+table_ids() { # table name: the backticked ids in the first column of the SKILL.md table headed "| id | <name> |"
+  awk -v h="| id | $1 |" 'index($0, h) == 1 { on = 1; next } on && /^\|/ { if ($0 !~ /^\|[-| ]+\|$/) { split($0, c, "`"); print c[2] } next } { on = 0 }' "$skill" | sort | tr '\n' ' '
+}
+check "profile: lens keys match the SKILL.md lens table" "$([ "$(table_ids Lens)" = "$(jq -r '.profile.lenses | keys | join(" ") + " "' <<< "$out")" ]; echo $?)"
 check "profile: every file kind key is present" "$(q "$out" '.profile.file_kinds | keys == ["code","config","docs","other","skill","style","test"]')"
 check "help text names the profile key" "$(bash "$init" --help | grep -q profile; echo $?)"
 
