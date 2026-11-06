@@ -36,7 +36,7 @@ Translate it to the same flags as standalone (`branch` → no target, `pr <n>` �
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/hunt-init.sh" <flags and targets>
 ```
 
-It returns `{mode, base, pr, files, file_count, diff_file, profile, lenses, hunters, hunters_capped, repro, run_dir, report_path, slug}`, or `{error, detail}` — print the detail and stop. Every later path comes from this result; do not re-derive any of them.
+It returns `{mode, base, pr, files, file_count, diff_file, profile, lenses, hunters, hunters_capped, repro, run_dir, report_path, slug}`, or `{error, detail}`. On an error, print the detail and stop. Every later path comes from this result, so do not re-derive any of them.
 
 Timing: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" mark "<run_dir>" <step>` with `hunt` just before the hunter spawn message, `verify` just before the verifier spawn message, and `report` after writing `report_path`; the scripts stamp everything else. A failed mark never stops the hunt. `findings.sh timing "<run_dir>"` prints the durations on request.
 
@@ -123,7 +123,7 @@ Wait for every hunter. Right after the spawn, start the silent-agent watch from 
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" merge "<run_dir>"
 ```
 
-It dedupes on file and anchored line ±2, counts `sources` by distinct hunter (never by lens), drops nothing, and packs directory groups into at most 6 verifier `batches`. Hunters in its `invalid` list are coverage gaps too. Zero findings → skip Phases 4 and 5 and report "No findings" with the Coverage and Lens suggestions sections.
+It dedupes on file and anchored line ±2, counts `sources` by distinct hunter (never by lens) and drops nothing. It packs directory groups into at most 6 verifier `batches`. Hunters in its `invalid` list are coverage gaps too. Zero findings → skip Phases 4 and 5 and report "No findings" with the Coverage and Lens suggestions sections.
 
 ## Phase 4 — Verify (parallel fan-out)
 
@@ -248,7 +248,7 @@ Record the choice under `## Handoff` in the report before invoking anything. No 
 | `counts.surviving` below 2 | Skip the analyst; run `analyze` on an empty analysis. No groups, no `## Root causes`, F ids only in the handoff. |
 | Analyst fails twice or `findings.sh analyze` errors twice | Run `analyze` on an empty analysis, note it under Coverage, hand off with F ids only. The hunt does not fail. |
 | Hunter or verifier fails twice | Continue; its lens or batch is a coverage gap in the report. Its findings stay `unverified`. |
-| Every hunter failed | Write the report with only the Coverage and Lens suggestions sections and stop — no verify phase, no handoff. |
+| Every hunter failed | Write the report with only the Coverage and Lens suggestions sections and stop. No verify phase, no handoff. |
 | `profile` is `null` (the profile helper failed) | Pick lenses by judgment, skip the missing-lens check, and add one line under Coverage. The suggestion output is `Lens suggestions: none`. |
 | More than 6 directories with findings | `findings.sh merge` packs neighbours into ≤6 batches; never drop findings to fit. |
 | A hunter or verifier edits project files | Out of contract: note it under Coverage and tell the user which files changed; never commit them. |
