@@ -60,8 +60,8 @@ modules=$(jq -R -s '
   split("\n") | map(select(length > 0) | split("\t")[0] | if contains("/") then split("/")[0] else "." end) | unique | length' <<< "$kinds")
 
 # POSIX ERE matched case-insensitively. A word boundary is spelled
-# (^|[^[:alnum:]_])...([^[:alnum:]_]|$) because BSD grep has no \b. Fields split on whitespace, so a
-# regex must use [[:space:]] and never a literal space. The unowned rows own the bug-class ids. The smoke
+# (^|[^[:alnum:]_])...([^[:alnum:]_]|$) because BSD grep has no \b. The read that splits each row strips
+# leading and trailing whitespace from the regex, so a regex must not start or end with a space. The unowned rows own the bug-class ids. The smoke
 # check keeps the SKILL.md class table equal to them.
 signals() {
   cat <<'SIGNALS'
