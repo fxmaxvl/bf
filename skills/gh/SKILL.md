@@ -88,7 +88,7 @@ On any other answer, post nothing and close nothing. If no item is resolved, the
 
 ### 5. Handle open/partial items
 
-If all items are resolved: tell the user the result of the step 4 question (posted and closed, or left as is), and stop.
+If all items are resolved: tell the user the result of the step 4 question (posted and closed, or left as is), and stop. If the comment posted but the close failed, say so, print the `gh` error, and tell the user the issue is still open.
 
 If any items are open or partial: ask "Want to work on these? (full workflow / quick mode / skip)"
 
