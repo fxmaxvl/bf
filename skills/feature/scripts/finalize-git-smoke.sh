@@ -15,9 +15,17 @@ eq() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1: got [$2], wa
 mkdir "$tmp/bin"
 cat > "$tmp/bin/gh" <<'STUB'
 #!/bin/sh
+echo "$*" >> "${GH_LOG:-/dev/null}"
+if [ -n "${GH_FAIL:-}" ]; then echo "HTTP 401: Bad credentials" >&2; exit 1; fi
+state=${GH_PR_STATE:-}
+if [ -n "${GH_LOOKUPS:-}" ]; then
+  [ -s "$GH_LOOKUPS" ] && state=${GH_PR_STATE_AFTER:-}
+  case "$1 $2" in "pr view"|"pr list") echo x >> "$GH_LOOKUPS" ;; esac
+fi
 case "$1 $2" in
-  "pr create") echo "https://example.test/pr/1" ;;
-  "pr view") exit 1 ;;
+  "pr create") [ -z "${GH_FAIL_CREATE:-}" ] || exit 4; echo "https://example.test/pr/1" ;;
+  "pr view") [ -n "$state" ] || exit 1; echo "$state https://example.test/pr/9" ;;
+  "pr list") [ -z "$state" ] || echo "$state https://example.test/pr/9 0123abc main" ;;
 esac
 STUB
 chmod +x "$tmp/bin/gh"
@@ -111,6 +119,17 @@ rc=0; finalize --baseline "$tmp/no-such-file" || rc=$?
 eq "missing baseline file -> strict mode, exit 3" "$rc" 3
 rm old-stray.md n2.txt
 
+: > "$tmp/empty-baseline"
+git worktree add -q .worktrees/w
+git init -q inner && (cd inner && git commit -q --allow-empty -m i)
+echo fresh > fresh.txt
+rc=0; finalize --baseline "$tmp/empty-baseline" || rc=$?
+eq "nested repos -> no exit 3" "$rc" 0
+eq "nested repos skipped, normal new file staged" "$(git show --name-only --format= HEAD)" "fresh.txt"
+eq "nested repos -> no gitlink in the index" "$(git ls-files -s | grep -c '^160000' || true)" 0
+eq "nested repos -> both noted" "$(grep -c 'nested git repo' "$tmp/err")" 2
+git worktree remove .worktrees/w && rm -rf .worktrees inner
+
 before=$(head_sha)
 echo r2 > .bf/reviews/r2.md
 mkdir -p .bf/audit && echo a > .bf/audit/a.md
@@ -123,5 +142,45 @@ eq "clean tree -> no new commit" "$(head_sha)" "$before"
 mkdir -p .bf/conventions && echo c > .bf/conventions/style.md
 finalize
 eq "only a .bf/conventions change -> committed alone" "$(git show --name-only --format= HEAD)" ".bf/conventions/style.md"
+
+echo m >> top.txt
+before=$(head_sha) before_remote=$(remote_sha)
+rc=0; GH_PR_STATE=MERGED finalize || rc=$?
+eq "merged PR -> exit 4" "$rc" 4
+eq "merged PR -> state named" "$(grep -c 'PR for this branch is MERGED' "$tmp/err")" 1
+eq "merged PR -> no commit, nothing staged" "$(head_sha) $(git diff --cached --name-only)" "$before "
+eq "merged PR -> remote unchanged" "$(remote_sha)" "$before_remote"
+eq "merged PR -> recovery moves only the new commits onto the base" "$(grep -c 'rebase --autostash --onto origin/main 0123abc' "$tmp/err")" 1
+rc=0; GH_PR_STATE=CLOSED finalize || rc=$?
+eq "closed PR -> exit 4" "$rc" 4
+eq "closed PR -> recovery branches from HEAD" "$(grep -c 'new branch from HEAD' "$tmp/err") $(grep -c 'rebase' "$tmp/err" || true)" "1 0"
+url=$(GH_PR_STATE=OPEN bash "$script" --commit-msg "feat: x" --pr-title t --pr-body b 2>"$tmp/err")
+eq "open PR -> committed and pushed" "$(git show --name-only --format= HEAD) $(remote_sha)" "top.txt $(head_sha)"
+eq "open PR -> existing PR url" "$(printf "%s\n" "$url" | tail -n1)" "https://example.test/pr/9"
+
+echo co >> top.txt
+before=$(head_sha) before_remote=$(remote_sha)
+rc=0; GH_LOG="$tmp/gh.log" GH_PR_STATE=MERGED bash "$script" --commit-only --commit-msg "feat: local" >"$tmp/out" 2>"$tmp/err" || rc=$?
+eq "commit-only -> exit 0" "$rc" 0
+eq "commit-only -> local commit made" "$(git log -1 --format=%s) $(git show --name-only --format= HEAD)" "feat: local top.txt"
+eq "commit-only -> HEAD moved" "$([ "$(head_sha)" != "$before" ] && echo moved)" moved
+eq "commit-only -> remote unchanged" "$(remote_sha)" "$before_remote"
+eq "commit-only -> no gh call, no PR url" "$([ -s "$tmp/gh.log" ] && echo called || echo none) $(grep -c example.test "$tmp/out" || true)" "none 0"
+
+echo gf >> top.txt
+before=$(head_sha) before_remote=$(remote_sha)
+rc=0; GH_FAIL=1 finalize || rc=$?
+eq "failed PR lookup -> exit 5" "$rc" 5
+eq "failed PR lookup -> no commit, nothing staged" "$(head_sha) $(git diff --cached --name-only)" "$before "
+eq "failed PR lookup -> remote unchanged" "$(remote_sha)" "$before_remote"
+
+rc=0; GH_FAIL_CREATE=1 finalize || rc=$?
+eq "failed PR create after push -> exit 6, not 4" "$rc" 6
+eq "failed PR create after push -> remote moved" "$(remote_sha)" "$(head_sha)"
+
+echo race >> top.txt
+: > "$tmp/lookups"; : > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_LOOKUPS="$tmp/lookups" GH_PR_STATE_AFTER=OPEN finalize
+eq "PR opened during the push -> edited, not created" "$(grep -c '^pr create' "$tmp/gh.log" || true) $(grep -c '^pr edit' "$tmp/gh.log" || true)" "0 1"
 
 [ "$fails" -eq 0 ]

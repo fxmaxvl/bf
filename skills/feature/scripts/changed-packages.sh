@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# changed-packages.sh — List files changed since the base branch and resolve affected monorepo packages.
+# changed-packages.sh: List files changed since the base branch, uncommitted files and untracked
+# files made since session start included (.bf/ excluded), and resolve affected monorepo packages.
+# The session start comes from the untracked baseline next to .bf/sessions/build-state.json.
 # Outputs JSON.
 # Usage: bash changed-packages.sh [--base <branch>]
 #   --base   Branch to diff against (default: resolved from origin/HEAD, then main, then master)
@@ -42,14 +44,47 @@ def git_root():
         sys.exit(1)
     return r.stdout.strip()
 
-def changed_files(base, root):
-    r = subprocess.run(
-        ['git', 'diff', f'{base}...HEAD', '--name-only'],
-        capture_output=True, text=True, cwd=root
-    )
+def git_lines(args, root):
+    r = subprocess.run(['git'] + args, capture_output=True, text=True, cwd=root)
     if r.returncode != 0:
-        return []
+        return None
     return [f for f in r.stdout.splitlines() if f.strip()]
+
+# -z keeps names with non-ASCII or special characters unquoted. A quoted name is not a real path.
+def git_paths(args, root):
+    r = subprocess.run(['git'] + args, capture_output=True, cwd=root)
+    if r.returncode != 0:
+        return None
+    return [f for f in r.stdout.decode('utf-8', 'surrogateescape').split('\0') if f]
+
+# The untracked files that existed at session start, as state-ops.sh recorded them. Without a
+# build state there is no session, so nothing is filtered.
+def session_baseline(root):
+    sessions = os.path.join(root, '.bf', 'sessions')
+    try:
+        with open(os.path.join(sessions, 'build-state.json')) as f:
+            state = json.load(f)
+        name = f"{state['build_timestamp']}-{state['slug']}-untracked-at-start"
+        with open(os.path.join(sessions, name), 'rb') as f:
+            return [e for e in f.read().decode('utf-8', 'surrogateescape').split('\0') if e]
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+
+def in_baseline(path, baseline):
+    return any(path == b or (b.endswith('/') and path.startswith(b)) for b in baseline)
+
+# The diff runs from the merge base to the working tree, so edits made before the first commit
+# count. Untracked files count only when they are new since session start, which matches what
+# finalize-git.sh stages. An untracked entry that ends in "/" is a nested repo, not a file a gate
+# can read.
+def changed_files(base, root):
+    mb = git_lines(['merge-base', base, 'HEAD'], root)
+    if not mb:
+        return []
+    diff = git_paths(['diff', '-z', '--name-only', mb[0], '--', '.', ':!.bf'], root) or []
+    untracked = git_paths(['ls-files', '-z', '--others', '--exclude-standard', '--', '.', ':!.bf'], root) or []
+    baseline = session_baseline(root)
+    return diff + [f for f in untracked if not f.endswith('/') and not in_baseline(f, baseline)]
 
 def get_workspaces(root):
     """Return list of workspace directory prefixes (e.g. ['packages/api', 'apps/web'])."""
