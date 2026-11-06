@@ -56,6 +56,30 @@ check "profile: unowned class keys" "$(q "$out" '.profile.unowned | keys == ["ca
 check "profile: every file kind key is present" "$(q "$out" '.profile.file_kinds | keys == ["code","config","docs","other","skill","style","test"]')"
 check "help text names the profile key" "$(bash "$init" --help | grep -q profile; echo $?)"
 
+# A second repo keeps the $tmp/r assertions (file_count, files) valid.
+mkdir -p "$tmp/sig-origin/src" "$tmp/sig-origin/web" "$tmp/sig-origin/skills/x" "$tmp/sig-origin/docs"
+cd "$tmp/sig-origin" && git init -q -b main . && git config user.email t@t && git config user.name t
+printf '%s\n' 'async function run() {' 'await fetch(u)' 'try {' '} catch (e) {' 'const t = new Date()' 'x.toFixed(2)' > src/job.js
+printf '%s\n' '// author: bob' 'const x = 1' > src/plain.js
+echo 'a { color: red }' > web/a.css
+printf '%s\n' '## Phase 1 - Pick' '## Phase 2 - Run' > skills/x/SKILL.md
+echo 'const p = createPool()' > old.js
+echo 'cache secret retry' > docs/notes.md
+git add . && git commit -qm init
+git clone -q "$tmp/sig-origin" "$tmp/sig" && cd "$tmp/sig" && git config user.email t@t && git config user.name t
+git switch -qc feat && printf '%s\n' 'const y = 2' 'const z = 3' >> src/job.js && git rm -q old.js && git commit -qam change
+
+out=$(bash "$init" src)
+check "profile signals: fire where the content matches and stay 0 elsewhere" "$(q "$out" '.profile.lines_changed == null and .profile.lenses.concurrency == 1 and .profile.lenses.errors == 1 and .profile.lenses.security == 0 and .profile.unowned.time == 1 and .profile.unowned["numeric-precision"] == 1 and .profile.unowned["resource-leak"] == 0 and .profile.unowned["cache-invalidation"] == 0')"
+check "profile suggestions: classes at 10% of scanned files, in table order" "$(q "$out" '.profile.scanned == 2 and .profile.suggestions == ["time","numeric-precision"]')"
+out=$(bash "$init" --repo)
+check "profile repo: kinds, modules, and docs files add no signal" "$(q "$out" '.profile.file_kinds.style == 1 and .profile.file_kinds.skill == 1 and .profile.file_kinds.docs == 1 and .profile.file_kinds.code == 2 and .profile.lenses.flow >= 1 and .profile.lenses.logic == 3 and .profile.unowned["cache-invalidation"] == 0 and .profile.lenses.security == 0 and .profile.modules == 4 and .profile.lenses.contracts >= 1 and .profile.scanned == 3')"
+out=$(bash "$init")
+check "profile branch: a deleted file is listed but not counted" "$(q "$out" '(.files | index("old.js")) != null and .profile.unowned["resource-leak"] == 0 and .profile.lines_changed.added == 2 and .profile.lines_changed.removed == 1')"
+out=$(bash "$init" --lenses security)
+check "profile survives a lens override" "$(q "$out" '.lenses == ["security"] and .profile.scanned >= 1')"
+cd "$tmp/r"
+
 run="$tmp/run"; mkdir -p "$run/hunters" "$run/verifiers"
 cat > "$run/hunters/h1.json" <<'J'
 {"hunter_id":"h1","lens":"logic","findings":[

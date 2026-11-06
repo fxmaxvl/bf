@@ -57,16 +57,16 @@ modules=$(jq -R -s '
 # regex must use [[:space:]] and never a literal space.
 signals() {
   cat <<'SIGNALS'
-lens errors a^
-lens concurrency a^
-lens data a^
-lens security a^
-lens contracts a^
-lens flow a^
-unowned resource-leak a^
-unowned time a^
-unowned numeric-precision a^
-unowned cache-invalidation a^
+lens errors (^|[^[:alnum:]_])(try|catch|except|finally|rescue|throw|raise|retry|retries)([^[:alnum:]_]|$)|err[[:space:]]*!=[[:space:]]*nil|[|][|][[:space:]]*true|2>/dev/null
+lens concurrency (^|[^[:alnum:]_])(async|await|promise|thread|mutex|goroutine|go[[:space:]]+func|settimeout|setinterval|future|executor|synchronized|atomic|semaphore)([^[:alnum:]_]|$)
+lens data insert[[:space:]]+into|delete[[:space:]]+from|create[[:space:]]+table|alter[[:space:]]+table|select[[:space:]].*[[:space:]]from[[:space:]]|(^|[^[:alnum:]_])(migration|migrate|schema|transaction|serialize|deserialize)([^[:alnum:]_]|$)|json\.(parse|loads)
+lens security (^|[^[:alnum:]_])(eval|innerhtml|dangerouslysetinnerhtml|subprocess|child_process|password|passwd|secret|jwt|csrf|cookie)([^[:alnum:]_]|$)|(^|[^[:alnum:]_])(exec|system)[[:space:]]*\(|shell[[:space:]]*=[[:space:]]*true|api[_-]?key|(^|[^[:alnum:]_])(authoriz|authenticat)
+lens contracts ^[[:space:]]*(export|public|interface|def|func|fn|rpc)([^[:alnum:]_]|$)|^[[:space:]]*message[[:space:]]+[a-z]|module\.exports|^#[[:space:]]*(usage|output keys?|contract):
+lens flow ^#{1,4}[[:space:]]+(phase|step)[[:space:]]+[0-9]|(^|[^[:alnum:]_])(main|handler|router|pipeline)[[:space:]]*\(
+unowned resource-leak (^|[^[:alnum:]_])(fopen|createreadstream|createwritestream|addeventlistener|createpool|getconnection)([^[:alnum:]_]|$)|(^|[^[:alnum:]_])new[[:space:]]+(web)?socket|net\.connect|os\.open
+unowned time date\.now|(^|[^[:alnum:]_])new[[:space:]]+date|(^|[^[:alnum:]_])(datetime|timezone|tzinfo|toisostring|gettimezoneoffset|dayjs|strftime|strptime|localdate|zoneddatetime|utc)([^[:alnum:]_]|$)|tz=|moment\(|time\.time
+unowned numeric-precision (^|[^[:alnum:]_])(parsefloat|tofixed|bigdecimal|bigint)([^[:alnum:]_]|$)|math\.(round|floor|ceil)|(^|[^[:alnum:]_])(decimal|float|round)[[:space:]]*\(
+unowned cache-invalidation (^|[^[:alnum:]_])(cache|memoize|ttl|evict|lru|redis)([^[:alnum:]_]|$)|memo\(|invalidat
 SIGNALS
 }
 
