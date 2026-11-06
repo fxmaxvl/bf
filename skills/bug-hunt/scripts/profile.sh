@@ -100,7 +100,8 @@ jq -nc --arg ids "$HUNT_LENSES" --argjson lines "$lines_changed" --argjson scann
   | ([$rows[] | select(.[0] == "lens") | {key: .[1], value: (.[2] | tonumber)}] | from_entries) as $lens
   | ([$rows[] | select(.[0] == "unowned") | {key: .[1], value: (.[2] | tonumber)}] | from_entries) as $unowned
   | {lines_changed: $lines, scanned: $scanned, modules: $modules, file_kinds: $kinds,
-     lenses: ({logic: ($kinds.code + $kinds.test + $kinds.skill)} + $lens
-              | if $modules >= 2 and .contracts < 1 then .contracts = 1 else . end),
+     lenses: (({logic: ($kinds.code + $kinds.test + $kinds.skill)} + $lens
+               | if $modules >= 2 and (.contracts // 1) < 1 then .contracts = 1 else . end) as $all
+              | [$ids | split(" ")[] | select(length > 0) | {key: ., value: $all[.]}] | from_entries),
      unowned: $unowned,
      suggestions: [$rows[] | select(.[0] == "unowned") | select((.[2] | tonumber) >= 1 and (.[2] | tonumber) * 10 >= $scanned) | .[1]]}'
