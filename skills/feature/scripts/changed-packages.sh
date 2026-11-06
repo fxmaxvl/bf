@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# changed-packages.sh — List files changed since the base branch and resolve affected monorepo packages.
+# changed-packages.sh: List files changed since the base branch, uncommitted and untracked files
+# included (.bf/ excluded), and resolve affected monorepo packages.
 # Outputs JSON.
 # Usage: bash changed-packages.sh [--base <branch>]
 #   --base   Branch to diff against (default: resolved from origin/HEAD, then main, then master)
@@ -42,14 +43,21 @@ def git_root():
         sys.exit(1)
     return r.stdout.strip()
 
-def changed_files(base, root):
-    r = subprocess.run(
-        ['git', 'diff', f'{base}...HEAD', '--name-only'],
-        capture_output=True, text=True, cwd=root
-    )
+def git_lines(args, root):
+    r = subprocess.run(['git'] + args, capture_output=True, text=True, cwd=root)
     if r.returncode != 0:
-        return []
+        return None
     return [f for f in r.stdout.splitlines() if f.strip()]
+
+# The diff runs from the merge base to the working tree, so edits made before the first commit
+# count. An untracked entry that ends in "/" is a nested repo, not a file a gate can read.
+def changed_files(base, root):
+    mb = git_lines(['merge-base', base, 'HEAD'], root)
+    if not mb:
+        return []
+    diff = git_lines(['diff', '--name-only', mb[0], '--', '.', ':!.bf'], root) or []
+    untracked = git_lines(['ls-files', '--others', '--exclude-standard', '--', '.', ':!.bf'], root) or []
+    return diff + [f for f in untracked if not f.endswith('/')]
 
 def get_workspaces(root):
     """Return list of workspace directory prefixes (e.g. ['packages/api', 'apps/web'])."""
