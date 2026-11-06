@@ -433,16 +433,18 @@ Print banner: `── feature | Finalize ─────────────
    Then branch on `mode`:
 
    **If `mode != "quick"` (full mode):** Ask the user one question at a time:
-   1. Ask: "Ready to finalize (commit, push, PR)?"
+   1. Ask: "Ready to finalize (commit, push, PR)? Reply `yes`, `commit only` to commit locally without a push or PR, or `no`."
       - If no: **Exit** (re-invoke `/bf:feature` when ready).
+      - If `commit only`: treat it as yes, and pass `--commit-only` in step 5.
       - If yes: continue to next question.
    2. Ask: "Should I scan for TODO comments and collect them to the backlog after?"
       - Save the answer in state as `collect_todos: true/false` so it survives session interruptions.
    Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=<true|false>` — continue.
 
    **If `mode == "quick"` (quick mode):**
-   1. Ask: "Ready to finalize (commit, push, PR)?"
+   1. Ask: "Ready to finalize (commit, push, PR)? Reply `yes`, `commit only` to commit locally without a push or PR, or `no`."
       - If no: **Exit** (re-invoke `/bf:feature` when ready).
+      - If `commit only`: treat it as yes, and pass `--commit-only` in step 5.
       - If yes: continue.
    Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=false` — continue. (TODO scanning is always skipped in quick mode.)
 3. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions. Resolve and act on it before composing the commit.
@@ -458,6 +460,7 @@ Print banner: `── feature | Finalize ─────────────
      --pr-title "<pr title>" \
      --pr-body "<pr body text>" \
      --baseline <paths.untracked_baseline> \
+     [--commit-only]                          # only if the gate answer was commit only \
      [--add <path>]...                        # only on a rerun after exit 3 \
      [--leave-untracked]                      # only on a rerun after exit 3 \
      [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
@@ -466,11 +469,12 @@ Print banner: `── feature | Finalize ─────────────
    The script stages tracked edits, every untracked file made since the session started (anything not in `paths.untracked_baseline`), the `--add` files and `.bf/conventions/`. It commits if there are changes, pushes, creates the PR, and outputs the PR URL.
    **Exit 3** means files that were already untracked when the session started are still untracked. The script lists them on stderr and has staged and pushed nothing. Show the list and ask which of them belong to the change (one question). Rerun with `--add` for those, plus `--leave-untracked` when any remain. Under `/bf:autopilot`, rerun with `--leave-untracked`: a file that was there before the session never goes into the commit unasked.
    **Exit 1** with a git error means an `--add` path is missing, ignored, or outside the repo. Nothing was staged. Drop that path and rerun.
+   With `--commit-only` the script stops after the commit: it does not push, open a PR or print a URL.
    **Exit 4** means the branch already has a MERGED or CLOSED PR, so a push would never reach the base branch. Nothing was staged or pushed. Show the state and URL from stderr, create a new branch from HEAD, and rerun.
-6. **If `jira.enabled` is `true`:**
+6. **If `jira.enabled` is `true` and the run was not `--commit-only`:**
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-7. Tell the user: "The PR is open at <pr_url>. The build is complete." When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
+7. Tell the user: "The PR is open at <pr_url>. The build is complete." After `--commit-only`, say instead: "The change is committed locally. Nothing was pushed and no PR was opened." When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
 8. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=collect-todos phase_status=in_progress
    ```

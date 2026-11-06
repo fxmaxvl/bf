@@ -15,6 +15,7 @@ eq() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1: got [$2], wa
 mkdir "$tmp/bin"
 cat > "$tmp/bin/gh" <<'STUB'
 #!/bin/sh
+echo "$*" >> "${GH_LOG:-/dev/null}"
 case "$1 $2" in
   "pr create") echo "https://example.test/pr/1" ;;
   "pr view") [ -n "${GH_PR_STATE:-}" ] || exit 1; echo "$GH_PR_STATE https://example.test/pr/9" ;;
@@ -147,5 +148,14 @@ eq "closed PR -> exit 4" "$rc" 4
 url=$(GH_PR_STATE=OPEN bash "$script" --commit-msg "feat: x" --pr-title t --pr-body b 2>"$tmp/err")
 eq "open PR -> committed and pushed" "$(git show --name-only --format= HEAD) $(remote_sha)" "top.txt $(head_sha)"
 eq "open PR -> existing PR url" "$(printf "%s\n" "$url" | tail -n1)" "https://example.test/pr/9"
+
+echo co >> top.txt
+before=$(head_sha) before_remote=$(remote_sha)
+rc=0; GH_LOG="$tmp/gh.log" GH_PR_STATE=MERGED bash "$script" --commit-only --commit-msg "feat: local" >"$tmp/out" 2>"$tmp/err" || rc=$?
+eq "commit-only -> exit 0" "$rc" 0
+eq "commit-only -> local commit made" "$(git log -1 --format=%s) $(git show --name-only --format= HEAD)" "feat: local top.txt"
+eq "commit-only -> HEAD moved" "$([ "$(head_sha)" != "$before" ] && echo moved)" moved
+eq "commit-only -> remote unchanged" "$(remote_sha)" "$before_remote"
+eq "commit-only -> no gh call, no PR url" "$([ -s "$tmp/gh.log" ] && echo called || echo none) $(grep -c example.test "$tmp/out" || true)" "none 0"
 
 [ "$fails" -eq 0 ]

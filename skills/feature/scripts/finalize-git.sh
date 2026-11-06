@@ -6,6 +6,7 @@
 #     --commit-msg "<message>" \
 #     --pr-title "<title>" \
 #     --pr-body "<body text>" \
+#     [--commit-only] \
 #     [--baseline <file>] \
 #     [--add <path>]... \
 #     [--leave-untracked] \
@@ -30,6 +31,8 @@
 #
 # Outputs the PR URL on stdout.
 # Skips the commit step if there are no uncommitted changes.
+# --commit-only stages and commits as usual, then exits 0 before the PR check, the push and the PR.
+# --pr-title and --pr-body are optional with it, and no PR URL is printed.
 
 set -euo pipefail
 
@@ -41,6 +44,7 @@ JIRA_URL=""
 ADD=()
 BASELINE=""
 LEAVE_UNTRACKED=0
+COMMIT_ONLY=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -52,11 +56,14 @@ while [[ $# -gt 0 ]]; do
         --add)          ADD+=("$2");       shift 2 ;;
         --baseline)     BASELINE="$2";     shift 2 ;;
         --leave-untracked) LEAVE_UNTRACKED=1; shift ;;
+        --commit-only)  COMMIT_ONLY=1;     shift ;;
         *) echo "Unknown argument: $1" >&2; exit 1 ;;
     esac
 done
 
-for VAR in COMMIT_MSG PR_TITLE PR_BODY; do
+REQUIRED=(COMMIT_MSG)
+[[ "$COMMIT_ONLY" -eq 1 ]] || REQUIRED+=(PR_TITLE PR_BODY)
+for VAR in "${REQUIRED[@]}"; do
     if [[ -z "${!VAR}" ]]; then
         FLAG=$(echo "$VAR" | tr '[:upper:]_' '[:lower:]-')
         echo "Error: --${FLAG} is required" >&2
@@ -100,7 +107,8 @@ for A in ${ADD[@]+"${ADD[@]}"}; do
 done
 cd "$ROOT"
 
-PR_INFO=$(gh pr view --json state,url -q '.state + " " + .url' 2>/dev/null || true)
+PR_INFO=""
+[[ "$COMMIT_ONLY" -eq 1 ]] || PR_INFO=$(gh pr view --json state,url -q '.state + " " + .url' 2>/dev/null || true)
 PR_STATE=${PR_INFO%% *}
 EXISTING_PR=${PR_INFO#* }
 if [[ "$PR_STATE" == MERGED || "$PR_STATE" == CLOSED ]]; then
@@ -159,6 +167,7 @@ git add -u -- . ':!.bf'
 if [[ -n "$(git diff --cached --name-only)" ]]; then
     git commit -m "$COMMIT_MSG"
 fi
+[[ "$COMMIT_ONLY" -eq 0 ]] || exit 0
 
 git push -u origin HEAD
 
