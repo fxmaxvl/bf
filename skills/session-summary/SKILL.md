@@ -47,6 +47,7 @@ Good candidates:
 - A skill step that was confusing, redundant, or missing
 - A flow that could handle an edge case better
 - A convention or instruction that was unclear
+- A bug class that a hunt skill flagged as not covered by any of its lenses (a `Lens suggestion:` line from bf:bug-hunt)
 
 Not candidates:
 - Session-specific details (cost, what we built today)
