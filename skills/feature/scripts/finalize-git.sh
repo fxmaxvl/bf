@@ -26,7 +26,7 @@
 # with --leave-untracked to commit without them.
 # Exit 1 before staging: an --add path is missing, ignored, or outside the repo.
 # Exit 4: the branch already has a PR that is MERGED or CLOSED, so a push would never reach the
-# base branch. The state and URL go to stderr. Start a new branch from HEAD and rerun.
+# base branch. The state, the URL and the recovery commands go to stderr. Run them, then rerun.
 # Exit 5: gh could not read the PR state for the branch, for example on an auth failure.
 # Nothing is staged or pushed on any of these exits.
 # Exit 6: the commit and the push are done, but the PR step failed (the PR lookup after the push,
@@ -113,8 +113,8 @@ cd "$ROOT"
 # gh pr view exits 1 both for "no PR" and for a failed call, so it cannot tell them apart.
 # gh pr list exits 0 with no output when the branch has no PR. An open PR wins over older ones.
 pr_lookup() {
-    gh pr list --head "$(git rev-parse --abbrev-ref HEAD)" --state all --json state,url \
-        -q '((map(select(.state == "OPEN")) + .)[0] // empty) | .state + " " + .url'
+    gh pr list --head "$(git rev-parse --abbrev-ref HEAD)" --state all --json state,url,headRefOid,baseRefName \
+        -q '((map(select(.state == "OPEN")) + .)[0] // empty) | [.state, .url, .headRefOid, .baseRefName] | join(" ")'
 }
 
 PR_INFO=""
@@ -124,9 +124,21 @@ if [[ "$COMMIT_ONLY" -eq 0 ]]; then
         exit 5
     fi
 fi
-PR_STATE=${PR_INFO%% *}
-if [[ "$PR_STATE" == MERGED || "$PR_STATE" == CLOSED ]]; then
-    echo "Error: the PR for this branch is $PR_STATE (${PR_INFO#* }). Nothing was staged or pushed. Start a new branch from HEAD and rerun." >&2
+read -r PR_STATE PR_URL PR_HEAD PR_BASE <<<"$PR_INFO" || true
+# A squash or rebase merge leaves the PR's commits out of the base's history, so a branch from
+# HEAD would ship them again. Only the commits after the merged head move onto the base.
+if [[ "$PR_STATE" == MERGED ]]; then
+    {
+        echo "Error: the PR for this branch is MERGED ($PR_URL). Nothing was staged or pushed."
+        echo "Move the commits made after the merge, and any uncommitted edits, to a new branch off the base, then rerun:"
+        echo "  git fetch origin $PR_BASE"
+        echo "  git checkout -b $(git rev-parse --abbrev-ref HEAD)-followup"
+        echo "  git rebase --autostash --onto origin/$PR_BASE $PR_HEAD"
+    } >&2
+    exit 4
+fi
+if [[ "$PR_STATE" == CLOSED ]]; then
+    echo "Error: the PR for this branch is CLOSED without a merge ($PR_URL). Nothing was staged or pushed. Reopen it (gh pr reopen), or start a new branch from HEAD, then rerun." >&2
     exit 4
 fi
 
@@ -191,13 +203,13 @@ pushed_pr_failed() {
 }
 # A PR can be opened or merged while the push runs, so the edit-or-create choice uses a fresh read.
 PR_INFO=$(pr_lookup) || pushed_pr_failed "could not read the PR state"
-case "${PR_INFO%% *}" in
+read -r PR_STATE PR_URL _ <<<"$PR_INFO" || true
+case "$PR_STATE" in
     OPEN)
-        PR_URL=${PR_INFO#* }
         gh pr edit --title "$PR_TITLE" --body "$BODY" || pushed_pr_failed "gh pr edit failed" ;;
     "")
         PR_URL=$(gh pr create --title "$PR_TITLE" --body "$BODY") || pushed_pr_failed "gh pr create failed" ;;
     *)
-        pushed_pr_failed "the PR for this branch became ${PR_INFO%% *} (${PR_INFO#* })" ;;
+        pushed_pr_failed "the PR for this branch became $PR_STATE ($PR_URL)" ;;
 esac
 echo "$PR_URL"

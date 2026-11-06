@@ -25,7 +25,7 @@ fi
 case "$1 $2" in
   "pr create") [ -z "${GH_FAIL_CREATE:-}" ] || exit 4; echo "https://example.test/pr/1" ;;
   "pr view") [ -n "$state" ] || exit 1; echo "$state https://example.test/pr/9" ;;
-  "pr list") [ -z "$state" ] || echo "$state https://example.test/pr/9" ;;
+  "pr list") [ -z "$state" ] || echo "$state https://example.test/pr/9 0123abc main" ;;
 esac
 STUB
 chmod +x "$tmp/bin/gh"
@@ -150,8 +150,10 @@ eq "merged PR -> exit 4" "$rc" 4
 eq "merged PR -> state named" "$(grep -c 'PR for this branch is MERGED' "$tmp/err")" 1
 eq "merged PR -> no commit, nothing staged" "$(head_sha) $(git diff --cached --name-only)" "$before "
 eq "merged PR -> remote unchanged" "$(remote_sha)" "$before_remote"
+eq "merged PR -> recovery moves only the new commits onto the base" "$(grep -c 'rebase --autostash --onto origin/main 0123abc' "$tmp/err")" 1
 rc=0; GH_PR_STATE=CLOSED finalize || rc=$?
 eq "closed PR -> exit 4" "$rc" 4
+eq "closed PR -> recovery branches from HEAD" "$(grep -c 'new branch from HEAD' "$tmp/err") $(grep -c 'rebase' "$tmp/err" || true)" "1 0"
 url=$(GH_PR_STATE=OPEN bash "$script" --commit-msg "feat: x" --pr-title t --pr-body b 2>"$tmp/err")
 eq "open PR -> committed and pushed" "$(git show --name-only --format= HEAD) $(remote_sha)" "top.txt $(head_sha)"
 eq "open PR -> existing PR url" "$(printf "%s\n" "$url" | tail -n1)" "https://example.test/pr/9"
