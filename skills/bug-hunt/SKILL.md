@@ -90,7 +90,7 @@ With an override, the signal part is `signal: --lenses`. With a judgment pick, i
 
 Some bug classes have no lens. The check flags the ones the scope shows signs of. It runs on every hunt, also when `lenses` is set, because it is about classes no lens owns and not about the pick. It is skipped only when `profile` is `null`. A suggestion is only reported. Never run it and never invent a hunter for it.
 
-`profile.suggestions` lists the class ids to report. A class is listed when `profile.unowned.<id>` is at least 1 and at least a tenth of `profile.scanned` (the code and config files). The classes are:
+Report the class ids that `profile.suggestions` lists. `profile.sh` holds the rule that fills it. The classes are:
 
 | id | Class | Covers | Signal |
 |----|-------|--------|--------|
