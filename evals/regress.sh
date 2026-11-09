@@ -305,53 +305,54 @@ prepush_targets() {
   done | awk '!seen[$1]++'
 }
 
-# Loads the settings and the baseline from REGRESS_BASE for gate_at and the readers it calls.
+# Fetches the base, then loads the settings and the baseline from REGRESS_BASE for gate_at and
+# the readers it calls.
 gate_load() {
+  base_fetch
   conf_load "$REGRESS_BASE"
   bl_load "$REGRESS_BASE"
   GATE_LOADED=1
 }
 
 mode_pre_push() {
-  local lines targets sha base changed n=0
+  local lines targets sha base changed i n
+  local shas=() bases=() changes=()
   lines=$(cat)
   exec </dev/null
   targets=$(prepush_targets <<<"$lines") || return 1
-  changed=""
   while read -r sha base; do
     [ -n "$sha" ] || continue
-    changed="$changed$(changed_skills "$base" "$sha")"
+    changed=$(changed_skills "$base" "$sha") || return 1
+    [ -n "$changed" ] || continue
+    shas+=("$sha")
+    bases+=("$base")
+    changes+=("$changed")
   done <<<"$targets"
-  if [ -z "$changed" ]; then return 0; fi
-  base_fetch
+  n=${#shas[@]}
+  if [ "$n" -eq 0 ]; then return 0; fi
+  # The targets above are read before the fetch, so a push that changes no skill never uses the network.
   gate_load
-  targets=$(prepush_targets <<<"$lines") || return 1
-  while read -r sha base; do
-    [ -n "$sha" ] || continue
-    if [ -n "$(changed_skills "$base" "$sha")" ]; then n=$((n + 1)); fi
-  done <<<"$targets"
   echo "Skill gate: $n commit(s) to check, worst case cost $n x \$$REGRESS_MAX_COST_USD."
   # Every free coverage check runs before the first paid run, so a later ref cannot block after an earlier ref has spent money.
-  while read -r sha base; do
-    [ -n "$sha" ] || continue
-    changed_skills "$base" "$sha" | coverage "$sha" || return 1
-  done <<<"$targets"
-  while read -r sha base; do
-    [ -n "$sha" ] || continue
-    gate_at "$sha" "$base" || return 1
-  done <<<"$targets"
+  for ((i = 0; i < n; i++)); do
+    coverage "${shas[i]}" <<<"${changes[i]}" || return 1
+  done
+  for ((i = 0; i < n; i++)); do
+    gate_at "${shas[i]}" "${bases[i]}" "${changes[i]}" || return 1
+  done
 }
 
 mode_check() {
-  local base head
+  local base head changed
   parse_opts "$@"
-  base_fetch
   gate_load
   base=$(printf '%s' "$POS" | head -n 1)
   if [ -z "$base" ]; then base=$(base_mb HEAD) || return 1; fi
   head=$(git rev-parse HEAD </dev/null)
   stale_scan "$head"
-  gate_at "$head" "$base"
+  changed=$(changed_skills "$base" "$head") || return 1
+  coverage "$head" <<<"$changed" || return 1
+  gate_at "$head" "$base" "$changed"
 }
 
 WT_DIRS=""
@@ -654,15 +655,14 @@ print_table() {
   done
 }
 
-# The regression check for one commit: coverage, the case list, the run on a worktree at the
-# commit, then one verdict per case. It reads the settings and the baseline that gate_load set.
+# The regression check for one commit: the case list, the run on a worktree at the commit, then
+# one verdict per case. The caller passes the changed skills and has run coverage on them. It
+# reads the settings and the baseline that gate_load set.
 gate_at() {
-  local sha=$1 base=$2 changed statuses cases rows out row case score counted tree verdict
+  local sha=$1 base=$2 changed=$3 statuses cases rows out row case score counted tree verdict
   local old delta table="" tag_arr tags="" regressed="" changedcases="" nobase="" first=""
   [ -n "${GATE_LOADED:-}" ] || die "gate_at ran before gate_load"
-  changed=$(changed_skills "$base" "$sha") || return 1
   if [ -z "$changed" ]; then return 0; fi
-  coverage "$sha" <<<"$changed" || return 1
   statuses=$(tag_status "$sha" <<<"$changed") || return 1
   tags=$(tagged_names <<<"$statuses")
   if [ -z "$tags" ]; then return 0; fi
