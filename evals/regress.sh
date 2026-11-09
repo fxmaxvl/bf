@@ -228,21 +228,37 @@ base_mb() {
   echo "$mb"
 }
 
-# Reads "added <name>" and "edited <name>" lines on stdin. An added skill needs a case tagged
-# with its name. An edited skill without one only warns.
-coverage() {
-  local src=$1 kind name covered blocked=0
+# Reads "added <name>" and "edited <name>" lines on stdin and prints "<kind> <name> tagged" or
+# "<kind> <name> untagged", by whether a case at <src> carries the skill name as a tag.
+tag_status() {
+  local src=$1 kind name covered
   while read -r kind name; do
     [ -n "$name" ] || continue
     covered=$(cases_with_tag "$src" "$name") || return 1
-    if [ -n "$covered" ]; then continue; fi
+    if [ -n "$covered" ]; then echo "$kind $name tagged"; else echo "$kind $name untagged"; fi
+  done
+}
+
+# Reads tag_status lines on stdin and prints the tagged names, each with a leading space.
+tagged_names() {
+  awk '$3 == "tagged" { printf " %s", $2 }'
+}
+
+# Reads "added <name>" and "edited <name>" lines on stdin. An added skill needs a case tagged
+# with its name. An edited skill without one only warns.
+coverage() {
+  local src=$1 kind name status statuses blocked=0
+  statuses=$(tag_status "$src") || return 1
+  while read -r kind name status; do
+    [ -n "$name" ] || continue
+    if [ "$status" = tagged ]; then continue; fi
     if [ "$kind" = added ]; then
       echo "regress: skill $name is new and has no eval case. Add a case under evals/ tagged $name." >&2
       blocked=1
     else
       echo "WARNING: skill $name has no eval case tagged $name."
     fi
-  done
+  done <<<"$statuses"
   [ "$blocked" -eq 0 ]
 }
 
@@ -621,6 +637,11 @@ stale_scan() {
   return 0
 }
 
+# Prints the signed change from an old score to a new one, to three decimals.
+score_delta() {
+  awk -v o="$1" -v n="$2" 'BEGIN { printf "%+.3f", n - o }'
+}
+
 # Prints the table of rows (case, baseline, new, delta, status) read on stdin.
 print_table() {
   printf '%-36s %9s %9s %8s  %s\n' case "${1:-baseline}" new delta status
@@ -633,16 +654,13 @@ print_table() {
 # The regression check for one commit: coverage, the case list, the run on a worktree at the
 # commit, then one verdict per case. The caller has loaded the settings and the baseline.
 gate_at() {
-  local sha=$1 base=$2 changed kind name covered cases rows out row case score counted tree verdict
+  local sha=$1 base=$2 changed statuses cases rows out row case score counted tree verdict
   local old delta table="" tag_arr tags="" regressed="" changedcases="" nobase="" first=""
   changed=$(changed_skills "$base" "$sha") || return 1
   if [ -z "$changed" ]; then return 0; fi
   coverage "$sha" <<<"$changed" || return 1
-  while read -r kind name; do
-    [ -n "$name" ] || continue
-    covered=$(cases_with_tag "$sha" "$name") || return 1
-    if [ -n "$covered" ]; then tags="$tags $name"; fi
-  done <<<"$changed"
+  statuses=$(tag_status "$sha" <<<"$changed") || return 1
+  tags=$(tagged_names <<<"$statuses")
   if [ -z "$tags" ]; then return 0; fi
   read -r -a tag_arr <<<"$tags"
   if [ -n "$(git diff --name-only "$base" "$sha" -- evals/baseline.json evals/regress.conf </dev/null)" ]; then
@@ -668,7 +686,7 @@ gate_at() {
     delta="-"
     if [ -z "$old" ]; then old="-"; fi
     if [ "$old" != "-" ] && [ "$verdict" != "case changed" ]; then
-      delta=$(awk -v o="$old" -v n="$score" 'BEGIN { printf "%+.3f", n - o }')
+      delta=$(score_delta "$old" "$score")
     fi
     table="$table$case"$'\t'"$old"$'\t'"$score"$'\t'"$delta"$'\t'"$verdict"$'\n'
     case "$verdict" in
@@ -757,7 +775,7 @@ compare_table() {
     elif [ -z "$n" ]; then
       status="removed case"; n="-"
     else
-      delta=$(awk -v o="$o" -v n="$n" 'BEGIN { printf "%+.3f", n - o }')
+      delta=$(score_delta "$o" "$n")
       if is_regressed "$o" "$n"; then status=regressed; marked=1; else status=ok; fi
     fi
     table="$table$case"$'\t'"$o"$'\t'"$n"$'\t'"$delta"$'\t'"$status"$'\n'
@@ -770,7 +788,7 @@ compare_table() {
 # scores case by case. The old side uses the working-tree evals dir, so both sides share one set
 # of case definitions.
 mode_compare() {
-  local ref root changed kind name tags="" tag_arr=() old_rows new_rows
+  local ref root changed kind name status statuses tags="" tag_arr=() old_rows new_rows
   parse_opts "$@"
   conf_load WT
   base_fetch
@@ -781,14 +799,12 @@ mode_compare() {
     tags=$(printf '%s' "$TAGS" | tr '\n' ' ')
   else
     changed=$(changed_skills "$ref" WT) || return 1
-    while read -r kind name; do
+    statuses=$(tag_status WT <<<"$changed") || return 1
+    tags=$(tagged_names <<<"$statuses")
+    while read -r kind name status; do
       [ -n "$name" ] || continue
-      if [ -n "$(cases_with_tag WT "$name")" ]; then
-        tags="$tags $name"
-      else
-        echo "WARNING: skill $name has no eval case tagged $name."
-      fi
-    done <<<"$changed"
+      if [ "$status" = untagged ]; then echo "WARNING: skill $name has no eval case tagged $name."; fi
+    done <<<"$statuses"
   fi
   read -r -a tag_arr <<<"$tags"
   if [ ${#tag_arr[@]} -eq 0 ]; then
