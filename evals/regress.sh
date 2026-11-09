@@ -18,7 +18,7 @@
 # REGRESS_BASE, so one push cannot lower its own bar.
 #   mode             plugin tree   case definitions   baseline.json   regress.conf
 #   pre-push         pushed        pushed             base            base
-#   coverage         none          head               none            base
+#   coverage         none          head               none            none
 #   check            head          head               base            base
 #   update-baseline  head          head               wt              wt
 #   compare-old      ref           wt                 none            wt
