@@ -314,31 +314,43 @@ gate_load() {
   GATE_LOADED=1
 }
 
-mode_pre_push() {
-  local lines targets sha base changed i n
-  local shas=() bases=() changes=()
-  lines=$(cat)
-  exec </dev/null
-  targets=$(prepush_targets <<<"$lines") || return 1
+# Fills PLAN_SHAS, PLAN_BASES and PLAN_CHANGES from pre-push ref lines, one entry for each
+# distinct local sha that adds or edits a skill.
+prepush_plan() {
+  local targets sha base changed
+  PLAN_SHAS=()
+  PLAN_BASES=()
+  PLAN_CHANGES=()
+  targets=$(prepush_targets <<<"$1") || return 1
   while read -r sha base; do
     [ -n "$sha" ] || continue
     changed=$(changed_skills "$base" "$sha") || return 1
     [ -n "$changed" ] || continue
-    shas+=("$sha")
-    bases+=("$base")
-    changes+=("$changed")
+    PLAN_SHAS+=("$sha")
+    PLAN_BASES+=("$base")
+    PLAN_CHANGES+=("$changed")
   done <<<"$targets"
-  n=${#shas[@]}
-  if [ "$n" -eq 0 ]; then return 0; fi
-  # The targets above are read before the fetch, so a push that changes no skill never uses the network.
+}
+
+mode_pre_push() {
+  local lines i n
+  lines=$(cat)
+  exec </dev/null
+  prepush_plan "$lines" || return 1
+  if [ ${#PLAN_SHAS[@]} -eq 0 ]; then return 0; fi
+  # The first plan uses the local base, so a push that changes no skill uses the network only
+  # when no local merge-base exists. The fetch moves the base, so the plan is made again.
   gate_load
+  prepush_plan "$lines" || return 1
+  n=${#PLAN_SHAS[@]}
+  if [ "$n" -eq 0 ]; then return 0; fi
   echo "Skill gate: $n commit(s) to check, worst case cost $n x \$$REGRESS_MAX_COST_USD."
   # Every free coverage check runs before the first paid run, so a later ref cannot block after an earlier ref has spent money.
   for ((i = 0; i < n; i++)); do
-    coverage "${shas[i]}" <<<"${changes[i]}" || return 1
+    coverage "${PLAN_SHAS[i]}" <<<"${PLAN_CHANGES[i]}" || return 1
   done
   for ((i = 0; i < n; i++)); do
-    gate_at "${shas[i]}" "${bases[i]}" "${changes[i]}" || return 1
+    gate_at "${PLAN_SHAS[i]}" "${PLAN_BASES[i]}" "${PLAN_CHANGES[i]}" || return 1
   done
 }
 
