@@ -596,16 +596,22 @@ bl_write_full() {
   mv "$tmp" "$file"
 }
 
+# Passes when a merge into the loaded baseline is allowed: the file is absent or was made with
+# the current settings.
+bl_merge_check() {
+  if ! bl_settings_match; then
+    echo "regress: run --update-baseline without --tag to write the whole file again." >&2
+    return 1
+  fi
+}
+
 # Merges the rows on stdin into the file. It refuses, and leaves the file as it was, when the
 # file was made with other settings.
 bl_merge() {
   local sha=$1 file cases tmp
   file=$(bl_file) || return 1
   bl_load WT
-  if ! bl_settings_match; then
-    echo "regress: run --update-baseline without --tag to write the whole file again." >&2
-    return 1
-  fi
+  bl_merge_check || return 1
   cases=$(bl_cases_json "$sha") || return 1
   tmp=$file.tmp
   printf '%s' "$BL_JSON" | jq --argjson cases "$cases" '.cases += $cases' > "$tmp" || return 1
@@ -747,6 +753,11 @@ mode_update_baseline() {
     [ -n "$tag" ] || continue
     tag_arr+=("$tag")
   done <<<"$TAGS"
+  if [ ${#tag_arr[@]} -gt 0 ]; then
+    # A merge into a file made with other settings is refused, so refuse before the paid run.
+    bl_load WT
+    bl_merge_check || return 1
+  fi
   echo "Cost ceiling: \$$REGRESS_MAX_COST_USD for this run."
   wt_add "$head" || return 1
   rows=$(run_and_score "$WT_PATH" "$RUN_TMP/update" "$head" ${tag_arr[@]+"${tag_arr[@]}"}) || return 1

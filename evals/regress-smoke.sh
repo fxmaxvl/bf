@@ -882,6 +882,7 @@ t_update_writes_and_merges() {
   g add -A && g commit -qm merged && g push -q origin main
   out=$(REGRESS_RUNS=2 STUB_JSON=$CTX_TMP/t.json rr --update-baseline --tag beta 2>&1)
   has update-tag-mismatch-refused "$out" "without --tag"
+  eq update-tag-mismatch-makes-no-claude-call "$(calls)" "2"
 }
 
 t_update_reads_conf_from_working_tree() {
