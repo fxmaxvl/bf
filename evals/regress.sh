@@ -309,12 +309,54 @@ mode_coverage() {
   changed_skills "$base" HEAD | coverage HEAD
 }
 
+# Reads pre-push ref lines on stdin and prints "<local sha> <base sha>" for each distinct local
+# sha. A delete is skipped. A new branch, or a remote sha this clone does not have, diffs from
+# the merge-base with REGRESS_BASE. Any other update diffs from the remote sha.
+prepush_targets() {
+  local lsha rsha base
+  while read -r _ lsha _ rsha; do
+    [ -n "$lsha" ] || continue
+    if [ -z "${lsha//0/}" ]; then continue; fi
+    if [ -n "${rsha//0/}" ] && git cat-file -e "$rsha^{commit}" </dev/null 2>/dev/null; then
+      base=$rsha
+    else
+      base=$(git merge-base "$lsha" "$REGRESS_BASE" </dev/null 2>/dev/null) || base=$(base_mb "$lsha") || return 1
+    fi
+    echo "$lsha $base"
+  done | awk '!seen[$1]++'
+}
+
+mode_pre_push() {
+  local lines targets sha base changed fail=0
+  lines=$(cat)
+  exec </dev/null
+  targets=$(prepush_targets <<<"$lines") || return 1
+  changed=""
+  while read -r sha base; do
+    [ -n "$sha" ] || continue
+    changed="$changed$(changed_skills "$base" "$sha")"
+  done <<<"$targets"
+  if [ -z "$changed" ]; then return 0; fi
+  base_fetch
+  targets=$(prepush_targets <<<"$lines") || return 1
+  while read -r sha base; do
+    [ -n "$sha" ] || continue
+    changed=$(changed_skills "$base" "$sha") || return 1
+    if [ -z "$changed" ]; then continue; fi
+    coverage "$sha" <<<"$changed" || fail=1
+  done <<<"$targets"
+  [ "$fail" -eq 0 ]
+}
+
 main() {
   set -euo pipefail
+  # git sets these for a hook, and they break git calls that run in another work tree.
+  unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE
   command -v jq >/dev/null 2>&1 || die "jq is required. Install it and run again."
   local mode=${1:-}
   case "$mode" in
     --coverage) shift; mode_coverage "$@" ;;
+    --pre-push) shift; mode_pre_push "$@" ;;
     *) usage; exit 1 ;;
   esac
 }

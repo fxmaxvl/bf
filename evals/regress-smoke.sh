@@ -328,6 +328,84 @@ t_base_mb() {
   eq base-mb-is-merge-base "$(rg base_mb HEAD)" "$base"
 }
 
+# The same as rr, with the given text on stdin. It is the hook seam.
+rr_in() {
+  local input=$1
+  shift
+  ( cd "$CTX_REPO" && PATH="$CTX_BIN:$PATH" STUB_DIR="$CTX_TMP" "$REGRESS" "$@" <<<"$input" )
+}
+
+ZERO=0000000000000000000000000000000000000000
+
+t_prepush_targets() {
+  make_ctx
+  local base main_sha feat1 feat2 out rc
+  main_sha=$(g rev-parse HEAD)
+  base=$main_sha
+  g switch -qc feat
+  add_gamma
+  feat1=$(g rev-parse HEAD)
+  put skills/alpha/y.md 'y\n'
+  g add -A && g commit -qm y
+  feat2=$(g rev-parse HEAD)
+  eq prepush-delete-skipped "$(rg prepush_targets <<<"refs/heads/x $ZERO refs/heads/x $feat1")" ""
+  eq prepush-new-branch "$(rg prepush_targets <<<"refs/heads/feat $feat2 refs/heads/feat $ZERO")" "$feat2 $base"
+  eq prepush-unknown-remote-sha "$(rg prepush_targets <<<"refs/heads/feat $feat2 refs/heads/feat deadbeefdeadbeefdeadbeefdeadbeefdeadbeef")" "$feat2 $base"
+  eq prepush-normal-update "$(rg prepush_targets <<<"refs/heads/feat $feat2 refs/heads/feat $feat1")" "$feat2 $feat1"
+  eq prepush-same-sha-once "$(rg prepush_targets <<<"refs/heads/a $feat2 refs/heads/a $ZERO
+refs/heads/b $feat2 refs/heads/b $ZERO" | wc -l | tr -d ' ')" "1"
+  eq prepush-two-shas "$(rg prepush_targets <<<"refs/heads/a $feat2 refs/heads/a $ZERO
+refs/heads/b $feat1 refs/heads/b $ZERO" | wc -l | tr -d ' ')" "2"
+  g switch -q --orphan lone && g commit -qm lone --allow-empty
+  out=$(REGRESS_BASE=origin/nothing rg prepush_targets <<<"refs/heads/lone $(g rev-parse HEAD) refs/heads/lone $ZERO" 2>&1); rc=$?
+  eq prepush-no-merge-base-exit "$rc" "1"
+  has prepush-no-merge-base-reminder "$out" "git push --no-verify"
+}
+
+t_prepush_free_path() {
+  make_ctx
+  local sha
+  g switch -qc feat
+  put skills/SMOKE-TESTS.md 'changed\n'
+  g add -A && g commit -qm doc
+  sha=$(g rev-parse HEAD)
+  g remote set-url origin "$CTX_TMP/missing.git"
+  local out rc
+  out=$(rr_in "refs/heads/feat $sha refs/heads/feat $ZERO" --pre-push origin url 2>&1); rc=$?
+  eq prepush-free-path-exit "$rc" "0"
+  eq prepush-free-path-no-fetch "$out" ""
+  eq prepush-free-path-no-claude "$([ -e "$CTX_TMP/claude-args" ] && echo called || echo none)" "none"
+}
+
+# Puts the hook and the script into the clone and enables the hook there.
+install_hook() {
+  mkdir -p "$CTX_REPO/.githooks"
+  cp "$here/../.githooks/pre-push" "$CTX_REPO/.githooks/pre-push"
+  cp "$REGRESS" "$CTX_REPO/evals/regress.sh"
+  g add -A && g commit -qm hook && g push -q --no-verify origin main
+  g config core.hooksPath .githooks
+}
+
+push_feat() { ( cd "$CTX_REPO" && PATH="$CTX_BIN:$PATH" STUB_DIR="$CTX_TMP" git push "$@" origin feat 2>&1 </dev/null ); }
+
+t_hook_e2e_coverage_gate() {
+  make_ctx
+  install_hook
+  g switch -qc feat
+  add_gamma
+  local out rc
+  out=$(push_feat); rc=$?
+  eq hook-blocks-uncovered-skill "$([ "$rc" -ne 0 ] && echo blocked || echo pushed)" "blocked"
+  has hook-block-message "$out" "skill gamma is new and has no eval case"
+  out=$(push_feat --no-verify); rc=$?
+  eq hook-no-verify-pushes "$rc" "0"
+  g push -q origin --delete feat
+  put evals/gamma-case/case.yaml 'name: gamma-case\ntags: [gamma]\n'
+  g add -A && g commit -qm case
+  out=$(push_feat); rc=$?
+  eq hook-allows-covered-skill "$rc" "0"
+}
+
 run_tests() {
   local t
   for t in $(compgen -A function t_); do "$t"; done
