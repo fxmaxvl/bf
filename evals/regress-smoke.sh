@@ -253,16 +253,16 @@ add_gamma() {
 t_coverage_unit() {
   make_ctx
   add_gamma case
-  printf 'added gamma\n' | rg coverage HEAD >/dev/null 2>&1
+  printf 'added gamma\n' | rg eval 'tag_status HEAD | coverage' >/dev/null 2>&1
   eq coverage-added-with-case "$?" "0"
-  printf 'added beta\n' | rg coverage HEAD >/dev/null 2>&1
+  printf 'added beta\n' | rg eval 'tag_status HEAD | coverage' >/dev/null 2>&1
   eq coverage-frontmatter-tag-counts "$?" "0"
   local out rc
-  out=$(printf 'added delta\n' | rg coverage HEAD 2>&1); rc=$?
+  out=$(printf 'added delta\n' | rg eval 'tag_status HEAD | coverage' 2>&1); rc=$?
   eq coverage-added-without-case-exit "$rc" "1"
   has coverage-names-skill "$out" "delta"
   has coverage-names-tag "$out" "tagged delta"
-  out=$(printf 'edited delta\n' | rg coverage HEAD 2>&1); rc=$?
+  out=$(printf 'edited delta\n' | rg eval 'tag_status HEAD | coverage' 2>&1); rc=$?
   eq coverage-edited-without-case-exit "$rc" "0"
   has coverage-edited-warns "$out" "WARNING"
 }
@@ -760,6 +760,15 @@ t_check_ignores_uncommitted_conf() {
   eq check-uncommitted-conf-keeps-margin "$rc" "1"
   has check-uncommitted-conf-keeps-runs "$(tr '\n' ' ' < "$CTX_TMP/claude-args")" "--runs 3 "
   eq hook-conf-unit "$(rg eval 'conf_load origin/main; echo "$REGRESS_RUNS $REGRESS_MARGIN"')" "3 0.34"
+}
+
+t_gate_at_refuses_uncovered_added_skill() {
+  gate_ctx
+  local out rc
+  out=$(rg eval 'conf_load origin/main; bl_load origin/main; GATE_LOADED=1; gate_at HEAD HEAD~1 "added gamma untagged"' 2>&1); rc=$?
+  eq gate-at-uncovered-added-exit "$rc" "1"
+  has gate-at-uncovered-added-message "$out" "uncovered added skill"
+  eq gate-at-uncovered-makes-no-claude-call "$(calls)" "0"
 }
 
 t_check_fails_closed() {

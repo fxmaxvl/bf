@@ -34,7 +34,6 @@ for _key in $CONF_KEYS; do
 done
 unset _key
 REGRESS_BASE=${REGRESS_BASE:-origin/main}
-REGRESS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 die() {
   echo "regress: $*" >&2
@@ -255,11 +254,10 @@ tagged_names() {
   awk '$3 == "tagged" { printf " %s", $2 }'
 }
 
-# Reads "added <name>" and "edited <name>" lines on stdin. An added skill needs a case tagged
-# with its name. An edited skill without one only warns.
+# Reads tag_status lines on stdin. An added skill needs a case tagged with its name. An edited
+# skill without one only warns.
 coverage() {
-  local src=$1 kind name status statuses blocked=0
-  statuses=$(tag_status "$src") || return 1
+  local kind name status blocked=0
   while read -r kind name status; do
     [ -n "$name" ] || continue
     if [ "$status" = tagged ]; then continue; fi
@@ -269,7 +267,7 @@ coverage() {
     else
       echo "WARNING: skill $name has no eval case tagged $name."
     fi
-  done <<<"$statuses"
+  done
   [ "$blocked" -eq 0 ]
 }
 
@@ -297,7 +295,7 @@ mode_coverage() {
   parse_opts "$@"
   base=$(printf '%s' "$POS" | head -n 1)
   if [ -z "$base" ]; then base=$(base_mb HEAD) || return 1; fi
-  changed_skills "$base" HEAD | coverage HEAD
+  changed_skills "$base" HEAD | tag_status HEAD | coverage
 }
 
 # Reads pre-push ref lines on stdin and prints "<local sha> <base sha>" for each distinct local
@@ -346,6 +344,7 @@ prepush_plan() {
 
 mode_pre_push() {
   local lines i n
+  local statuses=()
   lines=$(cat)
   exec </dev/null
   prepush_plan "$lines" || return 1
@@ -359,15 +358,16 @@ mode_pre_push() {
   echo "Skill gate: $n commit(s) to check, worst case cost $n x \$$REGRESS_MAX_COST_USD."
   # Every free coverage check runs before the first paid run, so a later ref cannot block after an earlier ref has spent money.
   for ((i = 0; i < n; i++)); do
-    coverage "${PLAN_SHAS[i]}" <<<"${PLAN_CHANGES[i]}" || return 1
+    statuses[i]=$(tag_status "${PLAN_SHAS[i]}" <<<"${PLAN_CHANGES[i]}") || return 1
+    coverage <<<"${statuses[i]}" || return 1
   done
   for ((i = 0; i < n; i++)); do
-    gate_at "${PLAN_SHAS[i]}" "${PLAN_BASES[i]}" "${PLAN_CHANGES[i]}" || return 1
+    gate_at "${PLAN_SHAS[i]}" "${PLAN_BASES[i]}" "${statuses[i]}" || return 1
   done
 }
 
 mode_check() {
-  local base head changed
+  local base head changed statuses
   parse_opts "$@"
   gate_load
   base=$(printf '%s' "$POS" | head -n 1)
@@ -375,8 +375,9 @@ mode_check() {
   head=$(git rev-parse HEAD </dev/null)
   stale_scan "$head"
   changed=$(changed_skills "$base" "$head") || return 1
-  coverage "$head" <<<"$changed" || return 1
-  gate_at "$head" "$base" "$changed"
+  statuses=$(tag_status "$head" <<<"$changed") || return 1
+  coverage <<<"$statuses" || return 1
+  gate_at "$head" "$base" "$statuses"
 }
 
 WT_DIRS=""
@@ -680,14 +681,14 @@ print_table() {
 }
 
 # The regression check for one commit: the case list, the run on a worktree at the commit, then
-# one verdict per case. The caller passes the changed skills and has run coverage on them. It
-# reads the settings and the baseline that gate_load set.
+# one verdict per case. The caller passes the tag_status lines of the changed skills, the same
+# lines it gave to coverage. It reads the settings and the baseline that gate_load set.
 gate_at() {
-  local sha=$1 base=$2 changed=$3 statuses cases rows out row case score counted tree verdict
+  local sha=$1 base=$2 statuses=$3 cases rows out row case score counted tree verdict
   local old delta table="" tag_arr tags="" regressed="" changedcases="" nobase="" first=""
   [ -n "${GATE_LOADED:-}" ] || die "gate_at ran before gate_load"
-  if [ -z "$changed" ]; then return 0; fi
-  statuses=$(tag_status "$sha" <<<"$changed") || return 1
+  if [ -z "$statuses" ]; then return 0; fi
+  if grep -q '^added .* untagged$' <<<"$statuses"; then die "gate_at ran with an uncovered added skill"; fi
   tags=$(tagged_names <<<"$statuses")
   if [ -z "$tags" ]; then return 0; fi
   read -r -a tag_arr <<<"$tags"
