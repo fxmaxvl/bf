@@ -60,9 +60,16 @@ read_at() {
   fi
 }
 
+# The one line normaliser of every text reader below. It removes a trailing CR and trailing
+# blanks, blanks a comment line at any indent and cuts an inline comment that follows a blank.
+# A comment line becomes an empty line, so the line numbers stay the same.
+norm_lines() {
+  sed -e $'s/\r$//' -e 's/^[[:space:]]*#.*$//' -e 's/[[:space:]]\{1,\}#.*$//' -e 's/[[:space:]]*$//'
+}
+
 # Prints the last value of a key in KEY=value text, without surrounding quotes.
 conf_value() {
-  printf '%s\n' "$1" | sed -n "s/^$2=//p" | tail -n 1 | sed "s/^[\"']//; s/[\"']\$//"
+  printf '%s\n' "$1" | norm_lines | sed -n "s/^$2=//p" | tail -n 1 | sed "s/^[\"']//; s/[\"']\$//"
 }
 
 # Prints the built-in default of a key. This is the only place the defaults live.
@@ -81,8 +88,10 @@ conf_default() {
 # Load order: the built-in defaults, then the overrides in evals/regress.conf at <src>, then the
 # environment. The conf is read from <src> only, never from the working tree of a hook run.
 conf_load() {
-  local src=$1 key val conf
+  local src=$1 key val conf bad
   conf=$(read_at "$src" evals/regress.conf) || conf=""
+  bad=$(printf '%s\n' "$conf" | norm_lines | grep -nvE '^$|^[A-Za-z_][A-Za-z0-9_]*=' | head -n 1 || true)
+  if [ -n "$bad" ]; then die "cannot read line ${bad%%:*} of evals/regress.conf at $src: ${bad#*:}"; fi
   for key in $CONF_KEYS; do
     case " $ENV_KEYS " in
       *" $key "*) continue ;;
@@ -96,7 +105,7 @@ conf_load() {
 # Prints the values of one top-level key from YAML text on stdin, one per line. It reads the flow
 # form (key: [a, b]) and the block form (- a lines). Any other value exits 3.
 yaml_list() {
-  awk -v key="$1" -v q="'" '
+  norm_lines | awk -v key="$1" -v q="'" '
     function clean(x) {
       gsub(/^[ \t"]+|[ \t"]+$/, "", x)
       gsub("^" q "|" q "$", "", x)
@@ -133,7 +142,7 @@ yaml_list() {
 
 # Prints the lines between the first two --- lines when the text on stdin starts with ---.
 frontmatter() {
-  awk 'NR == 1 { if ($0 != "---") exit; next } /^---[ \t]*$/ { exit } { print }'
+  norm_lines | awk 'NR == 1 { if ($0 != "---") exit; next } /^---[ \t]*$/ { exit } { print }'
 }
 
 # Lists the case dirs under evals/ that hold a case.yaml or a prompt.md. results/ is never a case.
@@ -150,7 +159,7 @@ list_cases() {
 
 # Prints the lines under a top-level key of the YAML text on stdin, with the indent removed.
 yaml_section() {
-  awk -v key="$1" '
+  norm_lines | awk -v key="$1" '
     $0 ~ "^" key ":[ \t]*$" { insec = 1; next }
     insec && /^[ \t]*$/ { next }
     insec && /^[ \t]/ {

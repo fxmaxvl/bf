@@ -83,6 +83,44 @@ t_conf_working_tree_edit() {
   eq conf-update-uses-wt "$(rg eval 'conf_load WT; echo "$REGRESS_RUNS"')" "9"
 }
 
+t_conf_comments_and_crlf() {
+  make_ctx
+  put evals/regress.conf '# header\nREGRESS_RUNS=3 # fewer later\n  # indented note\nREGRESS_MARGIN=0.2   \n'
+  g add -A && g commit -qm conf && g push -q origin main
+  eq conf-inline-comment-and-trailing-space "$(rg eval 'conf_load origin/main; echo "[$REGRESS_RUNS] [$REGRESS_MARGIN]"')" "[3] [0.2]"
+  put evals/regress.conf 'REGRESS_RUNS=5\r\nREGRESS_MARGIN=0.25\r\n'
+  g add -A && g commit -qm crlf && g push -q origin main
+  eq conf-crlf "$(rg eval 'conf_load origin/main; echo "[$REGRESS_RUNS] [$REGRESS_MARGIN]"')" "[5] [0.25]"
+}
+
+t_conf_unreadable_line_stops() {
+  make_ctx
+  put evals/regress.conf 'REGRESS_RUNS=3\nREGRESS_MARGIN 0.2\n'
+  g add -A && g commit -qm conf && g push -q origin main
+  local out rc
+  out=$(rg eval 'conf_load origin/main; echo loaded' 2>&1); rc=$?
+  eq conf-unreadable-line-exit "$rc" "1"
+  has conf-unreadable-line-names-line "$out" "line 2 of evals/regress.conf"
+}
+
+t_yaml_list_comments_and_crlf() {
+  make_ctx
+  eq yaml-list-col0-comment-in-block "$(printf 'tags:\n  - a\n# note\n  - b\n' | rg yaml_list tags | tr '\n' ' ')" "a b "
+  eq yaml-list-indented-comment-in-block "$(printf 'tags:\n  - a\n  # note\n  - b\n' | rg yaml_list tags | tr '\n' ' ')" "a b "
+  printf 'tags:\n  - a\n  # note\n  - b\n' | rg yaml_list tags >/dev/null
+  eq yaml-list-indented-comment-exit "$?" "0"
+  eq yaml-list-inline-comment-after-item "$(printf 'tags:\n  - a # why\n  - b\n' | rg yaml_list tags | tr '\n' ' ')" "a b "
+  eq yaml-list-crlf-flow "$(printf 'tags: [a, b]\r\n' | rg yaml_list tags | tr '\n' ' ')" "a b "
+  eq yaml-list-crlf-block "$(printf 'tags:\r\n  - a\r\n  - b\r\n' | rg yaml_list tags | tr '\n' ' ')" "a b "
+  put evals/crlf/prompt.md '---\r\ntags: [x, y]\r\nallowed_tools: [Read]\r\n---\r\nbody\r\n'
+  put evals/note/case.yaml 'name: note\ntags:\n  - p\n# between items\n  - q\nexecution:\n  # about tools\n  allowed_tools: [Bash]\n'
+  g add -A && g commit -qm files
+  eq meta-crlf-frontmatter "$(rg case_meta HEAD crlf tags | tr '\n' ' ')" "x y "
+  eq meta-crlf-frontmatter-tools "$(rg case_meta HEAD crlf allowed_tools | tr '\n' ' ')" "Read "
+  eq meta-comment-between-block-items "$(rg case_meta HEAD note tags | tr '\n' ' ')" "p q "
+  eq meta-comment-inside-execution "$(rg case_meta HEAD note allowed_tools | tr '\n' ' ')" "Bash "
+}
+
 t_read_at() {
   make_ctx
   echo "committed" > "$CTX_REPO/evals/note.txt"
