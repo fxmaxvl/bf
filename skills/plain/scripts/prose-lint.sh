@@ -98,6 +98,7 @@ replace: utilize>use prior_to>before
 banned: robust worth_noting
 empty: just simply
 pattern: experts_agree>weasel_attribution serves_as>fake_strong_verb
+ing_tail: highlighting showcasing
 ```
 EOF
   printf '# Fixture\n\nNo block here.\n' > "$noblock"
@@ -242,6 +243,10 @@ st_soft() {
   eq "ing tail in summary" "$(jf .summary)" "1 -ing tail, 6 words"
   lint_text "It adds search, and highlighting works." --rules "$full" --format json
   eq "ing word after and is no tail" "$(jf .soft.ing_tail)" 0
+  lint_text "It adds search, reflecting the gains." --rules "$full" --format json
+  eq "ing tail verb comes from the block" "$(jf .soft.ing_tail)" 0
+  lint_text "It adds search, reflecting the gains." --rules "$noblock" --format json
+  eq "ing tail default without a block" "$(jf .soft.ing_tail)" 1
   lint_text "This is **very** clear." --rules "$full" --format json
   eq "mid-sentence bold" "$(jf .soft.bold_mid)" 1; eq "bold exit" "$rc" 0
   eq "bold in summary" "$(jf .summary)" "1 mid-sentence bold, 4 words"
@@ -365,7 +370,7 @@ load_rules() {
   local l k v h
   # The prose-lint block: "key: value" lines between a ```prose-lint fence and the next fence.
   rules_block=false
-  r_hard= r_cap_i=20 r_cap_d=25 r_long=150 r_replace= r_banned= r_empty= r_pattern=
+  r_hard= r_cap_i=20 r_cap_d=25 r_long=150 r_replace= r_banned= r_empty= r_pattern= r_ing='highlighting underscoring showcasing reflecting emphasizing'
   # The awk pass decides whether a block exists, so one fence pattern covers the parser and the flag.
   awk -v flag="$work/found" '/^```prose-lint[ \t]*$/ {inb=1; print "" > flag; next} inb && /^```/ {exit} inb' "$rules" > "$work/block"
   if [ -f "$work/found" ]; then
@@ -382,6 +387,7 @@ load_rules() {
         banned) r_banned=$v ;;
         empty) r_empty=$v ;;
         pattern) r_pattern=$v ;;
+        ing_tail) r_ing=$v ;;
         # A newer project prose.md must not break an older lint, so an unknown key is skipped.
         *) echo "prose-lint: skipped unknown key in the prose-lint block: $k" >&2 ;;
       esac
@@ -514,7 +520,7 @@ find_markers() {
     emit_words banned $r_banned
     emit_words empty $r_empty
     emit_pairs pattern $r_pattern
-    emit ing_tail - -E -i ', (highlighting|underscoring|showcasing|reflecting|emphasizing)([^A-Za-z]|$)'
+    [ -z "$r_ing" ] || emit ing_tail - -E -i ", (${r_ing// /|})([^A-Za-z]|\$)"
     # Match on lead bytes: grep has no -P here, and the emoji ranges start with F0 9F or E2 98..9E.
     emit emoji_heading "emoji in heading" -E $'^#+[ \t].*(\xF0\x9F|\xE2[\x98-\x9E])'
     find_bold_mid

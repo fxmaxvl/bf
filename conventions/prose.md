@@ -65,7 +65,7 @@ PATTERNS
 
 ## Lint rules
 
-`skills/plain/scripts/prose-lint.sh` reads this block. Each line is `key: value`. Lists are space-separated, `from>to` is a pair, and `_` stands for one space. The `empty` key lists words that add nothing. The `pattern` key lists `phrase>name` pairs, and the lint reports the phrase with the pattern name. Neither key changes the exit code. The lint skips a key it does not know. Keep the block free of em dashes and semicolons.
+`skills/plain/scripts/prose-lint.sh` reads this block. Each line is `key: value`. Lists are space-separated, `from>to` is a pair, and `_` stands for one space. The `empty` key lists words that add nothing. The `pattern` key lists `phrase>name` pairs, and the lint reports the phrase with the pattern name. The `ing_tail` key lists the "-ing" verbs that the lint reports after a comma. No soft key changes the exit code. The lint skips a key it does not know. Keep the block free of em dashes and semicolons.
 
 ```prose-lint
 hard: em_dash semicolon contraction
@@ -76,6 +76,7 @@ replace: utilize>use leverage>use begin>start commence>start initiate>start faci
 banned: seamless robust powerful cutting-edge effortless world-class battle-tested genuinely truly worth_noting it_is_important_to_note delve delves foster fosters fostering tapestry realm beacon multifaceted meticulous intricate paramount transformative elevate embark supercharge ever-evolving game-changer game_changer streamline streamlined empower empowers paradigm_shift
 empty: just simply actually literally fundamentally inherently crucially importantly
 pattern: let_me_be_clear>throat_clearing what_most_people_get_wrong>faux_insight stands_as_a_testament>importance_puffery plays_a_vital_role>importance_puffery pivotal_moment>importance_puffery as_you_can_see>metadiscourse the_key_point_is>metadiscourse experts_agree>weasel_attribution studies_show>weasel_attribution many_argue>weasel_attribution widely_regarded_as>weasel_attribution serves_as>fake_strong_verb what_if_i_told_you>rhetorical_setup in_conclusion>summary_recap
+ing_tail: highlighting underscoring showcasing reflecting emphasizing
 ```
 
 ## Modes
