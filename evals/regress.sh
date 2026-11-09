@@ -401,8 +401,14 @@ wt_cleanup() {
 # Creates the temp dir and the one trap that cleans up. It must run in the main shell, so no
 # caller may capture wt_add or wt_init with $(...).
 wt_init() {
+  local tmp
   if [ -n "$RUN_TMP" ]; then return 0; fi
-  RUN_TMP=$(cd "$(mktemp -d)" && pwd -P) || return 1
+  tmp=$(mktemp -d) || { echo "regress: cannot create a temp dir" >&2; return 1; }
+  if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then
+    echo "regress: cannot create a temp dir" >&2
+    return 1
+  fi
+  RUN_TMP=$(cd "$tmp" && pwd -P) || return 1
   trap wt_cleanup EXIT
   trap 'wt_cleanup; exit 130' INT
   trap 'wt_cleanup; exit 143' TERM

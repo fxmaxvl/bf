@@ -509,6 +509,20 @@ t_wt_add_and_cleanup() {
   eq wt-cleanup-leaves-no-worktree "$(g worktree list | wc -l | tr -d ' ')" "1"
 }
 
+# A fake mktemp must never make the cleanup trap remove the repo. Each run uses a throwaway repo.
+t_wt_init_failed_mktemp_keeps_repo() {
+  local mode
+  for mode in fails empty; do
+    make_ctx
+    mkdir "$CTX_TMP/failbin"
+    if [ "$mode" = fails ]; then printf '#!/bin/sh\nexit 1\n' > "$CTX_TMP/failbin/mktemp"; else printf '#!/bin/sh\nexit 0\n' > "$CTX_TMP/failbin/mktemp"; fi
+    chmod +x "$CTX_TMP/failbin/mktemp"
+    # shellcheck disable=SC2016
+    ( cd "$CTX_REPO" && PATH="$CTX_TMP/failbin:$CTX_BIN:$PATH" "$BASH" -c '. "$1"; set -euo pipefail; wt_add HEAD' _ "$REGRESS" ) >/dev/null 2>&1
+    eq "wt-init-mktemp-$mode-keeps-repo" "$([ -d "$CTX_REPO/.git" ] && echo kept || echo deleted)" "kept"
+  done
+}
+
 t_wt_removed_on_interrupt() {
   make_ctx
   fx "$CTX_TMP/r.json" alpha-case=1,1,1
