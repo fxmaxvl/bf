@@ -4,6 +4,7 @@
 #
 # Usage: regress-smoke.sh
 # Output: one PASS or FAIL line per case. Exit 0 when every case passes, 1 otherwise.
+# shellcheck disable=SC2030,SC2031
 set -uo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -39,7 +40,7 @@ has() {
 # A unit call runs in a subshell with errexit on, so a function that relies on errexit
 # behaves the same here as in a real run.
 # shellcheck disable=SC1090,SC1091
-rg() { ( cd "$CTX_REPO" && set -euo pipefail && . "$REGRESS" && "$@" ); }
+rg() { ( cd "$CTX_REPO" && export PATH="$CTX_BIN:$PATH" STUB_DIR="$CTX_TMP" && set -euo pipefail && . "$REGRESS" && "$@" ); }
 
 # Every script run goes through the stub `claude`, with stdin that is never a terminal.
 rr() { ( cd "$CTX_REPO" && PATH="$CTX_BIN:$PATH" STUB_DIR="$CTX_TMP" "$REGRESS" "$@" </dev/null ); }
@@ -404,6 +405,131 @@ t_hook_e2e_coverage_gate() {
   g add -A && g commit -qm case
   out=$(push_feat); rc=$?
   eq hook-allows-covered-skill "$rc" "0"
+}
+
+# Builds a result file for the stub. Each argument is name=score,score,... where a score is a
+# number, "err" for an errored run or "skip" for a run whose paid graders were skipped.
+fx() {
+  local out=$1 spec name scores runs arr="[]"
+  shift
+  for spec in "$@"; do
+    name=${spec%%=*}
+    scores=${spec#*=}
+    runs=$(jq -cn --arg s "$scores" '$s | split(",") | map(
+      if . == "err" then {score: 0, error: "interrupted", skippedPaidGraders: false}
+      elif . == "skip" then {score: 0.5, error: null, skippedPaidGraders: true}
+      else {score: tonumber, error: null, skippedPaidGraders: false} end
+      | . + {costUsd: 1, durationSeconds: 10})')
+    arr=$(jq -cn --argjson a "$arr" --arg n "$name" --argjson r "$runs" '$a + [{name: $n, arms: {with: $r}}]')
+  done
+  jq -n --argjson c "$arr" '{partial: false, partialReason: null,
+    costUsd: ($c | map(.arms.with | map(.costUsd) | add) | add),
+    durationSeconds: ($c | map(.arms.with | map(.durationSeconds) | add) | add), cases: $c}' > "$out"
+}
+
+# Runs inside rg, where the script is sourced.
+do_score() {
+  conf_load HEAD
+  run_and_score "$@"
+}
+
+# Runs run_and_score through the stub. The first argument is the result file the stub returns.
+score() {
+  local json=$1
+  shift
+  mkdir -p "$CTX_TMP/plug"
+  STUB_JSON=$json rg do_score "$CTX_TMP/plug" "$CTX_TMP/out" HEAD "$@" </dev/null
+}
+
+t_score_argv_order() {
+  make_ctx
+  put evals/gamma-case/case.yaml 'name: gamma-case\ntags: [gamma]\nallowed_tools: [Bash, Read]\n'
+  put evals/gamma-case/prompt.md '---\nallowed_tools: [Write, Bash, mcp__x__y]\n---\nbody\n'
+  g add -A && g commit -qm gamma
+  fx "$CTX_TMP/r.json" gamma-case=1,1,1
+  score "$CTX_TMP/r.json" gamma >/dev/null 2>&1
+  local want
+  want="--call plugin eval $CTX_TMP/plug --ablation none --threshold 0 --model claude-sonnet-5-5 --judge-model claude-haiku-5-5 --runs 3 --max-cost-usd 10 -j 4 --scaffold --trust-plugin --no-publish --json $CTX_TMP/out/result.json --output-dir $CTX_TMP/out/out --report $CTX_TMP/out/report.html --tag gamma --allow-tools Bash Write mcp__x__y "
+  eq score-argv-order "$(tr '\n' ' ' < "$CTX_TMP/claude-args")" "$want"
+  eq score-writes-nothing-in-plugin-dir "$([ -e "$CTX_TMP/plug/evals/results" ] && echo found || echo none)" "none"
+}
+
+t_score_no_gated_tool() {
+  make_ctx
+  fx "$CTX_TMP/r.json" beta-case=1,1,1
+  score "$CTX_TMP/r.json" beta >/dev/null 2>&1
+  has score-no-gated-tool-flag-absent "$(tr '\n' ' ' < "$CTX_TMP/claude-args")" "--tag beta "
+  eq score-no-allow-tools "$(grep -c -e '^--allow-tools$' "$CTX_TMP/claude-args")" "0"
+}
+
+t_score_means_counted_runs() {
+  make_ctx
+  fx "$CTX_TMP/r.json" alpha-case=1,0.6,0.6
+  eq score-mean "$(score "$CTX_TMP/r.json" alpha 2>&1 | tr '\t' ' ')" "alpha-case 0.733 3 3"
+  fx "$CTX_TMP/r.json" alpha-case=1,1,err
+  eq score-errored-run-not-counted "$(REGRESS_RUNS=2 score "$CTX_TMP/r.json" alpha 2>&1 | tr '\t' ' ')" "alpha-case 1 2 2"
+  fx "$CTX_TMP/r.json" alpha-case=1,1,skip
+  eq score-skipped-graders-not-counted "$(REGRESS_RUNS=2 score "$CTX_TMP/r.json" alpha 2>&1 | tr '\t' ' ')" "alpha-case 1 2 2"
+}
+
+t_score_fails_closed() {
+  make_ctx
+  local out rc
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1
+  out=$(STUB_EXIT=2 score "$CTX_TMP/r.json" alpha 2>&1); rc=$?
+  eq score-exit-2-fails "$rc" "1"
+  has score-exit-2-reason "$out" "partial run"
+  has score-reminds-no-verify "$out" "git push --no-verify"
+  out=$(STUB_EXIT=1 score "$CTX_TMP/r.json" alpha 2>&1); rc=$?
+  eq score-exit-1-fails "$rc" "1"
+  has score-exit-1-reason "$out" "exited with status 1"
+  jq '.partial = true | .partialReason = "cost ceiling"' "$CTX_TMP/r.json" > "$CTX_TMP/p.json"
+  out=$(score "$CTX_TMP/p.json" alpha 2>&1); rc=$?
+  eq score-partial-flag-fails "$rc" "1"
+  has score-partial-flag-reason "$out" "cost ceiling"
+  out=$(score "$CTX_TMP/r.json" alpha beta 2>&1); rc=$?
+  eq score-missing-case-fails "$rc" "1"
+  has score-missing-case-names-case "$out" "beta-case"
+  fx "$CTX_TMP/r.json" alpha-case=1,1,err
+  out=$(score "$CTX_TMP/r.json" alpha 2>&1); rc=$?
+  eq score-too-few-runs-fails "$rc" "1"
+  has score-too-few-runs-names-case "$out" "alpha-case has 2 counted runs of 3"
+}
+
+t_score_stdin_is_closed() {
+  make_ctx
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1
+  mkdir -p "$CTX_TMP/plug"
+  STUB_JSON=$CTX_TMP/r.json rg do_score "$CTX_TMP/plug" "$CTX_TMP/out" HEAD alpha >/dev/null <<<"ref lines the hook must keep"
+  eq score-child-stdin-bytes "$(cat "$CTX_TMP/claude-stdin")" "0"
+}
+
+t_wt_add_and_cleanup() {
+  make_ctx
+  local out
+  out=$(rg eval 'GIT_DIR=.git GIT_WORK_TREE=. wt_add HEAD; git -C "$WT_PATH" log --oneline | wc -l | tr -d " "; wt_cleanup; [ -e "$WT_PATH" ] && echo present || echo gone' | tr '\n' ' ')
+  eq wt-add-works-with-hook-env "$out" "1 gone "
+  eq wt-cleanup-leaves-no-worktree "$(g worktree list | wc -l | tr -d ' ')" "1"
+}
+
+t_wt_removed_on_interrupt() {
+  make_ctx
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1
+  cat > "$CTX_TMP/drive.sh" <<DRIVER
+. "$REGRESS"
+conf_load HEAD
+wt_add HEAD
+run_and_score "\$WT_PATH" "\$RUN_TMP/o" HEAD alpha
+DRIVER
+  set -m
+  ( cd "$CTX_REPO" && PATH="$CTX_BIN:$PATH" STUB_DIR="$CTX_TMP" STUB_JSON="$CTX_TMP/r.json" STUB_SLEEP=3 exec bash "$CTX_TMP/drive.sh" </dev/null >/dev/null 2>&1 ) &
+  local pid=$!
+  sleep 1
+  kill -INT -- "-$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
+  set +m
+  eq wt-interrupt-stub-was-running "$([ -e "$CTX_TMP/claude-args" ] && echo yes || echo no)" "yes"
+  eq wt-interrupt-removes-worktree "$(g worktree list | wc -l | tr -d ' ')" "1"
 }
 
 run_tests() {

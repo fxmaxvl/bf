@@ -348,10 +348,137 @@ mode_pre_push() {
   [ "$fail" -eq 0 ]
 }
 
+WT_DIRS=""
+WT_N=0
+RUN_TMP=""
+
+# Removes every worktree and the temp dir. It is safe to call more than once.
+wt_cleanup() {
+  local dir
+  while IFS= read -r dir; do
+    [ -n "$dir" ] || continue
+    git worktree remove --force "$dir" </dev/null >/dev/null 2>&1 || true
+  done <<<"$WT_DIRS"
+  git worktree prune </dev/null >/dev/null 2>&1 || true
+  if [ -n "$RUN_TMP" ]; then rm -rf "$RUN_TMP"; fi
+  WT_DIRS=""
+  RUN_TMP=""
+}
+
+# Creates the temp dir and the one trap that cleans up. It must run in the main shell, so no
+# caller may capture wt_add or wt_init with $(...).
+wt_init() {
+  if [ -n "$RUN_TMP" ]; then return 0; fi
+  RUN_TMP=$(cd "$(mktemp -d)" && pwd -P) || return 1
+  trap wt_cleanup EXIT
+  trap 'wt_cleanup; exit 130' INT
+  trap 'wt_cleanup; exit 143' TERM
+}
+
+# Adds a detached worktree at a commit and sets WT_PATH. Git sets the three unset variables
+# for a hook, and they point nested git calls at the wrong tree.
+wt_add() {
+  unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE
+  wt_init || return 1
+  WT_N=$((WT_N + 1))
+  WT_PATH=$RUN_TMP/wt$WT_N
+  if ! git worktree add --detach --quiet "$WT_PATH" "$1" </dev/null >/dev/null 2>&1; then
+    echo "regress: cannot create a worktree at $1" >&2
+    return 1
+  fi
+  WT_DIRS="$WT_DIRS$WT_PATH"$'\n'
+}
+
+# Prints the reason and the escape hatch, then fails.
+fail_closed() {
+  echo "regress: $1. The gate fails closed. Push with git push --no-verify to skip it." >&2
+  return 1
+}
+
+# The cases a run selects: those with any of the tags, or every case when no tag is given.
+selected_cases() {
+  local src=$1 tag
+  shift
+  if [ $# -eq 0 ]; then
+    list_cases "$src"
+  else
+    for tag in "$@"; do cases_with_tag "$src" "$tag"; done | awk 'NF && !seen[$0]++'
+  fi
+}
+
+# The tools of the given cases that the CLI gates behind --allow-tools.
+gated_tools() {
+  local src=$1 cases=$2 case
+  while IFS= read -r case; do
+    [ -n "$case" ] || continue
+    case_meta "$src" "$case" allowed_tools || return 1
+  done <<<"$cases" | awk 'NF && !seen[$0]++' | grep -E '^(Bash|Write|Edit|WebFetch|mcp__.*)(\(.*\))?$' || true
+}
+
+# Runs claude plugin eval on a plugin dir for the cases selected by the tags and prints one row
+# per case: name, mean score, counted runs, requested runs. The score is the mean over counted
+# runs. An errored run or a run that skipped its paid graders does not count. Any partial,
+# failed or short result fails closed. The target comes first and the two variadic flags last,
+# so a variadic flag cannot consume the target.
+run_and_score() {
+  local plugin=$1 out=$2 src=$3 cases tools tool rc=0 result case row name counted rows=""
+  shift 3
+  cases=$(selected_cases "$src" "$@") || return 1
+  [ -n "$cases" ] || { fail_closed "no eval case matches the selected tags"; return 1; }
+  tools=$(gated_tools "$src" "$cases") || return 1
+  mkdir -p "$out"
+  result=$out/result.json
+  local args=(plugin eval "$plugin" --ablation none --threshold 0
+    --model "$REGRESS_MODEL" --judge-model "$REGRESS_JUDGE_MODEL" --runs "$REGRESS_RUNS"
+    --max-cost-usd "$REGRESS_MAX_COST_USD" -j "$REGRESS_CONCURRENCY" --scaffold --trust-plugin
+    --no-publish --json "$result" --output-dir "$out/out" --report "$out/report.html")
+  if [ $# -gt 0 ]; then args+=(--tag "$@"); fi
+  if [ -n "$tools" ]; then
+    args+=(--allow-tools)
+    while IFS= read -r tool; do args+=("$tool"); done <<<"$tools"
+  fi
+  claude "${args[@]}" </dev/null >"$out/claude.log" 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    tail -n 5 "$out/claude.log" >&2
+    if [ "$rc" -eq 2 ]; then fail_closed "claude plugin eval ended with a partial run"; else fail_closed "claude plugin eval exited with status $rc"; fi
+    return 1
+  fi
+  if ! jq -e . "$result" >/dev/null 2>&1; then
+    fail_closed "claude plugin eval wrote no readable result"
+    return 1
+  fi
+  if [ "$(jq -r '.partial // false' "$result")" = true ]; then
+    fail_closed "the run was partial: $(jq -r '.partialReason // "no reason given"' "$result")"
+    return 1
+  fi
+  while IFS= read -r case; do
+    [ -n "$case" ] || continue
+    row=$(jq -r --arg n "$case" --argjson want "$REGRESS_RUNS" '
+      (.cases[] | select(.name == $n)) as $c
+      | [$c.arms.with[] | select(.error == null and ((.skippedPaidGraders // false) | not)) | .score] as $s
+      | [$n, (if ($s | length) > 0 then (($s | add) / ($s | length) * 1000 | round / 1000) else "" end), ($s | length), $want]
+      | @tsv' "$result")
+    if [ -z "$row" ]; then
+      fail_closed "case $case is missing from the result"
+      return 1
+    fi
+    IFS=$'\t' read -r name _ counted _ <<<"$row"
+    if [ "$counted" -lt "$REGRESS_RUNS" ]; then
+      fail_closed "case $name has $counted counted runs of $REGRESS_RUNS"
+      return 1
+    fi
+    rows="$rows$row"$'\n'
+  done <<<"$cases"
+  printf '%s' "$rows"
+}
+
+# Prints the cost and the duration of a finished run.
+run_stats() {
+  jq -r '"cost $\(.costUsd // 0) in \(.durationSeconds // 0) s"' "$1/result.json"
+}
+
 main() {
   set -euo pipefail
-  # git sets these for a hook, and they break git calls that run in another work tree.
-  unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE
   command -v jq >/dev/null 2>&1 || die "jq is required. Install it and run again."
   local mode=${1:-}
   case "$mode" in
