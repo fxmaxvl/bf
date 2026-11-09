@@ -16,6 +16,8 @@
 # Exit:   0 no hard marker, 1 at least one hard marker, 2 usage or runtime error. Only a hard marker
 #         decides the exit code, never a score or a ratio, and a soft finding never does.
 # Errors: {"error":...,"detail":...} on stderr + exit 2.
+#         An unknown key in the prose-lint block prints a plain-text warning on stderr and does not
+#         change the exit code.
 set -euo pipefail
 export LC_ALL=C
 
