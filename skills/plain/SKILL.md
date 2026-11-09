@@ -59,7 +59,7 @@ Run this phase only for the detect job. Print `Job: detect`. Do not edit, score 
 
 1. Run the Phase 1 lint with `--format text` in place of `--format json`. Each output line is `<line>: <marker>: <text>`. Exit 1 is a normal result.
 2. For each finding, read the line by its number and quote it. For pasted text, the number counts lines of the pasted text.
-3. Read the PATTERNS and STRUCTURE groups of `prose.md`. Skip any line that step 1 already reported. Add the patterns the lint cannot see: colon reveals, negative listing, dramatic fragments, fake-profound kickers, summary recaps, synonym cycling, and the formatting rule. Also apply Self-lint item 9, the portability test.
+3. Read the PATTERNS and STRUCTURE groups of `prose.md`. Check the items tagged `judgment` there, which the lint cannot see. Skip any line that step 1 already reported. Also apply the Self-lint item on moving a sentence unchanged to another product or company (the portability test).
 4. Print one row per finding: the pattern name, the line number, the quoted line, and the fix in a few words.
 5. End with one line that offers a rewrite, then stop.
 
@@ -84,7 +84,7 @@ If the text already passes the self-lint, leave it as it is. Second-language and
 
 Run the lint command from Phase 1 on the result for the "after" result. The edit is not written yet, so pass the rewritten text on stdin with `-` for both a file and pasted text. Do not lint the file path here, because the file still holds the old text.
 
-Run the Self-lint checklist from `prose.md` on the result for the rules the script cannot check. This includes item 9 (portability) and item 10 (read aloud). Fix each failure, then run the checklist and the lint again.
+Run the Self-lint checklist from `prose.md` on the result for the rules the script cannot check. This includes the portability test and the read-aloud test. Fix each failure, then run the checklist and the lint again.
 
 ## Phase 4 — Deliver
 

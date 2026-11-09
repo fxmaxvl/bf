@@ -43,24 +43,24 @@ STRUCTURE
 - One topic per paragraph, at most six sentences. Keep tense and point of view constant inside a paragraph.
 - Steps go in a numbered list, one action per item, imperative form. Put a condition before its command: "If the build fails, read the log".
 - Put a warning before the step it applies to.
-- No bold in the middle of a sentence for emphasis. No heading over a two-sentence section. No bullets where two sentences of prose read better. No emoji in headings.
+- No bold in the middle of a sentence for emphasis. No heading over a two-sentence section. No bullets where two sentences of prose read better. No emoji in headings. [lint: bold. judgment: the heading and bullet rules.]
 
 PATTERNS
-- Throat-clearing opener (`Let me be clear`): delete it and state the point.
-- Faux insight (`What most people get wrong`): delete the setup and make the claim stand alone.
-- Colon reveal (`The detail that makes it work: a separate agent grades it`): write a plain sentence. Use a colon for a list, a label or a quote.
-- Superficial analysis (`adds file search, highlighting the team's commitment`): delete the trailing "-ing" clause or replace it with a fact.
-- Importance puffery (`plays a vital role`, `stands as a testament`): state the fact and let the reader judge.
-- Interpretive metadiscourse (`The key point is`, `As you can see`): delete the aside or add support.
-- Weasel attribution (`Experts agree`, `Studies show`): name the source or flag the claim. If you have no source, ask. Never invent one.
-- Fake-strong verb (`serves as a hub`): write "is" or "has", or name what the thing does.
-- Synonym cycling (`the agent`, then `the assistant`, then `the tool`): see the WORDS rule "Use one name for one thing".
-- Negative listing (`Not a plan. Not a spec. A sketch.`): state the last item only.
-- Dramatic fragments (`That's it. That's the whole thing.`): write complete sentences.
-- Rhetorical setup (`What if I told you`, `Plot twist:`): drop it and make the point.
-- Fake-profound kicker (a final line that turns the point into a metaphor): delete the line. Do not rewrite it into a better metaphor. End on the last concrete sentence.
-- Summary recap (`In conclusion`, `Overall`): end on the last concrete point or the next action.
-- The lint reports the phrase patterns, the "-ing" tail, mid-sentence bold and emoji headings as soft findings. The other patterns need judgment.
+- Throat-clearing opener (`Let me be clear`): delete it and state the point. [lint]
+- Faux insight (`What most people get wrong`): delete the setup and make the claim stand alone. [lint]
+- Colon reveal (`The detail that makes it work: a separate agent grades it`): write a plain sentence. Use a colon for a list, a label or a quote. [judgment]
+- Superficial analysis (`adds file search, highlighting the team's commitment`): delete the trailing "-ing" clause or replace it with a fact. [lint]
+- Importance puffery (`plays a vital role`, `stands as a testament`): state the fact and let the reader judge. [lint]
+- Interpretive metadiscourse (`The key point is`, `As you can see`): delete the aside or add support. [lint]
+- Weasel attribution (`Experts agree`, `Studies show`): name the source or flag the claim. If you have no source, ask. Never invent one. [lint]
+- Fake-strong verb (`serves as a hub`): write "is" or "has", or name what the thing does. [lint]
+- Synonym cycling (`the agent`, then `the assistant`, then `the tool`): see the WORDS rule "Use one name for one thing". [judgment]
+- Negative listing (`Not a plan. Not a spec. A sketch.`): state the last item only. [judgment]
+- Dramatic fragments (`That's it. That's the whole thing.`): write complete sentences. [judgment]
+- Rhetorical setup (`What if I told you`, `Plot twist:`): drop it and make the point. [lint for the listed phrases, judgment for the rest]
+- Fake-profound kicker (a final line that turns the point into a metaphor): delete the line. Do not rewrite it into a better metaphor. End on the last concrete sentence. [judgment]
+- Summary recap (`In conclusion`, `Overall`): end on the last concrete point or the next action. [lint for `In conclusion`, judgment for `Overall` and other recaps]
+- The tag after a rule says who checks it. `lint` means the script reports it as a soft finding. `judgment` means the reader checks it. Emoji headings are a lint finding. A heading over a two-sentence section and bullets that read better as prose are judgment.
 
 ## Lint rules
 
