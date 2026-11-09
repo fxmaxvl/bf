@@ -726,6 +726,10 @@ t_check_model_mismatch() {
   has check-mismatch-baseline-values "$out" "runs 5"
   has check-mismatch-current-values "$out" "runs 3"
   has check-mismatch-hint "$out" "--update-baseline"
+  case "$out" in
+    *"--update-baseline --tag"*) eq check-mismatch-hint-has-no-tag "tagged" "untagged" ;;
+    *) eq check-mismatch-hint-has-no-tag "untagged" "untagged" ;;
+  esac
   eq check-mismatch-makes-no-claude-call "$(calls)" "0"
 }
 

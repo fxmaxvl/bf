@@ -205,9 +205,9 @@ changed_skills() {
   return 0
 }
 
-# Fetches REGRESS_BASE once per run in the main shell. A call inside $(...) fetches again, because
-# BASE_FETCHED is lost with the subshell. A failed fetch warns with the age of the local copy and
-# sets BASE_FETCH_FAILED.
+# Fetches REGRESS_BASE once per run in the main shell. A fetch inside $(...) does not set
+# BASE_FETCHED in the main shell, so a later call fetches again. A failed fetch warns with the age
+# of the local copy and sets BASE_FETCH_FAILED.
 base_fetch() {
   local remote branch age
   if [ -n "${BASE_FETCHED:-}" ]; then return 0; fi
@@ -654,13 +654,16 @@ case_tag() {
 # Prints the steps that refresh the baseline. It never prints a command that --update-baseline
 # would refuse in the current state.
 refresh_hint() {
-  local flag="" branch=${REGRESS_BASE#*/}
+  local flag="" upd_flag branch=${REGRESS_BASE#*/}
   if [ -n "${1:-}" ]; then flag=" --tag $1"; fi
+  # bl_merge_check refuses a tagged update when the settings differ, so only a full rewrite works then.
+  upd_flag=$flag
+  bl_settings_match 2>/dev/null || upd_flag=""
   if [ "$(git rev-parse HEAD </dev/null)" = "$(git rev-parse "$REGRESS_BASE" </dev/null 2>/dev/null)" ]; then
-    echo "  To refresh the baseline: evals/regress.sh --update-baseline$flag"
+    echo "  To refresh the baseline: evals/regress.sh --update-baseline$upd_flag"
   else
     echo "  To compare with $REGRESS_BASE now: evals/regress.sh --compare$flag"
-    echo "  To refresh after the merge: git switch $branch && git pull --ff-only && evals/regress.sh --update-baseline$flag"
+    echo "  To refresh after the merge: git switch $branch && git pull --ff-only && evals/regress.sh --update-baseline$upd_flag"
   fi
   echo "  Then commit evals/baseline.json on a new branch and open a PR."
 }
