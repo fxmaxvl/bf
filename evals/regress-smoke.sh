@@ -226,6 +226,48 @@ t_case_tree() {
   eq case-tree-absent-exit "$?" "0"
 }
 
+t_changed_skills_edit() {
+  make_ctx
+  put skills/alpha/x.md 'x\n'
+  g add -A && g commit -qm x
+  eq changed-edit "$(rg changed_skills origin/main HEAD)" "edited alpha"
+}
+
+t_changed_skills_nested_once() {
+  make_ctx
+  put skills/alpha/x.md 'x\n'
+  put skills/alpha/sub/SKILL.md '# sub\n'
+  g add -A && g commit -qm nested
+  eq changed-nested-once "$(rg changed_skills origin/main HEAD)" "edited alpha"
+}
+
+t_changed_skills_added() {
+  make_ctx
+  put skills/gamma/SKILL.md '# gamma\n'
+  g add -A && g commit -qm gamma
+  eq changed-added "$(rg changed_skills origin/main HEAD)" "added gamma"
+}
+
+t_changed_skills_ignores_non_skills() {
+  make_ctx
+  put skills/SMOKE-TESTS.md 'changed\n'
+  g add -A && g commit -qm doc
+  eq changed-smoke-tests-only "$(rg changed_skills origin/main HEAD)" ""
+  g rm -rq skills/beta && g commit -qm rm
+  eq changed-deleted-skill "$(rg changed_skills origin/main HEAD)" ""
+  put skills/delta/notes.md 'n\n'
+  g add -A && g commit -qm delta
+  eq changed-dir-without-skill-md "$(rg changed_skills origin/main HEAD)" ""
+}
+
+t_changed_skills_working_tree() {
+  make_ctx
+  put skills/alpha/x.md 'uncommitted\n'
+  put skills/gamma/SKILL.md '# gamma\n'
+  eq changed-wt "$(rg changed_skills origin/main WT | tr '\n' ',')" "edited alpha,added gamma,"
+  eq changed-head-sees-nothing "$(rg changed_skills origin/main HEAD)" ""
+}
+
 run_tests() {
   local t
   for t in $(compgen -A function t_); do "$t"; done
