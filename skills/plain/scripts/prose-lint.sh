@@ -190,6 +190,12 @@ st_errors() {
   eq "unknown key keeps the other keys" "$(jf .soft.banned)" 1
   lint_text "one; two" --rules "$tmp/badkey.md" --format json
   eq "unknown key leaves the exit code to the markers" "$rc" 1
+  sed 's/^hard:/hadr:/' "$full" > "$tmp/nohard.md"
+  lint_text "one; two" --rules "$tmp/nohard.md" --format json
+  eq "misspelled hard key keeps the hard markers" "$rc" 1
+  sed 's/^hard: .*/hard:/' "$full" > "$tmp/emptyhard.md"
+  lint_text "one; two" --rules "$tmp/emptyhard.md" --format json
+  eq "explicit empty hard key turns them off" "$rc" 0
   sed 's/^```prose-lint$/```prose-lint-old/' "$full" > "$tmp/oldfence.md"
   lint_text "one; two" --rules "$tmp/oldfence.md" --format json
   eq "prose-lint-old is no block" "$(jf .rules_block)" false
@@ -374,7 +380,7 @@ resolve_rules() {
 }
 
 load_rules() {
-  local l k v h
+  local l k v h seen_hard=0
   # The prose-lint block: "key: value" lines between a ```prose-lint fence and the next fence.
   rules_block=false
   r_hard= r_cap_i=20 r_cap_d=25 r_long=150 r_replace= r_banned= r_empty= r_pattern= r_ing=
@@ -386,7 +392,7 @@ load_rules() {
       [ -n "${l//[[:space:]]/}" ] || continue
       k=${l%%:*}; v=${l#*:}; v=${v# }
       case $k in
-        hard) r_hard=$v ;;
+        hard) r_hard=$v seen_hard=1 ;;
         cap_instruction) r_cap_i=$v ;;
         cap_descriptive) r_cap_d=$v ;;
         long_reply_words) r_long=$v ;;
@@ -400,7 +406,8 @@ load_rules() {
       esac
     done < "$work/block"
   fi
-  [ "$rules_block" = true ] || r_hard=$hard_names
+  # A missing or misspelled hard key keeps every hard marker on. Only an explicit empty "hard:" turns them off.
+  [ "$seen_hard" = 1 ] || r_hard=$hard_names
   case $r_cap_i$r_cap_d$r_long in *[!0-9]*) die rules_invalid "caps and long_reply_words must be numbers" ;; esac
   for h in $r_hard; do
     case " $hard_names " in *" $h "*) ;; *) die rules_invalid "unknown hard marker: $h" ;; esac
