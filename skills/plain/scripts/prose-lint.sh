@@ -466,24 +466,28 @@ norm_entry() { printf '%s' "$1" | tr '_' ' ' | tr -cd 'A-Za-z -'; }
 # word_re <text>: the whole-word regex for normalized text. Text can be one entry or an "a|b" alternation.
 word_re() { printf '(^|[^A-Za-z])(%s)([^A-Za-z]|$)' "$1"; }
 
-# any_entry <list>: succeeds when some entry of the list matches the text. One grep lets a clean text skip the per-entry loop.
-any_entry() {
+# alternation <list>: the normalized entries joined with "|". A from>to entry keeps only its "from" side.
+alternation() {
   local e alt=
-  for e in $1; do
+  for e in $*; do
     e=$(norm_entry "${e%%>*}")
     [ -z "$e" ] || alt="$alt|$e"
   done
-  [ -n "$alt" ] && grep -q -E -i "$(word_re "${alt#|}")" "$stripped"
+  printf '%s' "${alt#|}"
 }
 
-# emit_ing_tail <list>: a comma, then one entry of the list as the next word. Entries go through norm_entry like any_entry.
+# any_entry <list>: succeeds when some entry of the list matches the text. One grep lets a clean text skip the per-entry loop.
+any_entry() {
+  local alt
+  alt=$(alternation "$1")
+  [ -n "$alt" ] && grep -q -E -i "$(word_re "$alt")" "$stripped"
+}
+
+# emit_ing_tail <list>: a comma, then one entry of the list as the next word.
 emit_ing_tail() {
-  local e alt=
-  for e in "$@"; do
-    e=$(norm_entry "$e")
-    [ -z "$e" ] || alt="$alt|$e"
-  done
-  [ -z "$alt" ] || emit ing_tail - -E -i ", (${alt#|})([^A-Za-z]|\$)"
+  local alt
+  alt=$(alternation "$*")
+  [ -z "$alt" ] || emit ing_tail - -E -i ", ($alt)([^A-Za-z]|\$)"
 }
 
 # emit_words <marker> <list>: one whole-word, case-insensitive match per entry.
