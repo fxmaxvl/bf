@@ -135,19 +135,27 @@ t_meta_tags_both_files() {
   make_ctx
   put evals/both/case.yaml 'name: both\ntags: [a, b]\n'
   put evals/both/prompt.md '---\ntags: [b, c]\n---\nbody\n'
+  put evals/keep/case.yaml 'name: keep\ntags: [a, b]\n'
+  put evals/keep/prompt.md '---\ndescription: no tags here\n---\nbody\n'
   g add -A && g commit -qm both
-  eq meta-tags-both-files "$(rg case_meta HEAD both tags | tr '\n' ' ')" "a b c "
+  eq meta-tags-prompt-md-replaces-case-yaml "$(rg case_meta HEAD both tags | tr '\n' ' ')" "b c "
+  eq meta-tags-case-yaml-kept-without-prompt-tags "$(rg case_meta HEAD keep tags | tr '\n' ' ')" "a b "
+  eq cases-with-tag-ignores-replaced-tag "$(rg cases_with_tag HEAD a | tr '\n' ' ')" "keep "
 }
 
 t_meta_allowed_tools() {
   make_ctx
-  put evals/yml/case.yaml 'name: yml\nallowed_tools: [Bash, Read]\n'
-  put evals/both/case.yaml 'name: both\nallowed_tools: [Bash]\n'
-  put evals/both/prompt.md '---\nallowed_tools: [Bash, Write]\n---\nbody\n'
+  put evals/yml/case.yaml 'name: yml\nexecution:\n  allowed_tools: [Bash, Read]\n'
+  put evals/blk/case.yaml 'name: blk\nexecution:\n  timeout_seconds: 30\n  allowed_tools:\n    - Bash\n    - Edit\ntags: [blk]\n'
+  put evals/top/case.yaml 'name: top\nallowed_tools: [Bash]\n'
+  put evals/both/case.yaml 'name: both\nexecution:\n  allowed_tools: [Bash, Read]\n'
+  put evals/both/prompt.md '---\nallowed_tools: [Write]\n---\nbody\n'
   g add -A && g commit -qm tools
   eq meta-tools-frontmatter "$(rg case_meta HEAD beta-case allowed_tools)" "Read"
-  eq meta-tools-case-yaml "$(rg case_meta HEAD yml allowed_tools | tr '\n' ' ')" "Bash Read "
-  eq meta-tools-both "$(rg case_meta HEAD both allowed_tools | tr '\n' ' ')" "Bash Write "
+  eq meta-tools-case-yaml-execution "$(rg case_meta HEAD yml allowed_tools | tr '\n' ' ')" "Bash Read "
+  eq meta-tools-case-yaml-execution-block "$(rg case_meta HEAD blk allowed_tools | tr '\n' ' ')" "Bash Edit "
+  eq meta-tools-case-yaml-top-level-ignored "$(rg case_meta HEAD top allowed_tools)" ""
+  eq meta-tools-prompt-md-replaces-case-yaml "$(rg case_meta HEAD both allowed_tools | tr '\n' ' ')" "Write "
   eq meta-tools-absent "$(rg case_meta HEAD alpha-case allowed_tools)" ""
   rg case_meta HEAD alpha-case allowed_tools >/dev/null
   eq meta-tools-absent-exit "$?" "0"
@@ -461,7 +469,7 @@ fx() {
       elif . == "skip" then {score: 0.5, error: null, skippedPaidGraders: true}
       else {score: tonumber, error: null, skippedPaidGraders: false} end
       | . + {costUsd: 1, durationSeconds: 10})')
-    arr=$(jq -cn --argjson a "$arr" --arg n "$name" --argjson r "$runs" '$a + [{name: $n, arms: {with: $r}}]')
+    arr=$(jq -cn --argjson a "$arr" --arg n "$name" --argjson r "$runs" '$a + [{name: $n, dir: ("evals/" + $n), arms: {with: $r}}]')
   done
   jq -n --argjson c "$arr" '{partial: false, partialReason: null,
     costUsd: ($c | map(.arms.with | map(.costUsd) | add) | add),
@@ -484,13 +492,13 @@ score() {
 
 t_score_argv_order() {
   make_ctx
-  put evals/gamma-case/case.yaml 'name: gamma-case\ntags: [gamma]\nallowed_tools: [Bash, Read]\n'
+  put evals/gamma-case/case.yaml 'name: gamma-case\ntags: [gamma]\nexecution:\n  allowed_tools: [Bash, Read]\n'
   put evals/gamma-case/prompt.md '---\nallowed_tools: [Write, Bash, mcp__x__y]\n---\nbody\n'
   g add -A && g commit -qm gamma
   fx "$CTX_TMP/r.json" gamma-case=1,1,1
   score "$CTX_TMP/r.json" gamma >/dev/null 2>&1
   local want
-  want="--call plugin eval $CTX_TMP/plug --ablation none --threshold 0 --model claude-sonnet-5-5 --judge-model claude-haiku-5-5 --runs 3 --max-cost-usd 10 -j 4 --scaffold --trust-plugin --no-publish --json $CTX_TMP/out/result.json --output-dir $CTX_TMP/out/out --report $CTX_TMP/out/report.html --tag gamma --allow-tools Bash Write mcp__x__y "
+  want="--call plugin eval $CTX_TMP/plug --ablation none --threshold 0 --model claude-sonnet-5-5 --judge-model claude-haiku-5-5 --runs 3 --max-cost-usd 10 -j 4 --scaffold --trust-plugin --no-publish --json $CTX_TMP/out/result.json --output-dir $CTX_TMP/out/out --report $CTX_TMP/out/report.html --tag gamma --allow-tools Write Bash mcp__x__y "
   eq score-argv-order "$(tr '\n' ' ' < "$CTX_TMP/claude-args")" "$want"
   eq score-writes-nothing-in-plugin-dir "$([ -e "$CTX_TMP/plug/evals/results" ] && echo found || echo none)" "none"
 }
@@ -550,6 +558,16 @@ t_score_all_runs_errored_fails_closed() {
   fx "$CTX_TMP/r.json" alpha-case=err,err,err beta-case=1,1,1
   STUB_JSON=$CTX_TMP/r.json rr --update-baseline >/dev/null 2>&1
   eq update-all-errored-writes-nothing "$([ -e "$CTX_REPO/evals/baseline.json" ] && echo file || echo none)" "none"
+}
+
+# The CLI names a case by its name: field. The result row carries the dir, which is the stable key.
+t_score_matches_result_by_dir() {
+  make_ctx
+  put evals/gamma-case/case.yaml 'name: renamed\ntags: [gamma]\n'
+  g add -A && g commit -qm gamma
+  fx "$CTX_TMP/r.json" gamma-case=1,1,1
+  jq '.cases[0].name = "renamed"' "$CTX_TMP/r.json" > "$CTX_TMP/n.json"
+  eq score-matches-by-dir-not-name "$(score "$CTX_TMP/n.json" gamma 2>&1 | tr '\t' ' ')" "gamma-case 1 3 3"
 }
 
 t_score_stdin_is_closed() {

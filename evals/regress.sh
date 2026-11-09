@@ -148,20 +148,38 @@ list_cases() {
   return 0
 }
 
-# Prints the values of a key (tags or allowed_tools) from both case files, joined with no
-# duplicates. A key that is present but unreadable stops the run and names the file.
-case_meta() {
-  local src=$1 case=$2 key=$3 file text part all=""
-  for file in case.yaml prompt.md; do
-    text=$(read_at "$src" "evals/$case/$file") || continue
-    if [ "$file" = prompt.md ]; then text=$(printf '%s\n' "$text" | frontmatter); fi
-    part=$(printf '%s\n' "$text" | yaml_list "$key") || {
-      echo "regress: cannot read the $key key in evals/$case/$file" >&2
-      return 1
+# Prints the lines under a top-level key of the YAML text on stdin, with the indent removed.
+yaml_section() {
+  awk -v key="$1" '
+    $0 ~ "^" key ":[ \t]*$" { insec = 1; next }
+    insec && /^[ \t]*$/ { next }
+    insec && /^[ \t]/ {
+      if (ind == "") { match($0, /^[ \t]*/); ind = RLENGTH }
+      print substr($0, ind + 1)
+      next
     }
-    all=$all$part$'\n'
-  done
-  printf '%s' "$all" | awk 'NF && !seen[$0]++'
+    { insec = 0 }
+  '
+}
+
+# Prints the values of a key (tags or allowed_tools) of a case, one per line, as the CLI loader
+# merges the two case files. The key of prompt.md replaces the key of case.yaml. The tags key is
+# top-level in both files. The allowed_tools key is top-level in prompt.md and sits under
+# execution: in case.yaml. A key that is present but unreadable stops the run and names the file.
+case_meta() {
+  local src=$1 case=$2 key=$3 file=case.yaml text front
+  text=$(read_at "$src" "evals/$case/case.yaml") || text=""
+  if [ "$key" = allowed_tools ]; then text=$(printf '%s\n' "$text" | yaml_section execution); fi
+  front=$(read_at "$src" "evals/$case/prompt.md" | frontmatter) || front=""
+  if grep -q "^$key:" <<<"$front"; then
+    file=prompt.md
+    text=$front
+  fi
+  text=$(printf '%s\n' "$text" | yaml_list "$key") || {
+    echo "regress: cannot read the $key key in evals/$case/$file" >&2
+    return 1
+  }
+  printf '%s\n' "$text" | awk 'NF && !seen[$0]++'
   return 0
 }
 
@@ -530,7 +548,7 @@ run_and_score() {
   while IFS= read -r case; do
     [ -n "$case" ] || continue
     row=$(jq -r --arg n "$case" --argjson want "$REGRESS_RUNS" '
-      (.cases[] | select(.name == $n)) as $c
+      (.cases[] | select(.dir == ("evals/" + $n))) as $c
       | [$c.arms.with[] | select(.error == null and ((.skippedPaidGraders // false) | not)) | .score] as $s
       | [$n, (if ($s | length) > 0 then (($s | add) / ($s | length) * 1000 | round / 1000) else "-" end), ($s | length), $want]
       | @tsv' "$result")
