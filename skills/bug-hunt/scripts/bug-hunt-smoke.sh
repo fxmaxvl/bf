@@ -112,6 +112,47 @@ mkdir -p "$tmp/plug/skills" && cp -R "$here/.." "$tmp/plug/skills/bug-hunt" && c
 rm "$tmp/plug/skills/bug-hunt/scripts/profile.sh"
 out=$(bash "$tmp/plug/skills/bug-hunt/scripts/hunt-init.sh" --repo)
 check "profile: a failing helper gives a null profile and the hunt goes on" "$(q "$out" '.profile == null and .mode == "repo" and .file_count == 2')"
+
+# --worktree: a stub gh answers `gh pr view`, a local bare origin carries main and refs/pull/<n>/head, and
+# HOME points into $tmp so every worktree lands there.
+wbare="$tmp/wt-bare.git"; whome="$tmp/wt-home"; mkdir -p "$tmp/bin" "$whome"
+cat > "$tmp/bin/gh" <<'G'
+#!/usr/bin/env bash
+[ "$1 $2 $4 $5" = "pr view --json headRefOid,headRefName,baseRefName" ] || exit 1
+printf '{"headRefOid":"%s","headRefName":"pr-branch","baseRefName":"main"}\n' "$STUB_OID"
+G
+chmod +x "$tmp/bin/gh"
+git init -q --bare -b main "$wbare"
+git init -q -b main "$tmp/wt-seed" && cd "$tmp/wt-seed" && git config user.email t@t && git config user.name t
+git remote add origin "$wbare" && echo base > f && git add f && git commit -qm base && git push -q origin main
+make_pr() { # PR number, file content: push a commit on top of main to refs/pull/<n>/head (forced) and print its sha
+  ( cd "$tmp/wt-seed" && git switch -q --detach main && echo "$2" > "pr$1.txt" && git add "pr$1.txt" &&
+    git commit -qm "pr $1 $2" && git push -q -f origin "HEAD:refs/pull/$1/head" && git rev-parse HEAD )
+}
+hi() { # repo dir, stub head sha, hunt-init args
+  ( cd "$1" && env HOME="$whome" PATH="$tmp/bin:$PATH" STUB_OID="$2" bash "$init" "${@:3}" )
+}
+git clone -q "$wbare" "$tmp/wt" && git -C "$tmp/wt" config user.email t@t && git -C "$tmp/wt" config user.name t
+wt1="$whome/.bf/bug-hunt/worktrees/wt-pr-1"
+oid1=$(make_pr 1 one)
+out=$(hi "$tmp/wt" "$oid1" --pr 1 --worktree)
+check "worktree: create sets the worktree key and keeps run_dir and report_path under root" "$(q "$out" ". as \$o | \$o.mode == \"pr\" and \$o.worktree == \"$wt1\" and \$o.worktree != \$o.root and (\$o.run_dir | startswith(\$o.root + \"/\")) and (\$o.report_path | startswith(\$o.root + \"/\")) and \$o.files == [\"pr1.txt\"]")"
+check "worktree: create puts HEAD at the PR head and leaves the user's checkout alone" "$(same "$(git -C "$wt1" rev-parse HEAD)|$(git -C "$tmp/wt" rev-parse --abbrev-ref HEAD)" "$oid1|main")"
+oid2=$(make_pr 1 two)
+out=$(hi "$tmp/wt" "$oid2" --pr 1 --worktree)
+check "worktree: reuse moves the existing worktree to the new PR head" "$(q "$out" ".worktree == \"$wt1\" and .pr == 1")"
+check "worktree: reuse leaves HEAD at the new head" "$(same "$(git -C "$wt1" rev-parse HEAD)" "$oid2")"
+echo stray > "$wt1/stray"
+out=$(hi "$tmp/wt" "$oid2" --pr 1 --worktree)
+check "worktree: local changes are worktree_dirty" "$(q "$out" '.error == "worktree_dirty"')"
+rm "$wt1/stray"
+out=$(hi "$tmp/wt" "$oid1" --pr 1 --worktree)
+check "worktree: a stub head that differs from refs/pull/<n>/head is pr_head_moved" "$(q "$out" '.error == "pr_head_moved"')"
+oid3=$(make_pr 2 three)
+mkdir -p "$whome/.bf/bug-hunt/worktrees/wt-pr-2"
+out=$(hi "$tmp/wt" "$oid3" --pr 2 --worktree)
+check "worktree: a directory that is not a worktree of this repo is worktree_failed" "$(q "$out" '.error == "worktree_failed"')"
+git -C "$tmp/wt" worktree remove --force "$wt1"
 cd "$tmp/r" || exit 1
 
 run="$tmp/run"; mkdir -p "$run/hunters" "$run/verifiers"
