@@ -27,7 +27,7 @@ Read the input from `$ARGUMENTS`:
 
 A trailing `detect` token selects the detect job: run Phase 1 and the Detect phase, then stop. Detect never rewrites, so it ignores a `strict` or `flavored` token. Any other job runs every phase.
 
-A trailing `strict` or `flavored` token sets the mode. Without it, pick the mode from the text by the Modes section of `prose.md`. State the pick in one line: `Mode: strict (runbook steps)`.
+A trailing `strict` or `flavored` token sets the mode. Without it, and outside the detect job, pick the mode from the text by the Modes section of `prose.md`. State the pick in one line: `Mode: strict (runbook steps)`.
 
 ## Phase 1 — Load
 
