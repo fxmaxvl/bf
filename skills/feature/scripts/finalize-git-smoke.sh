@@ -214,4 +214,13 @@ echo race >> top.txt
 GH_LOG="$tmp/gh.log" GH_LOOKUPS="$tmp/lookups" GH_PR_STATE_AFTER=OPEN finalize
 eq "PR opened during the push -> edited, not created" "$(grep -c '^pr create' "$tmp/gh.log" || true) $(grep -c '^pr edit' "$tmp/gh.log" || true)" "0 1"
 
+echo mc >> top.txt
+git checkout -q -b old-pr
+echo old > old.txt && git add old.txt && git commit -qm old
+old_head=$(head_sha)
+git checkout -q main
+git merge -q --no-ff old-pr -m "Merge old-pr"
+rc=0; GH_PR_STATE=MERGED GH_PR_HEAD=$old_head finalize || rc=$?
+eq "reused name, old PR merged with a merge commit (head in history) -> exit 4, the documented limit" "$rc" 4
+
 [ "$fails" -eq 0 ]

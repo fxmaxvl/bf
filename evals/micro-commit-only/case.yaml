@@ -4,4 +4,3 @@ description: "Answering `commit only` at the micro finalize gate commits locally
 tags: [micro, finalize, commit-only]
 context:
   scaffold_script: scaffold.sh
-# TODO(bf:review): C2: the resume case (phase=finalize, phase_status=awaiting_approval, then the gate re-asked and the answer saved) needs a pre-seeded build-state.json. The scaffold can write one, but the eval format has no way to start a second session mid-run, so only the first-run flow is covered here.

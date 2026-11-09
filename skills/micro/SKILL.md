@@ -206,14 +206,7 @@ Print banner: `── micro | Finalize ─────────────�
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=awaiting_approval
    ```
-   Ask: "Ready to finalize (commit, push, PR)? Reply `yes`, `commit only` to commit locally without a push or PR, or `no`."
-   - If no: **Exit** (re-invoke `/bf:micro` when ready).
-   - If yes or `commit only`: save the answer, then continue:
-     ```
-     bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress commit_only=<true|false>
-     ```
-     Use `true` for `commit only`.
-   - A session that shares the branch and does not own push and PR answers `commit only`.
+   Ask the gate question and save its answer as `skills/feature/SKILL.md` Phase 6 step 2 defines (the three replies, the `commit_only` save). Micro has no TODO question: save `phase_status=in_progress commit_only=<true|false>` and continue.
 3. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions. Resolve and act on it before committing.
 4. **Compose commit message and PR content** (reasoning — model writes this), following the `git` convention (resolved via the lookup in `plugin-main.md`):
    - **Commit message**: `refactor:` prefix with a concise description. If `github_issue.enabled`, include the issue number (e.g., `refactor(#12): split processOrder into smaller methods`); if `jira.enabled`, include the ticket key.
@@ -239,8 +232,8 @@ Print banner: `── micro | Finalize ─────────────�
      [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
      [--jira-url <jira.ticket_url>]           # only if jira.enabled
    ```
-   On exit 1, 3, 4, 5 or 6, read the header of `finalize-git.sh`, which owns each exit's meaning and recovery. Show the stderr, follow that recovery, then rerun. Under `/bf:autopilot`, rerun after exit 3 with `--leave-untracked`.
    The script stages tracked edits, every untracked file made since the session started (anything not in `paths.untracked_baseline`), the `--add` files and `.bf/conventions/`. It commits if there are changes, pushes, creates the PR, and outputs the PR URL.
+   On exit 1, 3, 4, 5 or 6, read the header of `finalize-git.sh`, which owns each exit's meaning and recovery. Show the stderr, follow that recovery, then rerun. Under `/bf:autopilot`, rerun after exit 3 with `--leave-untracked`.
 6. If `jira.enabled` and state `commit_only` is not `true`:
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`

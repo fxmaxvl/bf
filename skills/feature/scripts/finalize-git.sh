@@ -28,7 +28,9 @@
 # Exit codes and recovery. This header is the one place that defines them. Show the stderr to the
 # user, follow the recovery, then rerun.
 # Exit 1: an argument is invalid, or an --add path is missing, ignored, or outside the repo.
-#   Nothing is staged. Drop the bad path and rerun.
+#   These exit 1 cases come before staging: nothing is staged. Drop the bad path and rerun.
+#   Any other exit 1 is git's own error after staging (a failing pre-commit hook) or after the
+#   commit (a rejected push). Read the stderr.
 # Exit 3: untracked files outside .bf/ that are neither named with --add nor new since the
 #   baseline. Nothing is staged or pushed. The list goes to stderr. Ask which of them belong to the
 #   change (one question), then rerun with --add for those, plus --leave-untracked when any remain.
@@ -36,8 +38,12 @@
 #   goes into the commit unasked.
 # Exit 4: the branch has a PR that is MERGED or CLOSED, and the PR's head is in this branch's
 #   history. A push would never reach the base branch. A PR from an older branch that reused the
-#   name does not count. Nothing is staged or pushed. For MERGED, stderr prints the commands that
-#   move only the post-merge commits onto a new branch off the base. For CLOSED, it says to reopen
+#   name does not count, with one limit: when that old PR was merged with a merge commit and the
+#   new branch started from the updated base, its head is in the history and git cannot tell the
+#   two cases apart. The result is exit 4 on a legitimate new branch. The printed rebase then moves
+#   this branch's own commits onto a new branch off the base, which is safe. Follow it and rerun.
+#   Nothing is staged or pushed. For MERGED, stderr prints the commands that move only the
+#   post-merge commits onto a new branch off the base. For CLOSED, it says to reopen
 #   the PR (gh pr reopen) or start a new branch from HEAD.
 # Exit 5: gh could not read the PR state, for example on an auth failure. Nothing is staged or
 #   pushed. Fix gh (gh auth status) and rerun.

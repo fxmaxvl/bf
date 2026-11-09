@@ -55,4 +55,4 @@ feat: implement new vector search algorithm
 
 ## Pushing to a PR branch
 
-- Before any push to a branch that has a PR, check the PR state. Do not push to a MERGED or CLOSED PR: the commits would never reach the base branch. `finalize-git.sh` makes this check and owns the recovery steps (see its header). Outside it, use `gh pr list --head <branch> --state all --json state,headRefOid,baseRefName`, because `gh pr view` also exits 1 when the call fails.
+- Before any push to a branch that has a PR, check the PR state. Do not push to a MERGED or CLOSED PR whose `headRefOid` is in this branch's history: the commits would never reach the base branch. A PR from an older branch that reused the name does not count. `finalize-git.sh` makes this check and owns the recovery steps (see its header). Outside it, use `gh pr list --head <branch> --state all --json state,headRefOid,baseRefName`, because `gh pr view` also exits 1 when the call fails.

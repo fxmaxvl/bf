@@ -426,27 +426,18 @@ Print banner: `── feature | Finalize ─────────────
    - This catches any regressions introduced by review-impl fix cycles
    - If tests or lint fail: stop, tell the user which checks failed, and ask how to proceed — do **not** commit broken code
    - If all green: continue
-2. **Pre-finalization gate:** Run:
+2. **Pre-finalization gate** (`/bf:micro` Finalize step 2 points here; this step owns the question and the save rule). Run:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=awaiting_approval
    ```
+   Ask one question per turn. First: "Ready to finalize (commit, push, PR)? Reply `yes`, `commit only` to commit locally without a push or PR, or `no`."
+   - If no: **Exit** (re-invoke the skill when ready).
+   - If `commit only`: treat it as yes and save `commit_only=true`. A `yes` saves `commit_only=false`.
+   - A session that shares the branch and does not own push and PR answers `commit only`.
+
    Then branch on `mode`:
-
-   **If `mode != "quick"` (full mode):** Ask the user one question at a time:
-   1. Ask: "Ready to finalize (commit, push, PR)? Reply `yes`, `commit only` to commit locally without a push or PR, or `no`."
-      - If no: **Exit** (re-invoke `/bf:feature` when ready).
-      - If `commit only`: treat it as yes. Save `commit_only=true` with the next state write. A `yes` saves `commit_only=false`.
-      - If yes: continue to next question.
-   2. Ask: "Should I scan for TODO comments and collect them to the backlog after?"
-      - Save the answer in state as `collect_todos: true/false` so it survives session interruptions.
-   Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=<true|false> commit_only=<true|false>`, then continue.
-
-   **If `mode == "quick"` (quick mode):**
-   1. Ask: "Ready to finalize (commit, push, PR)? Reply `yes`, `commit only` to commit locally without a push or PR, or `no`."
-      - If no: **Exit** (re-invoke `/bf:feature` when ready).
-      - If `commit only`: treat it as yes. Save `commit_only=true` with the next state write. A `yes` saves `commit_only=false`.
-      - If yes: continue.
-   Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=false commit_only=<true|false>`, then continue. (TODO scanning is always skipped in quick mode.)
+   - **Full mode (`mode != "quick"`):** ask a second question: "Should I scan for TODO comments and collect them to the backlog after?" Save the answer as `collect_todos: true/false` so it survives session interruptions. Then run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=<true|false> commit_only=<true|false>` and continue.
+   - **Quick mode:** run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=false commit_only=<true|false>` and continue. TODO scanning is always skipped in quick mode.
 3. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions. Resolve and act on it before composing the commit.
 4. **Compose commit message and PR content** (reasoning — model writes this):
    - **Commit message:** `feat:` prefix with a concise description. Include issue/ticket if enabled (e.g., `feat(#12): address review concerns`, `feat(PROJ-123): address review concerns`).
