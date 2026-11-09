@@ -2,7 +2,8 @@
 # Lint text against the hard markers and word lists of the resolved prose.md.
 #
 # Usage: prose-lint.sh <file|-> [--mode file|chat|commit|comment] [--rules <prose.md>]
-#                      [--cwd <dir>] [--ext sh|py|ts|js] [--format text|json]
+#                      [--cwd <dir>] [--ext sh|py|ts|js] [--format text|json] [--soft]
+#        --soft turns the soft markers on in comment mode, which turns them off by default.
 #        prose-lint.sh --digest [--rules <prose.md>] [--cwd <dir>]
 #        prose-lint.sh --classify <path>
 #        prose-lint.sh --selftest
@@ -244,6 +245,8 @@ st_soft() {
   eq "pattern text line" "$(printf '%s' "$out" | tr '\n' '|')" "1: pattern: experts agree -> weasel attribution|1: pattern: serves as -> fake strong verb"
   lint_text "# it just works" --mode comment --ext sh --rules "$full" --format json
   eq "comment mode skips empty" "$(jf .soft.empty)" 0
+  lint_text "# Experts agree it is robust" --mode comment --ext sh --soft --rules "$full" --format json
+  eq "soft flag in comment mode" "$(jf '.soft.pattern + .soft.banned')" 2; eq "soft flag exit" "$rc" 0
   lint_text "It just works." --rules "$noblock" --format json
   eq "no block no empty list" "$(jf .soft.empty + .soft.pattern)" 0
   eq "json soft keys" "$(jf '.soft | keys_unsorted | join(",")')" "replace,banned,empty,pattern,ing_tail,bold_mid,emoji_heading,long_sentence"
@@ -343,7 +346,7 @@ st_real_rules() {
 }
 
 parse_args() {
-  mode=file format=text rules= cwd=. ext= input= digest=0
+  mode=file format=text rules= cwd=. ext= input= digest=0 force_soft=0
   while [ $# -gt 0 ]; do
     case $1 in
       --mode) [ $# -ge 2 ] || die usage "--mode needs a value"; mode=$2; shift 2 ;;
@@ -352,6 +355,7 @@ parse_args() {
       --cwd) [ $# -ge 2 ] || die usage "--cwd needs a value"; cwd=$2; shift 2 ;;
       --ext) [ $# -ge 2 ] || die usage "--ext needs a value"; ext=$2; shift 2 ;;
       --digest) digest=1; shift ;;
+      --soft) force_soft=1; shift ;;
       -) input=-; shift ;;
       -*) die usage "unknown flag: $1" ;;
       *) [ -z "$input" ] || die usage "more than one input"; input=$1; shift ;;
@@ -368,6 +372,7 @@ check_options() {
     comment) filt=comment caps=0 longreply=0 soft=0 ;;
     *) die usage "unknown mode: $mode" ;;
   esac
+  if [ "$force_soft" = 1 ]; then soft=1; fi
   case $format in text|json) ;; *) die usage "unknown format: $format" ;; esac
   if [ "$mode" = comment ]; then
     case $ext in sh|py|ts|js) ;; *) die usage "comment mode needs --ext sh|py|ts|js" ;; esac

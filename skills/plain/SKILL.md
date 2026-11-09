@@ -57,7 +57,7 @@ Keep the `hard` counts and the `summary` as the "before" result. Exit 1 is a nor
 
 Run this phase only for the detect job. Print `Job: detect`. Do not edit, score or guess who wrote the text.
 
-1. Run the Phase 1 lint with `--format text` in place of `--format json`. Each output line is `<line>: <marker>: <text>`. Exit 1 is a normal result.
+1. Run the Phase 1 lint with `--format text` in place of `--format json`. For a code file, also add `--soft`, because comment mode turns the soft markers off without it. Each output line is `<line>: <marker>: <text>`. Exit 1 is a normal result.
 2. For each finding, read the line by its number and quote it. For pasted text, the number counts lines of the pasted text.
 3. Read the PATTERNS and STRUCTURE groups of `prose.md`. Check the items tagged `judgment` there, which the lint cannot see. Do not repeat a finding that step 1 already reported. Also apply the Self-lint item on moving a sentence unchanged to another product or company (the portability test).
 4. Print one row per finding: the pattern name, the line number, the quoted line, and the fix in a few words.
