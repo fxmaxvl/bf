@@ -276,6 +276,26 @@ st_soft() {
     lint_text "$bold" --rules "$full" --format json
     eq "bold label or table or code: ${bold//$'\n'/ }" "$(jf .soft.bold_mid)" 0
   done
+  local check=$'\xE2\x9C\x93' heavy=$'\xE2\x9E\x9C' star=$'\xE2\xAD\x90' fence=$'```'
+  for bold in "- [ ] **Task:** do it" "- [x] **Done:** ok" "### **Setup**"; do
+    lint_text "$bold" --rules "$full" --format json
+    eq "bold label after a box or heading: $bold" "$(jf .soft.bold_mid)" 0
+  done
+  lint_text "# **Note:** run it first" --mode comment --ext py --soft --rules "$full" --format json
+  eq "bold label after a comment marker" "$(jf .soft.bold_mid)" 0
+  lint_text "# This is **very** clear." --mode comment --ext py --soft --rules "$full" --format json
+  eq "mid-sentence bold in a comment" "$(jf .soft.bold_mid)" 1
+  lint_text $'Body.\n\n'"$fence"$'\nf(**a, **b)\nx = 1 '"$dash"$' 2\n'"$fence" --mode commit --rules "$full" --format json
+  eq "commit mode fenced bold" "$(jf .soft.bold_mid)" 0
+  eq "commit mode fenced em dash stays hard" "$(jf .hard.em_dash)" 1
+  lint_text "# Deploy the app $rocket now" --mode comment --ext sh --soft --rules "$full" --format json
+  eq "emoji in a comment is no heading" "$(jf .soft.emoji_heading)" 0
+  lint_text "## Step $check done" --rules "$full" --format json
+  eq "check mark heading" "$(jf .soft.emoji_heading)" 0
+  lint_text "## A $heavy B" --rules "$full" --format json
+  eq "dingbat arrow heading" "$(jf .soft.emoji_heading)" 0
+  lint_text "## $star Stars" --rules "$full" --format json
+  eq "star heading" "$(jf .soft.emoji_heading)" 1
   lint_text "- **Label:** one **two** three" --rules "$full" --format json
   eq "bold after a label still counts" "$(jf .soft.bold_mid)" 1
   lint_text "## $rocket Launch" --rules "$full" --format json
@@ -467,6 +487,15 @@ strip_nonprose() {
   # An HTML entity (&name; or &#123; or &#x1F;) is not a semicolon: the entity loses its closing mark here.
   # A name needs two or more characters, so AT&T; and R&D; keep their semicolons.
   sed -E 's/(&(#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]+));/\1/g' "$stripped" > "$work/entities" && mv "$work/entities" "$stripped" || true
+
+  # The soft markers read Markdown shape, so they get a copy without code fences or comment markers.
+  # The hard markers keep reading the copy above: the pre-bash hook counts a fenced em dash in a commit body.
+  softcopy=$work/softcopy
+  case $filt in
+    raw) awk '/^[ \t]*(```|~~~)/ { fence = !fence; print ""; next } fence { print ""; next } { print }' "$stripped" > "$softcopy" ;;
+    comment) awk -v lead="$lead" '$0 ~ lead { sub(lead "[#/]*[ \t]?", ""); print; next } { print }' "$stripped" > "$softcopy" ;;
+    *) cp "$stripped" "$softcopy" ;;
+  esac
 }
 
 # emit <marker> <label|-> <grep args...>: one finding row per match. The label replaces the matched text.
@@ -537,7 +566,7 @@ find_bold_mid() {
     /^[ \t]*\|/ { next }
     {
       line = $0
-      sub(/^[ \t]*([-*+]|[0-9]+\.)?[ \t]*\*\*[^*]+\*\*/, "", line)
+      sub(/^[ \t]*(#+[ \t]+)?([-*+]|[0-9]+\.)?[ \t]*(\[[ xX]\][ \t]*)?\*\*[^*]+\*\*/, "", line)
       while (match(line, /\*\*[^* ][^*]*\*\*/)) {
         printf "%d\tbold_mid\t%s\n", NR, substr(line, RSTART, RLENGTH)
         line = substr(line, RSTART + RLENGTH)
@@ -554,14 +583,18 @@ find_markers() {
   emit contraction - -E -i -w "(it|that|let|there|here|what|who)${apos}s"
 
   if [ "$soft" = 1 ]; then
+    local hardcopy=$stripped
+    stripped=$softcopy
     emit_pairs replace $r_replace
     emit_words banned $r_banned
     emit_words empty $r_empty
     emit_pairs pattern $r_pattern
     emit_ing_tail $r_ing
-    # Match on lead bytes: grep has no -P here, and the emoji ranges start with F0 9F or E2 98..9E.
-    emit emoji_heading "emoji in heading" -E $'^#+[ \t].*(\xF0\x9F|\xE2[\x98-\x9E])'
+    # Match on UTF-8 bytes, because grep has no -P here: U+1F300 to U+1FAFF, U+2600 to U+26FF, and the emoji
+    # dingbats and stars (U+2705, U+2728, U+274C, U+2753 to U+2757, U+2B50, U+2B55). Check marks and arrows are not emoji.
+    emit emoji_heading "emoji in heading" -E $'^#+[ \t].*(\xF0\x9F[\x8C-\xAB]|\xE2[\x98-\x9B]|\xE2\x9C[\x85\xA8]|\xE2\x9D[\x8C\x93-\x97]|\xE2\xAD[\x90\x95])'
     find_bold_mid
+    stripped=$hardcopy
   fi
 }
 
