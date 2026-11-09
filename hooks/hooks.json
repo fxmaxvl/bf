@@ -1,5 +1,5 @@
 {
-  "description": "Prose enforcement: lint the text bf writes for hard markers (em dash, semicolon, contraction). Set BF_PROSE_HOOK=off to turn every hook off.",
+  "description": "Prose enforcement: lint the text bf writes for hard markers (em dash, semicolon, contraction). Set BF_PROSE_HOOK=off to turn the prose hooks off. remote-state-pre-bash.sh reminds the model to check the PR state before git push, gh pr edit or gh pr merge. Set BF_REMOTE_HOOK=off to turn it off.",
   "hooks": {
     "SessionStart": [
       {
@@ -16,7 +16,10 @@
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prose-pre-bash.sh\"", "timeout": 5}]
+        "hooks": [
+          {"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prose-pre-bash.sh\"", "timeout": 5},
+          {"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/remote-state-pre-bash.sh\"", "timeout": 5}
+        ]
       }
     ],
     "Stop": [

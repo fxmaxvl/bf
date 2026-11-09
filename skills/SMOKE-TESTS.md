@@ -27,6 +27,7 @@ each prints one PASS/FAIL line per case and exits non-zero on any failure. Run t
 | `skills/autopilot/hooks/autopilot-hooks-smoke.sh` | `stop.sh`, `user-prompt-cleanup.sh`, `session-start-cleanup.sh`, the helpers in `lib.sh` (sub-agents, teammates and background work, stop words, agent and scheduled turns, the lead session and its process, the second-session warning) |
 | `skills/essence/scripts/essence-smoke.sh` | `essence-init.sh`, `ledger-check.sh` |
 | `skills/pr-comments/scripts/pr-comments-smoke.sh` | `fetch-pr-comments.sh`, `wait-for-review.sh` (argument parsing, `--all`, push time, `--head` and `--bot`, against a stub `gh`) |
+| `hooks/remote-state-hook-smoke.sh` | `hooks/remote-state-pre-bash.sh` (which commands get the reminder, `BF_REMOTE_HOOK=off`, input that is not JSON) |
 | `hooks/prose-hooks-smoke.sh` | the `hooks/prose-*.sh` hooks and `prose-lib.sh` (skip list, record directory guards, `prose_commit_values` tokenizer) |
 | `skills/plain/scripts/prose-lint.sh --selftest` | `prose-lint.sh` (hard markers, soft markers, rules validation, modes, `--digest`, `--classify`) |
 | `skills/feature/scripts/report-template-smoke.sh` | `## <Name> Report` / `## <Name> Review` examples in every SKILL.md: sub-sections stay `###` or deeper, so `read-block.sh` reads the whole block |
