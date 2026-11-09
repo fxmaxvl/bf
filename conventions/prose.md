@@ -43,7 +43,7 @@ STRUCTURE
 - One topic per paragraph, at most six sentences. Keep tense and point of view constant inside a paragraph.
 - Steps go in a numbered list, one action per item, imperative form. Put a condition before its command: "If the build fails, read the log".
 - Put a warning before the step it applies to.
-- No bold in the middle of a sentence for emphasis. No heading over a two-sentence section. No bullets where two sentences of prose read better. No emoji in headings. [lint: bold. judgment: the heading and bullet rules.]
+- No bold in the middle of a sentence for emphasis. No heading over a two-sentence section. No bullets where two sentences of prose read better. No emoji in headings. [lint: bold and emoji. judgment: the heading and bullet rules.]
 
 PATTERNS
 - Throat-clearing opener (`Let me be clear`): delete it and state the point. [lint]
