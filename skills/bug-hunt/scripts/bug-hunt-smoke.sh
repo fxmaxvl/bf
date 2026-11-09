@@ -40,6 +40,8 @@ out=$(bash "$init" --lenses bogus)
 check "bad lens is an error" "$(q "$out" '.error == "unknown_lens"')"
 out=$(bash "$init" --repo lib)
 check "repo plus path is an error" "$(q "$out" '.error == "conflicting_scope"')"
+out=$(bash "$init" --worktree)
+check "--worktree without --pr is an error" "$(q "$out" '.error == "worktree_needs_pr"')"
 # alarm 5: a regression to the old parse loop fails here instead of hanging the smoke.
 out=$(perl -e 'alarm 5; exec @ARGV' bash "$init" --pr)
 check "--pr with no value is missing_value, not a hang" "$(q "$out" '.error == "missing_value"')"

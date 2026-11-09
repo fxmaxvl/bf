@@ -3,7 +3,7 @@ name: bug-hunt
 description: "Use when the user wants a deep bug sweep — 'hunt for bugs', 'find bugs in this branch', 'bug-hunt src/payments', 'what's broken in this repo'. Launches a pool of isolated hunter agents, one bug-class lens each, merges and dedupes their findings, has independent verifiers confirm or reject every one, groups the survivors by root cause with fix order, and reports only what survived. Runtime bugs only; conventions and complexity belong to bf:review. Review-only — never edits code."
 model: opus
 disable-model-invocation: false
-argument-hint: "[--lenses <id>[,<id>]] [--hunters N] [--repro] [--pr <n> | --repo | <path>...] — empty hunts the current branch's changes"
+argument-hint: "[--lenses <id>[,<id>]] [--hunters N] [--repro] [--pr <n> [--worktree] | --repo | <path>...] — empty hunts the current branch's changes"
 allowed-tools: Read, Write, Grep, Glob, Agent, Skill, Bash(git *), Bash(bash *), Bash(mkdir *)
 ---
 
@@ -36,7 +36,7 @@ Translate it to the same flags as standalone (`branch` → no target, `pr <n>` �
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/hunt-init.sh" <flags and targets>
 ```
 
-It returns `{mode, base, pr, files, file_count, diff_file, profile, lenses, hunters, hunters_capped, repro, run_dir, report_path, slug}`, or `{error, detail}`. On an error, print the detail and stop. Every later path comes from this result, so do not re-derive any of them.
+It returns `{root, worktree, mode, base, pr, files, file_count, diff_file, profile, lenses, hunters, hunters_capped, repro, run_dir, report_path, slug}`, or `{error, detail}`. On an error, print the detail and stop, except `pr_not_checked_out` (see Edge Cases). Every later path comes from this result, so do not re-derive any of them. When `worktree` is set, the hunted code lives there: every hunter and verifier prompt names it as the tree to read, and every git command they run uses `git -C <worktree>`. `run_dir` and `report_path` stay under `root`.
 
 Timing: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" mark "<run_dir>" <step>` with `hunt` just before the hunter spawn message, `verify` just before the verifier spawn message, and `report` after writing `report_path`; the scripts stamp everything else. A failed mark never stops the hunt. `findings.sh timing "<run_dir>"` prints the durations on request.
 
@@ -244,7 +244,9 @@ Record the choice under `## Handoff` in the report before invoking anything. No 
 | Condition | Handling |
 |-----------|----------|
 | `hunt-init.sh` returns `error` | Print the `detail` and stop — `empty_scope` on a clean branch suggests `--repo` or a path. |
-| `hunt-init.sh` returns `pr_not_checked_out` | Print the `detail` and stop. Hunters read the working tree, so hunting a PR whose head is not checked out reads the wrong code. The detail says whether to run `gh pr checkout` or to push or pull the local branch. Do not do either yourself, because both change the user's working tree or remote. |
+| `hunt-init.sh` returns `pr_not_checked_out` | Hunters read the working tree, so hunting a PR whose head is not checked out reads the wrong code. Do not run `gh pr checkout`, push or pull yourself, because each changes the user's working tree or remote. Standalone: ask one question, "PR #<n>'s head is not checked out. Hunt it in a separate worktree under `~/.bf/bug-hunt/worktrees/`? Your branch and the remote stay as they are." Yes → rerun `hunt-init.sh` with the same flags plus `--worktree`. No → print the `detail` and stop. Embedded: ask nothing; print the `detail` and return it as the error. |
+| `worktree` is set | Add `· **Worktree:** <worktree>` to the report's header line, and end `## Handoff` with "The PR head is checked out in `<worktree>`. Remove it with `git worktree remove <worktree>`." `/bf:bug-fix` works on the current tree, not the worktree, so say that in the handoff question. |
+| `hunt-init.sh` returns `worktree_dirty` | Print the `detail` and stop. Never discard changes in the worktree. |
 | Running inside a subagent (embedded call from a fanned-out agent) — `Agent` unavailable | Subagents cannot spawn subagents. Return `error: no_fan_out — call bf:bug-hunt from the top-level session` to the caller; never fall back to hunting single-handedly. |
 | `counts.surviving` below 2 | Skip the analyst; run `analyze` on an empty analysis. No groups, no `## Root causes`, F ids only in the handoff. |
 | Analyst fails twice or `findings.sh analyze` errors twice | Run `analyze` on an empty analysis, note it under Coverage, hand off with F ids only. The hunt does not fail. |
