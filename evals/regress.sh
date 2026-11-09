@@ -243,7 +243,6 @@ base_fetch() {
   remote=${REGRESS_BASE%%/*}
   branch=${REGRESS_BASE#*/}
   if ! git fetch --quiet "$remote" "$branch" </dev/null 2>/dev/null; then
-    # shellcheck disable=SC2034
     BASE_FETCH_FAILED=1
     age=$(git log -1 --format=%cr "$REGRESS_BASE" </dev/null 2>/dev/null) || age="an unknown time ago"
     echo "WARNING: could not fetch $REGRESS_BASE, using a copy from $age" >&2
@@ -293,8 +292,7 @@ parse_opts() {
         TAGS="$TAGS$2"$'\n'
         shift 2
         ;;
-      --force) # shellcheck disable=SC2034
-        FORCE=1; shift ;;
+      --force) FORCE=1; shift ;;
       -*) die "unknown option $1" ;;
       *) POS="$POS$1"$'\n'; shift ;;
     esac
@@ -569,7 +567,7 @@ bl_file() {
 # object of cases, with the tree id of each case dir at the commit.
 bl_cases_json() {
   local sha=$1 case score counted rows="" tree
-  while IFS=$'\t' read -r case score counted _; do
+  while IFS=$'\t' read -r case score counted _ || [ -n "$case" ]; do
     [ -n "$case" ] || continue
     tree=$(case_tree "$sha" "$case")
     rows="$rows$case"$'\t'"$score"$'\t'"$counted"$'\t'"$tree"$'\n'
@@ -685,7 +683,7 @@ gate_at() {
   wt_add "$sha" || return 1
   out=$RUN_TMP/run$WT_N
   rows=$(run_and_score "$WT_PATH" "$out" "$sha" "${tag_arr[@]}") || return 1
-  while IFS=$'\t' read -r case score counted _; do
+  while IFS=$'\t' read -r case score counted _ || [ -n "$case" ]; do
     [ -n "$case" ] || continue
     tree=$(case_tree "$sha" "$case")
     verdict=$(bl_verdict "$case" "$tree" "$score")
@@ -720,6 +718,43 @@ gate_at() {
   return 0
 }
 
+# Runs the selected cases (all of them with no --tag) on a worktree at HEAD and writes the
+# baseline. It refuses on a dirty tree, a stale or off-base HEAD and every fail-closed result.
+mode_update_baseline() {
+  local head tag_arr=() tag rows
+  parse_opts "$@"
+  conf_load "$(src_ref "$(src_for update-baseline conf)")"
+  if [ -n "$(git status --porcelain -- evals skills </dev/null)" ]; then
+    echo "regress: uncommitted changes under evals or skills. Commit or stash them first." >&2
+    return 1
+  fi
+  base_fetch
+  if [ -n "$BASE_FETCH_FAILED" ] && [ "$FORCE" -ne 1 ]; then
+    echo "regress: could not fetch $REGRESS_BASE. Fix the network or use --force." >&2
+    return 1
+  fi
+  head=$(git rev-parse HEAD </dev/null)
+  if [ "$head" != "$(git rev-parse "$REGRESS_BASE" </dev/null 2>/dev/null)" ] && [ "$FORCE" -ne 1 ]; then
+    echo "regress: HEAD is not $REGRESS_BASE. Switch to the tip of $REGRESS_BASE or use --force." >&2
+    return 1
+  fi
+  while IFS= read -r tag; do
+    [ -n "$tag" ] || continue
+    tag_arr+=("$tag")
+  done <<<"$TAGS"
+  echo "Cost ceiling: \$$REGRESS_MAX_COST_USD for this run."
+  wt_add "$head" || return 1
+  rows=$(run_and_score "$WT_PATH" "$RUN_TMP/update" "$head" ${tag_arr[@]+"${tag_arr[@]}"}) || return 1
+  bl_load WT
+  if [ ${#tag_arr[@]} -gt 0 ] && [ -n "$BL_JSON" ]; then
+    printf '%s' "$rows" | bl_merge "$head" || return 1
+  else
+    printf '%s' "$rows" | bl_write_full "$head" || return 1
+  fi
+  echo "Wrote evals/baseline.json. Run: $(run_stats "$RUN_TMP/update")"
+  echo "Next: commit evals/baseline.json on a new branch and open a PR."
+}
+
 main() {
   set -euo pipefail
   command -v jq >/dev/null 2>&1 || die "jq is required. Install it and run again."
@@ -728,6 +763,7 @@ main() {
     --coverage) shift; mode_coverage "$@" ;;
     --pre-push) shift; mode_pre_push "$@" ;;
     --check) shift; mode_check "$@" ;;
+    --update-baseline) shift; mode_update_baseline "$@" ;;
     *) usage; exit 1 ;;
   esac
 }

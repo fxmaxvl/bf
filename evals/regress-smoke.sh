@@ -781,6 +781,100 @@ t_hook_two_refs() {
   eq hook-two-refs-own-worktrees "$(grep -A3 -e '^--call$' "$CTX_TMP/claude-args" | grep -v -e '^--' | grep '/wt' | sort -u | wc -l | tr -d ' ')" "2"
 }
 
+t_update_refuses_dirty_tree() {
+  make_ctx
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1 beta-case=1,1,1
+  local out rc
+  put skills/alpha/x.md 'untracked\n'
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --update-baseline 2>&1); rc=$?
+  eq update-refuses-untracked-skill-file "$rc" "1"
+  has update-dirty-reason "$out" "uncommitted changes under evals or skills"
+  rm "$CTX_REPO/skills/alpha/x.md"
+  echo "edit" >> "$CTX_REPO/evals/alpha-case/case.yaml"
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --update-baseline 2>&1); rc=$?
+  eq update-refuses-edited-case "$rc" "1"
+  eq update-dirty-makes-no-claude-call "$(calls)" "0"
+}
+
+t_update_refuses_off_base() {
+  make_ctx
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1 beta-case=1,1,1
+  put skills/alpha/x.md 'local\n'
+  g add -A && g commit -qm local
+  local out rc
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --update-baseline 2>&1); rc=$?
+  eq update-refuses-head-off-base "$rc" "1"
+  has update-off-base-reason "$out" "HEAD is not origin/main"
+  STUB_JSON=$CTX_TMP/r.json rr --update-baseline --force >/dev/null 2>&1
+  eq update-force-allows-off-base "$?" "0"
+}
+
+t_update_refuses_failed_fetch() {
+  make_ctx
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1 beta-case=1,1,1
+  g remote set-url origin "$CTX_TMP/missing.git"
+  local out rc
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --update-baseline 2>&1); rc=$?
+  eq update-refuses-failed-fetch "$rc" "1"
+  has update-fetch-reason "$out" "could not fetch origin/main"
+  STUB_JSON=$CTX_TMP/r.json rr --update-baseline --force >/dev/null 2>&1
+  eq update-force-allows-failed-fetch "$?" "0"
+}
+
+t_update_fails_closed_keeps_file() {
+  make_ctx
+  local f=$CTX_REPO/evals/baseline.json rc
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1 beta-case=1,1,1
+  STUB_EXIT=2 rr --update-baseline >/dev/null 2>&1; rc=$?
+  eq update-exit-2-fails "$rc" "1"
+  eq update-exit-2-writes-nothing "$([ -e "$f" ] && echo file || echo none)" "none"
+  STUB_EXIT=1 STUB_JSON=$CTX_TMP/r.json rr --update-baseline >/dev/null 2>&1
+  eq update-exit-1-writes-nothing "$([ -e "$f" ] && echo file || echo none)" "none"
+  jq '.partial = true' "$CTX_TMP/r.json" > "$CTX_TMP/p.json"
+  STUB_JSON=$CTX_TMP/p.json rr --update-baseline >/dev/null 2>&1
+  eq update-partial-flag-writes-nothing "$([ -e "$f" ] && echo file || echo none)" "none"
+  fx "$CTX_TMP/m.json" alpha-case=1,1,1
+  STUB_JSON=$CTX_TMP/m.json rr --update-baseline >/dev/null 2>&1
+  eq update-missing-case-writes-nothing "$([ -e "$f" ] && echo file || echo none)" "none"
+  printf 'alpha-case\t1\t3\t3\nbeta-case\t0.5\t3\t3\n' | rg eval 'conf_load HEAD; bl_write_full HEAD'
+  g add -A && g commit -qm baseline && g push -q origin main
+  local before
+  before=$(cat "$f")
+  fx "$CTX_TMP/s.json" alpha-case=1,1,err beta-case=1,1,1
+  STUB_JSON=$CTX_TMP/s.json rr --update-baseline >/dev/null 2>&1
+  eq update-too-few-runs-keeps-file "$(cat "$f")" "$before"
+  STUB_JSON=$CTX_TMP/m.json rr --update-baseline >/dev/null 2>&1
+  eq update-missing-case-keeps-file "$(cat "$f")" "$before"
+}
+
+t_update_writes_and_merges() {
+  make_ctx
+  local f=$CTX_REPO/evals/baseline.json out
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1 beta-case=1,0.6,1
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --update-baseline 2>&1)
+  eq update-creates-file "$(jq -r '.cases | keys | join(",")' "$f")" "alpha-case,beta-case"
+  eq update-trees-from-head "$(jq -r '.cases["alpha-case"].tree' "$f")" "$(g rev-parse HEAD:evals/alpha-case)"
+  eq update-beta-score "$(jq -r '.cases["beta-case"].score' "$f")" "0.867"
+  has update-next-step "$out" "commit evals/baseline.json on a new branch and open a PR"
+  g add -A && g commit -qm baseline && g push -q origin main
+  fx "$CTX_TMP/t.json" beta-case=1,1,1
+  STUB_JSON=$CTX_TMP/t.json rr --update-baseline --tag beta >/dev/null 2>&1
+  eq update-tag-merges-selected "$(jq -r '.cases["beta-case"].score' "$f")" "1"
+  eq update-tag-keeps-other "$(jq -r '.cases["alpha-case"].score' "$f")" "1"
+  g add -A && g commit -qm merged && g push -q origin main
+  out=$(REGRESS_RUNS=2 STUB_JSON=$CTX_TMP/t.json rr --update-baseline --tag beta 2>&1)
+  has update-tag-mismatch-refused "$out" "without --tag"
+}
+
+t_update_reads_conf_from_working_tree() {
+  make_ctx
+  put evals/regress.conf 'REGRESS_RUNS=2\n'
+  g add -A && g commit -qm conf
+  fx "$CTX_TMP/r.json" alpha-case=1,1 beta-case=1,1
+  STUB_JSON=$CTX_TMP/r.json rr --update-baseline --force >/dev/null 2>&1
+  eq update-uses-conf-runs "$(jq -r .runs_requested "$CTX_REPO/evals/baseline.json")" "2"
+}
+
 run_tests() {
   local t
   for t in $(compgen -A function t_); do "$t"; done
