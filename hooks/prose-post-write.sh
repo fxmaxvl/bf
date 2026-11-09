@@ -34,7 +34,7 @@ if prefix=$(git -C "$(dirname "$path")" rev-parse --show-prefix 2>/dev/null); th
 else
   rel=$path
 fi
-case "/$rel" in */conventions/*|*/agents/*|*/references/*|*/.claude/*) exit 0 ;; esac
+case "/$rel" in */conventions/*|*/agents/*|*/references/*|*/.claude/*|*/.bf/tmp/*) exit 0 ;; esac
 
 args=()
 [ -z "$ext" ] || args+=(--ext "$ext")
