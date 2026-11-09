@@ -25,7 +25,7 @@ Read the input from `$ARGUMENTS`:
 - **Other text:** the target is that pasted text.
 - **Nothing:** ask one question for the file or the text, then wait.
 
-A trailing `detect` token selects the detect job: run Phase 1 and the Detect phase, then stop. Detect never rewrites, so it ignores a `strict` or `flavored` token. Any other job runs every phase.
+A trailing `detect` token selects the detect job, alone or next to a trailing `strict` or `flavored` token in either order. The detect job runs Phase 1 and the Detect phase, then stops. Detect never rewrites, so it ignores a `strict` or `flavored` token. Any other job is the rewrite job, which runs every phase.
 
 A trailing `strict` or `flavored` token sets the mode. Without it, and outside the detect job, pick the mode from the text by the Modes section of `prose.md`. State the pick in one line: `Mode: strict (runbook steps)`.
 
@@ -51,13 +51,13 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/plain/scripts/prose-lint.sh" - --rules <resol
 BF_TEXT
 ```
 
-Keep the `hard` counts and the `summary` as the "before" result. Exit 1 is a normal result here, not a failure. Exit 2 means no result: say so in one line and continue.
+Keep the `hard` counts and the `summary` as the "before" result. Exit 1 is a normal result here, not a failure. In the rewrite job, exit 2 means no result: say so in one line and continue. The Detect phase has its own exit 2 rule.
 
 ## Detect
 
 Run this phase only for the detect job. Print `Job: detect`. Do not edit, score or guess who wrote the text.
 
-1. Run the Phase 1 lint with `--format text` in place of `--format json`. For a code file, also add `--soft`, because comment mode turns the soft markers off without it. Each output line is `<line>: <marker>: <text>`. Exit 1 is a normal result.
+1. Run the Phase 1 lint with `--format text` in place of `--format json`. For a code file, also add `--soft`, because comment mode turns the soft markers off without it. Each output line is `<line>: <marker>: <text>`. Exit 1 is a normal result. Exit 2 means the lint did not scan the text, for example a code file with an extension other than sh, py, ts or js. Then print `Not scanned: <reason>` in one line and stop. Never report a text that the lint did not scan as having no finding.
 2. For each finding, read the line by its number and quote it. For pasted text, the number counts lines of the pasted text.
 3. Read the PATTERNS and STRUCTURE groups of `prose.md`. Check the items tagged `judgment` there, which the lint cannot see. Do not repeat a finding that step 1 already reported. Also apply the Self-lint item on moving a sentence unchanged to another product or company (the portability test).
 4. Print one row per finding: the pattern name, the line number, the quoted line, and the fix in a few words.
@@ -98,12 +98,14 @@ Run the Self-lint checklist from `prose.md` on the result for the rules the scri
 
 ## Edge Cases & Errors
 
-| Condition | Handling |
-|-----------|----------|
-| The target is a code file | Rewrite only comments and user-facing messages in strings. If the intent is unclear, ask one question first. |
-| The target is a `SKILL.md`, a convention, or an agent prompt | Say that model-facing files are out of scope. Continue only if the user insists. |
-| The path does not exist and the argument looks like a path | Say that the file was not found. Do not rewrite the path string as text. |
-| A rule conflicts with a required format (headings, tables, fixed strings) | The format wins. |
-| The file has uncommitted changes | Say so in the effect line, because git cannot undo the rewrite cleanly. |
-| The file is very large (more than about 1500 lines) | Rewrite one section at a time and report progress after each section. |
-| The text is marketing copy or an essay | Say that STE strips voice and ask one question: continue or stop. |
+The Job column says which job a row applies to. A Rewrite row does not apply in the detect job.
+
+| Condition | Job | Handling |
+|-----------|-----|----------|
+| The target is a code file | Rewrite | Rewrite only comments and user-facing messages in strings. If the intent is unclear, ask one question first. |
+| The target is a `SKILL.md`, a convention, or an agent prompt | All | Say that model-facing files are out of scope. Continue only if the user insists. |
+| The path does not exist and the argument looks like a path | All | Say that the file was not found. Do not rewrite the path string as text. |
+| A rule conflicts with a required format (headings, tables, fixed strings) | Rewrite | The format wins. |
+| The file has uncommitted changes | Rewrite | Say so in the effect line, because git cannot undo the rewrite cleanly. |
+| The file is very large (more than about 1500 lines) | Rewrite | Rewrite one section at a time and report progress after each section. |
+| The text is marketing copy or an essay | Rewrite | Say that STE strips voice and ask one question: continue or stop. |
