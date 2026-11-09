@@ -205,8 +205,9 @@ changed_skills() {
   return 0
 }
 
-# Fetches REGRESS_BASE once per run. A failed fetch warns with the age of the local copy and
-# sets BASE_FETCH_FAILED. Nothing else in this script fetches.
+# Fetches REGRESS_BASE once per run in the main shell. A call inside $(...) fetches again, because
+# BASE_FETCHED is lost with the subshell. A failed fetch warns with the age of the local copy and
+# sets BASE_FETCH_FAILED.
 base_fetch() {
   local remote branch age
   if [ -n "${BASE_FETCHED:-}" ]; then return 0; fi
