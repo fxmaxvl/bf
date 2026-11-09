@@ -208,17 +208,23 @@ case_tree() {
   git rev-parse --verify -q "$1:evals/$2" </dev/null || true
 }
 
-# Maps a diff to skill names. Output lines are "added <name>" or "edited <name>". A skill is a
+# Maps a diff to skill names. A path with non-ASCII bytes is read as it is. Output lines are "added <name>" or "edited <name>". A skill is a
 # top-level dir of skills/ with a SKILL.md at the head. The head is a commit or WT, and WT also
 # counts untracked files.
 changed_skills() {
   local base=$1 head=$2 root names name kind
   root=$(repo_root) || return 1
   if [ "$head" = WT ]; then
-    names=$({ git diff --name-only --no-renames "$base" -- skills </dev/null
-      git ls-files --others --exclude-standard -- skills </dev/null; }) || return 1
+    names=$({ git -c core.quotePath=false diff --name-only --no-renames "$base" -- skills </dev/null
+      git -c core.quotePath=false ls-files --others --exclude-standard -- skills </dev/null; }) || return 1
   else
-    names=$(git diff --name-only --no-renames "$base" "$head" -- skills </dev/null) || return 1
+    names=$(git -c core.quotePath=false diff --name-only --no-renames "$base" "$head" -- skills </dev/null) || return 1
+  fi
+  # Git still quotes a path with a double quote, a backslash or a control character. The parser
+  # below cannot read it, so the gate stops and does not skip that skill.
+  if grep -q '^"' <<<"$names"; then
+    echo "regress: cannot read the path of a changed file under skills/. A path with a double quote, a backslash or a control character is not supported." >&2
+    return 1
   fi
   names=$(printf '%s\n' "$names" | sed -En 's#^skills/([^/]+)/.+#\1#p' | sort -u)
   while IFS= read -r name; do

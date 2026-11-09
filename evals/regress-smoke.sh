@@ -282,6 +282,25 @@ t_changed_skills_ignores_non_skills() {
   eq changed-dir-without-skill-md "$(rg changed_skills origin/main HEAD)" ""
 }
 
+t_changed_skills_non_ascii_dir() {
+  make_ctx
+  put skills/café/SKILL.md '# cafe\n'
+  g add -A && g commit -qm cafe
+  eq changed-non-ascii-dir "$(rg changed_skills origin/main HEAD)" "added café"
+  put skills/crème/SKILL.md '# creme\n'
+  eq changed-non-ascii-dir-untracked "$(rg changed_skills origin/main WT | tr '\n' ',')" "added café,added crème,"
+}
+
+t_changed_skills_quoted_path_fails_closed() {
+  make_ctx
+  local out rc
+  put 'skills/we"ird/SKILL.md' '# odd\n'
+  g add -A && g commit -qm odd
+  out=$(rg changed_skills origin/main HEAD 2>&1); rc=$?
+  eq changed-quoted-path-exit "$rc" "1"
+  has changed-quoted-path-reason "$out" "cannot read the path"
+}
+
 t_changed_skills_working_tree() {
   make_ctx
   put skills/alpha/x.md 'uncommitted\n'
