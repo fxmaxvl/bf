@@ -588,13 +588,13 @@ t_bl_write_full() {
 t_bl_merge() {
   make_ctx
   printf 'alpha-case\t1\t3\t3\nbeta-case\t0.5\t3\t3\n' | rg eval 'conf_load HEAD; bl_write_full HEAD'
-  printf 'beta-case\t0.9\t3\t3\n' | rg eval 'conf_load HEAD; bl_merge HEAD'
+  printf 'beta-case\t0.9\t3\t3\n' | rg eval 'conf_load HEAD; bl_load WT; bl_merge HEAD'
   local f=$CTX_REPO/evals/baseline.json
   eq bl-merge-keeps-other "$(jq -r '.cases["alpha-case"].score' "$f")" "1"
   eq bl-merge-replaces-selected "$(jq -r '.cases["beta-case"].score' "$f")" "0.9"
   local before out rc
   before=$(cat "$f")
-  out=$(printf 'beta-case\t0.1\t3\t3\n' | REGRESS_RUNS=5 rg eval 'conf_load HEAD; bl_merge HEAD' 2>&1); rc=$?
+  out=$(printf 'beta-case\t0.1\t3\t3\n' | REGRESS_RUNS=5 rg eval 'conf_load HEAD; bl_load WT; bl_merge HEAD' 2>&1); rc=$?
   eq bl-merge-refuses-on-mismatch "$rc" "1"
   has bl-merge-says-run-without-tag "$out" "without --tag"
   eq bl-merge-refusal-leaves-file "$(cat "$f")" "$before"

@@ -591,12 +591,11 @@ bl_merge_check() {
   fi
 }
 
-# Merges the rows on stdin into the file. It refuses, and leaves the file as it was, when the
-# file was made with other settings.
+# Merges the rows on stdin into the working-tree file that bl_load WT put in BL_JSON. It refuses,
+# and leaves the file as it was, when the file was made with other settings.
 bl_merge() {
   local sha=$1 file cases tmp
   file=$(bl_file) || return 1
-  bl_load WT
   bl_merge_check || return 1
   cases=$(bl_cases_json "$sha") || return 1
   tmp=$file.tmp
@@ -750,7 +749,6 @@ mode_update_baseline() {
   echo "Cost ceiling: \$$REGRESS_MAX_COST_USD for this run."
   wt_add "$head" || return 1
   rows=$(run_and_score "$WT_PATH" "$RUN_TMP/update" "$head" ${tag_arr[@]+"${tag_arr[@]}"}) || return 1
-  bl_load WT
   if [ ${#tag_arr[@]} -gt 0 ] && [ -n "$BL_JSON" ]; then
     printf '%s' "$rows" | bl_merge "$head" || return 1
   else
