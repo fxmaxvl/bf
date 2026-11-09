@@ -403,7 +403,8 @@ t_hook_e2e_coverage_gate() {
   g push -q origin --delete feat
   put evals/gamma-case/case.yaml 'name: gamma-case\ntags: [gamma]\n'
   g add -A && g commit -qm case
-  out=$(push_feat); rc=$?
+  fx "$CTX_TMP/r.json" gamma-case=1,1,1
+  out=$(STUB_JSON=$CTX_TMP/r.json push_feat); rc=$?
   eq hook-allows-covered-skill "$rc" "0"
 }
 
@@ -634,6 +635,150 @@ t_bl_stale() {
   eq bl-stale-changed "$(rg eval 'bl_load WT; bl_stale HEAD')" "alpha-case oldtree $tree"
   mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 3 gone-case 1 oldtree
   eq bl-stale-removed "$(rg eval 'bl_load WT; bl_stale HEAD')" "gone-case oldtree removed"
+}
+
+# A repo with a baseline on origin/main, then a branch that edits skills/alpha.
+gate_ctx() {
+  make_ctx
+  mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 3 alpha-case 1 "$(g rev-parse HEAD:evals/alpha-case)"
+  commit_baseline
+  g switch -qc feat
+  put skills/alpha/x.md 'edit\n'
+  g add -A && g commit -qm edit
+}
+
+calls() { awk '/^--call$/ { n++ } END { print n + 0 }' "$CTX_TMP/claude-args" 2>/dev/null || echo 0; }
+
+t_check_regression() {
+  gate_ctx
+  local out rc
+  fx "$CTX_TMP/r.json" alpha-case=0.3,0.3,0.3
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --check 2>&1); rc=$?
+  eq check-drop-blocks "$rc" "1"
+  has check-table-header "$out" "baseline"
+  has check-table-row "$out" "regressed"
+  has check-delta "$out" "-0.700"
+  has check-cost-line "$out" "Run: cost \$3 in 30 s"
+  has check-no-verify-reminder "$out" "git push --no-verify"
+  fx "$CTX_TMP/r.json" alpha-case=0.7,0.7,0.7
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --check 2>&1); rc=$?
+  eq check-within-margin-passes "$rc" "0"
+  has check-status-ok "$out" " ok"
+  eq check-ran-in-worktree "$([ "$(sed -n 4p "$CTX_TMP/claude-args")" != "$CTX_REPO" ] && echo yes || echo no)" "yes"
+}
+
+t_check_case_changed() {
+  gate_ctx
+  local out rc old new
+  old=$(g rev-parse HEAD:evals/alpha-case)
+  put evals/alpha-case/case.yaml 'schema_version: "1.1"\nname: alpha-case\ntags: [alpha]\ndescription: edited\n'
+  g add -A && g commit -qm case
+  new=$(g rev-parse HEAD:evals/alpha-case)
+  fx "$CTX_TMP/r.json" alpha-case=0.1,0.1,0.1
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --check 2>&1); rc=$?
+  eq check-case-changed-passes "$rc" "0"
+  has check-case-changed-warning "$out" "WARNING: case alpha-case changed since the baseline (tree $old, now $new)"
+  has check-hint-compare "$out" "--compare --tag alpha"
+  eq check-hint-never-bare-update-on-branch "$(printf '%s' "$out" | grep -c 'To refresh the baseline:')" "0"
+}
+
+t_check_stale_scan_on_main() {
+  gate_ctx
+  g switch -q main
+  put evals/alpha-case/case.yaml 'schema_version: "1.1"\nname: alpha-case\ntags: [alpha]\ndescription: edited\n'
+  put evals/beta-case/prompt.md '---\ntags: [beta]\n---\nedited\n'
+  g add -A && g commit -qm case && g push -q origin main
+  mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 3 gone-case 1 oldtree
+  g add -A && g commit -qm gone && g push -q origin main
+  local out rc
+  out=$(rr --check 2>&1); rc=$?
+  eq check-stale-scan-passes "$rc" "0"
+  has check-stale-removed "$out" "WARNING: the baseline entry for gone-case is stale (tree oldtree, now removed)."
+  has check-hint-update-on-main "$out" "To refresh the baseline: evals/regress.sh --update-baseline"
+  eq check-stale-makes-no-claude-call "$(calls)" "0"
+}
+
+t_check_no_baseline() {
+  gate_ctx
+  local out rc
+  fx "$CTX_TMP/r.json" alpha-case=0.1,0.1,0.1
+  g switch -q main
+  g rm -q evals/baseline.json && g commit -qm nobase && g push -q origin main
+  g switch -q feat && g rebase -q main
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --check 2>&1); rc=$?
+  eq check-missing-baseline-file-passes "$rc" "0"
+  has check-missing-baseline-note "$out" "NOTE: no baseline for alpha-case"
+  has check-missing-baseline-hint "$out" "--update-baseline"
+  g switch -q main
+  mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 3 beta-case 1 t1
+  commit_baseline
+  g switch -q feat && g rebase -q main
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --check 2>&1); rc=$?
+  eq check-missing-entry-passes "$rc" "0"
+  has check-missing-entry-note "$out" "no baseline for alpha-case"
+}
+
+t_check_model_mismatch() {
+  gate_ctx
+  g switch -q main
+  mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 5 alpha-case 1 t1
+  commit_baseline
+  g switch -q feat && g rebase -q main
+  local out rc
+  out=$(rr --check 2>&1); rc=$?
+  eq check-mismatch-fails "$rc" "1"
+  has check-mismatch-baseline-values "$out" "runs 5"
+  has check-mismatch-current-values "$out" "runs 3"
+  has check-mismatch-hint "$out" "--update-baseline"
+  eq check-mismatch-makes-no-claude-call "$(calls)" "0"
+}
+
+t_check_ignores_pushed_bar() {
+  gate_ctx
+  put evals/regress.conf 'REGRESS_MARGIN=0.95\n'
+  mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 3 alpha-case 0 t1
+  g add -A && g commit -qm lower
+  local out rc
+  fx "$CTX_TMP/r.json" alpha-case=0.3,0.3,0.3
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --check 2>&1); rc=$?
+  eq check-ignores-lowered-bar "$rc" "1"
+  has check-says-it-ignores-edits "$out" "ignores the edits"
+}
+
+t_check_ignores_working_tree() {
+  gate_ctx
+  put skills/alpha/y.md 'uncommitted\n'
+  put evals/alpha-case/case.yaml 'schema_version: "1.1"\nname: alpha-case\ntags: [alpha]\ndescription: uncommitted\n'
+  fx "$CTX_TMP/r.json" alpha-case=0.7,0.7,0.7
+  local out
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --check 2>&1)
+  has check-uncommitted-case-edit-not-seen "$out" " ok"
+}
+
+t_check_fails_closed() {
+  gate_ctx
+  local out rc
+  out=$(STUB_EXIT=1 rr --check 2>&1); rc=$?
+  eq check-claude-error-fails "$rc" "1"
+  has check-claude-error-reminder "$out" "git push --no-verify"
+}
+
+t_hook_two_refs() {
+  make_ctx
+  install_hook
+  g switch -qc f1
+  put skills/alpha/x.md 'one\n'
+  g add -A && g commit -qm one
+  g switch -q main && g switch -qc f2
+  put skills/beta/x.md 'two\n'
+  g add -A && g commit -qm two
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1 beta-case=1,1,1
+  local out rc
+  out=$( cd "$CTX_REPO" && PATH="$CTX_BIN:$PATH" STUB_DIR="$CTX_TMP" STUB_JSON="$CTX_TMP/r.json" git push origin f1 f2 2>&1 </dev/null ); rc=$?
+  eq hook-two-refs-pass "$rc" "0"
+  has hook-two-refs-worst-case "$out" "2 x \$10"
+  eq hook-two-refs-two-runs "$(calls)" "2"
+  eq hook-two-refs-own-worktrees "$(grep -A3 -e '^--call$' "$CTX_TMP/claude-args" | grep -v -e '^--' | grep '/wt' | sort -u | wc -l | tr -d ' ')" "2"
 }
 
 run_tests() {

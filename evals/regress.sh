@@ -327,7 +327,7 @@ prepush_targets() {
 }
 
 mode_pre_push() {
-  local lines targets sha base changed fail=0
+  local lines targets sha base changed n=0
   lines=$(cat)
   exec </dev/null
   targets=$(prepush_targets <<<"$lines") || return 1
@@ -338,14 +338,31 @@ mode_pre_push() {
   done <<<"$targets"
   if [ -z "$changed" ]; then return 0; fi
   base_fetch
+  conf_load "$(src_ref "$(src_for pre-push conf)")"
+  bl_load "$(src_ref "$(src_for pre-push baseline)")"
   targets=$(prepush_targets <<<"$lines") || return 1
   while read -r sha base; do
     [ -n "$sha" ] || continue
-    changed=$(changed_skills "$base" "$sha") || return 1
-    if [ -z "$changed" ]; then continue; fi
-    coverage "$sha" <<<"$changed" || fail=1
+    if [ -n "$(changed_skills "$base" "$sha")" ]; then n=$((n + 1)); fi
   done <<<"$targets"
-  [ "$fail" -eq 0 ]
+  echo "Skill gate: $n commit(s) to check, worst case cost $n x \$$REGRESS_MAX_COST_USD."
+  while read -r sha base; do
+    [ -n "$sha" ] || continue
+    gate_at "$sha" "$base" || return 1
+  done <<<"$targets"
+}
+
+mode_check() {
+  local base head
+  parse_opts "$@"
+  base_fetch
+  conf_load "$(src_ref "$(src_for check conf)")"
+  bl_load "$(src_ref "$(src_for check baseline)")"
+  base=$(printf '%s' "$POS" | head -n 1)
+  if [ -z "$base" ]; then base=$(base_mb HEAD) || return 1; fi
+  head=$(git rev-parse HEAD </dev/null)
+  stale_scan "$head"
+  gate_at "$head" "$base"
 }
 
 WT_DIRS=""
@@ -592,6 +609,117 @@ bl_merge() {
   mv "$tmp" "$file"
 }
 
+# The first tag of a case, or the first of the preferred tags that the case has.
+case_tag() {
+  local src=$1 case=$2 tags prefer
+  shift 2
+  tags=$(case_meta "$src" "$case" tags) || return 1
+  for prefer in "$@"; do
+    if printf '%s\n' "$tags" | grep -qxF -- "$prefer"; then echo "$prefer"; return 0; fi
+  done
+  printf '%s\n' "$tags" | head -n 1
+}
+
+# Prints the steps that refresh the baseline. It never prints a command that --update-baseline
+# would refuse in the current state.
+refresh_hint() {
+  local flag="" branch=${REGRESS_BASE#*/}
+  if [ -n "${1:-}" ]; then flag=" --tag $1"; fi
+  if [ "$(git rev-parse HEAD </dev/null)" = "$(git rev-parse "$REGRESS_BASE" </dev/null 2>/dev/null)" ]; then
+    echo "  To refresh the baseline: evals/regress.sh --update-baseline$flag"
+  else
+    echo "  To compare with $REGRESS_BASE now: evals/regress.sh --compare$flag"
+    echo "  To refresh after the merge: git switch $branch && git pull --ff-only && evals/regress.sh --update-baseline$flag"
+  fi
+  echo "  Then commit evals/baseline.json on a new branch and open a PR."
+}
+
+# Warns about each baseline entry whose case dir changed or is gone.
+stale_scan() {
+  local sha=$1 case old new first=""
+  while read -r case old new; do
+    [ -n "$case" ] || continue
+    echo "WARNING: the baseline entry for $case is stale (tree $old, now $new)."
+    if [ -z "$first" ]; then first=$(case_tag "$sha" "$case" 2>/dev/null) || first=""; fi
+  done < <(bl_stale "$sha")
+  if [ -n "$(bl_stale "$sha")" ]; then refresh_hint "$first"; fi
+  return 0
+}
+
+# Prints the table of rows (case, baseline, new, delta, status) read on stdin.
+print_table() {
+  printf '%-36s %9s %9s %8s  %s\n' case baseline new delta status
+  while IFS=$'\t' read -r case old new delta status; do
+    [ -n "$case" ] || continue
+    printf '%-36s %9s %9s %8s  %s\n' "$case" "$old" "$new" "$delta" "$status"
+  done
+}
+
+# The regression check for one commit: coverage, the case list, the run on a worktree at the
+# commit, then one verdict per case. The caller has loaded the settings and the baseline.
+gate_at() {
+  local sha=$1 base=$2 changed kind name covered cases rows out row case score counted tree verdict
+  local old delta table="" tag_arr tags="" regressed="" changedcases="" nobase="" first=""
+  changed=$(changed_skills "$base" "$sha") || return 1
+  if [ -z "$changed" ]; then return 0; fi
+  coverage "$sha" <<<"$changed" || return 1
+  while read -r kind name; do
+    [ -n "$name" ] || continue
+    covered=$(cases_with_tag "$sha" "$name") || return 1
+    if [ -n "$covered" ]; then tags="$tags $name"; fi
+  done <<<"$changed"
+  if [ -z "$tags" ]; then return 0; fi
+  read -r -a tag_arr <<<"$tags"
+  if [ -n "$(git diff --name-only "$base" "$sha" -- evals/baseline.json evals/regress.conf </dev/null)" ]; then
+    echo "NOTE: this change edits evals/baseline.json or evals/regress.conf. The gate reads both from $REGRESS_BASE and ignores the edits."
+  fi
+  if ! bl_settings_match; then
+    echo "regress: the baseline does not match the current settings, so scores cannot be compared." >&2
+    refresh_hint "${tag_arr[0]}" >&2
+    return 1
+  fi
+  cases=$(selected_cases "$sha" "${tag_arr[@]}") || return 1
+  echo "Skills to check:$tags"
+  echo "Cases: $(printf '%s' "$cases" | tr '\n' ' ')"
+  echo "Cost ceiling: \$$REGRESS_MAX_COST_USD for this run."
+  wt_add "$sha" || return 1
+  out=$RUN_TMP/run$WT_N
+  rows=$(run_and_score "$WT_PATH" "$out" "$sha" "${tag_arr[@]}") || return 1
+  while IFS=$'\t' read -r case score counted _; do
+    [ -n "$case" ] || continue
+    tree=$(case_tree "$sha" "$case")
+    verdict=$(bl_verdict "$case" "$tree" "$score")
+    old=$(bl_score "$case")
+    delta="-"
+    if [ -z "$old" ]; then old="-"; fi
+    if [ "$old" != "-" ] && [ "$verdict" != "case changed" ]; then
+      delta=$(awk -v o="$old" -v n="$score" 'BEGIN { printf "%+.3f", n - o }')
+    fi
+    table="$table$case"$'\t'"$old"$'\t'"$score"$'\t'"$delta"$'\t'"$verdict"$'\n'
+    case "$verdict" in
+      regressed) regressed="$regressed $case" ;;
+      "case changed") changedcases="$changedcases $case" ;;
+      "no baseline") nobase="$nobase $case" ;;
+    esac
+  done <<<"$rows"
+  printf '%s' "$table" | print_table
+  echo "Run: $(run_stats "$out")"
+  for case in $changedcases; do
+    first=$(case_tag "$sha" "$case" "${tag_arr[@]}") || first=""
+    echo "WARNING: case $case changed since the baseline (tree $(bl_field ".cases[\"$case\"].tree"), now $(case_tree "$sha" "$case")). Its score is not compared."
+    refresh_hint "$first"
+  done
+  if [ -n "$nobase" ]; then
+    echo "NOTE: no baseline for$nobase. The gate passes without a comparison."
+    refresh_hint "${tag_arr[0]}"
+  fi
+  if [ -n "$regressed" ]; then
+    echo "regress: dropped more than $REGRESS_MARGIN below the baseline:$regressed. Fix the skill or push with git push --no-verify to skip the gate." >&2
+    return 1
+  fi
+  return 0
+}
+
 main() {
   set -euo pipefail
   command -v jq >/dev/null 2>&1 || die "jq is required. Install it and run again."
@@ -599,6 +727,7 @@ main() {
   case "$mode" in
     --coverage) shift; mode_coverage "$@" ;;
     --pre-push) shift; mode_pre_push "$@" ;;
+    --check) shift; mode_check "$@" ;;
     *) usage; exit 1 ;;
   esac
 }
