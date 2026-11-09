@@ -268,6 +268,66 @@ t_changed_skills_working_tree() {
   eq changed-head-sees-nothing "$(rg changed_skills origin/main HEAD)" ""
 }
 
+add_gamma() {
+  put skills/gamma/SKILL.md '# gamma\n'
+  if [ "${1:-}" = case ]; then put evals/gamma-case/case.yaml 'name: gamma-case\ntags: [gamma]\n'; fi
+  g add -A && g commit -qm gamma
+}
+
+t_coverage_unit() {
+  make_ctx
+  add_gamma case
+  printf 'added gamma\n' | rg coverage HEAD >/dev/null 2>&1
+  eq coverage-added-with-case "$?" "0"
+  printf 'added beta\n' | rg coverage HEAD >/dev/null 2>&1
+  eq coverage-frontmatter-tag-counts "$?" "0"
+  local out rc
+  out=$(printf 'added delta\n' | rg coverage HEAD 2>&1); rc=$?
+  eq coverage-added-without-case-exit "$rc" "1"
+  has coverage-names-skill "$out" "delta"
+  has coverage-names-tag "$out" "tagged delta"
+  out=$(printf 'edited delta\n' | rg coverage HEAD 2>&1); rc=$?
+  eq coverage-edited-without-case-exit "$rc" "0"
+  has coverage-edited-warns "$out" "WARNING"
+}
+
+t_coverage_mode() {
+  make_ctx
+  g switch -qc feat
+  add_gamma
+  local out rc
+  out=$(rr --coverage 2>&1); rc=$?
+  eq coverage-mode-blocks-uncovered "$rc" "1"
+  has coverage-mode-message "$out" "gamma"
+  put evals/gamma-case/case.yaml 'name: gamma-case\ntags: [gamma]\n'
+  out=$(rr --coverage 2>&1); rc=$?
+  eq coverage-mode-ignores-uncommitted-case "$rc" "1"
+  g add -A && g commit -qm case
+  rr --coverage >/dev/null 2>&1
+  eq coverage-mode-passes-covered "$?" "0"
+  eq coverage-mode-makes-no-claude-call "$([ -e "$CTX_TMP/claude-args" ] && echo called || echo none)" "none"
+}
+
+t_coverage_fetch_failure() {
+  make_ctx
+  g switch -qc feat
+  add_gamma
+  g remote set-url origin "$CTX_TMP/missing.git"
+  local out rc
+  out=$(rr --coverage 2>&1); rc=$?
+  eq coverage-fetch-failure-verdict "$rc" "1"
+  has coverage-fetch-failure-warning "$out" "WARNING: could not fetch origin/main, using a copy from"
+}
+
+t_base_mb() {
+  make_ctx
+  local base
+  base=$(g rev-parse HEAD)
+  g switch -qc feat
+  add_gamma
+  eq base-mb-is-merge-base "$(rg base_mb HEAD)" "$base"
+}
+
 run_tests() {
   local t
   for t in $(compgen -A function t_); do "$t"; done

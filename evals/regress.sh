@@ -229,10 +229,92 @@ changed_skills() {
   return 0
 }
 
+# Fetches REGRESS_BASE once per run. A failed fetch warns with the age of the local copy and
+# sets BASE_FETCH_FAILED. Nothing else in this script fetches.
+base_fetch() {
+  local remote branch age
+  if [ -n "${BASE_FETCHED:-}" ]; then return 0; fi
+  BASE_FETCHED=1
+  BASE_FETCH_FAILED=
+  case "$REGRESS_BASE" in
+    */*) ;;
+    *) return 0 ;;
+  esac
+  remote=${REGRESS_BASE%%/*}
+  branch=${REGRESS_BASE#*/}
+  if ! git fetch --quiet "$remote" "$branch" </dev/null 2>/dev/null; then
+    # shellcheck disable=SC2034
+    BASE_FETCH_FAILED=1
+    age=$(git log -1 --format=%cr "$REGRESS_BASE" </dev/null 2>/dev/null) || age="an unknown time ago"
+    echo "WARNING: could not fetch $REGRESS_BASE, using a copy from $age" >&2
+  fi
+  return 0
+}
+
+# The merge-base of a commit and REGRESS_BASE. This is the one place that fetches before it
+# reads the base. It fails with the reason when no merge-base exists.
+base_mb() {
+  local head=$1 mb
+  base_fetch
+  if ! mb=$(git merge-base "$head" "$REGRESS_BASE" </dev/null 2>/dev/null) || [ -z "$mb" ]; then
+    echo "regress: no merge-base between $head and $REGRESS_BASE. Fix the ref or push with git push --no-verify." >&2
+    return 1
+  fi
+  echo "$mb"
+}
+
+# Reads "added <name>" and "edited <name>" lines on stdin. An added skill needs a case tagged
+# with its name. An edited skill without one only warns.
+coverage() {
+  local src=$1 kind name covered blocked=0
+  while read -r kind name; do
+    [ -n "$name" ] || continue
+    covered=$(cases_with_tag "$src" "$name") || return 1
+    if [ -n "$covered" ]; then continue; fi
+    if [ "$kind" = added ]; then
+      echo "regress: skill $name is new and has no eval case. Add a case under evals/ tagged $name." >&2
+      blocked=1
+    else
+      echo "WARNING: skill $name has no eval case tagged $name."
+    fi
+  done
+  [ "$blocked" -eq 0 ]
+}
+
+# Sets TAGS (one per line), FORCE and POS (positional arguments, one per line).
+parse_opts() {
+  TAGS=""
+  FORCE=0
+  POS=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --tag)
+        [ $# -ge 2 ] || die "--tag needs a value"
+        TAGS="$TAGS$2"$'\n'
+        shift 2
+        ;;
+      --force) # shellcheck disable=SC2034
+        FORCE=1; shift ;;
+      -*) die "unknown option $1" ;;
+      *) POS="$POS$1"$'\n'; shift ;;
+    esac
+  done
+}
+
+mode_coverage() {
+  local base
+  parse_opts "$@"
+  base=$(printf '%s' "$POS" | head -n 1)
+  if [ -z "$base" ]; then base=$(base_mb HEAD) || return 1; fi
+  changed_skills "$base" HEAD | coverage HEAD
+}
+
 main() {
   set -euo pipefail
   command -v jq >/dev/null 2>&1 || die "jq is required. Install it and run again."
-  case "${1:-}" in
+  local mode=${1:-}
+  case "$mode" in
+    --coverage) shift; mode_coverage "$@" ;;
     *) usage; exit 1 ;;
   esac
 }
