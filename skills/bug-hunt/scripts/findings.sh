@@ -8,7 +8,9 @@
 #     why,repro_hint}]}) and writes <run_dir>/merged.json:
 #       findings: clusters anchored on their first line — a finding joins a cluster when it is in the
 #                 same file and at most 2 lines below the anchor, so clusters never chain past ±2.
-#                 sources counts distinct hunter_id, never lenses. Nothing is dropped.
+#                 sources counts distinct hunter_id, never lenses. Nothing is dropped. members are
+#                 ordered by severity; the first gives the cluster its title and id (F3), the rest get
+#                 member ids (F3.2, F3.3, …) so a verifier can split one out as a separate defect.
 #       batches:  directory groups packed into at most max_batches (default 6) by repeatedly merging
 #                 the lexically adjacent pair with the fewest findings, so neighbours merge first.
 #       invalid:  hunter files that were not valid JSON (their lens is a coverage gap).
@@ -19,6 +21,9 @@
 #     file?, line?, title?, note}]}), read only for batch ids in merged.json, onto merged.json and writes
 #     <run_dir>/final.json; any other verifiers/*.json is appended to ignored and adds no verdicts. A finding
 #     with no verdict — its batch failed or the verifier skipped it — gets verdict "unverified".
+#     A verdict on a member id (F3.2) splits that member out as its own finding, placed after its
+#     cluster with split_from: "F3"; the cluster's end_line, hunters, lenses and sources are rebuilt
+#     from the members it keeps. counts.findings and counts.corroborated count after the split.
 #     resolve alone decides which verdicts survive (confirmed, refined, pre-existing). It sets
 #     surviving:true|false on every finding and counts.surviving. Later steps read that flag.
 #   findings.sh analyze <run_dir>
@@ -76,6 +81,13 @@ stamp_files() { # step subdir id... — only <id>.json files get a row, so a str
   for id in "$@"; do [ -e "$run_dir/$sub/$id.json" ] && stamp "$step" "$id" agent "$(mtime "$run_dir/$sub/$id.json")"; done
 }
 RANK='def rank: {"critical":0,"high":1,"medium":2,"low":3}[. // "low"] // 3;'
+# Shared by merge and resolve, so a cluster rebuilt after a split reads the same as one merge built.
+# Input {file, line, members} with members already ordered by severity.
+SUMMARIZE='def summarize: .members[0] as $top
+  | . + {end_line: ([.members[] | (.end_line // .line) | tonumber? // 0] + [.line] | max),
+         severity: ($top.severity // "low"), title: $top.title, why: $top.why, repro_hint: $top.repro_hint,
+         hunters: ([.members[].hunter_id] | unique), lenses: ([.members[].lens] | unique)}
+  | . + {sources: (.hunters | length)};'
 cmd="${1:-}"; run_dir="${2:-}"
 [ -n "$run_dir" ] && [ -d "$run_dir" ] || die bad_run_dir "usage: findings.sh merge|resolve|analyze|mark|timing <run_dir>"
 
@@ -93,7 +105,7 @@ merge() {
   [ "${#invalid[@]}" -gt 0 ] && invalid_json=$(printf '%s\n' "${invalid[@]}" | jq -R . | jq -sc .)
   [ "${#ignored[@]}" -gt 0 ] && ignored_json=$(printf '%s\n' "${ignored[@]}" | jq -R . | jq -sc .)
   { [ "${#valid[@]}" -gt 0 ] && jq -s . "${valid[@]}" || echo '[]'; } \
-    | jq --argjson max "$max" --argjson invalid "$invalid_json" --argjson ignored "$ignored_json" "$RANK"'
+    | jq --argjson max "$max" --argjson invalid "$invalid_json" --argjson ignored "$ignored_json" "$RANK$SUMMARIZE"'
     def dir: if (.file // "") == "" then "(unlocated)"
              else (.file | split("/") | .[:-1] | join("/")) | if . == "" then "." else . end end;
     def pack($k): if length <= $k then . else
@@ -110,15 +122,10 @@ merge() {
            and ($f.line - .[-1].line) <= 2
         then .[-1].members += [$f]
         else . + [{file: ($f.file // ""), line: $f.line, members: [$f]}] end)
-    | map(. as $c | ($c.members | min_by(.severity | rank)) as $top
-          | {file, line,
-             end_line: ([$c.members[] | (.end_line // .line) | tonumber? // 0] + [$c.line] | max),
-             severity: ($top.severity // "low"), title: $top.title, why: $top.why, repro_hint: $top.repro_hint,
-             hunters: ([$c.members[].hunter_id] | unique), lenses: ([$c.members[].lens] | unique),
-             members: $c.members}
-          | . + {sources: (.hunters | length)})
+    | map(.members |= sort_by(.severity | rank) | summarize)
     | sort_by((.severity | rank), -.sources, .file, .line)
-    | to_entries | map(.value + {id: "F\(.key + 1)"})
+    | to_entries | map(.value + {id: "F\(.key + 1)"}
+        | .id as $id | .members |= (to_entries | map(.value + {id: (if .key == 0 then $id else "\($id).\(.key + 1)" end)})))
     | . as $all
     | {findings: $all,
        batches: ($all | group_by(dir) | map({dirs: [.[0] | dir], ids: map(.id)})
@@ -146,10 +153,15 @@ resolve() {
   done
   ign='[]'
   [ "${#stray[@]}" -gt 0 ] && ign=$(printf '%s\n' "${stray[@]}" | jq -R . | jq -sc .)
-  jq --argjson v "$v" --argjson ign "$ign" '
+  jq --argjson v "$v" --argjson ign "$ign" "$RANK$SUMMARIZE"'
     ([$v[] | (.verdicts // [])[] | {key: .id, value: .}] | from_entries) as $by
     | ([$v[] | .batch_id] ) as $done
     | .ignored = ((.ignored // []) + $ign)
+    | .findings |= (map(. as $f | [($f.members // [])[1:][] | select($by[.id])] as $out
+        | if ($out | length) == 0 then [$f]
+          else [$f | .members -= $out | summarize]
+               + [$out[] | {id, file: (.file // ""), line, members: [.], split_from: $f.id} | summarize] end)
+        | add // [])
     | .findings |= map(. as $f | ($by[$f.id] // null) as $r
         | if $r == null then . + {verdict: "unverified"}
           else . + {verdict: $r.verdict, note: $r.note}
@@ -159,6 +171,8 @@ resolve() {
     | .failed_batches = [.batches[] | select(.id as $b | $done | index($b) | not) | .id]
     | .counts += (.findings | group_by(.verdict) | map({key: .[0].verdict, value: length}) | from_entries)
     | .counts.surviving = ([.findings[] | select(.surviving)] | length)
+    | .counts.findings = (.findings | length)
+    | .counts.corroborated = ([.findings[] | select(.sources > 1)] | length)
   ' "$run_dir/merged.json" > "$run_dir/final.json" || die resolve_failed "jq could not join verdicts"
   stamp_files verifier verifiers $ids; stamp resolve "" script "$t0" "$(now)"
   cat "$run_dir/final.json"

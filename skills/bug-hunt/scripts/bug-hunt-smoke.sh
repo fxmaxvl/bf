@@ -161,6 +161,23 @@ fin=$(bash "$findings" resolve "$run")
 check "resolve: verdict joined" "$(q "$fin" '.findings[] | select(.id == "'"$f1"'") | .verdict == "confirmed"')"
 check "resolve: surviving flag and count follow the verdict" "$(q "$fin" '(.findings[] | select(.id == "'"$f1"'") | .surviving) == true and (.findings | map(select(.verdict == "unverified" and .surviving)) | length) == 0 and .counts.surviving == 1')"
 check "resolve: missing verdicts are unverified, failed batch listed" "$(q "$fin" '(.counts.unverified >= 1) and (.failed_batches | length) >= 1')"
+check "merge: the top-severity member carries the cluster id, the rest get member ids" "$(q "$m" '.findings[] | select(.line == 10) | .members[0].id == .id and .members[0].severity == .severity and ([.members[1:][].id] == [range(2; .members | length + 1) as $i | "\(.id).\($i)"])')"
+check "resolve: no member verdict, no split" "$(q "$fin" '(.findings | length) == '"$(jq '.findings | length' <<< "$m")"' and all(.findings[]; has("split_from") | not)')"
+
+sp="$tmp/split"; mkdir -p "$sp/verifiers" && cp -R "$run/hunters" "$sp/"
+sm=$(bash "$findings" merge "$sp")
+sb=$(jq -r '.batches[] | select(.dirs | index("src")) | .id' <<< "$sm")
+sid=$(jq -r '.findings[] | select(.line == 10) | .members[1].id' <<< "$sm")
+sh=$(jq -r '.findings[] | select(.line == 10) | .members[1].hunter_id' <<< "$sm")
+sn=$(jq '.findings | length' <<< "$sm"); sk=$(jq '.findings[] | select(.line == 10) | .members | length - 1' <<< "$sm")
+printf '{"batch_id":"%s","verdicts":[{"id":"%s","verdict":"confirmed","note":"real"},{"id":"%s","verdict":"confirmed","note":"another defect"}]}\n' "$sb" "$f1" "$sid" > "$sp/verifiers/$sb.json"
+sf=$(bash "$findings" resolve "$sp")
+check "resolve: a member verdict splits that member into its own finding after its cluster" "$(q "$sf" '(.findings | length) == '"$sn"' + 1 and ([.findings[].id] | index("'"$sid"'")) == ([.findings[].id] | index("'"$f1"'")) + 1 and (.findings[] | select(.id == "'"$sid"'") | .split_from == "'"$f1"'" and .sources == 1 and .hunters == ["'"$sh"'"] and .verdict == "confirmed" and .surviving)')"
+check "resolve: the split cluster is rebuilt from the members it keeps" "$(q "$sf" '.findings[] | select(.id == "'"$f1"'") | (.members | length) == '"$sk"' and all(.members[]; .id != "'"$sid"'") and .sources == (.hunters | length) and .hunters == ([.members[].hunter_id] | unique)')"
+check "resolve: nothing dropped by a split, counts follow it" "$(q "$sf" '([.findings[].members[]] | length) == 8 and .counts.findings == (.findings | length) and .counts.surviving == 2')"
+printf '{"groups":[{"id":"G1","kind":"root-cause","title":"t","root_cause":"r","fix_direction":"f","members":["%s","%s"]}],"links":[]}\n' "$f1" "$sid" > "$sp/analysis.json"
+sa=$(bash "$findings" analyze "$sp")
+check "analyze: a split finding can be a group member" "$(q "$sa" '(.findings[] | select(.id == "'"$sid"'") | .group) == "G1"')"
 
 an="$tmp/an"; mkdir -p "$an"
 cat > "$an/final.json" <<'J'

@@ -123,13 +123,14 @@ Wait for every hunter. Right after the spawn, start the silent-agent watch from 
 bash "${CLAUDE_PLUGIN_ROOT}/skills/bug-hunt/scripts/findings.sh" merge "<run_dir>"
 ```
 
-It dedupes on file and anchored line ±2, counts `sources` by distinct hunter (never by lens) and drops nothing. It packs directory groups into at most 6 verifier `batches`. Hunters in its `invalid` list are coverage gaps too. Zero findings → skip Phases 4 and 5 and report "No findings" with the Coverage and Lens suggestions sections.
+It dedupes on file and anchored line ±2, counts `sources` by distinct hunter (never by lens) and drops nothing. A finding keeps every hunter report it merged as `members`: the first, which gives the title, has the finding's own id, and each other one has a member id (`F3.2`). It packs directory groups into at most 6 verifier `batches`. Hunters in its `invalid` list are coverage gaps too. Zero findings → skip Phases 4 and 5 and report "No findings" with the Coverage and Lens suggestions sections.
 
 ## Phase 4 — Verify (parallel fan-out)
 
 Spawn one verifier per batch in **one message**: `Agent`, `general-purpose`, `model: opus`, named `verifier-<batch_id>`. Each sees **only its batch's findings** from `merged.json` — never other batches, never the hunters' reasoning beyond each finding's own fields — and gets:
 
 - Task: re-read the code and give each finding one verdict — `confirmed` (real bug), `refined` (real, but corrected severity/location/title — supply the corrected fields), `rejected` (not a bug), or, **in branch and pr mode only**, `pre-existing` (real, but not introduced by the change — check with `git diff <base>...HEAD -- <file>`). Path and repo hunts have no baseline: never `pre-existing`.
+- Members: read every entry in a finding's `members`, not only its title. One line can hold several defects, for example a SKILL.md paragraph. When a member describes a different defect from the finding's title, give that member its own verdict under its member id (`F3.2`). `resolve` then splits it into a separate finding. Members that report the same defect get no verdict of their own.
 - The same prose line as the hunters get, with "every description and reason you write" replaced by "every note you write".
 - `repro: true` → for each `confirmed`/`refined` finding at `critical` or `high`, also write a failing test that demonstrates it under `<run_dir>/repro/<finding_id>/`, matching the project's test framework. Never write inside the project tree.
 - Output: write `<run_dir>/verifiers/<batch_id>.json` as `{"batch_id","verdicts":[{"id","verdict","severity","file","line","title","note"}]}`, then report `done <batch_id>` to `team-lead` as its final act.
