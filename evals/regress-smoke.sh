@@ -79,33 +79,8 @@ t_conf_working_tree_edit() {
   printf 'REGRESS_RUNS=5\n' > "$CTX_REPO/evals/regress.conf"
   g add evals/regress.conf && g commit -qm conf && g push -q origin main
   printf 'REGRESS_RUNS=9\n' > "$CTX_REPO/evals/regress.conf"
-  eq conf-check-ignores-wt "$(rg eval 'conf_load "$(src_ref "$(src_for check conf)")"; echo "$REGRESS_RUNS"')" "5"
-  eq conf-update-uses-wt "$(rg eval 'conf_load "$(src_ref "$(src_for update-baseline conf)")"; echo "$REGRESS_RUNS"')" "9"
-}
-
-t_src_for_table() {
-  make_ctx
-  local row mode input want got
-  for row in \
-    "pre-push plugin pushed" "pre-push cases pushed" "pre-push baseline base" "pre-push conf base" \
-    "coverage plugin none" "coverage cases head" "coverage baseline none" "coverage conf none" \
-    "check plugin head" "check cases head" "check baseline base" "check conf base" \
-    "update-baseline plugin head" "update-baseline cases head" "update-baseline baseline wt" "update-baseline conf wt" \
-    "compare-old plugin ref" "compare-old cases wt" "compare-old baseline none" "compare-old conf wt" \
-    "compare-new plugin wt" "compare-new cases wt" "compare-new baseline none" "compare-new conf wt"; do
-    read -r mode input want <<<"$row"
-    got=$(rg src_for "$mode" "$input")
-    eq "src-for-$mode-$input" "$got" "$want"
-  done
-}
-
-t_src_ref() {
-  make_ctx
-  eq src-ref-head "$(rg src_ref head)" "HEAD"
-  eq src-ref-base "$(rg src_ref base)" "origin/main"
-  eq src-ref-wt "$(rg src_ref wt)" "WT"
-  eq src-ref-pushed "$(rg src_ref pushed abc123)" "abc123"
-  eq src-ref-none "$(rg src_ref none)" ""
+  eq conf-check-ignores-wt "$(rg eval 'conf_load origin/main; echo "$REGRESS_RUNS"')" "5"
+  eq conf-update-uses-wt "$(rg eval 'conf_load WT; echo "$REGRESS_RUNS"')" "9"
 }
 
 t_read_at() {

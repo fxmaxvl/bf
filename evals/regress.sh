@@ -82,39 +82,6 @@ conf_load() {
   done
 }
 
-# The one mode-by-input resolver. It prints a source symbol that src_ref turns into a ref.
-src_for() {
-  local mode=$1 input=$2
-  case "$mode:$input" in
-    pre-push:plugin | pre-push:cases) echo pushed ;;
-    pre-push:baseline | pre-push:conf) echo base ;;
-    coverage:plugin | coverage:baseline | coverage:conf) echo none ;;
-    coverage:cases) echo head ;;
-    check:plugin | check:cases) echo head ;;
-    check:baseline | check:conf) echo base ;;
-    update-baseline:plugin | update-baseline:cases) echo head ;;
-    update-baseline:baseline | update-baseline:conf) echo wt ;;
-    compare-old:plugin) echo ref ;;
-    compare-old:cases | compare-old:conf) echo wt ;;
-    compare-old:baseline) echo none ;;
-    compare-new:plugin | compare-new:cases | compare-new:conf) echo wt ;;
-    compare-new:baseline) echo none ;;
-    *) return 1 ;;
-  esac
-}
-
-# Turns a source symbol into a ref for read_at. The optional second argument is the pushed sha or the compare ref.
-src_ref() {
-  case "$1" in
-    head) echo HEAD ;;
-    base) echo "$REGRESS_BASE" ;;
-    wt) echo WT ;;
-    pushed | ref) echo "${2:-}" ;;
-    none) echo "" ;;
-    *) return 1 ;;
-  esac
-}
-
 # Prints the values of one top-level key from YAML text on stdin, one per line. It reads the flow
 # form (key: [a, b]) and the block form (- a lines). Any other value exits 3.
 yaml_list() {
@@ -335,8 +302,8 @@ mode_pre_push() {
   done <<<"$targets"
   if [ -z "$changed" ]; then return 0; fi
   base_fetch
-  conf_load "$(src_ref "$(src_for pre-push conf)")"
-  bl_load "$(src_ref "$(src_for pre-push baseline)")"
+  conf_load "$REGRESS_BASE"
+  bl_load "$REGRESS_BASE"
   targets=$(prepush_targets <<<"$lines") || return 1
   while read -r sha base; do
     [ -n "$sha" ] || continue
@@ -358,8 +325,8 @@ mode_check() {
   local base head
   parse_opts "$@"
   base_fetch
-  conf_load "$(src_ref "$(src_for check conf)")"
-  bl_load "$(src_ref "$(src_for check baseline)")"
+  conf_load "$REGRESS_BASE"
+  bl_load "$REGRESS_BASE"
   base=$(printf '%s' "$POS" | head -n 1)
   if [ -z "$base" ]; then base=$(base_mb HEAD) || return 1; fi
   head=$(git rev-parse HEAD </dev/null)
@@ -733,7 +700,7 @@ gate_at() {
 mode_update_baseline() {
   local head tag_arr=() tag rows
   parse_opts "$@"
-  conf_load "$(src_ref "$(src_for update-baseline conf)")"
+  conf_load WT
   if [ -n "$(git status --porcelain -- evals skills </dev/null)" ]; then
     echo "regress: uncommitted changes under evals or skills. Commit or stash them first." >&2
     return 1
@@ -805,7 +772,7 @@ compare_table() {
 mode_compare() {
   local ref root changed kind name tags="" tag_arr=() old_rows new_rows
   parse_opts "$@"
-  conf_load "$(src_ref "$(src_for compare-new conf)")"
+  conf_load WT
   base_fetch
   ref=$(printf '%s' "$POS" | head -n 1)
   if [ -z "$ref" ]; then ref=$REGRESS_BASE; fi
