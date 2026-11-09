@@ -338,6 +338,50 @@ refs/heads/b $feat1 refs/heads/b $ZERO" | wc -l | tr -d ' ')" "2"
   has prepush-no-merge-base-reminder "$out" "git push --no-verify"
 }
 
+# main moves and the branch merges main: the diff base must keep main's skill edits out.
+t_prepush_base_ignores_main_changes() {
+  make_ctx
+  local r l mbase
+  g switch -qc feat
+  put skills/alpha/x.md 'feat\n'
+  g add -A && g commit -qm feat
+  r=$(g rev-parse HEAD)
+  g switch -q main
+  put skills/beta/SKILL.md '# beta changed on main\n'
+  g add -A && g commit -qm "main edits beta" && g push -q origin main
+  mbase=$(g rev-parse HEAD)
+  g switch -q feat && g merge -q --no-edit main
+  l=$(g rev-parse HEAD)
+  eq prepush-merge-of-main-base "$(rg prepush_targets <<<"refs/heads/feat $l refs/heads/feat $r")" "$l $mbase"
+  eq prepush-merge-of-main-selects-branch-skills "$(rg changed_skills "$mbase" "$l")" "edited alpha"
+}
+
+# An annotated tag and its commit in one push are one target, whatever the line order.
+t_prepush_annotated_tag_deduped() {
+  make_ctx
+  local c t r base out
+  base=$(g rev-parse HEAD)
+  g switch -qc feat
+  put skills/alpha/x.md 'one\n'
+  g add -A && g commit -qm one
+  r=$(g rev-parse HEAD)
+  put skills/alpha/y.md 'two\n'
+  g add -A && g commit -qm two
+  c=$(g rev-parse HEAD)
+  g tag -a v9 -m tag
+  t=$(g rev-parse v9)
+  eq tag-object-differs-from-commit "$([ "$t" != "$c" ] && echo differs || echo same)" "differs"
+  eq prepush-tag-after-branch "$(rg prepush_targets <<<"refs/heads/feat $c refs/heads/feat $r
+refs/tags/v9 $t refs/tags/v9 $ZERO")" "$c $base"
+  eq prepush-tag-before-branch "$(rg prepush_targets <<<"refs/tags/v9 $t refs/tags/v9 $ZERO
+refs/heads/feat $c refs/heads/feat $r")" "$c $base"
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1
+  out=$(STUB_JSON=$CTX_TMP/r.json rr_in "refs/heads/feat $c refs/heads/feat $ZERO
+refs/tags/v9 $t refs/tags/v9 $ZERO" --pre-push origin url 2>&1)
+  has prepush-tag-and-commit-one-check "$out" "Skill gate: 1 commit(s) to check"
+  eq prepush-tag-and-commit-one-run "$(calls)" "1"
+}
+
 t_prepush_free_path() {
   make_ctx
   local sha
@@ -985,6 +1029,26 @@ t_compare_selects_and_prints() {
   eq compare-default-ref-is-base "$(sed -n 1p "$CTX_TMP/heads")" "$(g rev-parse origin/main)"
   eq compare-old-evals-without-results "$(sed -n 1p "$CTX_TMP/evals-seen" | grep -c results)" "0"
   eq compare-no-worktree-left "$(g worktree list | wc -l | tr -d ' ')" "1"
+}
+
+t_compare_ignores_main_changes() {
+  make_ctx
+  local out
+  g switch -qc feat
+  put skills/alpha/x.md 'feat\n'
+  g add -A && g commit -qm feat
+  g switch -q main
+  put skills/beta/SKILL.md '# beta changed on main\n'
+  g add -A && g commit -qm "main edits beta" && g push -q origin main
+  g switch -q feat
+  fx "$CTX_TMP/old.json" alpha-case=1,1,1
+  fx "$CTX_TMP/new.json" alpha-case=1,1,1
+  out=$(cmp_run)
+  has compare-after-main-moved-selects-branch-skills "$out" "Comparing origin/main with the working tree for: alpha"
+  case "$out" in
+    *beta*) echo "FAIL compare-after-main-moved-skips-main-skill: output names beta"; fails=$((fails + 1)) ;;
+    *) echo "PASS compare-after-main-moved-skips-main-skill" ;;
+  esac
 }
 
 t_compare_untracked_skill_and_ref() {

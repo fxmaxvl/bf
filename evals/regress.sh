@@ -299,21 +299,56 @@ mode_coverage() {
   changed_skills "$base" HEAD | tag_status HEAD | coverage
 }
 
-# Reads pre-push ref lines on stdin and prints "<local sha> <base sha>" for each distinct local
-# sha. A delete is skipped. A new branch, or a remote sha this clone does not have, diffs from
-# the merge-base with REGRESS_BASE. Any other update diffs from the remote sha.
+# The commit to diff from for a commit: the merge-base of the commit and <ref>, so a skill that
+# only <ref> changed never counts as a change of the commit. With a <floor> commit that lies between
+# the merge-base and the commit, the floor is the base, because the earlier part was pushed
+# already. A floor outside that range, such as a rebased remote sha, is ignored. A missing
+# merge-base with REGRESS_BASE fetches once, then fails with the reason.
+diff_base() {
+  local head=$1 ref=$2 floor=${3:-} mb
+  if ! mb=$(git merge-base "$head" "$ref" </dev/null 2>/dev/null) || [ -z "$mb" ]; then
+    if [ "$ref" = "$REGRESS_BASE" ]; then
+      mb=$(base_mb "$head") || return 1
+    else
+      echo "regress: no merge-base between $head and $ref." >&2
+      return 1
+    fi
+  fi
+  if [ -n "${floor//0/}" ] && git cat-file -e "$floor^{commit}" </dev/null 2>/dev/null \
+    && git merge-base --is-ancestor "$mb" "$floor" </dev/null 2>/dev/null \
+    && git merge-base --is-ancestor "$floor" "$head" </dev/null 2>/dev/null; then
+    git rev-parse "$floor^{commit}" </dev/null
+  else
+    echo "$mb"
+  fi
+}
+
+# Reads pre-push ref lines on stdin and prints "<commit> <base>" for each distinct commit. A tag
+# sha is peeled to its commit, so an annotated tag and its commit are one target. A delete is
+# skipped. The base comes from diff_base. When two lines give one commit, the earlier base wins, so
+# the order of the lines does not change the diff.
 prepush_targets() {
-  local lsha rsha base
+  local lsha rsha commit base i n=0 found
+  local shas=() bases=()
   while read -r _ lsha _ rsha; do
     [ -n "$lsha" ] || continue
     if [ -z "${lsha//0/}" ]; then continue; fi
-    if [ -n "${rsha//0/}" ] && git cat-file -e "$rsha^{commit}" </dev/null 2>/dev/null; then
-      base=$rsha
-    else
-      base=$(git merge-base "$lsha" "$REGRESS_BASE" </dev/null 2>/dev/null) || base=$(base_mb "$lsha") || return 1
+    commit=$(git rev-parse --verify -q "$lsha^{commit}" </dev/null 2>/dev/null) || continue
+    base=$(diff_base "$commit" "$REGRESS_BASE" "$rsha") || return 1
+    found=-1
+    for ((i = 0; i < n; i++)); do
+      if [ "${shas[i]}" = "$commit" ]; then found=$i; fi
+    done
+    if [ "$found" -lt 0 ]; then
+      shas[n]=$commit
+      bases[n]=$base
+      n=$((n + 1))
+    elif git merge-base --is-ancestor "$base" "${bases[found]}" </dev/null 2>/dev/null; then
+      bases[found]=$base
     fi
-    echo "$lsha $base"
-  done | awk '!seen[$1]++'
+  done
+  for ((i = 0; i < n; i++)); do echo "${shas[i]} ${bases[i]}"; done
+  return 0
 }
 
 # Fetches the base, then loads the settings and the baseline from REGRESS_BASE for gate_at and
@@ -713,7 +748,7 @@ gate_at() {
   tags=$(tagged_names <<<"$statuses")
   if [ -z "$tags" ]; then return 0; fi
   read -r -a tag_arr <<<"$tags"
-  if [ -n "$(git diff --name-only "$base" "$sha" -- evals/baseline.json evals/regress.conf </dev/null)" ]; then
+  if [ -n "$(git diff --name-only "$(diff_base "$sha" "$REGRESS_BASE")" "$sha" -- evals/baseline.json evals/regress.conf </dev/null)" ]; then
     echo "NOTE: this change edits evals/baseline.json or evals/regress.conf. The gate reads both from $REGRESS_BASE and ignores the edits."
   fi
   if ! bl_settings_match; then
@@ -837,7 +872,7 @@ compare_table() {
 # scores case by case. The old side uses the working-tree evals dir, so both sides share one set
 # of case definitions.
 mode_compare() {
-  local ref root changed kind name status statuses tags="" tag_arr=() old_rows new_rows
+  local ref root base changed kind name status statuses tags="" tag_arr=() old_rows new_rows
   parse_opts "$@"
   conf_load WT
   base_fetch
@@ -847,7 +882,8 @@ mode_compare() {
   if [ -n "$TAGS" ]; then
     tags=$(printf '%s' "$TAGS" | tr '\n' ' ')
   else
-    changed=$(changed_skills "$ref" WT) || return 1
+    base=$(diff_base HEAD "$ref") || return 1
+    changed=$(changed_skills "$base" WT) || return 1
     statuses=$(tag_status WT <<<"$changed") || return 1
     tags=$(tagged_names <<<"$statuses")
     while read -r kind name status; do
