@@ -7,9 +7,9 @@
 #        prose-lint.sh --classify <path>
 #        prose-lint.sh --selftest
 # Output: json: one object {hard:{em_dash,semicolon,contraction}, soft:{replace,banned,empty,pattern,
-#         ing_tail,bold_mid,emoji_heading,long_sentence}, words, long_reply, rules_block, summary, hard_summary}. hard_summary counts only the markers in
-#         the hard list. rules_block is true when the resolved file has a
-#         prose-lint block. text: one finding per line, "<line>: <marker>: <text>". --digest prints the
+#         ing_tail,bold_mid,emoji_heading,long_sentence}, words, long_reply, rules_block, summary,
+#         hard_summary}. hard_summary counts only the markers in the hard list. rules_block is true
+#         when the resolved file has a prose-lint block. text: one finding per line, "<line>: <marker>: <text>". --digest prints the
 #         Self-lint section of the resolved prose.md.
 #         --classify prints the mode and extension for a path ("file" or "comment sh"), and exits 1 with
 #         no output when the lint does not support the path. This script owns the list of supported files.
