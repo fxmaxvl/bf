@@ -767,6 +767,56 @@ t_check_stale_scan_on_main() {
   eq check-stale-makes-no-claude-call "$(calls)" "0"
 }
 
+# Baseline with both cases at HEAD, then an edit to both case dirs on main.
+stale_two_ctx() {
+  make_ctx
+  printf 'alpha-case\t1\t3\t3\nbeta-case\t1\t3\t3\n' | rg eval 'conf_load HEAD; bl_write_full HEAD'
+  commit_baseline
+  put evals/alpha-case/case.yaml 'schema_version: "1.1"\nname: alpha-case\ntags: [alpha]\ndescription: edited\n'
+  put evals/beta-case/prompt.md '---\ntags: [beta]\n---\nedited\n'
+  g add -A && g commit -qm case && g push -q origin main
+}
+
+t_stale_hint_covers_every_stale_tag() {
+  stale_two_ctx
+  local out
+  out=$(rr --check 2>&1)
+  has stale-hint-repeats-tag "$out" "evals/regress.sh --update-baseline --tag alpha --tag beta"
+  g reset -q --hard origin/main
+  g rm -q -r evals/beta-case && g commit -qm "remove beta case" && g push -q origin main
+  out=$(rr --check 2>&1)
+  has stale-removed-case-hint-is-full-rewrite "$out" "evals/regress.sh --update-baseline"
+  eq stale-removed-case-hint-has-no-tag "$(printf '%s' "$out" | grep -c -e '--update-baseline --tag')" "0"
+}
+
+t_update_rejects_extra_words() {
+  make_ctx
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1 beta-case=1,1,1
+  local out rc
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --update-baseline --tag alpha beta 2>&1); rc=$?
+  eq update-extra-word-fails "$rc" "1"
+  has update-extra-word-names-word "$out" "beta"
+  has update-extra-word-says-repeat-tag "$out" "--tag"
+  eq update-extra-word-makes-no-claude-call "$(calls)" "0"
+  eq update-extra-word-writes-nothing "$([ -e "$CTX_REPO/evals/baseline.json" ] && echo file || echo none)" "none"
+}
+
+t_update_tagged_twice_in_a_row() {
+  make_ctx
+  local f=$CTX_REPO/evals/baseline.json
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1 beta-case=1,1,1
+  STUB_JSON=$CTX_TMP/r.json rr --update-baseline >/dev/null 2>&1
+  g add -A && g commit -qm baseline && g push -q origin main
+  fx "$CTX_TMP/a.json" alpha-case=0.5,0.5,0.5
+  fx "$CTX_TMP/b.json" beta-case=0.4,0.4,0.4
+  local out rc
+  STUB_JSON=$CTX_TMP/a.json rr --update-baseline --tag alpha >/dev/null 2>&1
+  out=$(STUB_JSON=$CTX_TMP/b.json rr --update-baseline --tag beta 2>&1); rc=$?
+  eq update-second-tagged-run-passes "$rc" "0"
+  eq update-second-tagged-run-keeps-first "$(jq -r '.cases["alpha-case"].score' "$f")" "0.5"
+  eq update-second-tagged-run-writes-second "$(jq -r '.cases["beta-case"].score' "$f")" "0.4"
+}
+
 t_check_no_baseline() {
   gate_ctx
   local out rc

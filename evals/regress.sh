@@ -4,9 +4,10 @@
 # Usage: regress.sh --pre-push <remote> <url>        git pre-push hook mode, reads ref lines on stdin
 #        regress.sh --coverage [<base>]              free check: every added skill has a tagged case
 #        regress.sh --check [<base>]                 coverage, then the regression check at HEAD
-#        regress.sh --update-baseline [--tag <t>...] [--force]
+#        regress.sh --update-baseline [--tag <t>]... [--force]
 #                                                    run cases and write evals/baseline.json
-#        regress.sh --compare [<ref>] [--tag <t>...] old-vs-new scores, <ref> defaults to REGRESS_BASE
+#        regress.sh --compare [<ref>] [--tag <t>]... old-vs-new scores, <ref> defaults to REGRESS_BASE
+# Each --tag takes one value. Repeat the flag for more tags.
 # Output: findings and tables on stdout, reasons on stderr.
 # Exit:   0 pass, 1 blocked or error.
 #
@@ -682,22 +683,19 @@ bl_merge() {
   mv "$tmp" "$file"
 }
 
-# The first tag of a case, or the first of the preferred tags that the case has.
+# The first tag of a case.
 case_tag() {
-  local src=$1 case=$2 tags prefer
-  shift 2
-  tags=$(case_meta "$src" "$case" tags) || return 1
-  for prefer in "$@"; do
-    if printf '%s\n' "$tags" | grep -qxF -- "$prefer"; then echo "$prefer"; return 0; fi
-  done
+  local tags
+  tags=$(case_meta "$1" "$2" tags) || return 1
   printf '%s\n' "$tags" | head -n 1
 }
 
-# Prints the steps that refresh the baseline. It never prints a command that --update-baseline
-# would refuse in the current state.
+# Prints the steps that refresh the baseline for the given tags, one --tag for each. With no tag
+# it prints the full rewrite. It never prints a command that --update-baseline would refuse in
+# the current state.
 refresh_hint() {
-  local flag="" upd_flag branch=${REGRESS_BASE#*/}
-  if [ -n "${1:-}" ]; then flag=" --tag $1"; fi
+  local flag="" upd_flag branch=${REGRESS_BASE#*/} tag
+  for tag in "$@"; do flag="$flag --tag $tag"; done
   # bl_merge_check refuses a tagged update when the settings differ, so only a full rewrite works then.
   upd_flag=$flag
   bl_settings_match 2>/dev/null || upd_flag=""
@@ -710,15 +708,29 @@ refresh_hint() {
   echo "  Then commit evals/baseline.json on a new branch and open a PR."
 }
 
-# Warns about each baseline entry whose case dir changed or is gone.
+# Warns about each baseline entry whose case dir changed or is gone, then prints one refresh hint.
+# The hint names every tag of a stale entry. An entry with no readable tag, such as a removed
+# case, only a full rewrite refreshes, so the hint then names no tag.
 stale_scan() {
-  local sha=$1 case old new first=""
+  local sha=$1 case old new tag tags="" untagged=0 any=0
   while read -r case old new; do
     [ -n "$case" ] || continue
+    any=1
     echo "WARNING: the baseline entry for $case is stale (tree $old, now $new)."
-    if [ -z "$first" ]; then first=$(case_tag "$sha" "$case" 2>/dev/null) || first=""; fi
+    tag=$(case_tag "$sha" "$case" 2>/dev/null) || tag=""
+    if [ -z "$tag" ]; then
+      untagged=1
+    else
+      case " $tags " in
+        *" $tag "*) ;;
+        *) tags="$tags $tag" ;;
+      esac
+    fi
   done < <(bl_stale "$sha")
-  if [ -n "$(bl_stale "$sha")" ]; then refresh_hint "$first"; fi
+  if [ "$any" -eq 0 ]; then return 0; fi
+  if [ "$untagged" -eq 1 ]; then tags=""; fi
+  # shellcheck disable=SC2086
+  refresh_hint $tags
   return 0
 }
 
@@ -741,7 +753,7 @@ print_table() {
 # lines it gave to coverage. It reads the settings and the baseline that gate_load set.
 gate_at() {
   local sha=$1 base=$2 statuses=$3 cases rows out row case score counted tree verdict
-  local old delta table="" tag_arr tags="" regressed="" changedcases="" nobase="" first=""
+  local old delta table="" tag_arr tags="" regressed="" changedcases="" nobase=""
   [ -n "${GATE_LOADED:-}" ] || die "gate_at ran before gate_load"
   if [ -z "$statuses" ]; then return 0; fi
   if grep -q '^added .* untagged$' <<<"$statuses"; then die "gate_at ran with an uncovered added skill"; fi
@@ -753,7 +765,7 @@ gate_at() {
   fi
   if ! bl_settings_match; then
     echo "regress: the baseline does not match the current settings, so scores cannot be compared." >&2
-    refresh_hint "${tag_arr[0]}" >&2
+    refresh_hint "${tag_arr[@]}" >&2
     return 1
   fi
   cases=$(selected_cases "$sha" "${tag_arr[@]}") || return 1
@@ -783,14 +795,12 @@ gate_at() {
   printf '%s' "$table" | print_table
   echo "Run: $(run_stats "$out")"
   for case in $changedcases; do
-    first=$(case_tag "$sha" "$case" "${tag_arr[@]}") || first=""
     echo "WARNING: case $case changed since the baseline (tree $(bl_tree "$case"), now $(case_tree "$sha" "$case")). Its score is not compared."
-    refresh_hint "$first"
   done
   if [ -n "$nobase" ]; then
     echo "NOTE: no baseline for$nobase. The gate passes without a comparison."
-    refresh_hint "${tag_arr[0]}"
   fi
+  if [ -n "$changedcases$nobase" ]; then refresh_hint "${tag_arr[@]}"; fi
   if [ -n "$regressed" ]; then
     echo "regress: dropped more than $REGRESS_MARGIN below the baseline:$regressed. Fix the skill or push with git push --no-verify to skip the gate." >&2
     return 1
@@ -803,8 +813,13 @@ gate_at() {
 mode_update_baseline() {
   local head tag_arr=() tag rows
   parse_opts "$@"
+  if [ -n "$POS" ]; then
+    echo "regress: unexpected argument $(printf '%s' "$POS" | head -n 1). Each --tag takes one value, so repeat --tag for more tags." >&2
+    return 1
+  fi
   conf_load WT
-  if [ -n "$(git status --porcelain -- evals skills </dev/null)" ]; then
+  # The file this mode writes is not a reason to refuse the next run.
+  if [ -n "$(git status --porcelain -- evals skills ':(exclude)evals/baseline.json' </dev/null)" ]; then
     echo "regress: uncommitted changes under evals or skills. Commit or stash them first." >&2
     return 1
   fi
