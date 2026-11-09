@@ -357,7 +357,7 @@ mode_pre_push() {
   n=${#PLAN_SHAS[@]}
   if [ "$n" -eq 0 ]; then return 0; fi
   echo "Skill gate: $n commit(s) to check, worst case cost $n x \$$REGRESS_MAX_COST_USD."
-  # Every free coverage check runs before the first paid run, so a later ref cannot block after an earlier ref has spent money.
+  # Every free coverage check runs before the first paid run, so a later ref cannot fail coverage after an earlier ref has spent money.
   for ((i = 0; i < n; i++)); do
     statuses[i]=$(tag_status "${PLAN_SHAS[i]}" <<<"${PLAN_CHANGES[i]}") || return 1
     coverage <<<"${statuses[i]}" || return 1
