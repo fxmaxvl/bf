@@ -20,6 +20,8 @@
 #         An unknown key in the prose-lint block prints a plain-text warning on stderr and does not
 #         change the exit code.
 set -euo pipefail
+# Rules entries are split as plain words: an entry such as * must never expand to file names.
+set -f
 export LC_ALL=C
 
 self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
@@ -268,6 +270,22 @@ st_soft() {
   eq "ing tail verb comes from the block" "$(jf .soft.ing_tail)" 0
   lint_text "It adds search, reflecting the gains." --rules "$noblock" --format json
   eq "ing tail off without a block" "$(jf .soft.ing_tail)" 0
+  lint_text $'It adds search,\n  highlighting the gains.' --rules "$full" --format text
+  eq "ing tail after a line wrap" "$out" "2: ing_tail: highlighting"
+  lint_text "Done, highlighting, showcasing it." --rules "$full" --format json
+  eq "adjacent ing tails" "$(jf .soft.ing_tail)" 2
+  lint_text "A robust robust tool." --rules "$full" --format json
+  eq "repeated banned word" "$(jf .soft.banned)" 2
+  sed 's/^replace: .*/replace: utilize>use\\n7\\tsemicolon\\tforged/' "$full" > "$tmp/backslash.md"
+  lint_text "We utilize it." --rules "$tmp/backslash.md" --format json
+  eq "backslash label forges no row" "$(jf .hard.semicolon)" 0; eq "backslash label exit" "$rc" 0
+  mkdir -p "$tmp/globdir" && : > "$tmp/globdir/robust"
+  sed 's/^banned: .*/banned: */' "$full" > "$tmp/glob.md"
+  local here=$PWD
+  cd "$tmp/globdir"
+  lint_text "A robust tool." --rules "$tmp/glob.md" --format json
+  cd "$here"
+  eq "glob entry is no file name" "$(jf .soft.banned)" 0
   lint_text "This is **very** clear." --rules "$full" --format json
   eq "mid-sentence bold" "$(jf .soft.bold_mid)" 1; eq "bold exit" "$rc" 0
   eq "bold in summary" "$(jf .summary)" "1 mid-sentence bold, 4 words"
@@ -504,60 +522,56 @@ emit() {
   { grep -n -o "$@" "$stripped" 2>/dev/null || true; } | awk -v m="$marker" -v lab="$label" '
     { line = $0; sub(/:.*/, "", line); txt = substr($0, length(line) + 2)
       if (lab != "-") txt = lab
-      else if (m == "contraction" || m == "ing_tail") { sub(/^[^A-Za-z]+/, "", txt); sub(/[^A-Za-z]+$/, "", txt) }
+      else if (m == "contraction") { sub(/^[^A-Za-z]+/, "", txt); sub(/[^A-Za-z]+$/, "", txt) }
       printf "%s\t%s\t%s\n", line, m, txt }' >> "$findings"
 }
 
-# norm_entry <entry>: "_" becomes a space and every character outside letters, space and "-" is dropped.
-norm_entry() { printf '%s' "$1" | tr '_' ' ' | tr -cd 'A-Za-z -'; }
-
-# word_re <text>: the whole-word regex for normalized text. Text can be one entry or an "a|b" alternation.
-word_re() { printf '(^|[^A-Za-z])(%s)([^A-Za-z]|$)' "$1"; }
-
-# alternation <list>: the normalized entries joined with "|". A from>to entry keeps only its "from" side.
-alternation() {
-  local e alt=
-  for e in $*; do
-    e=$(norm_entry "${e%%>*}")
-    [ -z "$e" ] || alt="$alt|$e"
-  done
-  printf '%s' "${alt#|}"
-}
-
-# any_entry <list>: succeeds when some entry of the list matches the text. One grep lets a clean text skip the per-entry loop.
-any_entry() {
-  local alt
-  alt=$(alternation "$1")
-  [ -n "$alt" ] && grep -q -E -i "$(word_re "$alt")" "$stripped"
-}
-
-# emit_ing_tail <list>: a comma, then one entry of the list as the next word.
-emit_ing_tail() {
-  local alt
-  alt=$(alternation "$*")
-  [ -z "$alt" ] || emit ing_tail - -E -i ",[[:space:]]+($alt)([^A-Za-z]|\$)"
-}
-
-# emit_words <marker> <list>: one whole-word, case-insensitive match per entry.
-emit_words() {
-  local marker=$1 w; shift
-  any_entry "$*" || return 0
-  for w in $*; do
-    w=$(norm_entry "$w")
-    [ -n "$w" ] || continue
-    emit "$marker" "$w" -E -i "$(word_re "$w")"
-  done
-}
-
-# emit_pairs <marker> <list>: the same match for the "from" side of each from>to entry. The label shows both sides.
-emit_pairs() {
-  local marker=$1 pair from to; shift
-  any_entry "$*" || return 0
-  for pair in $*; do
-    from=$(norm_entry "${pair%%>*}"); to=${pair#*>}
-    [ -n "$from" ] || continue
-    emit "$marker" "$from -> $(printf '%s' "$to" | tr '_' ' ')" -E -i "$(word_re "$from")"
-  done
+# scan_lists: one awk pass for every word list, so the cost does not grow with the number of entries.
+# Entries reach awk through a file, never -v, so a backslash in a label stays a backslash.
+scan_lists() {
+  local e
+  {
+    for e in $r_replace; do printf 'replace\t%s\n' "$e"; done
+    for e in $r_banned; do printf 'banned\t%s\n' "$e"; done
+    for e in $r_empty; do printf 'empty\t%s\n' "$e"; done
+    for e in $r_pattern; do printf 'pattern\t%s\n' "$e"; done
+    for e in $r_ing; do printf 'ing_tail\t%s\n' "$e"; done
+  } > "$work/entries"
+  awk -F'\t' '
+    # An entry is whole-word and case-insensitive. "_" is a space, and only letters, space and "-" are kept.
+    FILENAME == ARGV[1] {
+      m = $1; from = $2; to = $2; pair = (m == "replace" || m == "pattern")
+      if (pair && (i = index($2, ">"))) { from = substr($2, 1, i - 1); to = substr($2, i + 1) }
+      gsub(/_/, " ", from); gsub(/[^A-Za-z -]/, "", from)
+      if (from == "") next
+      gsub(/_/, " ", to)
+      n++; mk[n] = m; w[n] = tolower(from); lab[n] = (pair ? from " -> " to : from)
+      next
+    }
+    function letter(c) { return c ~ /[a-z]/ }
+    # An -ing tail needs a comma, then at least one space, before the verb. A comma at the end of the
+    # previous line counts as a wrap. The comma is not consumed, so adjacent tails both count.
+    function tail(st,   j) {
+      j = st - 1
+      while (j >= 1 && substr(low, j, 1) ~ /[ \t]/) j--
+      if (j < 1) return prevlast == ","
+      return j < st - 1 && substr(low, j, 1) == ","
+    }
+    {
+      low = tolower($0)
+      for (k = 1; k <= n; k++) {
+        len = length(w[k]); pos = 1
+        while ((i = index(substr(low, pos), w[k])) > 0) {
+          st = pos + i - 1; en = st + len
+          if ((st == 1 || !letter(substr(low, st - 1, 1))) && !letter(substr(low, en, 1)) && (mk[k] != "ing_tail" || tail(st))) {
+            printf "%d\t%s\t%s\n", FNR, mk[k], (mk[k] == "ing_tail" ? substr($0, st, len) : lab[k])
+            pos = en
+          } else pos = st + 1
+        }
+      }
+      line = $0; sub(/[ \t]+$/, "", line)
+      prevlast = (line == "" ? "" : substr(line, length(line), 1))
+    }' "$work/entries" "$stripped" >> "$findings"
 }
 
 # Bold after the first word of a line is emphasis. A leading label, a table row and a code span are formatting.
@@ -585,11 +599,7 @@ find_markers() {
   if [ "$soft" = 1 ]; then
     local hardcopy=$stripped
     stripped=$softcopy
-    emit_pairs replace $r_replace
-    emit_words banned $r_banned
-    emit_words empty $r_empty
-    emit_pairs pattern $r_pattern
-    emit_ing_tail $r_ing
+    scan_lists
     # Match on UTF-8 bytes, because grep has no -P here: U+1F300 to U+1FAFF, U+2600 to U+26FF, and the emoji
     # dingbats and stars (U+2705, U+2728, U+274C, U+2753 to U+2757, U+2B50, U+2B55). Check marks and arrows are not emoji.
     emit emoji_heading "emoji in heading" -E $'^#+[ \t].*(\xF0\x9F[\x8C-\xAB]|\xE2[\x98-\x9B]|\xE2\x9C[\x85\xA8]|\xE2\x9D[\x8C\x93-\x97]|\xE2\xAD[\x90\x95])'
