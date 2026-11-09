@@ -477,6 +477,121 @@ run_stats() {
   jq -r '"cost $\(.costUsd // 0) in \(.durationSeconds // 0) s"' "$1/result.json"
 }
 
+BL_JSON=""
+
+# The only readers and writers of baseline.json are the bl_* functions.
+# Loads baseline.json from a source into BL_JSON. An absent file leaves it empty. It must run
+# in the main shell.
+bl_load() {
+  BL_JSON=$(read_at "$1" evals/baseline.json) || BL_JSON=""
+  if [ -n "$BL_JSON" ] && ! printf '%s' "$BL_JSON" | jq -e . >/dev/null 2>&1; then
+    die "evals/baseline.json at $1 is not valid JSON"
+  fi
+  return 0
+}
+
+bl_field() {
+  printf '%s' "$BL_JSON" | jq -r "$1"
+}
+
+# True when the new score is below the old score by more than the margin. The small epsilon keeps
+# a drop of exactly the margin from reading as a regression.
+is_regressed() {
+  awk -v old="$1" -v new="$2" -v margin="$REGRESS_MARGIN" 'BEGIN { exit !(new < old - margin - 0.000000001) }'
+}
+
+# Passes when the baseline has no entries or was made with the current model, judge model and runs.
+bl_settings_match() {
+  local model judge runs
+  [ -n "$BL_JSON" ] || return 0
+  model=$(bl_field .model)
+  judge=$(bl_field .judge_model)
+  runs=$(bl_field .runs_requested)
+  if [ "$model" = "$REGRESS_MODEL" ] && [ "$judge" = "$REGRESS_JUDGE_MODEL" ] && [ "$runs" = "$REGRESS_RUNS" ]; then
+    return 0
+  fi
+  echo "regress: the baseline was made with model $model, judge model $judge, runs $runs." >&2
+  echo "regress: the current settings are model $REGRESS_MODEL, judge model $REGRESS_JUDGE_MODEL, runs $REGRESS_RUNS." >&2
+  return 1
+}
+
+bl_score() {
+  printf '%s' "$BL_JSON" | jq -r --arg c "$1" '.cases[$c].score // empty'
+}
+
+# Prints ok, regressed, "case changed" or "no baseline" for a case, its tree id and its new score.
+bl_verdict() {
+  local case=$1 tree=$2 score=$3 old stored
+  stored=$(printf '%s' "$BL_JSON" | jq -r --arg c "$case" '.cases[$c].tree // empty' 2>/dev/null) || stored=""
+  if [ -z "$stored" ]; then echo "no baseline"; return 0; fi
+  if [ "$stored" != "$tree" ]; then echo "case changed"; return 0; fi
+  old=$(bl_score "$case")
+  if is_regressed "$old" "$score"; then echo regressed; else echo ok; fi
+}
+
+# Prints "<case> <stored tree> <current tree or removed>" for each entry whose case dir changed or
+# is gone at a commit.
+bl_stale() {
+  local sha=$1 case stored current
+  [ -n "$BL_JSON" ] || return 0
+  while IFS=$'\t' read -r case stored; do
+    [ -n "$case" ] || continue
+    current=$(case_tree "$sha" "$case")
+    if [ "$current" != "$stored" ]; then echo "$case $stored ${current:-removed}"; fi
+  done < <(printf '%s' "$BL_JSON" | jq -r '.cases | to_entries[] | [.key, .value.tree] | @tsv')
+  return 0
+}
+
+bl_file() {
+  local root
+  root=$(repo_root) || return 1
+  echo "$root/evals/baseline.json"
+}
+
+# Reads rows (case, score, counted runs, requested runs) on stdin and prints them as the JSON
+# object of cases, with the tree id of each case dir at the commit.
+bl_cases_json() {
+  local sha=$1 case score counted rows="" tree
+  while IFS=$'\t' read -r case score counted _; do
+    [ -n "$case" ] || continue
+    tree=$(case_tree "$sha" "$case")
+    rows="$rows$case"$'\t'"$score"$'\t'"$counted"$'\t'"$tree"$'\n'
+  done
+  printf '%s' "$rows" | jq -Rn --arg day "$(date -u +%Y-%m-%d)" '
+    [inputs | split("\t") | {key: .[0], value: {score: (.[1] | tonumber), runs_counted: (.[2] | tonumber), tree: .[3], updated_at: $day}}]
+    | from_entries'
+}
+
+# Writes the whole file from the rows on stdin, with the current settings at the top.
+bl_write_full() {
+  local sha=$1 file cases version tmp
+  file=$(bl_file) || return 1
+  cases=$(bl_cases_json "$sha") || return 1
+  version=$(read_at "$sha" .claude-plugin/plugin.json | jq -r '.version // "unknown"') || version=unknown
+  tmp=$file.tmp
+  jq -n --arg model "$REGRESS_MODEL" --arg judge "$REGRESS_JUDGE_MODEL" --argjson runs "$REGRESS_RUNS" \
+    --arg version "$version" --arg commit "$(git rev-parse "$sha" </dev/null)" \
+    --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson cases "$cases" \
+    '{model: $model, judge_model: $judge, runs_requested: $runs, plugin_version: $version, commit: $commit, updated_at: $now, cases: $cases}' > "$tmp" || return 1
+  mv "$tmp" "$file"
+}
+
+# Merges the rows on stdin into the file. It refuses, and leaves the file as it was, when the
+# file was made with other settings.
+bl_merge() {
+  local sha=$1 file cases tmp
+  file=$(bl_file) || return 1
+  bl_load WT
+  if ! bl_settings_match; then
+    echo "regress: run --update-baseline without --tag to write the whole file again." >&2
+    return 1
+  fi
+  cases=$(bl_cases_json "$sha") || return 1
+  tmp=$file.tmp
+  printf '%s' "$BL_JSON" | jq --argjson cases "$cases" '.cases += $cases' > "$tmp" || return 1
+  mv "$tmp" "$file"
+}
+
 main() {
   set -euo pipefail
   command -v jq >/dev/null 2>&1 || die "jq is required. Install it and run again."

@@ -532,6 +532,110 @@ DRIVER
   eq wt-interrupt-removes-worktree "$(g worktree list | wc -l | tr -d ' ')" "1"
 }
 
+# Writes a baseline file: mk_baseline <file> <model> <judge> <runs> <case> <score> <tree>.
+mk_baseline() {
+  jq -n --arg m "$2" --arg j "$3" --argjson r "$4" --arg c "$5" --argjson s "$6" --arg t "$7" \
+    '{model: $m, judge_model: $j, runs_requested: $r, plugin_version: "1.0.0", commit: "abc", updated_at: "2026-01-01T00:00:00Z",
+      cases: {($c): {score: $s, runs_counted: $r, tree: $t, updated_at: "2026-01-01"}}}' > "$1"
+}
+
+commit_baseline() {
+  g add -A && g commit -qm baseline && g push -q origin main
+}
+
+t_bl_load() {
+  make_ctx
+  local tree
+  tree=$(g rev-parse HEAD:evals/alpha-case)
+  mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 3 alpha-case 1 "$tree"
+  commit_baseline
+  eq bl-load-reads-base "$(rg eval 'bl_load origin/main; printf "%s" "$BL_JSON" | jq -r .model')" "claude-sonnet-5-5"
+  eq bl-load-absent-is-empty "$(rg eval 'bl_load origin/nothing; printf "[%s]" "$BL_JSON"')" "[]"
+  eq bl-verdict-absent-file "$(rg eval 'bl_load origin/nothing; bl_verdict alpha-case abc 1')" "no baseline"
+}
+
+t_bl_settings_match() {
+  make_ctx
+  mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 3 alpha-case 1 t1
+  commit_baseline
+  rg eval 'conf_load HEAD; bl_load HEAD; bl_settings_match' >/dev/null
+  eq bl-settings-match-equal "$?" "0"
+  local out rc
+  out=$(REGRESS_RUNS=5 rg eval 'conf_load HEAD; bl_load HEAD; bl_settings_match' 2>&1); rc=$?
+  eq bl-settings-mismatch-exit "$rc" "1"
+  has bl-settings-mismatch-baseline-values "$out" "runs 3"
+  has bl-settings-mismatch-current-values "$out" "runs 5"
+  rg eval 'conf_load HEAD; bl_load origin/nothing; bl_settings_match' >/dev/null
+  eq bl-settings-match-no-baseline "$?" "0"
+}
+
+t_bl_verdict() {
+  make_ctx
+  mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 3 alpha-case 1 t1
+  commit_baseline
+  eq bl-verdict-ok "$(rg eval 'conf_load HEAD; bl_load HEAD; bl_verdict alpha-case t1 0.7')" "ok"
+  eq bl-verdict-boundary-ok "$(rg eval 'conf_load HEAD; bl_load HEAD; bl_verdict alpha-case t1 0.66')" "ok"
+  eq bl-verdict-regressed "$(rg eval 'conf_load HEAD; bl_load HEAD; bl_verdict alpha-case t1 0.6')" "regressed"
+  eq bl-verdict-case-changed "$(rg eval 'conf_load HEAD; bl_load HEAD; bl_verdict alpha-case t2 0.1')" "case changed"
+  eq bl-verdict-no-entry "$(rg eval 'conf_load HEAD; bl_load HEAD; bl_verdict other-case t1 1')" "no baseline"
+  eq bl-score "$(rg eval 'bl_load HEAD; bl_score alpha-case')" "1"
+}
+
+t_is_regressed() {
+  make_ctx
+  rg eval 'REGRESS_MARGIN=0.34; is_regressed 1 0.6'
+  eq is-regressed-below-margin "$?" "0"
+  rg eval 'REGRESS_MARGIN=0.34; is_regressed 1 0.66'
+  eq is-regressed-at-margin-passes "$?" "1"
+  rg eval 'REGRESS_MARGIN=0.4; is_regressed 1 0.6'
+  eq is-regressed-wider-margin-passes "$?" "1"
+  rg eval 'REGRESS_MARGIN=0.3; is_regressed 1 0.6'
+  eq is-regressed-narrow-margin-fails "$?" "0"
+  rg eval 'REGRESS_MARGIN=0.34; is_regressed 0.867 0.733'
+  eq is-regressed-noise-passes "$?" "1"
+}
+
+t_bl_write_full() {
+  make_ctx
+  local tree
+  tree=$(g rev-parse HEAD:evals/alpha-case)
+  printf 'alpha-case\t0.733\t3\t3\n' | rg eval 'conf_load HEAD; bl_write_full HEAD'
+  local f=$CTX_REPO/evals/baseline.json
+  eq bl-write-model "$(jq -r .model "$f")" "claude-sonnet-5-5"
+  eq bl-write-judge "$(jq -r .judge_model "$f")" "claude-haiku-5-5"
+  eq bl-write-runs-requested "$(jq -r .runs_requested "$f")" "3"
+  eq bl-write-plugin-version "$(jq -r .plugin_version "$f")" "1.2.3"
+  eq bl-write-commit "$(jq -r .commit "$f")" "$(g rev-parse HEAD)"
+  eq bl-write-case "$(jq -c '.cases["alpha-case"] | [.score, .runs_counted, .tree]' "$f")" "[0.733,3,\"$tree\"]"
+}
+
+t_bl_merge() {
+  make_ctx
+  printf 'alpha-case\t1\t3\t3\nbeta-case\t0.5\t3\t3\n' | rg eval 'conf_load HEAD; bl_write_full HEAD'
+  printf 'beta-case\t0.9\t3\t3\n' | rg eval 'conf_load HEAD; bl_merge HEAD'
+  local f=$CTX_REPO/evals/baseline.json
+  eq bl-merge-keeps-other "$(jq -r '.cases["alpha-case"].score' "$f")" "1"
+  eq bl-merge-replaces-selected "$(jq -r '.cases["beta-case"].score' "$f")" "0.9"
+  local before out rc
+  before=$(cat "$f")
+  out=$(printf 'beta-case\t0.1\t3\t3\n' | REGRESS_RUNS=5 rg eval 'conf_load HEAD; bl_merge HEAD' 2>&1); rc=$?
+  eq bl-merge-refuses-on-mismatch "$rc" "1"
+  has bl-merge-says-run-without-tag "$out" "without --tag"
+  eq bl-merge-refusal-leaves-file "$(cat "$f")" "$before"
+}
+
+t_bl_stale() {
+  make_ctx
+  local tree
+  tree=$(g rev-parse HEAD:evals/alpha-case)
+  mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 3 alpha-case 1 "$tree"
+  eq bl-stale-none "$(rg eval 'bl_load WT; bl_stale HEAD')" ""
+  mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 3 alpha-case 1 oldtree
+  eq bl-stale-changed "$(rg eval 'bl_load WT; bl_stale HEAD')" "alpha-case oldtree $tree"
+  mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 3 gone-case 1 oldtree
+  eq bl-stale-removed "$(rg eval 'bl_load WT; bl_stale HEAD')" "gone-case oldtree removed"
+}
+
 run_tests() {
   local t
   for t in $(compgen -A function t_); do "$t"; done
@@ -563,6 +667,8 @@ STUB
   fi
   git init -q -b main "$CTX_ORIGIN" --bare
   git init -q -b main "$CTX_REPO"
+  mkdir -p "$CTX_REPO/.claude-plugin"
+  echo '{"name": "bf", "version": "1.2.3"}' > "$CTX_REPO/.claude-plugin/plugin.json"
   mkdir -p "$CTX_REPO/skills/alpha" "$CTX_REPO/skills/beta" "$CTX_REPO/evals/alpha-case" "$CTX_REPO/evals/beta-case"
   echo "# alpha" > "$CTX_REPO/skills/alpha/SKILL.md"
   echo "# beta" > "$CTX_REPO/skills/beta/SKILL.md"
