@@ -61,7 +61,7 @@ PATTERNS
 - Rhetorical setup (`What if I told you`, `Plot twist:`): drop it and make the point.
 - Fake-profound kicker (a final line that turns the point into a metaphor): delete the line. Do not rewrite it into a better metaphor. End on the last concrete sentence.
 - Summary recap (`In conclusion`, `Overall`): end on the last concrete point or the next action.
-- The lint reports the phrase and "-ing" patterns and the formatting patterns as soft findings. The other patterns need judgment.
+- The lint reports the phrase patterns, the "-ing" tail, mid-sentence bold and emoji headings as soft findings. The other patterns need judgment.
 
 ## Lint rules
 
