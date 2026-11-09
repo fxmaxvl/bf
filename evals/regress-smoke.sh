@@ -353,6 +353,27 @@ t_prepush_free_path() {
   eq prepush-free-path-no-claude "$([ -e "$CTX_TMP/claude-args" ] && echo called || echo none)" "none"
 }
 
+t_prepush_recomputes_base_after_fetch() {
+  make_ctx
+  local stale sha out rc
+  stale=$(g rev-parse HEAD)
+  put skills/beta/SKILL.md '# beta changed on main\n'
+  g add -A && g commit -qm "main edits beta" && g push -q origin main
+  g switch -qc feat
+  put skills/alpha/y.md 'feature edit\n'
+  g add -A && g commit -qm "feat edits alpha"
+  sha=$(g rev-parse HEAD)
+  g update-ref refs/remotes/origin/main "$stale"
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1
+  out=$(STUB_JSON=$CTX_TMP/r.json rr_in "refs/heads/feat $sha refs/heads/feat $ZERO" --pre-push origin url 2>&1); rc=$?
+  eq prepush-fetch-recompute-exit "$rc" "0"
+  has prepush-fetch-recompute-selects-fresh-diff "$out" "Skills to check: alpha"
+  case "$out" in
+    *beta*) echo "FAIL prepush-fetch-recompute-drops-stale-skill: output names beta"; fails=$((fails + 1)) ;;
+    *) echo "PASS prepush-fetch-recompute-drops-stale-skill" ;;
+  esac
+}
+
 # Puts the hook and the script into the clone and enables the hook there.
 install_hook() {
   mkdir -p "$CTX_REPO/.githooks"
