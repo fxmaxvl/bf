@@ -547,6 +547,16 @@ bl_settings_match() {
   return 1
 }
 
+# True when a baseline file was loaded.
+bl_present() {
+  [ -n "$BL_JSON" ]
+}
+
+# The stored tree id of a case, or nothing.
+bl_tree() {
+  printf '%s' "$BL_JSON" | jq -r --arg c "$1" '.cases[$c].tree // empty' 2>/dev/null || true
+}
+
 bl_score() {
   printf '%s' "$BL_JSON" | jq -r --arg c "$1" '.cases[$c].score // empty'
 }
@@ -554,7 +564,7 @@ bl_score() {
 # Prints ok, regressed, "case changed" or "no baseline" for a case, its tree id and its new score.
 bl_verdict() {
   local case=$1 tree=$2 score=$3 old stored
-  stored=$(printf '%s' "$BL_JSON" | jq -r --arg c "$case" '.cases[$c].tree // empty' 2>/dev/null) || stored=""
+  stored=$(bl_tree "$case")
   if [ -z "$stored" ]; then echo "no baseline"; return 0; fi
   if [ "$stored" != "$tree" ]; then echo "case changed"; return 0; fi
   old=$(bl_score "$case")
@@ -728,7 +738,7 @@ gate_at() {
   echo "Run: $(run_stats "$out")"
   for case in $changedcases; do
     first=$(case_tag "$sha" "$case" "${tag_arr[@]}") || first=""
-    echo "WARNING: case $case changed since the baseline (tree $(bl_field ".cases[\"$case\"].tree"), now $(case_tree "$sha" "$case")). Its score is not compared."
+    echo "WARNING: case $case changed since the baseline (tree $(bl_tree "$case"), now $(case_tree "$sha" "$case")). Its score is not compared."
     refresh_hint "$first"
   done
   if [ -n "$nobase" ]; then
@@ -774,7 +784,7 @@ mode_update_baseline() {
   echo "Cost ceiling: \$$REGRESS_MAX_COST_USD for this run."
   wt_add "$head" || return 1
   rows=$(run_and_score "$WT_PATH" "$RUN_TMP/update" "$head" ${tag_arr[@]+"${tag_arr[@]}"}) || return 1
-  if [ ${#tag_arr[@]} -gt 0 ] && [ -n "$BL_JSON" ]; then
+  if [ ${#tag_arr[@]} -gt 0 ] && bl_present; then
     printf '%s' "$rows" | bl_merge "$head" || return 1
   else
     printf '%s' "$rows" | bl_write_full "$head" || return 1
