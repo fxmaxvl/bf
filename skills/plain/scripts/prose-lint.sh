@@ -251,7 +251,7 @@ st_soft() {
   lint_text "It adds search, reflecting the gains." --rules "$full" --format json
   eq "ing tail verb comes from the block" "$(jf .soft.ing_tail)" 0
   lint_text "It adds search, reflecting the gains." --rules "$noblock" --format json
-  eq "ing tail default without a block" "$(jf .soft.ing_tail)" 1
+  eq "ing tail off without a block" "$(jf .soft.ing_tail)" 0
   lint_text "This is **very** clear." --rules "$full" --format json
   eq "mid-sentence bold" "$(jf .soft.bold_mid)" 1; eq "bold exit" "$rc" 0
   eq "bold in summary" "$(jf .summary)" "1 mid-sentence bold, 4 words"
@@ -375,7 +375,7 @@ load_rules() {
   local l k v h
   # The prose-lint block: "key: value" lines between a ```prose-lint fence and the next fence.
   rules_block=false
-  r_hard= r_cap_i=20 r_cap_d=25 r_long=150 r_replace= r_banned= r_empty= r_pattern= r_ing='highlighting underscoring showcasing reflecting emphasizing'
+  r_hard= r_cap_i=20 r_cap_d=25 r_long=150 r_replace= r_banned= r_empty= r_pattern= r_ing=
   # The awk pass decides whether a block exists, so one fence pattern covers the parser and the flag.
   awk -v flag="$work/found" '/^```prose-lint[ \t]*$/ {inb=1; print "" > flag; next} inb && /^```/ {exit} inb' "$rules" > "$work/block"
   if [ -f "$work/found" ]; then
