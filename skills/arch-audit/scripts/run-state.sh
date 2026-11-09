@@ -5,7 +5,7 @@
 # resumable, which would make the completion record a lie after an interruption.
 # Usage:
 #   run-state.sh paths
-#   run-state.sh init <<'BF_ARGS'                    # scope text on stdin; creates state when absent, scope always refreshed
+#   run-state.sh init < <args file>                  # scope text on stdin; creates state when absent, scope always refreshed
 #   run-state.sh done "<unit path>" "<fragment>"     # records one finished branch
 # Output: single-line JSON.
 set -euo pipefail

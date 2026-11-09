@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fetch every actionable comment on a PR as one JSON payload.
 #
-# Usage: fetch-pr-comments.sh <<'BF_ARGS' ... BF_ARGS   (arguments on stdin: [<pr-number> | <pr-url> | --all])
+# Usage: fetch-pr-comments.sh < <args file>   (arguments on stdin: [<pr-number> | <pr-url> | --all])
 #   no arg   -> PR for the current branch
 #   --all    -> include already-resolved threads, threads we already answered, and our own
 #               PR-level comments and review bodies

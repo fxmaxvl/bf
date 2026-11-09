@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # init-probe.sh — Parse invocation arguments and probe git state.
 # Replaces manual --quick/GH-ISSUE/Jira detection and git branch probing in the orchestrator.
-# Usage: bash init-probe.sh <<'BF_ARGS' ... BF_ARGS   (the invocation arguments arrive on stdin)
+# Usage: bash init-probe.sh < <args file>   (the invocation arguments arrive on stdin)
 # Outputs JSON.
 
 set -euo pipefail

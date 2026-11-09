@@ -17,7 +17,7 @@ hangs silently through a review that fails or is abandoned. Act on `status`:
 
 | `status` | Do |
 |----------|-----|
-| `findings` | Re-run the `fetch-pr-comments.sh <<'BF_ARGS'` call in SKILL.md and continue the normal flow. |
+| `findings` | Re-run the `fetch-pr-comments.sh` call in SKILL.md and continue the normal flow. |
 | `review_settled` | The review finished with nothing actionable — print `STATUS: NO_OPEN_COMMENTS` and stop. |
 | `timeout` | Report how long it waited and that the review never landed; it may have failed. Stop rather than guess at findings. |
 
@@ -32,7 +32,7 @@ gh pr checks <pr> --json name,bucket
 
 If the bot's check has `bucket: "pending"`, wait for it with gh's own loop rather than a hand-rolled
 one — under the same consent rule as the `wait-for-review.sh` wait above (run without asking when
-`$ARGUMENTS` contains `--wait`, otherwise ask once) — then re-run the `fetch-pr-comments.sh <<'BF_ARGS'` call in SKILL.md:
+`$ARGUMENTS` contains `--wait`, otherwise ask once) — then re-run the `fetch-pr-comments.sh` call in SKILL.md:
 
 ```bash
 gh pr checks <pr> --watch --interval 30 > /dev/null

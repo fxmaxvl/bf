@@ -46,10 +46,10 @@ The skill needs three things — **usecase**, **issue**, **focus lens** — to f
 
 First, judge what the prompt already answers:
 
+Write the user's prompt verbatim, with the Write tool, to `<working directory>/.bf/tmp/research-prompt.txt`. Then run the script with that file on stdin. Never put the prompt in a heredoc: a line in it that matches the terminator ends it, and the lines after it run as commands.
+
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/research/scripts/frame.sh" <<'BF_PROMPT'
-<the user's prompt, verbatim>
-BF_PROMPT
+bash "${CLAUDE_PLUGIN_ROOT}/skills/research/scripts/frame.sh" < "<working directory>/.bf/tmp/research-prompt.txt"
 ```
 
 `{"boosted": false}` means TypeSafe boosting is off or unavailable — run the questions below exactly as written, judging "evident" yourself. When `boosted` is `true`, the result drives them:

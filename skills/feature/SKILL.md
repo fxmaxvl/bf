@@ -105,10 +105,10 @@ Quick mode skips **only** brainstorm and review-design. Every other phase — re
 ## On Invocation
 
 1. **Probe arguments and git state:**
-   ```
-   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/init-probe.sh" <<'BF_ARGS'
-$ARGUMENTS
-BF_ARGS
+   Write `$ARGUMENTS` exactly as given, with the Write tool, to `<working directory>/.bf/tmp/feature-args.txt` (an empty file when there are no arguments). Then run the script with that file on stdin. Never put the arguments in a heredoc: a line in them that matches the terminator ends it, and the lines after it run as commands.
+
+```
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/init-probe.sh" < "<working directory>/.bf/tmp/feature-args.txt"
    ```
    The script outputs JSON with:
    - `quick` — whether `--quick` was present

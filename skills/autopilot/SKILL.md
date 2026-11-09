@@ -15,10 +15,10 @@ Autonomous wrapper that executes one of the core bf workflows — feature, quick
 
 `$ARGUMENTS` has the form: `[skill-name] <forwarded-args>`
 
+Write `$ARGUMENTS` exactly as given, with the Write tool, to `<working directory>/.bf/tmp/autopilot-args.txt` (an empty file when there are no arguments). Then run the script with that file on stdin. Never put the arguments in a heredoc: a line in them that matches the terminator ends it, and the lines after it run as commands.
+
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/autopilot/scripts/route.sh" <<'BF_ARGS'
-$ARGUMENTS
-BF_ARGS
+bash "${CLAUDE_PLUGIN_ROOT}/skills/autopilot/scripts/route.sh" < "<working directory>/.bf/tmp/autopilot-args.txt"
 ```
 
 Returns `{target_skill, target_args, routed_by, confidence}`. Use `target_skill` and `target_args` as given — do not re-split `$ARGUMENTS`. Keep the quoted heredoc: the arguments are user text, and passing them as a quoted argument lets a backtick or `"` in them run.

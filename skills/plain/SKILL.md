@@ -43,7 +43,7 @@ Then take the "before" lint result. For a file target, run the command below. Fo
 bash "${CLAUDE_PLUGIN_ROOT}/skills/plain/scripts/prose-lint.sh" <file> --rules <resolved path> --format json
 ```
 
-For pasted text, write the text with the Write tool to `<project root>/.bf/tmp/plain-input.md`, then lint that path with the command above. Get the project root from `git rev-parse --show-toplevel`. Outside a git repository, use the current directory. Do not pass pasted text through a heredoc or any other shell quoting: a line in the text that matches the terminator ends the heredoc, and the lines after it run as commands. The command must start with `bash`, because `allowed-tools` grants `Bash(bash *)` only.
+For pasted text, write the text with the Write tool to `<working directory>/.bf/tmp/plain-input.md`, then lint that path with the command above. Do not pass pasted text through a heredoc or any other shell quoting: a line in the text that matches the terminator ends the heredoc, and the lines after it run as commands. The command must start with `bash`, because `allowed-tools` grants `Bash(bash *)` only.
 
 Keep the `hard` counts and the `summary` as the "before" result. Exit 1 is a normal result here, not a failure. In the rewrite job, exit 2 means no result: say so in one line and continue. The Detect phase has its own exit 2 rule.
 
@@ -76,7 +76,7 @@ If the text already passes the self-lint, leave it as it is. Second-language and
 
 ## Phase 3 — Self-lint
 
-Run the lint command from Phase 1 on the result for the "after" result. The edit is not written yet, so write the rewritten text with the Write tool to `<project root>/.bf/tmp/plain-after.md` for both a file and pasted text, and lint that path. For a code file, keep `--mode comment --ext <ext>`. Do not lint the target path here, because the file still holds the old text.
+Run the lint command from Phase 1 on the result for the "after" result. The edit is not written yet, so write the rewritten text with the Write tool to `<working directory>/.bf/tmp/plain-after.md` for both a file and pasted text, and lint that path. For a code file, keep `--mode comment --ext <ext>`. Do not lint the target path here, because the file still holds the old text.
 
 Run the Self-lint checklist from `prose.md` on the result for the rules the script cannot check. This includes the portability test and the read-aloud test. Fix each failure, then run the checklist and the lint again.
 

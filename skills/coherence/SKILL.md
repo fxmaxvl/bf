@@ -4,7 +4,7 @@ description: Use after adding to or editing existing code — especially before 
 model: opus
 disable-model-invocation: false
 argument-hint: "[empty for uncommitted changes, or the branch diff when the tree is clean | 'branch' | <sha or range> | <paths>]"
-allowed-tools: Read, Edit, Grep, Glob, Bash(bash *), Bash(git *), Bash(rtk *)
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash(bash *), Bash(git *), Bash(rtk *)
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first.
@@ -27,10 +27,10 @@ Print banner (plain text, not in a code block):
 
 Resolve the scope in one call — do not derive diffs by hand:
 
+Write `$ARGUMENTS` exactly as given, with the Write tool, to `<working directory>/.bf/tmp/coherence-args.txt` (an empty file when there are no arguments). Then run the script with that file on stdin. Never put the arguments in a heredoc: a line in them that matches the terminator ends it, and the lines after it run as commands.
+
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-untracked - <<'BF_ARGS'
-$ARGUMENTS
-BF_ARGS
+bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-untracked - < "<working directory>/.bf/tmp/coherence-args.txt"
 ```
 
 It returns `{root, mode, file_count, added, removed, files[]}`. `mode` is `working` (uncommitted, brand-new untracked files included),

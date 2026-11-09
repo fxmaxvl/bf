@@ -131,7 +131,7 @@ case "${1:-init}" in
   brief)
     # An omitted [path] is the whole repo; an explicit one resolves against the caller's cwd, before the cd below.
     repo_identity
-    # `-` reads [path] from stdin, so a skill can pass free-form text through a quoted heredoc.
+    # `-` reads [path] from stdin, so a skill can pass free-form text from a file.
     want=${2:-}
     if [ "$want" = - ]; then
       want=$(cat)

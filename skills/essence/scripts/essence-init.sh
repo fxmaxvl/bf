@@ -2,7 +2,7 @@
 # Parse bf:essence arguments and resolve the paths a run needs. Emits one JSON object.
 #
 # Usage: essence-init.sh [top N] <path to artifact>
-#   The argument line comes from stdin (a quoted heredoc keeps shell metacharacters in the path
+#   The argument line comes from stdin (a file on stdin keeps shell metacharacters in the path
 #   intact); when positional args are given they are joined with single spaces and used instead.
 #   Only a leading "top N" is the budget; the rest of the line, trimmed, is the path verbatim.
 #   N is the max number of vital directions (default 3); non-negotiables do not count against it.
