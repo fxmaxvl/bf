@@ -457,8 +457,9 @@ gated_tools() {
 # Runs claude plugin eval on a plugin dir for the cases selected by the tags and prints one row
 # per case: name, mean score, counted runs, requested runs. The score is the mean over counted
 # runs. An errored run or a run that skipped its paid graders does not count. Any partial,
-# failed or short result fails closed. The target comes first and the two variadic flags last,
-# so a variadic flag cannot consume the target.
+# failed or short result fails closed. A case with no counted run has the score "-" and fails
+# the short-run check, so an empty field never reaches a reader that splits on tabs. The target
+# comes first and the two variadic flags last, so a variadic flag cannot consume the target.
 run_and_score() {
   local plugin=$1 out=$2 src=$3 cases tools tool rc=0 result case row name counted rows=""
   shift 3
@@ -495,7 +496,7 @@ run_and_score() {
     row=$(jq -r --arg n "$case" --argjson want "$REGRESS_RUNS" '
       (.cases[] | select(.name == $n)) as $c
       | [$c.arms.with[] | select(.error == null and ((.skippedPaidGraders // false) | not)) | .score] as $s
-      | [$n, (if ($s | length) > 0 then (($s | add) / ($s | length) * 1000 | round / 1000) else "" end), ($s | length), $want]
+      | [$n, (if ($s | length) > 0 then (($s | add) / ($s | length) * 1000 | round / 1000) else "-" end), ($s | length), $want]
       | @tsv' "$result")
     if [ -z "$row" ]; then
       fail_closed "case $case is missing from the result"

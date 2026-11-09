@@ -493,6 +493,21 @@ t_score_fails_closed() {
   has score-too-few-runs-names-case "$out" "alpha-case has 2 counted runs of 3"
 }
 
+t_score_all_runs_errored_fails_closed() {
+  make_ctx
+  local out rc
+  fx "$CTX_TMP/r.json" alpha-case=err,err,err
+  out=$(score "$CTX_TMP/r.json" alpha 2>&1); rc=$?
+  eq score-all-errored-fails "$rc" "1"
+  has score-all-errored-names-case "$out" "alpha-case has 0 counted runs of 3"
+  fx "$CTX_TMP/r.json" alpha-case=skip,skip,skip
+  out=$(score "$CTX_TMP/r.json" alpha 2>&1); rc=$?
+  eq score-all-skipped-fails "$rc" "1"
+  fx "$CTX_TMP/r.json" alpha-case=err,err,err beta-case=1,1,1
+  STUB_JSON=$CTX_TMP/r.json rr --update-baseline >/dev/null 2>&1
+  eq update-all-errored-writes-nothing "$([ -e "$CTX_REPO/evals/baseline.json" ] && echo file || echo none)" "none"
+}
+
 t_score_stdin_is_closed() {
   make_ctx
   fx "$CTX_TMP/r.json" alpha-case=1,1,1
