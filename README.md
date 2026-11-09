@@ -343,6 +343,28 @@ when removed is a dependency, and it does not ship. See
 [`docs/typesafe-opportunities.md`](docs/typesafe-opportunities.md) for the call sites and the ones
 still on the list.
 
+## Maintainers
+
+This section is for people who change bf itself. A git pre-push hook checks every change to `skills/`. A new skill needs at least one eval case tagged with its name. An edited skill with cases runs those cases and fails the push when a case scores more than 0.34 below its stored score in `evals/baseline.json`. Today 10 of 36 skills have cases, and 26 only get a warning. A push that does not touch `skills/` costs nothing.
+
+Enable the hook once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+`git push --no-verify` skips the hook. All logic lives in `evals/regress.sh`:
+
+| Mode | Use |
+|------|-----|
+| `evals/regress.sh --coverage [<base>]` | Free check that each added skill has a tagged case. |
+| `evals/regress.sh --check [<base>]` | Coverage, then the regression check at `HEAD`. |
+| `evals/regress.sh --pre-push <remote> <url>` | The hook mode. It reads the ref lines on stdin. |
+| `evals/regress.sh --update-baseline [--tag <t>] [--force]` | Run the cases and write `evals/baseline.json`. |
+| `evals/regress.sh --compare [<ref>] [--tag <t>]` | Old-vs-new scores, `<ref>` defaults to `origin/main`. |
+
+The hook and `--check` read `evals/baseline.json` and `evals/regress.conf` from `origin/main`. A branch cannot lower its own bar. To refresh the baseline, switch to `main` at `origin/main`, run `evals/regress.sh --update-baseline`, commit `evals/baseline.json` on a new branch and open a PR. Runs cost money. `evals/regress.conf` sets the model, the run count, the margin and the cost ceiling.
+
 ## Requirements
 
 - [Claude Code](https://claude.ai/code)
