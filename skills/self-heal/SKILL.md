@@ -139,6 +139,7 @@ If an item cannot be verified, revert its commit, return it to the backlog, and 
 | Branch `chore/self-heal-<YYYY-MM-DD>` already exists | Switch to it and continue — a same-day re-run after a verify failure resumes on the same branch rather than forking a second one. |
 | An item is too vague to act on | Leave it in the backlog and record why in the selection artifact — do not guess at an ask. |
 | Verify fails after 2 attempts on one item | Revert that item, keep the others, and report it as returned to the backlog. |
+| An item is reverted after the PR is open (a later hunt, review or verify drops it) | In the same step as the revert: remove the item's section from the PR body (`gh pr edit --body-file`), edit the source issue comment from Phase 5 step 4 so it no longer says the PR addressed the item, and fix `Closes #N`. Either remove `Closes #N`, or keep it and carry the item forward per Phase 5 step 5. A comment that claims a reverted item goes stale. |
 
 Here is the request:
 $ARGUMENTS
