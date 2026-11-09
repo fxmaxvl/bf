@@ -875,6 +875,98 @@ t_update_reads_conf_from_working_tree() {
   eq update-uses-conf-runs "$(jq -r .runs_requested "$CTX_REPO/evals/baseline.json")" "2"
 }
 
+# Runs inside rg, where the script is sourced.
+do_compare_table() {
+  conf_load HEAD
+  compare_table "$@"
+}
+
+t_compare_rows() {
+  make_ctx
+  local out rc
+  out=$(rg do_compare_table "$(printf 'a\t1\t3\t3\nb\t0.9\t3\t3\nc\t1\t3\t3\n')" "$(printf 'a\t0.5\t3\t3\nb\t0.8\t3\t3\nd\t0.1\t3\t3\n')" 2>&1); rc=$?
+  eq compare-rows-marked-exit "$rc" "1"
+  has compare-rows-regressed "$out" "regressed"
+  has compare-rows-removed "$out" "removed case"
+  has compare-rows-new "$out" "new case"
+  eq compare-rows-one-sided-not-marked "$(printf '%s' "$out" | grep -c 'regressed')" "1"
+  out=$(rg do_compare_table "$(printf 'c\t1\t3\t3\n')" "$(printf 'd\t0.1\t3\t3\n')" 2>&1); rc=$?
+  eq compare-one-sided-only-passes "$rc" "0"
+}
+
+# A repo with an uncommitted edit to skills/alpha. The stub answers each side with its own file.
+compare_ctx() {
+  make_ctx
+  put skills/alpha/x.md 'uncommitted\n'
+  put evals/results/x 'history\n'
+  fx "$CTX_TMP/old.json" alpha-case=1,1,1
+  fx "$CTX_TMP/new.json" alpha-case=0.9,0.9,0.9
+}
+
+cmp_run() { STUB_NEW_PATH=$CTX_REPO STUB_JSON_OLD=$CTX_TMP/old.json STUB_JSON_NEW=$CTX_TMP/new.json rr --compare "$@" 2>&1; }
+
+t_compare_selects_and_prints() {
+  compare_ctx
+  local out rc
+  out=$(cmp_run); rc=$?
+  eq compare-ok-exit "$rc" "0"
+  has compare-selects-edited-skill "$(tr '\n' ' ' < "$CTX_TMP/claude-args")" "--tag alpha "
+  has compare-prints-double-ceiling "$out" "2 x \$10"
+  has compare-says-new-side-has-uncommitted "$out" "includes uncommitted edits"
+  has compare-prints-table "$out" "alpha-case"
+  eq compare-default-ref-is-base "$(sed -n 1p "$CTX_TMP/heads")" "$(g rev-parse origin/main)"
+  eq compare-old-evals-without-results "$(sed -n 1p "$CTX_TMP/evals-seen" | grep -c results)" "0"
+  eq compare-no-worktree-left "$(g worktree list | wc -l | tr -d ' ')" "1"
+}
+
+t_compare_untracked_skill_and_ref() {
+  make_ctx
+  put skills/gamma/SKILL.md '# gamma\n'
+  put evals/gamma-case/case.yaml 'name: gamma-case\ntags: [gamma]\n'
+  fx "$CTX_TMP/old.json" gamma-case=1,1,1
+  fx "$CTX_TMP/new.json" gamma-case=1,1,1
+  g tag v1
+  cmp_run v1 >/dev/null
+  has compare-selects-untracked-skill "$(tr '\n' ' ' < "$CTX_TMP/claude-args")" "--tag gamma "
+  eq compare-explicit-ref "$(sed -n 1p "$CTX_TMP/heads")" "$(g rev-parse v1)"
+}
+
+t_compare_regression_marks_and_exits() {
+  compare_ctx
+  fx "$CTX_TMP/new.json" alpha-case=0.3,0.3,0.3
+  local out rc
+  out=$(cmp_run); rc=$?
+  eq compare-drop-exit "$rc" "1"
+  has compare-drop-marked "$out" "regressed"
+}
+
+t_compare_fails_closed_on_either_side() {
+  compare_ctx
+  local out rc
+  out=$(STUB_EXIT=1 cmp_run); rc=$?
+  eq compare-old-side-error-exit "$rc" "1"
+  has compare-old-side-error-reason "$out" "exited with status 1"
+  jq '.partial = true | .partialReason = "cost ceiling"' "$CTX_TMP/new.json" > "$CTX_TMP/p.json"
+  cp "$CTX_TMP/p.json" "$CTX_TMP/new.json"
+  out=$(cmp_run); rc=$?
+  eq compare-new-side-partial-exit "$rc" "1"
+  has compare-new-side-partial-reason "$out" "cost ceiling"
+  eq compare-error-leaves-no-worktree "$(g worktree list | wc -l | tr -d ' ')" "1"
+}
+
+t_compare_interrupt_leaves_no_worktree() {
+  compare_ctx
+  set -m
+  ( cd "$CTX_REPO" && PATH="$CTX_BIN:$PATH" STUB_DIR="$CTX_TMP" STUB_NEW_PATH="$CTX_REPO" STUB_JSON_OLD="$CTX_TMP/old.json" STUB_JSON_NEW="$CTX_TMP/new.json" STUB_SLEEP=3 exec "$REGRESS" --compare </dev/null >/dev/null 2>&1 ) &
+  local pid=$!
+  sleep 1
+  kill -INT -- "-$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
+  set +m
+  eq compare-interrupt-stub-was-running "$([ -e "$CTX_TMP/claude-args" ] && echo yes || echo no)" "yes"
+  eq compare-interrupt-removes-worktree "$(g worktree list | wc -l | tr -d ' ')" "1"
+}
+
 run_tests() {
   local t
   for t in $(compgen -A function t_); do "$t"; done
@@ -893,6 +985,11 @@ make_ctx() {
 d=${STUB_DIR:?}
 { echo "--call"; printf '%s\n' "$@"; } >> "$d/claude-args"
 wc -c | tr -d ' ' >> "$d/claude-stdin"
+git -C "$3" rev-parse HEAD >> "$d/heads" 2>/dev/null
+ls -A "$3/evals" 2>/dev/null | tr '\n' ' ' >> "$d/evals-seen"; echo >> "$d/evals-seen"
+if [ -n "${STUB_JSON_NEW:-}" ]; then
+  if [ "$3" = "${STUB_NEW_PATH:-}" ]; then STUB_JSON=$STUB_JSON_NEW; else STUB_JSON=$STUB_JSON_OLD; fi
+fi
 json=""; prev=""
 for a in "$@"; do [ "$prev" = --json ] && json=$a; prev=$a; done
 if [ -n "$json" ] && [ -n "${STUB_JSON:-}" ]; then cp "$STUB_JSON" "$json"; fi

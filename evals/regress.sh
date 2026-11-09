@@ -646,7 +646,7 @@ stale_scan() {
 
 # Prints the table of rows (case, baseline, new, delta, status) read on stdin.
 print_table() {
-  printf '%-36s %9s %9s %8s  %s\n' case baseline new delta status
+  printf '%-36s %9s %9s %8s  %s\n' case "${1:-baseline}" new delta status
   while IFS=$'\t' read -r case old new delta status; do
     [ -n "$case" ] || continue
     printf '%-36s %9s %9s %8s  %s\n' "$case" "$old" "$new" "$delta" "$status"
@@ -755,6 +755,76 @@ mode_update_baseline() {
   echo "Next: commit evals/baseline.json on a new branch and open a PR."
 }
 
+# The score of a case in a block of rows (case, score, counted, requested), or nothing.
+row_score() {
+  printf '%s\n' "$1" | awk -F'\t' -v n="$2" '$1 == n { print $2 }'
+}
+
+# Prints the old-vs-new table for two blocks of rows and returns 1 when any case dropped by more
+# than the margin. A case on one side only is labeled and never marked.
+compare_table() {
+  local old=$1 new=$2 case o n delta status marked=0 table="" names
+  names=$({ printf '%s\n' "$old"; printf '%s\n' "$new"; } | awk -F'\t' 'NF && !seen[$1]++ { print $1 }')
+  while IFS= read -r case; do
+    [ -n "$case" ] || continue
+    o=$(row_score "$old" "$case")
+    n=$(row_score "$new" "$case")
+    delta="-"
+    if [ -z "$o" ]; then
+      status="new case"; o="-"
+    elif [ -z "$n" ]; then
+      status="removed case"; n="-"
+    else
+      delta=$(awk -v o="$o" -v n="$n" 'BEGIN { printf "%+.3f", n - o }')
+      if is_regressed "$o" "$n"; then status=regressed; marked=1; else status=ok; fi
+    fi
+    table="$table$case"$'\t'"$o"$'\t'"$n"$'\t'"$delta"$'\t'"$status"$'\n'
+  done <<<"$names"
+  printf '%s' "$table" | print_table old
+  [ "$marked" -eq 0 ]
+}
+
+# Runs the same cases against the plugin at <ref> and against the working tree, and compares the
+# scores case by case. The old side uses the working-tree evals dir, so both sides share one set
+# of case definitions.
+mode_compare() {
+  local ref root changed kind name tags="" tag_arr=() tag old_rows new_rows
+  parse_opts "$@"
+  conf_load "$(src_ref "$(src_for compare-new conf)")"
+  base_fetch
+  ref=$(printf '%s' "$POS" | head -n 1)
+  if [ -z "$ref" ]; then ref=$REGRESS_BASE; fi
+  root=$(repo_root) || return 1
+  if [ -n "$TAGS" ]; then
+    tags=$(printf '%s' "$TAGS" | tr '\n' ' ')
+  else
+    changed=$(changed_skills "$ref" WT) || return 1
+    while read -r kind name; do
+      [ -n "$name" ] || continue
+      if [ -n "$(cases_with_tag WT "$name")" ]; then
+        tags="$tags $name"
+      else
+        echo "WARNING: skill $name has no eval case tagged $name."
+      fi
+    done <<<"$changed"
+  fi
+  read -r -a tag_arr <<<"$tags"
+  if [ ${#tag_arr[@]} -eq 0 ]; then
+    echo "No changed skill has an eval case. Nothing to compare."
+    return 0
+  fi
+  echo "Comparing $ref with the working tree for:$tags"
+  echo "Cost ceiling: up to 2 x \$$REGRESS_MAX_COST_USD, one ceiling for each side."
+  echo "The new side includes uncommitted edits in the working tree."
+  wt_add "$ref" || return 1
+  rm -rf "${WT_PATH:?}/evals"
+  mkdir "$WT_PATH/evals"
+  tar -C "$root/evals" --exclude './results' -cf - . | tar -C "$WT_PATH/evals" -xf -
+  old_rows=$(run_and_score "$WT_PATH" "$RUN_TMP/old" WT "${tag_arr[@]}") || return 1
+  new_rows=$(run_and_score "$root" "$RUN_TMP/new" WT "${tag_arr[@]}") || return 1
+  compare_table "$old_rows" "$new_rows"
+}
+
 main() {
   set -euo pipefail
   command -v jq >/dev/null 2>&1 || die "jq is required. Install it and run again."
@@ -764,6 +834,7 @@ main() {
     --pre-push) shift; mode_pre_push "$@" ;;
     --check) shift; mode_check "$@" ;;
     --update-baseline) shift; mode_update_baseline "$@" ;;
+    --compare) shift; mode_compare "$@" ;;
     *) usage; exit 1 ;;
   esac
 }
