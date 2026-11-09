@@ -598,6 +598,13 @@ bl_load() {
   if [ -n "$BL_JSON" ] && ! printf '%s' "$BL_JSON" | jq -e . >/dev/null 2>&1; then
     die "evals/baseline.json at $1 is not valid JSON"
   fi
+  # Every reader below assumes this shape. A baseline of another shape would read as no baseline
+  # or as a score of 0, so it stops the run.
+  if [ -n "$BL_JSON" ] && ! printf '%s' "$BL_JSON" | jq -e '
+    (.cases | type == "object")
+    and ([.cases[] | type == "object" and (.tree | type == "string") and (.score | type == "number")] | all)' >/dev/null 2>&1; then
+    die "evals/baseline.json at $1 has a malformed cases section. Each case needs a tree and a score."
+  fi
   return 0
 }
 

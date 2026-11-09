@@ -699,6 +699,42 @@ t_bl_load() {
   eq bl-verdict-absent-file "$(rg eval 'bl_load origin/nothing; bl_verdict alpha-case abc 1')" "no baseline"
 }
 
+t_bl_load_rejects_malformed_cases() {
+  make_ctx
+  local base out rc
+  base='"model":"claude-sonnet-5-5","judge_model":"claude-haiku-5-5","runs_requested":3'
+  put evals/baseline.json "{$base,\"cases\":[]}\n"
+  out=$(rg eval 'bl_load WT' 2>&1); rc=$?
+  eq bl-load-cases-array-exit "$rc" "1"
+  has bl-load-cases-array-reason "$out" "malformed cases section"
+  put evals/baseline.json "{$base,\"cases\":{\"alpha-case\":{\"tree\":\"t1\"}}}\n"
+  out=$(rg eval 'bl_load WT' 2>&1); rc=$?
+  eq bl-load-entry-without-score-exit "$rc" "1"
+  put evals/baseline.json "{$base,\"cases\":{\"alpha-case\":{\"score\":1}}}\n"
+  rg eval 'bl_load WT' >/dev/null 2>&1
+  eq bl-load-entry-without-tree-exit "$?" "1"
+  put evals/baseline.json "{$base}\n"
+  rg eval 'bl_load WT' >/dev/null 2>&1
+  eq bl-load-no-cases-key-exit "$?" "1"
+  put evals/baseline.json "{$base,\"cases\":{}}\n"
+  rg eval 'bl_load WT' >/dev/null 2>&1
+  eq bl-load-empty-cases-ok "$?" "0"
+}
+
+t_check_malformed_baseline_fails_closed() {
+  gate_ctx
+  local out rc
+  g switch -q main
+  put evals/baseline.json '{"model":"claude-sonnet-5-5","judge_model":"claude-haiku-5-5","runs_requested":3,"cases":[]}\n'
+  commit_baseline
+  g switch -q feat && g rebase -q main
+  fx "$CTX_TMP/r.json" alpha-case=0.1,0.1,0.1
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --check 2>&1); rc=$?
+  eq check-malformed-baseline-fails "$rc" "1"
+  has check-malformed-baseline-reason "$out" "malformed cases section"
+  eq check-malformed-baseline-makes-no-claude-call "$(calls)" "0"
+}
+
 t_bl_settings_match() {
   make_ctx
   mk_baseline "$CTX_REPO/evals/baseline.json" claude-sonnet-5-5 claude-haiku-5-5 3 alpha-case 1 t1
