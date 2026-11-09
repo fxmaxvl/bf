@@ -62,7 +62,7 @@ selftest() {
   nwords() { local i=0 w=; while [ "$i" -lt "$1" ]; do w="$w word"; i=$((i+1)); done; printf '%s' "${w# }"; }
 
   local dash=$'\xE2\x80\x94' curly=$'\xE2\x80\x99' rocket=$'\xF0\x9F\x9A\x80' arrow=$'\xE2\x86\x92'
-  local full=$tmp/full.md noblock=$tmp/noblock.md dashonly=$tmp/dashonly.md dashnosec=$tmp/dashnosec.md
+  local full=$tmp/full.md noblock=$tmp/noblock.md spaced=$tmp/spaced.md dashonly=$tmp/dashonly.md dashnosec=$tmp/dashnosec.md
   st_fixtures
   st_hard
   st_rules_block
@@ -104,6 +104,7 @@ ing_tail: highlighting showcasing
 ```
 EOF
   printf '# Fixture\n\nNo block here.\n' > "$noblock"
+  sed 's/^ing_tail: .*/ing_tail: highlighting  showcasing /' "$full" > "$spaced"
   sed 's/^hard: .*/hard: em_dash/' "$full" > "$dashonly"
   printf '# Fixture\n\n```prose-lint\nhard: em_dash\n```\n' > "$dashnosec"
 }
@@ -245,6 +246,8 @@ st_soft() {
   eq "ing tail in summary" "$(jf .summary)" "1 -ing tail, 6 words"
   lint_text "It adds search, and highlighting works." --rules "$full" --format json
   eq "ing word after and is no tail" "$(jf .soft.ing_tail)" 0
+  lint_text "It adds search, showcasing it." --rules "$spaced" --format json
+  eq "ing tail list with double and trailing space" "$(jf .soft.ing_tail)" 1
   lint_text "It adds search, reflecting the gains." --rules "$full" --format json
   eq "ing tail verb comes from the block" "$(jf .soft.ing_tail)" 0
   lint_text "It adds search, reflecting the gains." --rules "$noblock" --format json
@@ -473,6 +476,16 @@ any_entry() {
   [ -n "$alt" ] && grep -q -E -i "$(word_re "${alt#|}")" "$stripped"
 }
 
+# emit_ing_tail <list>: a comma, then one entry of the list as the next word. Entries go through norm_entry like any_entry.
+emit_ing_tail() {
+  local e alt=
+  for e in "$@"; do
+    e=$(norm_entry "$e")
+    [ -z "$e" ] || alt="$alt|$e"
+  done
+  [ -z "$alt" ] || emit ing_tail - -E -i ", (${alt#|})([^A-Za-z]|\$)"
+}
+
 # emit_words <marker> <list>: one whole-word, case-insensitive match per entry.
 emit_words() {
   local marker=$1 w; shift
@@ -522,7 +535,7 @@ find_markers() {
     emit_words banned $r_banned
     emit_words empty $r_empty
     emit_pairs pattern $r_pattern
-    [ -z "$r_ing" ] || emit ing_tail - -E -i ", (${r_ing// /|})([^A-Za-z]|\$)"
+    emit_ing_tail $r_ing
     # Match on lead bytes: grep has no -P here, and the emoji ranges start with F0 9F or E2 98..9E.
     emit emoji_heading "emoji in heading" -E $'^#+[ \t].*(\xF0\x9F|\xE2[\x98-\x9E])'
     find_bold_mid
