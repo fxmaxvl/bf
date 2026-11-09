@@ -250,8 +250,8 @@ base_fetch() {
   return 0
 }
 
-# The merge-base of a commit and REGRESS_BASE. This is the one place that fetches before it
-# reads the base. It fails with the reason when no merge-base exists.
+# The merge-base of a commit and REGRESS_BASE, read after one fetch of the base. It fails with
+# the reason when no merge-base exists.
 base_mb() {
   local head=$1 mb
   base_fetch
@@ -788,7 +788,7 @@ compare_table() {
 # scores case by case. The old side uses the working-tree evals dir, so both sides share one set
 # of case definitions.
 mode_compare() {
-  local ref root changed kind name tags="" tag_arr=() tag old_rows new_rows
+  local ref root changed kind name tags="" tag_arr=() old_rows new_rows
   parse_opts "$@"
   conf_load "$(src_ref "$(src_for compare-new conf)")"
   base_fetch
