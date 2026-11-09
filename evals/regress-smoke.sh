@@ -781,6 +781,24 @@ t_hook_two_refs() {
   eq hook-two-refs-own-worktrees "$(grep -A3 -e '^--call$' "$CTX_TMP/claude-args" | grep -v -e '^--' | grep '/wt' | sort -u | wc -l | tr -d ' ')" "2"
 }
 
+t_hook_coverage_before_paid_run() {
+  make_ctx
+  install_hook
+  g switch -qc f1
+  put skills/alpha/x.md 'one\n'
+  g add -A && g commit -qm one
+  g switch -q main && g switch -qc f2
+  mkdir -p "$CTX_REPO/skills/gamma"
+  put skills/gamma/SKILL.md '# gamma\n'
+  g add -A && g commit -qm two
+  fx "$CTX_TMP/r.json" alpha-case=1,1,1
+  local out rc
+  out=$( cd "$CTX_REPO" && PATH="$CTX_BIN:$PATH" STUB_DIR="$CTX_TMP" STUB_JSON="$CTX_TMP/r.json" git push origin f1 f2 2>&1 </dev/null ); rc=$?
+  eq hook-uncovered-second-ref-blocks "$rc" "1"
+  has hook-uncovered-second-ref-reason "$out" "skill gamma is new and has no eval case"
+  eq hook-uncovered-second-ref-makes-no-claude-call "$(calls)" "0"
+}
+
 t_update_refuses_dirty_tree() {
   make_ctx
   fx "$CTX_TMP/r.json" alpha-case=1,1,1 beta-case=1,1,1

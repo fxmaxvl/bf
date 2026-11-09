@@ -344,6 +344,11 @@ mode_pre_push() {
     if [ -n "$(changed_skills "$base" "$sha")" ]; then n=$((n + 1)); fi
   done <<<"$targets"
   echo "Skill gate: $n commit(s) to check, worst case cost $n x \$$REGRESS_MAX_COST_USD."
+  # Every free coverage check runs before the first paid run, so a later ref cannot block after an earlier ref has spent money.
+  while read -r sha base; do
+    [ -n "$sha" ] || continue
+    changed_skills "$base" "$sha" | coverage "$sha" || return 1
+  done <<<"$targets"
   while read -r sha base; do
     [ -n "$sha" ] || continue
     gate_at "$sha" "$base" || return 1
