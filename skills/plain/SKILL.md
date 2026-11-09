@@ -59,7 +59,7 @@ Run this phase only for the detect job. Print `Job: detect`. Do not edit, score 
 
 1. Run the Phase 1 lint with `--format text` in place of `--format json`. Each output line is `<line>: <marker>: <text>`. Exit 1 is a normal result.
 2. For each finding, read the line by its number and quote it. For pasted text, the number counts lines of the pasted text.
-3. Read the PATTERNS and STRUCTURE groups of `prose.md`. Add the patterns the lint cannot see: colon reveals, negative listing, dramatic fragments, fake-profound kickers, summary recaps, synonym cycling, robotic rhythm, and the formatting rule. Also apply Self-lint item 9, the portability test.
+3. Read the PATTERNS and STRUCTURE groups of `prose.md`. Skip any line that step 1 already reported. Add the patterns the lint cannot see: colon reveals, negative listing, dramatic fragments, fake-profound kickers, summary recaps, synonym cycling, robotic rhythm, and the formatting rule. Also apply Self-lint item 9, the portability test.
 4. Print one row per finding: the pattern name, the line number, the quoted line, and the fix in a few words.
 5. End with one line that offers a rewrite, then stop.
 
