@@ -88,9 +88,8 @@ src_for() {
   case "$mode:$input" in
     pre-push:plugin | pre-push:cases) echo pushed ;;
     pre-push:baseline | pre-push:conf) echo base ;;
-    coverage:plugin | coverage:baseline) echo none ;;
+    coverage:plugin | coverage:baseline | coverage:conf) echo none ;;
     coverage:cases) echo head ;;
-    coverage:conf) echo base ;;
     check:plugin | check:cases) echo head ;;
     check:baseline | check:conf) echo base ;;
     update-baseline:plugin | update-baseline:cases) echo head ;;

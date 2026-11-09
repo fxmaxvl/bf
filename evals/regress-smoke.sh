@@ -88,7 +88,7 @@ t_src_for_table() {
   local row mode input want got
   for row in \
     "pre-push plugin pushed" "pre-push cases pushed" "pre-push baseline base" "pre-push conf base" \
-    "coverage plugin none" "coverage cases head" "coverage baseline none" "coverage conf base" \
+    "coverage plugin none" "coverage cases head" "coverage baseline none" "coverage conf none" \
     "check plugin head" "check cases head" "check baseline base" "check conf base" \
     "update-baseline plugin head" "update-baseline cases head" "update-baseline baseline wt" "update-baseline conf wt" \
     "compare-old plugin ref" "compare-old cases wt" "compare-old baseline none" "compare-old conf wt" \
