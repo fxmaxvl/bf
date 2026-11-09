@@ -124,7 +124,7 @@ BF_ARGS
 
 3. If `has_state` is `true`: run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` to load state and resume:
    - If `phase_status` is `"awaiting_approval"`:
-     - If `phase` is `"finalize"`: re-ask the pre-finalization gate per Phase 6 step 2 (one question in quick mode, two in full mode). If not ready: exit. If ready: set `phase_status` to `"in_progress"`, save `collect_todos` per Phase 6 step 2 (user's answer in full mode, `false` automatically in quick mode), update state, continue Phase 6 from step 3 (skip silent verify — it already passed).
+     - If `phase` is `"finalize"`: re-ask the pre-finalization gate per Phase 6 step 2 (one question in quick mode, two in full mode). If not ready: exit. If ready: set `phase_status` to `"in_progress"` and save `collect_todos` and `commit_only` per Phase 6 step 2. In quick mode `collect_todos` is `false`. Then continue Phase 6 from step 3, and skip the silent verify, because it already passed.
      - Otherwise: ask "Paused before [current phase]. Ready to proceed?" — if yes, set `phase_status` to `"in_progress"`, update state, execute the current phase; if no, exit
    - Otherwise: resume the current phase from where it left off. **Note:** when `parallel_audit` is `true`, `phase=verify phase_status=in_progress` after Phase 4.5 completes means the orchestrator is about to enter the audit-stack fan-out in Phase 4.75 — resume goes directly into Phase 4.75 (not a mid-fan-out partial state). When `parallel_audit` is `false`, `phase=review-impl phase_status=in_progress` means the sequential complexity+consistency gates in Phase 4.75 are complete — resume re-enters Phase 5 as usual. If `pending_fixes` is non-null, do not redo the scan: apply the transient-error rule in **Error Recovery** (re-spawn the fix agent of the current loop — Phase 5 when `phase=review-impl`, else Phase 4.75 — with only those IDs), then continue that loop at its step 1.
 
@@ -426,25 +426,18 @@ Print banner: `── feature | Finalize ─────────────
    - This catches any regressions introduced by review-impl fix cycles
    - If tests or lint fail: stop, tell the user which checks failed, and ask how to proceed — do **not** commit broken code
    - If all green: continue
-2. **Pre-finalization gate:** Run:
+2. **Pre-finalization gate** (`/bf:micro` Finalize step 2 points here; this step owns the question and the save rule). Run:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=awaiting_approval
    ```
+   Ask one question per turn. First: "Ready to finalize (commit, push, PR)? Reply `yes`, `commit only` to commit locally without a push or PR, or `no`."
+   - If no: **Exit** (re-invoke the skill when ready).
+   - If `commit only`: treat it as yes and save `commit_only=true`. A `yes` saves `commit_only=false`.
+   - A session that shares the branch and does not own push and PR answers `commit only`.
+
    Then branch on `mode`:
-
-   **If `mode != "quick"` (full mode):** Ask the user one question at a time:
-   1. Ask: "Ready to finalize (commit, push, PR)?"
-      - If no: **Exit** (re-invoke `/bf:feature` when ready).
-      - If yes: continue to next question.
-   2. Ask: "Should I scan for TODO comments and collect them to the backlog after?"
-      - Save the answer in state as `collect_todos: true/false` so it survives session interruptions.
-   Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=<true|false>` — continue.
-
-   **If `mode == "quick"` (quick mode):**
-   1. Ask: "Ready to finalize (commit, push, PR)?"
-      - If no: **Exit** (re-invoke `/bf:feature` when ready).
-      - If yes: continue.
-   Then: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=false` — continue. (TODO scanning is always skipped in quick mode.)
+   - **Full mode (`mode != "quick"`):** ask a second question: "Should I scan for TODO comments and collect them to the backlog after?" Save the answer as `collect_todos: true/false` so it survives session interruptions. Then run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=<true|false> commit_only=<true|false>` and continue.
+   - **Quick mode:** run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress collect_todos=false commit_only=<true|false>` and continue. TODO scanning is always skipped in quick mode.
 3. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions. Resolve and act on it before composing the commit.
 4. **Compose commit message and PR content** (reasoning — model writes this):
    - **Commit message:** `feat:` prefix with a concise description. Include issue/ticket if enabled (e.g., `feat(#12): address review concerns`, `feat(PROJ-123): address review concerns`).
@@ -458,18 +451,18 @@ Print banner: `── feature | Finalize ─────────────
      --pr-title "<pr title>" \
      --pr-body "<pr body text>" \
      --baseline <paths.untracked_baseline> \
+     [--commit-only]                          # only if state commit_only is true \
      [--add <path>]...                        # only on a rerun after exit 3 \
      [--leave-untracked]                      # only on a rerun after exit 3 \
      [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
      [--jira-url <jira.ticket_url>]           # only if jira.enabled
    ```
    The script stages tracked edits, every untracked file made since the session started (anything not in `paths.untracked_baseline`), the `--add` files and `.bf/conventions/`. It commits if there are changes, pushes, creates the PR, and outputs the PR URL.
-   **Exit 3** means files that were already untracked when the session started are still untracked. The script lists them on stderr and has staged and pushed nothing. Show the list and ask which of them belong to the change (one question). Rerun with `--add` for those, plus `--leave-untracked` when any remain. Under `/bf:autopilot`, rerun with `--leave-untracked`: a file that was there before the session never goes into the commit unasked.
-   **Exit 1** with a git error means an `--add` path is missing, ignored, or outside the repo. Nothing was staged. Drop that path and rerun.
-6. **If `jira.enabled` is `true`:**
+   On exit 1, 3, 4, 5 or 6, read the header of `finalize-git.sh`, which owns each exit's meaning and recovery. Show the stderr, follow that recovery, then rerun. Under `/bf:autopilot`, rerun after exit 3 with `--leave-untracked`.
+6. **If `jira.enabled` is `true` and state `commit_only` is not `true`:**
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-7. Tell the user: "The PR is open at <pr_url>. The build is complete." When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
+7. Tell the user: "The PR is open at <pr_url>. The build is complete." When state `commit_only` is `true`, say instead: "The change is committed locally. Nothing was pushed and no PR was opened." When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
 8. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=collect-todos phase_status=in_progress
    ```

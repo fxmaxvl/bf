@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# changed-packages.sh — List files changed since the base branch and resolve affected monorepo packages.
+# changed-packages.sh: List files changed since the base branch, uncommitted files and untracked
+# files made since session start included (.bf/ excluded), and resolve affected monorepo packages.
+# The session start comes from the untracked baseline state-ops.sh names; without a build state
+# every untracked file counts. session-untracked.sh decides which untracked files count.
 # Outputs JSON.
 # Usage: bash changed-packages.sh [--base <branch>]
 #   --base   Branch to diff against (default: resolved from origin/HEAD, then main, then master)
@@ -26,7 +29,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-python3 - "$BASE" << 'EOF'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+python3 - "$BASE" "$SCRIPT_DIR" << 'EOF'
 import fnmatch
 import json
 import os
@@ -34,6 +39,7 @@ import subprocess
 import sys
 
 base = sys.argv[1]
+script_dir = sys.argv[2]
 
 def git_root():
     r = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
@@ -42,14 +48,44 @@ def git_root():
         sys.exit(1)
     return r.stdout.strip()
 
-def changed_files(base, root):
-    r = subprocess.run(
-        ['git', 'diff', f'{base}...HEAD', '--name-only'],
-        capture_output=True, text=True, cwd=root
-    )
+def git_lines(args, root):
+    r = subprocess.run(['git'] + args, capture_output=True, text=True, cwd=root)
     if r.returncode != 0:
-        return []
+        return None
     return [f for f in r.stdout.splitlines() if f.strip()]
+
+# -z keeps names with non-ASCII or special characters unquoted. A quoted name is not a real path.
+def git_paths(args, root):
+    r = subprocess.run(['git'] + args, capture_output=True, cwd=root)
+    if r.returncode != 0:
+        return None
+    return [f for f in r.stdout.decode('utf-8', 'surrogateescape').split('\0') if f]
+
+# The untracked files this session made, or every untracked file when state-ops.sh has no state.
+def session_untracked(root):
+    cmd = ['bash', os.path.join(script_dir, 'session-untracked.sh')]
+    r = subprocess.run(['bash', os.path.join(script_dir, 'state-ops.sh')],
+                       capture_output=True, text=True, cwd=root)
+    if r.returncode == 0:
+        try:
+            cmd += ['--baseline', json.loads(r.stdout)['paths']['untracked_baseline']]
+        except (ValueError, KeyError, TypeError):
+            pass
+    # A baseline file that is gone makes the helper fail, so retry without it.
+    for c in (cmd, cmd[:2]):
+        r = subprocess.run(c, capture_output=True, cwd=root)
+        if r.returncode == 0:
+            return [f for f in r.stdout.decode('utf-8', 'surrogateescape').split('\0') if f]
+    return []
+
+# The diff runs from the merge base to the working tree, so edits made before the first commit
+# count.
+def changed_files(base, root):
+    mb = git_lines(['merge-base', base, 'HEAD'], root)
+    if not mb:
+        return []
+    diff = git_paths(['diff', '-z', '--name-only', mb[0], '--', '.', ':!.bf'], root) or []
+    return diff + session_untracked(root)
 
 def get_workspaces(root):
     """Return list of workspace directory prefixes (e.g. ['packages/api', 'apps/web'])."""

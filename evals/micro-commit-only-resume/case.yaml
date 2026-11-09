@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: micro-commit-only-resume
+description: "Resuming /bf:micro from a saved finalize/awaiting_approval state asks the finalize gate again, and `commit only` still commits locally with --commit-only, nothing pushed"
+tags: [micro, finalize, commit-only, resume]
+context:
+  scaffold_script: scaffold.sh

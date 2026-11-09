@@ -93,4 +93,12 @@ for s in '{}' '{"mode":"quick"}'; do
     eq "archive moves $s aside" "$(cat "$moved"):$([ -e "$repo/.bf/sessions/build-state.json" ] && echo left || echo moved)" "$s:moved"
 done
 
+co=$tmp/commit-only
+mkdir -p "$co" && git -C "$co" init -q
+co_read() { (cd "$co" && HOME=$tmp/commit-only bash "$script" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("commit_only", "missing"))'); }
+(cd "$co" && HOME=$tmp/commit-only bash "$script" --init --slug t --idea x --mode quick >/dev/null 2>&1)
+eq "commit_only: init reads back as null" "$(co_read)" None
+(cd "$co" && HOME=$tmp/commit-only bash "$script" commit_only=true >/dev/null)
+eq "commit_only: a saved answer survives a read" "$(co_read)" True
+
 [ "$fails" -eq 0 ]

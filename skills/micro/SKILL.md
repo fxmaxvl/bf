@@ -25,7 +25,7 @@ Sub-skill SKILL.md files are bundled with the plugin. Prepend `${CLAUDE_PLUGIN_R
 | review-impl | `feature/review-impl/SKILL.md` | Agent | opus |
 | review-impl/fix | `feature/review-impl/fix/SKILL.md` | Agent | sonnet |
 
-**Target-repo prompt.** When `## Target Repos` is non-empty, add to every verify, complexity-gate, review-impl and fix agent prompt its lines, the `## Changed Paths` lines, and: "The change lives in these checkouts, not the session repo. Run `state-ops.sh`, `read-block.sh` and report writes from the session repo. Per checkout, run `changed-packages.sh` and `detect-stack.sh` with the checkout as cwd (`cd <checkout> && bash <script>`); their `changed_files` supersede `## Changed Paths`. Run tests, lint and fixes there, use `git -C <checkout>` and absolute paths for every git command and file read or edit, and commit only there. Never edit or commit in the session repo."
+**Target-repo prompt.** When `## Target Repos` is non-empty, add to every verify, complexity-gate, review-impl and fix agent prompt its lines, the `## Changed Paths` lines, and: "The change lives in these checkouts, not the session repo. Run `state-ops.sh`, `read-block.sh` and report writes from the session repo. Per checkout, run `changed-packages.sh` and `detect-stack.sh` with the checkout as cwd (`cd <checkout> && bash <script>`); their `changed_files` supersede `## Changed Paths`. A checkout has no session baseline, so `changed_files` also lists untracked files that existed before the session. Keep only the ones this change made. Run tests, lint and fixes there, use `git -C <checkout>` and absolute paths for every git command and file read or edit, and commit only there. Never edit or commit in the session repo."
 
 ## Status Banners
 
@@ -53,7 +53,8 @@ git rev-parse --show-toplevel
 
 If `.bf/sessions/build-state.json` exists at the git root:
 - Run `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh"` to load state
-- If `phase_status` is `"awaiting_approval"`: ask "Paused before [current phase]. Ready to proceed?" — if yes, set `phase_status=in_progress`, continue; if no, exit
+- If `phase_status` is `"awaiting_approval"` and `phase` is `"finalize"`: ask the finalize gate question again (Finalize step 2), and save its answer the same way.
+- If `phase_status` is `"awaiting_approval"` in any other phase: ask "Paused before [current phase]. Ready to proceed?" If yes, set `phase_status=in_progress` and continue. If no, exit.
 - Otherwise: resume the current phase
 
 If not found: start from Phase 0.
@@ -205,9 +206,7 @@ Print banner: `── micro | Finalize ─────────────�
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=awaiting_approval
    ```
-   Ask: "Ready to finalize (commit, push, PR)?"
-   - If no: **Exit** (re-invoke `/bf:micro` when ready).
-   - If yes: `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase_status=in_progress` — continue.
+   Ask the gate question and save its answer as `skills/feature/SKILL.md` Phase 6 step 2 defines (the three replies, the `commit_only` save). Micro has no TODO question: save `phase_status=in_progress commit_only=<true|false>` and continue.
 3. **ADR check:** apply the **ADR Awareness** convention from `plugin-main.md` against this session's changed files/decisions. Resolve and act on it before committing.
 4. **Compose commit message and PR content** (reasoning — model writes this), following the `git` convention (resolved via the lookup in `plugin-main.md`):
    - **Commit message**: `refactor:` prefix with a concise description. If `github_issue.enabled`, include the issue number (e.g., `refactor(#12): split processOrder into smaller methods`); if `jira.enabled`, include the ticket key.
@@ -215,7 +214,8 @@ Print banner: `── micro | Finalize ─────────────�
    - **PR body**: Micro mode produces no spec — read the `## QA` block with `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.temp> --block "## QA"` and derive a 2–3 sentence summary describing what was refactored and why.
    - **Coverage note**: when the change adds logic with more than one outcome, name which branches were actually executed during verify and which were only reasoned about. Cheap-to-drive paths and paths needing conditions that do not exist in the repo right now are not the same claim, and the undriven one is where the first real-use defect lands. A body that says "verified" without that split overstates coverage. Omit the note entirely when the change has no branching behaviour of its own.
 5. **Run git finalize:**
-   **Target repos first:** if `## Target Repos` is non-empty, skip `finalize-git.sh` (in the session repo it could push to main). Instead, per line: `git -C <checkout> push -u origin <branch>`, then `gh pr create -R <owner/repo> --head <branch> --title "<pr title>" --body-file -` with the body in a quoted heredoc (`<<'PRBODY'`), never in double quotes: backticks there run as commands. If `github_issue.enabled`, end each body with `Closes <session>#<number>` when there is one target repo, else `Refs <session>#<number>` (`<session>` from `gh repo view --json nameWithOwner -q .nameWithOwner` in the session repo). GitHub closes it when that PR merges into its default branch; with several PRs, the first merge would close it early. Collect every PR URL. With several, also run `gh issue comment <number> -R <session> --body-file -` listing the URLs and saying to close the issue after the last one merges. Go to step 6.
+   **Target repos first:** if `## Target Repos` is non-empty and state `commit_only` is `true`, run no push, no `gh pr create` and no `finalize-git.sh`. The commits stay in the checkouts. Go to step 6.
+   If `## Target Repos` is non-empty and `commit_only` is not `true`, skip `finalize-git.sh` (in the session repo it could push to main). Instead, per line: `git -C <checkout> push -u origin <branch>`, then `gh pr create -R <owner/repo> --head <branch> --title "<pr title>" --body-file -` with the body in a quoted heredoc (`<<'PRBODY'`), never in double quotes: backticks there run as commands. If `github_issue.enabled`, end each body with `Closes <session>#<number>` when there is one target repo, else `Refs <session>#<number>` (`<session>` from `gh repo view --json nameWithOwner -q .nameWithOwner` in the session repo). GitHub closes it when that PR merges into its default branch; with several PRs, the first merge would close it early. Collect every PR URL. With several, also run `gh issue comment <number> -R <session> --body-file -` listing the URLs and saying to close the issue after the last one merges. Go to step 6.
    Otherwise run:
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/finalize-git.sh" \
@@ -226,18 +226,18 @@ Print banner: `── micro | Finalize ─────────────�
    PRBODY
    )" \
      --baseline <paths.untracked_baseline> \
+     [--commit-only]                          # only if state commit_only is true \
      [--add <path>]...                        # only on a rerun after exit 3 \
      [--leave-untracked]                      # only on a rerun after exit 3 \
      [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
      [--jira-url <jira.ticket_url>]           # only if jira.enabled
    ```
    The script stages tracked edits, every untracked file made since the session started (anything not in `paths.untracked_baseline`), the `--add` files and `.bf/conventions/`. It commits if there are changes, pushes, creates the PR, and outputs the PR URL.
-   **Exit 3** means files that were already untracked when the session started are still untracked. The script lists them on stderr and has staged and pushed nothing. Show the list and ask which of them belong to the change (one question). Rerun with `--add` for those, plus `--leave-untracked` when any remain. Under `/bf:autopilot`, rerun with `--leave-untracked`: a file that was there before the session never goes into the commit unasked.
-   **Exit 1** with a git error means an `--add` path is missing, ignored, or outside the repo. Nothing was staged. Drop that path and rerun.
-6. If `jira.enabled`:
+   On exit 1, 3, 4, 5 or 6, read the header of `finalize-git.sh`, which owns each exit's meaning and recovery. Show the stderr, follow that recovery, then rerun. Under `/bf:autopilot`, rerun after exit 3 with `--leave-untracked`.
+6. If `jira.enabled` and state `commit_only` is not `true`:
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
    - Invoke the `jira` skill: `add-comment(jira.ticket_key, "PR: <pr_url>")`
-7. Tell the user: "PR is up at <pr_url>. Build complete!" For target repos, list one PR URL per repo. When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
+7. Tell the user: "PR is up at <pr_url>. Build complete!" For target repos, list one PR URL per repo. When state `commit_only` is `true`, say instead: "The change is committed locally. Nothing was pushed and no PR was opened." When a rerun used `--leave-untracked`, add one line naming the files left out of the commit.
 8. ```
    bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/state-ops.sh" phase=done phase_status=in_progress
    ```
@@ -247,7 +247,9 @@ Print banner: `── micro | Finalize ─────────────�
 
 Print banner: `── micro | Cleanup ───────────────────────────────`
 
-For each `## Target Repos` line with a `<source>`, first run `git -C <source> worktree remove <checkout>`. If it refuses (modified or untracked files), show `git -C <checkout> status --short` and ask one question: discard them (rerun with `--force`) or keep the checkout. Once removed, `git -C <source> branch -D <branch>` (the pushed PR branch keeps the commits). When no checkout was kept, `rm -rf <scratch>` (the parent dir of the checkouts; this also removes the clones); otherwise tell the user the kept paths. Then:
+When state `commit_only` is `true` and `## Target Repos` is non-empty, nothing was pushed. The checkouts hold the only copy of the commits. Skip the removal below. Keep every checkout, branch and the scratch dir, and tell the user each checkout path and branch. Then run `cleanup.sh`.
+
+Otherwise, for each `## Target Repos` line with a `<source>`, first run `git -C <source> worktree remove <checkout>`. If it refuses (modified or untracked files), show `git -C <checkout> status --short` and ask one question: discard them (rerun with `--force`) or keep the checkout. Once removed, `git -C <source> branch -D <branch>` (the pushed PR branch keeps the commits). When no checkout was kept, `rm -rf <scratch>` (the parent dir of the checkouts; this also removes the clones); otherwise tell the user the kept paths. Then:
 
 ```
 bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/cleanup.sh"

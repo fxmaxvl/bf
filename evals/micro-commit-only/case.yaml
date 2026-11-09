@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: micro-commit-only
+description: "Answering `commit only` at the micro finalize gate commits locally: finalize-git.sh runs with --commit-only, nothing is pushed, no PR or jira call is made, and the closing message says so"
+tags: [micro, finalize, commit-only]
+context:
+  scaffold_script: scaffold.sh
