@@ -12,6 +12,8 @@ Let me be clear: the pipeline is robust. It adds a retry step, highlighting the 
 Experts agree that small releases fail less often. The cause is simple; each build changes little.
 
 In conclusion, the new process saves time.
+
+The detail that makes it work: every build changes little.
 MD
 git add -A
 git -c user.email=eval@example.com -c user.name=eval commit -q -m init
