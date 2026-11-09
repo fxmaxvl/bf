@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: plain-detect
+description: "/bf:plain detect quotes each flagged line with its line number and names the pattern, and leaves the file byte-identical"
+tags: [plain, prose]
+context:
+  scaffold_script: scaffold.sh
