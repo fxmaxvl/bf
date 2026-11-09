@@ -116,6 +116,92 @@ src_ref() {
   esac
 }
 
+# Prints the values of one top-level key from YAML text on stdin, one per line. It reads the flow
+# form (key: [a, b]) and the block form (- a lines). Any other value exits 3.
+yaml_list() {
+  awk -v key="$1" -v q="'" '
+    function clean(x) {
+      gsub(/^[ \t"]+|[ \t"]+$/, "", x)
+      gsub("^" q "|" q "$", "", x)
+      return x
+    }
+    function emit(x) {
+      x = clean(x)
+      if (x ~ /[{}\[\]]/ || x ~ /:[ \t]/) { bad = 1 } else if (x != "") { print x }
+    }
+    $0 ~ "^" key ":" {
+      v = $0
+      sub("^" key ":[ \t]*", "", v)
+      sub(/[ \t]+#.*$/, "", v)
+      sub(/[ \t]+$/, "", v)
+      inblock = 0
+      if (v ~ /^\[.*\]$/) {
+        sub(/^\[/, "", v); sub(/\]$/, "", v)
+        n = split(v, parts, ",")
+        for (i = 1; i <= n; i++) emit(parts[i])
+      } else if (v == "") {
+        inblock = 1
+      } else {
+        bad = 1
+      }
+      next
+    }
+    inblock && /^[ \t]*-[ \t]+/ { x = $0; sub(/^[ \t]*-[ \t]+/, "", x); emit(x); next }
+    inblock && /^[ \t]*$/ { next }
+    inblock && /^[ \t]/ { bad = 1; next }
+    { inblock = 0 }
+    END { if (bad) exit 3 }
+  '
+}
+
+# Prints the lines between the first two --- lines when the text on stdin starts with ---.
+frontmatter() {
+  awk 'NR == 1 { if ($0 != "---") exit; next } /^---[ \t]*$/ { exit } { print }'
+}
+
+# Lists the case dirs under evals/ that hold a case.yaml or a prompt.md. results/ is never a case.
+list_cases() {
+  local src=$1 root
+  if [ "$src" = WT ]; then
+    root=$(repo_root) || return 1
+    (cd "$root" && find evals -mindepth 2 -maxdepth 2 \( -name case.yaml -o -name prompt.md \) -print </dev/null)
+  else
+    git ls-tree -r --name-only "$src" -- evals </dev/null
+  fi | sed -En 's#^evals/([^/]+)/(case.yaml|prompt.md)$#\1#p' | grep -v '^results$' | sort -u || true
+  return 0
+}
+
+# Prints the values of a key (tags or allowed_tools) from both case files, joined with no
+# duplicates. A key that is present but unreadable stops the run and names the file.
+case_meta() {
+  local src=$1 case=$2 key=$3 file text part all=""
+  for file in case.yaml prompt.md; do
+    text=$(read_at "$src" "evals/$case/$file") || continue
+    if [ "$file" = prompt.md ]; then text=$(printf '%s\n' "$text" | frontmatter); fi
+    part=$(printf '%s\n' "$text" | yaml_list "$key") || {
+      echo "regress: cannot read the $key key in evals/$case/$file" >&2
+      return 1
+    }
+    all=$all$part$'\n'
+  done
+  printf '%s' "$all" | awk 'NF && !seen[$0]++'
+  return 0
+}
+
+cases_with_tag() {
+  local src=$1 tag=$2 case tags
+  while IFS= read -r case; do
+    tags=$(case_meta "$src" "$case" tags) || return 1
+    if printf '%s\n' "$tags" | grep -qxF -- "$tag"; then echo "$case"; fi
+  done < <(list_cases "$src")
+  return 0
+}
+
+# The git tree id of a case dir at a commit. It is empty when the dir is absent there.
+case_tree() {
+  git rev-parse --verify -q "$1:evals/$2" </dev/null || true
+}
+
 main() {
   set -euo pipefail
   command -v jq >/dev/null 2>&1 || die "jq is required. Install it and run again."

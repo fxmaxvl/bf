@@ -132,6 +132,100 @@ t_missing_jq() {
   has missing-jq-text "$out" "jq"
 }
 
+# Writes one file of a fixture case. The caller commits when the case must exist at a commit.
+put() {
+  mkdir -p "$(dirname "$CTX_REPO/$1")"
+  printf '%b' "$2" > "$CTX_REPO/$1"
+}
+
+t_meta_tags_flow_case_yaml() {
+  make_ctx
+  eq meta-tags-flow-case-yaml "$(rg case_meta HEAD alpha-case tags)" "alpha"
+}
+
+t_meta_tags_block_list() {
+  make_ctx
+  put evals/blk/case.yaml 'name: blk\ntags:\n  - x\n  - y\ncontext:\n  scaffold_script: s.sh\n'
+  g add -A && g commit -qm blk
+  eq meta-tags-block-list "$(rg case_meta HEAD blk tags | tr '\n' ' ')" "x y "
+}
+
+t_meta_tags_frontmatter() {
+  make_ctx
+  eq meta-tags-frontmatter "$(rg case_meta HEAD beta-case tags)" "beta"
+}
+
+t_meta_tags_both_files() {
+  make_ctx
+  put evals/both/case.yaml 'name: both\ntags: [a, b]\n'
+  put evals/both/prompt.md '---\ntags: [b, c]\n---\nbody\n'
+  g add -A && g commit -qm both
+  eq meta-tags-both-files "$(rg case_meta HEAD both tags | tr '\n' ' ')" "a b c "
+}
+
+t_meta_allowed_tools() {
+  make_ctx
+  put evals/yml/case.yaml 'name: yml\nallowed_tools: [Bash, Read]\n'
+  put evals/both/case.yaml 'name: both\nallowed_tools: [Bash]\n'
+  put evals/both/prompt.md '---\nallowed_tools: [Bash, Write]\n---\nbody\n'
+  g add -A && g commit -qm tools
+  eq meta-tools-frontmatter "$(rg case_meta HEAD beta-case allowed_tools)" "Read"
+  eq meta-tools-case-yaml "$(rg case_meta HEAD yml allowed_tools | tr '\n' ' ')" "Bash Read "
+  eq meta-tools-both "$(rg case_meta HEAD both allowed_tools | tr '\n' ' ')" "Bash Write "
+  eq meta-tools-absent "$(rg case_meta HEAD alpha-case allowed_tools)" ""
+  rg case_meta HEAD alpha-case allowed_tools >/dev/null
+  eq meta-tools-absent-exit "$?" "0"
+}
+
+t_meta_unreadable_key() {
+  make_ctx
+  put evals/odd/case.yaml 'name: odd\ntags: {a: 1}\n'
+  g add -A && g commit -qm odd
+  local out rc
+  out=$(rg case_meta HEAD odd tags 2>&1); rc=$?
+  eq meta-unreadable-exit "$rc" "1"
+  has meta-unreadable-names-file "$out" "evals/odd/case.yaml"
+}
+
+t_meta_scalar_tags_unreadable() {
+  make_ctx
+  put evals/odd/prompt.md '---\ntags: alpha\n---\nbody\n'
+  g add -A && g commit -qm odd
+  rg case_meta HEAD odd tags >/dev/null 2>&1
+  eq meta-scalar-unreadable-exit "$?" "1"
+}
+
+t_list_cases() {
+  make_ctx
+  put evals/results/prompt.md 'ignored\n'
+  printf 'evals/results/\n' > "$CTX_REPO/.gitignore"
+  eq list-cases-head "$(rg list_cases HEAD | tr '\n' ' ')" "alpha-case beta-case "
+  put evals/gamma-case/case.yaml 'name: gamma-case\ntags: [gamma]\n'
+  eq list-cases-ignores-uncommitted-at-head "$(rg list_cases HEAD | tr '\n' ' ')" "alpha-case beta-case "
+  eq list-cases-wt-sees-uncommitted "$(rg list_cases WT | tr '\n' ' ')" "alpha-case beta-case gamma-case "
+}
+
+t_cases_with_tag() {
+  make_ctx
+  put evals/alpha-two/case.yaml 'name: alpha-two\ntags: [alpha, extra]\n'
+  g add -A && g commit -qm two
+  eq cases-with-tag "$(rg cases_with_tag HEAD alpha | tr '\n' ' ')" "alpha-case alpha-two "
+  eq cases-with-tag-none "$(rg cases_with_tag HEAD nothing)" ""
+}
+
+t_case_tree() {
+  make_ctx
+  local before after
+  before=$(rg case_tree HEAD alpha-case)
+  put evals/alpha-case/.DS_Store 'junk'
+  after=$(rg case_tree HEAD alpha-case)
+  eq case-tree-stable-with-stray-file "$after" "$before"
+  eq case-tree-is-git-tree "$before" "$(g rev-parse HEAD:evals/alpha-case)"
+  eq case-tree-absent "$(rg case_tree HEAD no-such-case)" ""
+  rg case_tree HEAD no-such-case >/dev/null
+  eq case-tree-absent-exit "$?" "0"
+}
+
 run_tests() {
   local t
   for t in $(compgen -A function t_); do "$t"; done
