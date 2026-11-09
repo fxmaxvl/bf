@@ -10,7 +10,8 @@
 # Output: findings and tables on stdout, reasons on stderr.
 # Exit:   0 pass, 1 blocked or error.
 #
-# Settings: evals/regress.conf holds KEY=value lines. An environment variable of the same name wins.
+# Settings: built-in defaults in this script, then the KEY=value overrides in evals/regress.conf,
+# then an environment variable of the same name.
 # REGRESS_BASE comes from the environment or the default origin/main only. A branch must not
 # point its own gate at its own baseline.
 #
@@ -64,19 +65,30 @@ conf_value() {
   printf '%s\n' "$1" | sed -n "s/^$2=//p" | tail -n 1 | sed "s/^[\"']//; s/[\"']\$//"
 }
 
-# Load order: the conf file at <src>, then the regress.conf next to this script for a key the
-# first file lacks, then the environment. The sibling file is the only place the defaults live.
+# Prints the built-in default of a key. This is the only place the defaults live.
+# evals/regress.conf holds overrides only.
+conf_default() {
+  case "$1" in
+    REGRESS_MARGIN) echo 0.34 ;;
+    REGRESS_MODEL) echo claude-sonnet-5-5 ;;
+    REGRESS_JUDGE_MODEL) echo claude-haiku-5-5 ;;
+    REGRESS_RUNS) echo 3 ;;
+    REGRESS_MAX_COST_USD) echo 10 ;;
+    REGRESS_CONCURRENCY) echo 4 ;;
+  esac
+}
+
+# Load order: the built-in defaults, then the overrides in evals/regress.conf at <src>, then the
+# environment. The conf is read from <src> only, never from the working tree of a hook run.
 conf_load() {
-  local src=$1 key val conf fallback
+  local src=$1 key val conf
   conf=$(read_at "$src" evals/regress.conf) || conf=""
-  fallback=$(cat "$REGRESS_DIR/regress.conf" 2>/dev/null) || fallback=""
   for key in $CONF_KEYS; do
     case " $ENV_KEYS " in
       *" $key "*) continue ;;
     esac
     val=$(conf_value "$conf" "$key")
-    if [ -z "$val" ]; then val=$(conf_value "$fallback" "$key"); fi
-    [ -n "$val" ] || die "no value for $key in evals/regress.conf"
+    if [ -z "$val" ]; then val=$(conf_default "$key"); fi
     printf -v "$key" '%s' "$val"
   done
 }

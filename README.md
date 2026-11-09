@@ -363,7 +363,7 @@ git config core.hooksPath .githooks
 | `evals/regress.sh --update-baseline [--tag <t>] [--force]` | Run the cases and write `evals/baseline.json`. |
 | `evals/regress.sh --compare [<ref>] [--tag <t>]` | Old-vs-new scores, `<ref>` defaults to `origin/main`. |
 
-The hook and `--check` read `evals/baseline.json` and `evals/regress.conf` from `origin/main`. A branch cannot lower its own bar. To refresh the baseline, switch to `main` at `origin/main`, run `evals/regress.sh --update-baseline`, commit `evals/baseline.json` on a new branch and open a PR. Runs cost money. `evals/regress.conf` sets the model, the run count, the margin and the cost ceiling.
+The hook and `--check` read `evals/baseline.json` and `evals/regress.conf` from `origin/main`. A branch cannot lower its own bar. To refresh the baseline, switch to `main` at `origin/main`, run `evals/regress.sh --update-baseline`, commit `evals/baseline.json` on a new branch and open a PR. Runs cost money. The script holds the defaults for the model, the run count, the margin and the cost ceiling. `evals/regress.conf` holds overrides only.
 
 ## Requirements
 

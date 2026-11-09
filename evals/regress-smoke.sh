@@ -751,6 +751,17 @@ t_check_ignores_working_tree() {
   has check-uncommitted-case-edit-not-seen "$out" " ok"
 }
 
+t_check_ignores_uncommitted_conf() {
+  gate_ctx
+  put evals/regress.conf 'REGRESS_RUNS=2\nREGRESS_MARGIN=0.95\n'
+  fx "$CTX_TMP/r.json" alpha-case=0.3,0.3,0.3
+  local out rc
+  out=$(STUB_JSON=$CTX_TMP/r.json rr --check 2>&1); rc=$?
+  eq check-uncommitted-conf-keeps-margin "$rc" "1"
+  has check-uncommitted-conf-keeps-runs "$(tr '\n' ' ' < "$CTX_TMP/claude-args")" "--runs 3 "
+  eq hook-conf-unit "$(rg eval 'conf_load origin/main; echo "$REGRESS_RUNS $REGRESS_MARGIN"')" "3 0.34"
+}
+
 t_check_fails_closed() {
   gate_ctx
   local out rc
