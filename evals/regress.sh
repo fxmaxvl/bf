@@ -305,6 +305,13 @@ prepush_targets() {
   done | awk '!seen[$1]++'
 }
 
+# Loads the settings and the baseline from REGRESS_BASE for gate_at and the readers it calls.
+gate_load() {
+  conf_load "$REGRESS_BASE"
+  bl_load "$REGRESS_BASE"
+  GATE_LOADED=1
+}
+
 mode_pre_push() {
   local lines targets sha base changed n=0
   lines=$(cat)
@@ -317,8 +324,7 @@ mode_pre_push() {
   done <<<"$targets"
   if [ -z "$changed" ]; then return 0; fi
   base_fetch
-  conf_load "$REGRESS_BASE"
-  bl_load "$REGRESS_BASE"
+  gate_load
   targets=$(prepush_targets <<<"$lines") || return 1
   while read -r sha base; do
     [ -n "$sha" ] || continue
@@ -340,8 +346,7 @@ mode_check() {
   local base head
   parse_opts "$@"
   base_fetch
-  conf_load "$REGRESS_BASE"
-  bl_load "$REGRESS_BASE"
+  gate_load
   base=$(printf '%s' "$POS" | head -n 1)
   if [ -z "$base" ]; then base=$(base_mb HEAD) || return 1; fi
   head=$(git rev-parse HEAD </dev/null)
@@ -651,10 +656,11 @@ print_table() {
 }
 
 # The regression check for one commit: coverage, the case list, the run on a worktree at the
-# commit, then one verdict per case. The caller has loaded the settings and the baseline.
+# commit, then one verdict per case. It reads the settings and the baseline that gate_load set.
 gate_at() {
   local sha=$1 base=$2 changed statuses cases rows out row case score counted tree verdict
   local old delta table="" tag_arr tags="" regressed="" changedcases="" nobase="" first=""
+  [ -n "${GATE_LOADED:-}" ] || die "gate_at ran before gate_load"
   changed=$(changed_skills "$base" "$sha") || return 1
   if [ -z "$changed" ]; then return 0; fi
   coverage "$sha" <<<"$changed" || return 1
