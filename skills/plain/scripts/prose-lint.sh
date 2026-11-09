@@ -313,7 +313,9 @@ st_real_rules() {
     eq "real file rules_block" "$(jf .rules_block)" true
     eq "real file banned list" "$(jf .soft.banned)" 1
     run --digest --rules "$real"
-    eq "real digest items" "$(printf '%s\n' "$out" | grep -c '^[1-8]\. ')" 8
+    eq "real digest items" "$(printf '%s\n' "$out" | grep -c -E '^[0-9]+\. ')" 10
+    lint_text "It just works." --rules "$real" --format json
+    eq "real file empty list" "$(jf .soft.empty)" 1
   fi
 }
 
@@ -447,9 +449,20 @@ emit() {
       printf "%s\t%s\t%s\n", line, m, txt }' >> "$findings"
 }
 
+# any_entry <list>: succeeds when some entry of the list matches the text. One grep lets a clean text skip the per-entry loop.
+any_entry() {
+  local e alt=
+  for e in $1; do
+    e=$(printf '%s' "${e%%>*}" | tr '_' ' ' | tr -cd 'A-Za-z -')
+    [ -z "$e" ] || alt="$alt|$e"
+  done
+  [ -n "$alt" ] && grep -q -E -i "(^|[^A-Za-z])(${alt#|})([^A-Za-z]|\$)" "$stripped"
+}
+
 # emit_words <marker> <list>: one whole-word, case-insensitive match per entry.
 emit_words() {
   local marker=$1 w; shift
+  any_entry "$*" || return 0
   for w in $*; do
     w=$(printf '%s' "$w" | tr '_' ' ' | tr -cd 'A-Za-z -')
     [ -n "$w" ] || continue
@@ -460,6 +473,7 @@ emit_words() {
 # emit_pairs <marker> <list>: the same match for the "from" side of each from>to entry. The label shows both sides.
 emit_pairs() {
   local marker=$1 pair from to; shift
+  any_entry "$*" || return 0
   for pair in $*; do
     from=${pair%%>*}; to=${pair#*>}
     from=$(printf '%s' "$from" | tr '_' ' ' | tr -cd 'A-Za-z -')
