@@ -264,7 +264,7 @@ To override a convention, create the `.bf/conventions/` directory in the right l
 
 ## Prose hooks
 
-bf ships six plugin hooks in `hooks/hooks.json`. They check the text bf writes for three hard markers: the em dash, the semicolon, and the contraction. The lint script is `skills/plain/scripts/prose-lint.sh`, and it reads its rules from the `prose-lint` block of the resolved `prose.md`. The lint also reports soft pattern findings, such as banned words and weasel phrases. These never block.
+bf ships six prose hooks in `hooks/hooks.json`. They check the text bf writes for three hard markers: the em dash, the semicolon, and the contraction. The lint script is `skills/plain/scripts/prose-lint.sh`, and it reads its rules from the `prose-lint` block of the resolved `prose.md`. The lint also reports soft pattern findings, such as banned words and weasel phrases. These never block.
 
 | Hook | What it checks |
 |------|----------------|
