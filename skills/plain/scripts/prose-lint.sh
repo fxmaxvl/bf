@@ -244,6 +244,8 @@ st_soft() {
   lint_text "It adds search, highlighting the gains." --rules "$full" --format json
   eq "ing tail" "$(jf .soft.ing_tail)" 1; eq "ing tail exit" "$rc" 0
   eq "ing tail in summary" "$(jf .summary)" "1 -ing tail, 6 words"
+  lint_text "It adds search, highlighting the gains." --rules "$full" --format text
+  eq "ing tail text line" "$out" "1: ing_tail: highlighting"
   lint_text "It adds search, and highlighting works." --rules "$full" --format json
   eq "ing word after and is no tail" "$(jf .soft.ing_tail)" 0
   lint_text "It adds search, showcasing it." --rules "$spaced" --format json
@@ -456,7 +458,7 @@ emit() {
   { grep -n -o "$@" "$stripped" 2>/dev/null || true; } | awk -v m="$marker" -v lab="$label" '
     { line = $0; sub(/:.*/, "", line); txt = substr($0, length(line) + 2)
       if (lab != "-") txt = lab
-      else if (m == "contraction") { sub(/^[^A-Za-z]/, "", txt); sub(/[^A-Za-z]$/, "", txt) }
+      else if (m == "contraction" || m == "ing_tail") { sub(/^[^A-Za-z]+/, "", txt); sub(/[^A-Za-z]+$/, "", txt) }
       printf "%s\t%s\t%s\n", line, m, txt }' >> "$findings"
 }
 
