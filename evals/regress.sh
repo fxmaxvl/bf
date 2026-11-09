@@ -16,8 +16,10 @@
 # REGRESS_BASE comes from the environment or the default origin/main only. A branch must not
 # point its own gate at its own baseline.
 #
-# Source of each input per mode. The hook and --check read the baseline and the conf from
-# REGRESS_BASE, so one push cannot lower its own bar.
+# Source of each input per mode. The hook and --check read baseline.json and regress.conf from
+# REGRESS_BASE, so one push cannot lower its stored scores or override a setting in those two
+# files. The hook is a client-side check, not a trust boundary. It runs the regress.sh of the
+# pushed branch, and that script holds the built-in defaults.
 #   mode             plugin tree   case definitions   baseline.json   regress.conf
 #   pre-push         pushed        pushed             base            base
 #   coverage         none          head               none            none
