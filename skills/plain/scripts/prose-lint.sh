@@ -252,6 +252,11 @@ st_soft() {
   eq "ing tail in summary" "$(jf .summary)" "1 -ing tail, 6 words"
   lint_text "It adds search, highlighting the gains." --rules "$full" --format text
   eq "ing tail text line" "$out" "1: ing_tail: highlighting"
+  local gap
+  for gap in "  " $'\t'; do
+    lint_text "It adds search,${gap}highlighting the gains." --rules "$full" --format text
+    eq "ing tail after $(printf '%q' "$gap")" "$out" "1: ing_tail: highlighting"
+  done
   lint_text "It adds search, and highlighting works." --rules "$full" --format json
   eq "ing word after and is no tail" "$(jf .soft.ing_tail)" 0
   lint_text "It adds search, showcasing it." --rules "$spaced" --format json
@@ -496,7 +501,7 @@ any_entry() {
 emit_ing_tail() {
   local alt
   alt=$(alternation "$*")
-  [ -z "$alt" ] || emit ing_tail - -E -i ", ($alt)([^A-Za-z]|\$)"
+  [ -z "$alt" ] || emit ing_tail - -E -i ",[[:space:]]+($alt)([^A-Za-z]|\$)"
 }
 
 # emit_words <marker> <list>: one whole-word, case-insensitive match per entry.
