@@ -357,7 +357,7 @@ t_prepush_free_path() {
 install_hook() {
   mkdir -p "$CTX_REPO/.githooks"
   cp "$here/../.githooks/pre-push" "$CTX_REPO/.githooks/pre-push"
-  cp "$REGRESS" "$CTX_REPO/evals/regress.sh"
+  cp "$REGRESS" "$here/regress.conf" "$CTX_REPO/evals/"
   g add -A && g commit -qm hook && g push -q --no-verify origin main
   g config core.hooksPath .githooks
 }

@@ -33,6 +33,7 @@ for _key in $CONF_KEYS; do
 done
 unset _key
 REGRESS_BASE=${REGRESS_BASE:-origin/main}
+REGRESS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 die() {
   echo "regress: $*" >&2
@@ -41,17 +42,6 @@ die() {
 
 usage() {
   sed -n '2,/^$/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
-}
-
-conf_default() {
-  case "$1" in
-    REGRESS_MARGIN) echo 0.34 ;;
-    REGRESS_MODEL) echo claude-sonnet-5-5 ;;
-    REGRESS_JUDGE_MODEL) echo claude-haiku-5-5 ;;
-    REGRESS_RUNS) echo 3 ;;
-    REGRESS_MAX_COST_USD) echo 10 ;;
-    REGRESS_CONCURRENCY) echo 4 ;;
-  esac
 }
 
 repo_root() {
@@ -69,16 +59,25 @@ read_at() {
   fi
 }
 
-# Load order: built-in default, then the conf file at <src>, then the environment.
+# Prints the last value of a key in KEY=value text, without surrounding quotes.
+conf_value() {
+  printf '%s\n' "$1" | sed -n "s/^$2=//p" | tail -n 1 | sed "s/^[\"']//; s/[\"']\$//"
+}
+
+# Load order: the conf file at <src>, then the regress.conf next to this script for a key the
+# first file lacks, then the environment. The sibling file is the only place the defaults live.
 conf_load() {
-  local src=$1 key val conf
+  local src=$1 key val conf fallback
   conf=$(read_at "$src" evals/regress.conf) || conf=""
+  fallback=$(cat "$REGRESS_DIR/regress.conf" 2>/dev/null) || fallback=""
   for key in $CONF_KEYS; do
     case " $ENV_KEYS " in
       *" $key "*) continue ;;
     esac
-    val=$(printf '%s\n' "$conf" | sed -n "s/^$key=//p" | tail -n 1 | sed "s/^[\"']//; s/[\"']\$//")
-    printf -v "$key" '%s' "${val:-$(conf_default "$key")}"
+    val=$(conf_value "$conf" "$key")
+    if [ -z "$val" ]; then val=$(conf_value "$fallback" "$key"); fi
+    [ -n "$val" ] || die "no value for $key in evals/regress.conf"
+    printf -v "$key" '%s' "$val"
   done
 }
 
