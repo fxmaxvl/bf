@@ -39,6 +39,8 @@ PUNCTUATION
 - No semicolons. Write two sentences.
 - No em dash. Use a comma, a period, or two sentences. (STE permits the em dash. This convention removes it because it is a common slop marker.)
 
+The tag after a STRUCTURE or PATTERNS rule says who checks it. `lint` means the script reports it as a soft finding. `judgment` means the reader checks it.
+
 STRUCTURE
 - One topic per paragraph, at most six sentences. Keep tense and point of view constant inside a paragraph.
 - Steps go in a numbered list, one action per item, imperative form. Put a condition before its command: "If the build fails, read the log".
@@ -60,7 +62,6 @@ PATTERNS
 - Rhetorical setup (`What if I told you`, `Plot twist:`): drop it and make the point. [lint for the listed phrases, judgment for the rest]
 - Fake-profound kicker (a final line that turns the point into a metaphor): delete the line. Do not rewrite it into a better metaphor. End on the last concrete sentence. [judgment]
 - Summary recap (`In conclusion`, `Overall`): end on the last concrete point or the next action. [lint for `In conclusion`, judgment for `Overall` and other recaps]
-- The tag after a rule says who checks it. `lint` means the script reports it as a soft finding. `judgment` means the reader checks it. Emoji headings are a lint finding. A heading over a two-sentence section and bullets that read better as prose are judgment.
 
 ## Lint rules
 
