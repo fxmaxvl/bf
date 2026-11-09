@@ -1,9 +1,9 @@
 ---
 name: plain
-description: "Use when existing prose should read plain and human — 'make this not sound like AI', 'rewrite this in plain language', 'clean up this README / PR description / error messages', 'apply STE', 'de-slop this'. Rewrites a file or pasted text under the prose convention (ASD-STE100 Simplified Technical English): short active sentences, short common words, no marketing words, no em dashes. Prose only; code, identifiers and commands stay untouched. Not for SKILL.md or other model-facing files, marketing copy, essays, or shortening a doc (bf:essence)."
+description: "Use when existing prose should read plain and human. Triggers: 'make this not sound like AI', 'rewrite this in plain language', 'clean up this README / PR description / error messages', 'apply STE', 'de-slop this'. Add the detect token for 'is this AI slop', 'scan this without rewriting', 'flag the slop': it names each pattern and edits nothing. Rewrites a file or pasted text under the prose convention (ASD-STE100 Simplified Technical English): short active sentences, short common words, no marketing words, no em dashes. Prose only. Code, identifiers and commands stay untouched. Not for SKILL.md or other model-facing files, marketing copy, essays, or shortening a doc (bf:essence)."
 model: sonnet
 disable-model-invocation: false
-argument-hint: "<file path | pasted text> [strict | flavored]"
+argument-hint: "<file path | pasted text> [strict | flavored | detect]"
 allowed-tools: Read, Edit, Write, Bash(bash *), Bash(git *)
 ---
 
@@ -24,6 +24,8 @@ Read the input from `$ARGUMENTS`:
 - **A file path** that exists: the target is that file.
 - **Other text:** the target is that pasted text.
 - **Nothing:** ask one question for the file or the text, then wait.
+
+A trailing `detect` token selects the detect job: run Phase 1 and the Detect phase, then stop. Detect never rewrites, so it ignores a `strict` or `flavored` token. Any other job runs every phase.
 
 A trailing `strict` or `flavored` token sets the mode. Without it, pick the mode from the text by the Modes section of `prose.md`. State the pick in one line: `Mode: strict (runbook steps)`.
 
@@ -51,6 +53,18 @@ BF_TEXT
 
 Keep the `hard` counts and the `summary` as the "before" result. Exit 1 is a normal result here, not a failure. Exit 2 means no result: say so in one line and continue.
 
+## Detect
+
+Run this phase only for the detect job. Print `Job: detect`. Do not edit, score or guess who wrote the text.
+
+1. Run the Phase 1 lint with `--format text` in place of `--format json`. Each output line is `<line>: <marker>: <text>`. Exit 1 is a normal result.
+2. For each finding, read the line by its number and quote it. For pasted text, the number counts lines of the pasted text.
+3. Read the PATTERNS and STRUCTURE groups of `prose.md`. Add the patterns the lint cannot see: colon reveals, negative listing, dramatic fragments, fake-profound kickers, summary recaps, synonym cycling, robotic rhythm, and the formatting rule. Also apply Self-lint item 9, the portability test.
+4. Print one row per finding: the pattern name, the line number, the quoted line, and the fix in a few words.
+5. End with one line that offers a rewrite, then stop.
+
+If a text has no finding, say so in one line. Hard markers (em dash, semicolon, contraction) appear in the rows as findings like any other.
+
 ## Phase 2 — Rewrite
 
 Rewrite the prose only. Do not change these:
@@ -70,7 +84,7 @@ If the text already passes the self-lint, leave it as it is. Second-language and
 
 Run the lint command from Phase 1 on the result for the "after" result. The edit is not written yet, so pass the rewritten text on stdin with `-` for both a file and pasted text. Do not lint the file path here, because the file still holds the old text.
 
-Run the Self-lint checklist from `prose.md` on the result for the rules the script cannot check. Fix each failure, then run the checklist and the lint again.
+Run the Self-lint checklist from `prose.md` on the result for the rules the script cannot check. This includes item 9 (portability) and item 10 (read aloud). Fix each failure, then run the checklist and the lint again.
 
 ## Phase 4 — Deliver
 
