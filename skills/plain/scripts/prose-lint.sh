@@ -449,14 +449,20 @@ emit() {
       printf "%s\t%s\t%s\n", line, m, txt }' >> "$findings"
 }
 
+# norm_entry <entry>: "_" becomes a space and every character outside letters, space and "-" is dropped.
+norm_entry() { printf '%s' "$1" | tr '_' ' ' | tr -cd 'A-Za-z -'; }
+
+# word_re <text>: the whole-word regex for normalized text. Text can be one entry or an "a|b" alternation.
+word_re() { printf '(^|[^A-Za-z])(%s)([^A-Za-z]|$)' "$1"; }
+
 # any_entry <list>: succeeds when some entry of the list matches the text. One grep lets a clean text skip the per-entry loop.
 any_entry() {
   local e alt=
   for e in $1; do
-    e=$(printf '%s' "${e%%>*}" | tr '_' ' ' | tr -cd 'A-Za-z -')
+    e=$(norm_entry "${e%%>*}")
     [ -z "$e" ] || alt="$alt|$e"
   done
-  [ -n "$alt" ] && grep -q -E -i "(^|[^A-Za-z])(${alt#|})([^A-Za-z]|\$)" "$stripped"
+  [ -n "$alt" ] && grep -q -E -i "$(word_re "${alt#|}")" "$stripped"
 }
 
 # emit_words <marker> <list>: one whole-word, case-insensitive match per entry.
@@ -464,9 +470,9 @@ emit_words() {
   local marker=$1 w; shift
   any_entry "$*" || return 0
   for w in $*; do
-    w=$(printf '%s' "$w" | tr '_' ' ' | tr -cd 'A-Za-z -')
+    w=$(norm_entry "$w")
     [ -n "$w" ] || continue
-    emit "$marker" "$w" -E -i "(^|[^A-Za-z])${w}([^A-Za-z]|\$)"
+    emit "$marker" "$w" -E -i "$(word_re "$w")"
   done
 }
 
@@ -475,10 +481,9 @@ emit_pairs() {
   local marker=$1 pair from to; shift
   any_entry "$*" || return 0
   for pair in $*; do
-    from=${pair%%>*}; to=${pair#*>}
-    from=$(printf '%s' "$from" | tr '_' ' ' | tr -cd 'A-Za-z -')
+    from=$(norm_entry "${pair%%>*}"); to=${pair#*>}
     [ -n "$from" ] || continue
-    emit "$marker" "$from -> $(printf '%s' "$to" | tr '_' ' ')" -E -i "(^|[^A-Za-z])${from}([^A-Za-z]|\$)"
+    emit "$marker" "$from -> $(printf '%s' "$to" | tr '_' ' ')" -E -i "$(word_re "$from")"
   done
 }
 
