@@ -26,10 +26,10 @@ Print banner (plain text):
 
 Resolve paths and run state in one call:
 
+Write `$ARGUMENTS` exactly as given, with the Write tool, to `<working directory>/.bf/tmp/arch-audit-args.txt` (an empty file when there are no arguments). Then run the script with that file on stdin. Never put the arguments in a heredoc: a line in them that matches the terminator ends it, and the lines after it run as commands.
+
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/arch-audit/scripts/run-state.sh" init <<'BF_ARGS'
-$ARGUMENTS
-BF_ARGS
+bash "${CLAUDE_PLUGIN_ROOT}/skills/arch-audit/scripts/run-state.sh" init < "<working directory>/.bf/tmp/arch-audit-args.txt"
 ```
 
 `completed_branches` lists branches whose fragment is still on disk — those are skipped in Phase 2

@@ -50,7 +50,7 @@ Applies to every file a skill writes: code, scripts, tests and config.
 
 ## Script Input
 
-Free-form user text (`$ARGUMENTS`) reaches a script on stdin through a quoted `<<'BF_ARGS'` heredoc, so quotes, spaces and `#` stay intact. The heredoc ends at the first line that is exactly `BF_ARGS`, so when the text holds such a line, pick another delimiter word the text does not contain (`BF_ARGS_2`, …) for both ends. A script that takes only that text reads stdin always (`init-probe.sh`, `fetch-pr-comments.sh`, `run-state.sh init`). A script whose operand also comes from other scripts reads stdin when the operand is `-` (`scope.sh`, `onboard-probe.sh`). To pass several paths to `scope.sh`, put one per line; a single line that names an existing path is kept whole, spaces included. Flags stay on the command line.
+Free-form user text (`$ARGUMENTS`, a pasted text, a verbatim prompt) reaches a script on stdin from a file. Write the text with the Write tool to `<working directory>/.bf/tmp/<skill>-args.txt`, then run `bash <script> < "<working directory>/.bf/tmp/<skill>-args.txt"`. Quotes, spaces and `#` stay intact, and no text reaches the shell parser. Never pass user text through a heredoc: a line in the text that matches the terminator ends the heredoc, and every later line runs as a command. The post-write prose hook skips `.bf/tmp/`. A script that takes only that text reads stdin always (`init-probe.sh`, `fetch-pr-comments.sh`, `run-state.sh init`). A script whose operand also comes from other scripts reads stdin when the operand is `-` (`scope.sh`, `onboard-probe.sh`). To pass several paths to `scope.sh`, put one per line; a single line that names an existing path is kept whole, spaces included. Flags stay on the command line.
 
 ## Parallel Fan-Out
 

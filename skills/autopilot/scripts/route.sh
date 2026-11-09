@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # route.sh — Resolve which bf workflow /bf:autopilot should run.
-# Usage: bash route.sh <<'BF_ARGS'
-#        <$ARGUMENTS>
+# Usage: bash route.sh < <file holding $ARGUMENTS>
 #        BF_ARGS
 # Input arrives on stdin, never as an argument: it is user text substituted into
 # the command, and a backtick or " in it would be run by the shell.

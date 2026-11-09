@@ -2,21 +2,26 @@
 # Lint text against the hard markers and word lists of the resolved prose.md.
 #
 # Usage: prose-lint.sh <file|-> [--mode file|chat|commit|comment] [--rules <prose.md>]
-#                      [--cwd <dir>] [--ext sh|py|ts|js] [--format text|json]
+#                      [--cwd <dir>] [--ext sh|py|ts|js] [--format text|json] [--soft]
+#        --soft turns the soft markers on in comment mode, which turns them off by default.
 #        prose-lint.sh --digest [--rules <prose.md>] [--cwd <dir>]
 #        prose-lint.sh --classify <path>
 #        prose-lint.sh --selftest
-# Output: json: one object {hard:{em_dash,semicolon,contraction}, soft:{replace,banned,long_sentence},
-#         words, long_reply, rules_block, summary, hard_summary}. hard_summary counts only the markers in
-#         the hard list. rules_block is true when the resolved file has a
-#         prose-lint block. text: one finding per line, "<line>: <marker>: <text>". --digest prints the
-#         Self-lint section of the resolved prose.md.
+# Output: json: one object {hard:{em_dash,semicolon,contraction}, soft:{replace,banned,empty,pattern,
+#         ing_tail,bold_mid,emoji_heading,long_sentence}, words, long_reply, rules_block, summary,
+#         hard_summary}. hard_summary counts only the markers in the hard list. rules_block is true
+#         when the resolved file has a prose-lint block. text: one finding per line,
+#         "<line>: <marker>: <text>". --digest prints the Self-lint section of the resolved prose.md.
 #         --classify prints the mode and extension for a path ("file" or "comment sh"), and exits 1 with
 #         no output when the lint does not support the path. This script owns the list of supported files.
 # Exit:   0 no hard marker, 1 at least one hard marker, 2 usage or runtime error. Only a hard marker
 #         decides the exit code, never a score or a ratio, and a soft finding never does.
 # Errors: {"error":...,"detail":...} on stderr + exit 2.
+#         An unknown key in the prose-lint block prints a plain-text warning on stderr and does not
+#         change the exit code.
 set -euo pipefail
+# Rules entries are split as plain words: an entry such as * must never expand to file names.
+set -f
 export LC_ALL=C
 
 self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
@@ -37,6 +42,16 @@ hard_table='em_dash|em dash|em dashes
 semicolon|semicolon|semicolons
 contraction|contraction|contractions'
 
+# One row per soft marker, in summary order: name|singular|plural. A soft finding never changes the exit code.
+soft_table='replace|replaceable word|replaceable words
+banned|banned word|banned words
+empty|empty word|empty words
+pattern|slop pattern|slop patterns
+ing_tail|-ing tail|-ing tails
+bold_mid|mid-sentence bold|mid-sentence bold
+emoji_heading|emoji heading|emoji headings
+long_sentence|long sentence|long sentences'
+
 # The selftest fixtures run the script as a child process, so the real command line is the test seam.
 selftest() {
   local fails=0 out rc
@@ -49,8 +64,8 @@ selftest() {
   jf() { jq -r "$1" <<<"$out"; }
   nwords() { local i=0 w=; while [ "$i" -lt "$1" ]; do w="$w word"; i=$((i+1)); done; printf '%s' "${w# }"; }
 
-  local dash=$'\xE2\x80\x94' curly=$'\xE2\x80\x99'
-  local full=$tmp/full.md noblock=$tmp/noblock.md dashonly=$tmp/dashonly.md dashnosec=$tmp/dashnosec.md
+  local dash=$'\xE2\x80\x94' curly=$'\xE2\x80\x99' rocket=$'\xF0\x9F\x9A\x80' arrow=$'\xE2\x86\x92'
+  local full=$tmp/full.md noblock=$tmp/noblock.md spaced=$tmp/spaced.md dashonly=$tmp/dashonly.md dashnosec=$tmp/dashnosec.md
   st_fixtures
   st_hard
   st_rules_block
@@ -86,9 +101,13 @@ cap_descriptive: 25
 long_reply_words: 150
 replace: utilize>use prior_to>before
 banned: robust worth_noting
+empty: just simply
+pattern: experts_agree>weasel_attribution serves_as>fake_strong_verb
+ing_tail: highlighting showcasing
 ```
 EOF
   printf '# Fixture\n\nNo block here.\n' > "$noblock"
+  sed 's/^ing_tail: .*/ing_tail: highlighting  showcasing /' "$full" > "$spaced"
   sed 's/^hard: .*/hard: em_dash/' "$full" > "$dashonly"
   printf '# Fixture\n\n```prose-lint\nhard: em_dash\n```\n' > "$dashnosec"
 }
@@ -169,8 +188,17 @@ st_errors() {
   lint_text "one; two" --rules "$tmp/badhard.md" --format json
   eq "unknown hard name exits 2" "$rc" 2
   sed 's/^cap_instruction:/cap_instrucion:/' "$full" > "$tmp/badkey.md"
+  lint_text "A robust tool." --rules "$tmp/badkey.md" --format json
+  eq "unknown key is skipped" "$rc" 0
+  eq "unknown key keeps the other keys" "$(jf .soft.banned)" 1
   lint_text "one; two" --rules "$tmp/badkey.md" --format json
-  eq "unknown key exits 2" "$rc" 2
+  eq "unknown key leaves the exit code to the markers" "$rc" 1
+  sed 's/^hard:/hadr:/' "$full" > "$tmp/nohard.md"
+  lint_text "one; two" --rules "$tmp/nohard.md" --format json
+  eq "misspelled hard key keeps the hard markers" "$rc" 1
+  sed 's/^hard: .*/hard:/' "$full" > "$tmp/emptyhard.md"
+  lint_text "one; two" --rules "$tmp/emptyhard.md" --format json
+  eq "explicit empty hard key turns them off" "$rc" 0
   sed 's/^```prose-lint$/```prose-lint-old/' "$full" > "$tmp/oldfence.md"
   lint_text "one; two" --rules "$tmp/oldfence.md" --format json
   eq "prose-lint-old is no block" "$(jf .rules_block)" false
@@ -209,6 +237,95 @@ st_soft() {
   eq "no block no caps" "$(jf .soft.long_sentence)" 0
   lint_text "We utilize it." --rules "$full" --format json
   eq "soft in summary" "$(jf .summary)" "1 replaceable word, 3 words"
+  lint_text "It just works." --rules "$full" --format json
+  eq "empty word" "$(jf .soft.empty)" 1; eq "empty word exit" "$rc" 0
+  eq "empty in summary" "$(jf .summary)" "1 empty word, 3 words"
+  lint_text "Experts agree it serves as a hub." --rules "$full" --format json
+  eq "pattern phrases" "$(jf .soft.pattern)" 2; eq "pattern exit" "$rc" 0
+  eq "pattern in summary" "$(jf .summary)" "2 slop patterns, 7 words"
+  lint_text "Experts agree it serves as a hub." --rules "$full" --format text
+  eq "pattern text line" "$(printf '%s' "$out" | tr '\n' '|')" "1: pattern: experts agree -> weasel attribution|1: pattern: serves as -> fake strong verb"
+  lint_text "# it just works" --mode comment --ext sh --rules "$full" --format json
+  eq "comment mode skips empty" "$(jf .soft.empty)" 0
+  lint_text "# Experts agree it is robust" --mode comment --ext sh --soft --rules "$full" --format json
+  eq "soft flag in comment mode" "$(jf '.soft.pattern + .soft.banned')" 2; eq "soft flag exit" "$rc" 0
+  lint_text "It just works." --rules "$noblock" --format json
+  eq "no block no empty list" "$(jf .soft.empty + .soft.pattern)" 0
+  eq "json soft keys" "$(jf '.soft | keys_unsorted | join(",")')" "replace,banned,empty,pattern,ing_tail,bold_mid,emoji_heading,long_sentence"
+  lint_text "It adds search, highlighting the gains." --rules "$full" --format json
+  eq "ing tail" "$(jf .soft.ing_tail)" 1; eq "ing tail exit" "$rc" 0
+  eq "ing tail in summary" "$(jf .summary)" "1 -ing tail, 6 words"
+  lint_text "It adds search, highlighting the gains." --rules "$full" --format text
+  eq "ing tail text line" "$out" "1: ing_tail: highlighting"
+  local gap
+  for gap in "  " $'\t'; do
+    lint_text "It adds search,${gap}highlighting the gains." --rules "$full" --format text
+    eq "ing tail after $(printf '%q' "$gap")" "$out" "1: ing_tail: highlighting"
+  done
+  lint_text "It adds search, and highlighting works." --rules "$full" --format json
+  eq "ing word after and is no tail" "$(jf .soft.ing_tail)" 0
+  lint_text "It adds search, showcasing it." --rules "$spaced" --format json
+  eq "ing tail list with double and trailing space" "$(jf .soft.ing_tail)" 1
+  lint_text "It adds search, reflecting the gains." --rules "$full" --format json
+  eq "ing tail verb comes from the block" "$(jf .soft.ing_tail)" 0
+  lint_text "It adds search, reflecting the gains." --rules "$noblock" --format json
+  eq "ing tail off without a block" "$(jf .soft.ing_tail)" 0
+  lint_text $'It adds search,\n  highlighting the gains.' --rules "$full" --format text
+  eq "ing tail after a line wrap" "$out" "2: ing_tail: highlighting"
+  lint_text "Done, highlighting, showcasing it." --rules "$full" --format json
+  eq "adjacent ing tails" "$(jf .soft.ing_tail)" 2
+  lint_text "A robust robust tool." --rules "$full" --format json
+  eq "repeated banned word" "$(jf .soft.banned)" 2
+  sed 's/^replace: .*/replace: utilize>use\\n7\\tsemicolon\\tforged/' "$full" > "$tmp/backslash.md"
+  lint_text "We utilize it." --rules "$tmp/backslash.md" --format json
+  eq "backslash label forges no row" "$(jf .hard.semicolon)" 0; eq "backslash label exit" "$rc" 0
+  mkdir -p "$tmp/globdir" && : > "$tmp/globdir/robust"
+  sed 's/^banned: .*/banned: */' "$full" > "$tmp/glob.md"
+  local here=$PWD
+  cd "$tmp/globdir"
+  lint_text "A robust tool." --rules "$tmp/glob.md" --format json
+  cd "$here"
+  eq "glob entry is no file name" "$(jf .soft.banned)" 0
+  lint_text "This is **very** clear." --rules "$full" --format json
+  eq "mid-sentence bold" "$(jf .soft.bold_mid)" 1; eq "bold exit" "$rc" 0
+  eq "bold in summary" "$(jf .summary)" "1 mid-sentence bold, 4 words"
+  local bold
+  for bold in "- **Governed:** all prose." "1. **Step:** run it." "**Note:** text." $'| a | **b** |\n|---|---|' 'Run `a **b** c` now.'; do
+    lint_text "$bold" --rules "$full" --format json
+    eq "bold label or table or code: ${bold//$'\n'/ }" "$(jf .soft.bold_mid)" 0
+  done
+  local check=$'\xE2\x9C\x93' heavy=$'\xE2\x9E\x9C' star=$'\xE2\xAD\x90' fence=$'```'
+  for bold in "- [ ] **Task:** do it" "- [x] **Done:** ok" "### **Setup**"; do
+    lint_text "$bold" --rules "$full" --format json
+    eq "bold label after a box or heading: $bold" "$(jf .soft.bold_mid)" 0
+  done
+  lint_text "# **Note:** run it first" --mode comment --ext py --soft --rules "$full" --format json
+  eq "bold label after a comment marker" "$(jf .soft.bold_mid)" 0
+  lint_text "# This is **very** clear." --mode comment --ext py --soft --rules "$full" --format json
+  eq "mid-sentence bold in a comment" "$(jf .soft.bold_mid)" 1
+  lint_text $'Body.\n\n'"$fence"$'\nf(**a, **b)\nx = 1 '"$dash"$' 2\n'"$fence" --mode commit --rules "$full" --format json
+  eq "commit mode fenced bold" "$(jf .soft.bold_mid)" 0
+  eq "commit mode fenced em dash stays hard" "$(jf .hard.em_dash)" 1
+  lint_text "# Deploy the app $rocket now" --mode comment --ext sh --soft --rules "$full" --format json
+  eq "emoji in a comment is no heading" "$(jf .soft.emoji_heading)" 0
+  lint_text "## Step $check done" --rules "$full" --format json
+  eq "check mark heading" "$(jf .soft.emoji_heading)" 0
+  lint_text "## A $heavy B" --rules "$full" --format json
+  eq "dingbat arrow heading" "$(jf .soft.emoji_heading)" 0
+  lint_text "## $star Stars" --rules "$full" --format json
+  eq "star heading" "$(jf .soft.emoji_heading)" 1
+  lint_text "- **Label:** one **two** three" --rules "$full" --format json
+  eq "bold after a label still counts" "$(jf .soft.bold_mid)" 1
+  lint_text "## $rocket Launch" --rules "$full" --format json
+  eq "emoji heading" "$(jf .soft.emoji_heading)" 1; eq "emoji heading exit" "$rc" 0
+  lint_text "## $rocket Launch" --rules "$full" --format text
+  eq "emoji heading label" "$out" "1: emoji_heading: emoji in heading"
+  lint_text "## A $arrow B" --rules "$full" --format json
+  eq "arrow heading is no emoji" "$(jf .soft.emoji_heading)" 0
+  lint_text "Ship it $rocket now." --rules "$full" --format json
+  eq "emoji in body is no heading hit" "$(jf .soft.emoji_heading)" 0
+  lint_text "# a **very** b, highlighting c" --mode comment --ext sh --rules "$full" --format json
+  eq "comment mode skips new markers" "$(jf '.soft.bold_mid + .soft.ing_tail')" 0
 }
 
 st_modes() {
@@ -260,12 +377,14 @@ st_real_rules() {
     eq "real file rules_block" "$(jf .rules_block)" true
     eq "real file banned list" "$(jf .soft.banned)" 1
     run --digest --rules "$real"
-    eq "real digest items" "$(printf '%s\n' "$out" | grep -c '^[1-8]\. ')" 8
+    eq "real digest items" "$(printf '%s\n' "$out" | grep -c -E '^[0-9]+\. ')" 10
+    lint_text "It just works." --rules "$real" --format json
+    eq "real file empty list" "$(jf .soft.empty)" 1
   fi
 }
 
 parse_args() {
-  mode=file format=text rules= cwd=. ext= input= digest=0
+  mode=file format=text rules= cwd=. ext= input= digest=0 force_soft=0
   while [ $# -gt 0 ]; do
     case $1 in
       --mode) [ $# -ge 2 ] || die usage "--mode needs a value"; mode=$2; shift 2 ;;
@@ -274,6 +393,7 @@ parse_args() {
       --cwd) [ $# -ge 2 ] || die usage "--cwd needs a value"; cwd=$2; shift 2 ;;
       --ext) [ $# -ge 2 ] || die usage "--ext needs a value"; ext=$2; shift 2 ;;
       --digest) digest=1; shift ;;
+      --soft) force_soft=1; shift ;;
       -) input=-; shift ;;
       -*) die usage "unknown flag: $1" ;;
       *) [ -z "$input" ] || die usage "more than one input"; input=$1; shift ;;
@@ -290,6 +410,7 @@ check_options() {
     comment) filt=comment caps=0 longreply=0 soft=0 ;;
     *) die usage "unknown mode: $mode" ;;
   esac
+  if [ "$force_soft" = 1 ]; then soft=1; fi
   case $format in text|json) ;; *) die usage "unknown format: $format" ;; esac
   if [ "$mode" = comment ]; then
     case $ext in sh|py|ts|js) ;; *) die usage "comment mode needs --ext sh|py|ts|js" ;; esac
@@ -307,10 +428,10 @@ resolve_rules() {
 }
 
 load_rules() {
-  local l k v h
+  local l k v h seen_hard=0
   # The prose-lint block: "key: value" lines between a ```prose-lint fence and the next fence.
   rules_block=false
-  r_hard= r_cap_i=20 r_cap_d=25 r_long=150 r_replace= r_banned=
+  r_hard= r_cap_i=20 r_cap_d=25 r_long=150 r_replace= r_banned= r_empty= r_pattern= r_ing=
   # The awk pass decides whether a block exists, so one fence pattern covers the parser and the flag.
   awk -v flag="$work/found" '/^```prose-lint[ \t]*$/ {inb=1; print "" > flag; next} inb && /^```/ {exit} inb' "$rules" > "$work/block"
   if [ -f "$work/found" ]; then
@@ -319,17 +440,22 @@ load_rules() {
       [ -n "${l//[[:space:]]/}" ] || continue
       k=${l%%:*}; v=${l#*:}; v=${v# }
       case $k in
-        hard) r_hard=$v ;;
+        hard) r_hard=$v seen_hard=1 ;;
         cap_instruction) r_cap_i=$v ;;
         cap_descriptive) r_cap_d=$v ;;
         long_reply_words) r_long=$v ;;
         replace) r_replace=$v ;;
         banned) r_banned=$v ;;
-        *) die rules_invalid "unknown key in the prose-lint block: $k" ;;
+        empty) r_empty=$v ;;
+        pattern) r_pattern=$v ;;
+        ing_tail) r_ing=$v ;;
+        # A newer project prose.md must not break an older lint, so an unknown key is skipped.
+        *) echo "prose-lint: skipped unknown key in the prose-lint block: $k" >&2 ;;
       esac
     done < "$work/block"
   fi
-  [ "$rules_block" = true ] || r_hard=$hard_names
+  # A missing or misspelled hard key keeps every hard marker on. Only an explicit empty "hard:" turns them off.
+  [ "$seen_hard" = 1 ] || r_hard=$hard_names
   case $r_cap_i$r_cap_d$r_long in *[!0-9]*) die rules_invalid "caps and long_reply_words must be numbers" ;; esac
   for h in $r_hard; do
     case " $hard_names " in *" $h "*) ;; *) die rules_invalid "unknown hard marker: $h" ;; esac
@@ -379,6 +505,15 @@ strip_nonprose() {
   # An HTML entity (&name; or &#123; or &#x1F;) is not a semicolon: the entity loses its closing mark here.
   # A name needs two or more characters, so AT&T; and R&D; keep their semicolons.
   sed -E 's/(&(#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]+));/\1/g' "$stripped" > "$work/entities" && mv "$work/entities" "$stripped" || true
+
+  # The soft markers read Markdown shape, so they get a copy without code fences or comment markers.
+  # The hard markers keep reading the copy above: the pre-bash hook counts a fenced em dash in a commit body.
+  softcopy=$work/softcopy
+  case $filt in
+    raw) awk '/^[ \t]*(```|~~~)/ { fence = !fence; print ""; next } fence { print ""; next } { print }' "$stripped" > "$softcopy" ;;
+    comment) awk -v lead="$lead" '$0 ~ lead { sub(lead "[#/]*[ \t]?", ""); print; next } { print }' "$stripped" > "$softcopy" ;;
+    *) cp "$stripped" "$softcopy" ;;
+  esac
 }
 
 # emit <marker> <label|-> <grep args...>: one finding row per match. The label replaces the matched text.
@@ -387,12 +522,73 @@ emit() {
   { grep -n -o "$@" "$stripped" 2>/dev/null || true; } | awk -v m="$marker" -v lab="$label" '
     { line = $0; sub(/:.*/, "", line); txt = substr($0, length(line) + 2)
       if (lab != "-") txt = lab
-      else if (m == "contraction") { sub(/^[^A-Za-z]/, "", txt); sub(/[^A-Za-z]$/, "", txt) }
+      else if (m == "contraction") { sub(/^[^A-Za-z]+/, "", txt); sub(/[^A-Za-z]+$/, "", txt) }
       printf "%s\t%s\t%s\n", line, m, txt }' >> "$findings"
 }
 
+# scan_lists: one awk pass for every word list, so the cost does not grow with the number of entries.
+# Entries reach awk through a file, never -v, so a backslash in a label stays a backslash.
+scan_lists() {
+  local e
+  {
+    for e in $r_replace; do printf 'replace\t%s\n' "$e"; done
+    for e in $r_banned; do printf 'banned\t%s\n' "$e"; done
+    for e in $r_empty; do printf 'empty\t%s\n' "$e"; done
+    for e in $r_pattern; do printf 'pattern\t%s\n' "$e"; done
+    for e in $r_ing; do printf 'ing_tail\t%s\n' "$e"; done
+  } > "$work/entries"
+  awk -F'\t' '
+    # An entry is whole-word and case-insensitive. "_" is a space, and only letters, space and "-" are kept.
+    FILENAME == ARGV[1] {
+      m = $1; from = $2; to = $2; pair = (m == "replace" || m == "pattern")
+      if (pair && (i = index($2, ">"))) { from = substr($2, 1, i - 1); to = substr($2, i + 1) }
+      gsub(/_/, " ", from); gsub(/[^A-Za-z -]/, "", from)
+      if (from == "") next
+      gsub(/_/, " ", to)
+      n++; mk[n] = m; w[n] = tolower(from); lab[n] = (pair ? from " -> " to : from)
+      next
+    }
+    function letter(c) { return c ~ /[a-z]/ }
+    # An -ing tail needs a comma, then at least one space, before the verb. A comma at the end of the
+    # previous line counts as a wrap. The comma is not consumed, so adjacent tails both count.
+    function tail(st,   j) {
+      j = st - 1
+      while (j >= 1 && substr(low, j, 1) ~ /[ \t]/) j--
+      if (j < 1) return prevlast == ","
+      return j < st - 1 && substr(low, j, 1) == ","
+    }
+    {
+      low = tolower($0)
+      for (k = 1; k <= n; k++) {
+        len = length(w[k]); pos = 1
+        while ((i = index(substr(low, pos), w[k])) > 0) {
+          st = pos + i - 1; en = st + len
+          if ((st == 1 || !letter(substr(low, st - 1, 1))) && !letter(substr(low, en, 1)) && (mk[k] != "ing_tail" || tail(st))) {
+            printf "%d\t%s\t%s\n", FNR, mk[k], (mk[k] == "ing_tail" ? substr($0, st, len) : lab[k])
+            pos = en
+          } else pos = st + 1
+        }
+      }
+      line = $0; sub(/[ \t]+$/, "", line)
+      prevlast = (line == "" ? "" : substr(line, length(line), 1))
+    }' "$work/entries" "$stripped" >> "$findings"
+}
+
+# Bold after the first word of a line is emphasis. A leading label, a table row and a code span are formatting.
+find_bold_mid() {
+  awk '
+    /^[ \t]*\|/ { next }
+    {
+      line = $0
+      sub(/^[ \t]*(#+[ \t]+)?([-*+]|[0-9]+\.)?[ \t]*(\[[ xX]\][ \t]*)?\*\*[^*]+\*\*/, "", line)
+      while (match(line, /\*\*[^* ][^*]*\*\*/)) {
+        printf "%d\tbold_mid\t%s\n", NR, substr(line, RSTART, RLENGTH)
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }' "$stripped" >> "$findings"
+}
+
 find_markers() {
-  local pair from to w
   apos=$'(\'|\xE2\x80\x99)'
   emit em_dash - -F $'\xE2\x80\x94'
   emit semicolon - -F ';'
@@ -401,17 +597,14 @@ find_markers() {
   emit contraction - -E -i -w "(it|that|let|there|here|what|who)${apos}s"
 
   if [ "$soft" = 1 ]; then
-    for pair in $r_replace; do
-      from=${pair%%>*}; to=${pair#*>}
-      from=$(printf '%s' "$from" | tr '_' ' ' | tr -cd 'A-Za-z -')
-      [ -n "$from" ] || continue
-      emit replace "$from -> $(printf '%s' "$to" | tr '_' ' ')" -E -i "(^|[^A-Za-z])${from}([^A-Za-z]|\$)"
-    done
-    for w in $r_banned; do
-      w=$(printf '%s' "$w" | tr '_' ' ' | tr -cd 'A-Za-z -')
-      [ -n "$w" ] || continue
-      emit banned "$w" -E -i "(^|[^A-Za-z])${w}([^A-Za-z]|\$)"
-    done
+    local hardcopy=$stripped
+    stripped=$softcopy
+    scan_lists
+    # Match on UTF-8 bytes, because grep has no -P here: U+1F300 to U+1FAFF, U+2600 to U+26FF, and the emoji
+    # dingbats and stars (U+2705, U+2728, U+274C, U+2753 to U+2757, U+2B50, U+2B55). Check marks and arrows are not emoji.
+    emit emoji_heading "emoji in heading" -E $'^#+[ \t].*(\xF0\x9F[\x8C-\xAB]|\xE2[\x98-\x9B]|\xE2\x9C[\x85\xA8]|\xE2\x9D[\x8C\x93-\x97]|\xE2\xAD[\x90\x95])'
+    find_bold_mid
+    stripped=$hardcopy
   fi
 }
 
@@ -441,7 +634,6 @@ find_long_sentences() {
 count() { awk -F'\t' -v m="$1" '$2 == m {n++} END {print n + 0}' "$findings"; }
 
 count_findings() {
-  c_repl=$(count replace) c_ban=$(count banned) c_long=$(count long_sentence)
   words=$(wc -w < "$stripped" | tr -d ' ')
 
   long_reply=false
@@ -452,13 +644,14 @@ count_findings() {
 }
 
 plural() { if [ "$1" -eq 1 ]; then printf '%s %s' "$1" "$2"; else printf '%s %s' "$1" "$3"; fi; }
-# hard_label <name>: the count of one hard marker with its singular or plural label.
-hard_label() {
+# table_label <table> <name>: the count of one marker with its singular or plural label.
+table_label() {
   local row one many
-  row=$(printf '%s\n' "$hard_table" | grep "^$1|")
+  row=$(printf '%s\n' "$1" | grep "^$2|")
   one=${row#*|}; many=${one#*|}; one=${one%%|*}
-  plural "$(count "$1")" "$one" "$many"
+  plural "$(count "$2")" "$one" "$many"
 }
+hard_label() { table_label "$hard_table" "$1"; }
 
 build_summaries() {
   local parts p h
@@ -466,9 +659,9 @@ build_summaries() {
   for h in $hard_names; do
     [ "$(count "$h")" -eq 0 ] || parts+=("$(hard_label "$h")")
   done
-  [ "$c_repl" -eq 0 ] || parts+=("$(plural "$c_repl" "replaceable word" "replaceable words")")
-  [ "$c_ban" -eq 0 ] || parts+=("$(plural "$c_ban" "banned word" "banned words")")
-  [ "$c_long" -eq 0 ] || parts+=("$(plural "$c_long" "long sentence" "long sentences")")
+  for h in $soft_names; do
+    [ "$(count "$h")" -eq 0 ] || parts+=("$(table_label "$soft_table" "$h")")
+  done
   parts+=("$words words")
   summary=
   for p in "${parts[@]}"; do summary="$summary, $p"; done
@@ -486,10 +679,11 @@ print_report() {
   if [ "$format" = json ]; then
     hard_json=$(for h in $hard_names; do printf '%s\t%s\n' "$h" "$(count "$h")"; done \
       | jq -Rn '[inputs | split("\t") | {(.[0]): (.[1] | tonumber)}] | add')
-    jq -cn --argjson h "$hard_json" \
-      --argjson r "$c_repl" --argjson b "$c_ban" --argjson l "$c_long" \
+    soft_json=$(for h in $soft_names; do printf '%s\t%s\n' "$h" "$(count "$h")"; done \
+      | jq -Rn '[inputs | split("\t") | {(.[0]): (.[1] | tonumber)}] | add')
+    jq -cn --argjson h "$hard_json" --argjson s "$soft_json" \
       --argjson w "$words" --argjson lr "$long_reply" --argjson rb "$rules_block" --arg sum "$summary" --arg hs "$hard_summary" \
-      '{hard:$h, soft:{replace:$r, banned:$b, long_sentence:$l},
+      '{hard:$h, soft:$s,
         words:$w, long_reply:$lr, rules_block:$rb, summary:$sum, hard_summary:$hs}'
   else
     sort -n -s -t "$(printf '\t')" -k1,1 "$findings" | awk -F'\t' '{ printf "%s: %s: %s\n", $1, $2, $3 }'
@@ -517,6 +711,8 @@ main() {
   command -v jq >/dev/null 2>&1 || die jq_missing "jq not installed"
   hard_names=$(printf '%s\n' "$hard_table" | cut -d'|' -f1 | tr '\n' ' ')
   hard_names=${hard_names% }
+  soft_names=$(printf '%s\n' "$soft_table" | cut -d'|' -f1 | tr '\n' ' ')
+  soft_names=${soft_names% }
   parse_args "$@"
   check_options
   resolve_rules

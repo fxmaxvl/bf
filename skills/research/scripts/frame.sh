@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # frame.sh — Judge what a standalone /bf:research prompt already answers, so
 # Phase 0 asks only what is missing and Phase 3 knows its channels.
-# Usage: bash frame.sh <<'BF_PROMPT'
-#        <the user's research prompt>
+# Usage: bash frame.sh < <file holding the user's research prompt>
 #        BF_PROMPT
 # The prompt arrives on stdin, never as an argument -- see autopilot/scripts/route.sh.
 # Outputs one JSON object. Without TypeSafe (off, no key, unreachable):

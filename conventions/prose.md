@@ -2,7 +2,7 @@
 
 Write prose for people in clear technical language, based on ASD-STE100 Simplified Technical English (STE). The goal is plain, exact text with no "AI slop".
 
-Adapted from [jjsnack/technical-language-skill](https://github.com/jjsnack/technical-language-skill). The standard itself is free at https://asd-ste100.org. It is copyrighted, so do not paste it.
+Adapted from [jjsnack/technical-language-skill](https://github.com/jjsnack/technical-language-skill). The pattern catalog also draws on [petergyang/no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT). The standard itself is free at https://asd-ste100.org. It is copyrighted, so do not paste it.
 
 ## Scope
 
@@ -39,22 +39,44 @@ PUNCTUATION
 - No semicolons. Write two sentences.
 - No em dash. Use a comma, a period, or two sentences. (STE permits the em dash. This convention removes it because it is a common slop marker.)
 
+The tag after a STRUCTURE or PATTERNS rule says who checks it. `lint` means the script reports it as a soft finding. `judgment` means the reader checks it.
+
 STRUCTURE
 - One topic per paragraph, at most six sentences. Keep tense and point of view constant inside a paragraph.
 - Steps go in a numbered list, one action per item, imperative form. Put a condition before its command: "If the build fails, read the log".
 - Put a warning before the step it applies to.
+- No bold in the middle of a sentence for emphasis. No heading over a two-sentence section. No bullets where two sentences of prose read better. No emoji in headings. [lint: bold and emoji. judgment: the heading and bullet rules.]
+
+PATTERNS
+- Throat-clearing opener (`Let me be clear`): delete it and state the point. [lint]
+- Faux insight (`What most people get wrong`): delete the setup and make the claim stand alone. [lint]
+- Colon reveal (`The detail that makes it work: a separate agent grades it`): write a plain sentence. Use a colon for a list, a label or a quote. [judgment]
+- Superficial analysis (`adds file search, highlighting the team's commitment`): delete the trailing "-ing" clause or replace it with a fact. [lint]
+- Importance puffery (`plays a vital role`, `stands as a testament`): state the fact and let the reader judge. [lint]
+- Interpretive metadiscourse (`The key point is`, `As you can see`): delete the aside or add support. [lint]
+- Weasel attribution (`Experts agree`, `Studies show`): name the source or flag the claim. If you have no source, ask. Never invent one. [lint]
+- Fake-strong verb (`serves as a hub`): write "is" or "has", or name what the thing does. [lint]
+- Synonym cycling (`the agent`, then `the assistant`, then `the tool`): see the WORDS rule "Use one name for one thing". [judgment]
+- Negative listing (`Not a plan. Not a spec. A sketch.`): state the last item only. [judgment]
+- Dramatic fragments (`That's it. That's the whole thing.`): write complete sentences. [judgment]
+- Rhetorical setup (`What if I told you`, `Plot twist:`): drop it and make the point. [lint for the listed phrases, judgment for the rest]
+- Fake-profound kicker (a final line that turns the point into a metaphor): delete the line. Do not rewrite it into a better metaphor. End on the last concrete sentence. [judgment]
+- Summary recap (`In conclusion`, `Overall`): end on the last concrete point or the next action. [lint for `In conclusion`, judgment for `Overall` and other recaps]
 
 ## Lint rules
 
-`skills/plain/scripts/prose-lint.sh` reads this block. Each line is `key: value`. Lists are space-separated, `from>to` is a pair, and `_` stands for one space. Keep the block free of em dashes and semicolons.
+`skills/plain/scripts/prose-lint.sh` reads this block. Each line is `key: value`. Lists are space-separated, `from>to` is a pair, and `_` stands for one space. The `empty` key lists words that add nothing. The `pattern` key lists `phrase>name` pairs, and the lint reports the phrase with the pattern name. The `ing_tail` key lists the "-ing" verbs that the lint reports after a comma. No soft key changes the exit code. The lint skips a key it does not know. Keep the block free of em dashes and semicolons.
 
 ```prose-lint
 hard: em_dash semicolon contraction
 cap_instruction: 20
 cap_descriptive: 25
 long_reply_words: 150
-replace: utilize>use leverage>use begin>start commence>start initiate>start facilitate>help ensure>make_sure prior_to>before subsequent_to>after regarding>about obtain>get acquire>get demonstrate>show additionally>also furthermore>also moreover>also
-banned: seamless robust powerful cutting-edge effortless world-class battle-tested genuinely truly worth_noting it_is_important_to_note
+replace: utilize>use leverage>use begin>start commence>start initiate>start facilitate>help ensure>make_sure prior_to>before subsequent_to>after regarding>about obtain>get acquire>get demonstrate>show additionally>also furthermore>also moreover>also in_order_to>to has_the_ability_to>can made_a_decision>decided with_regard_to>about in_terms_of>in
+banned: seamless robust powerful cutting-edge effortless world-class battle-tested genuinely truly worth_noting it_is_important_to_note delve delves foster fosters fostering tapestry realm beacon multifaceted meticulous intricate paramount transformative elevate embark supercharge ever-evolving game-changer game_changer streamline streamlined empower empowers paradigm_shift
+empty: just simply actually literally fundamentally inherently crucially importantly
+pattern: let_me_be_clear>throat_clearing what_most_people_get_wrong>faux_insight stands_as_a_testament>importance_puffery plays_a_vital_role>importance_puffery pivotal_moment>importance_puffery as_you_can_see>metadiscourse the_key_point_is>metadiscourse experts_agree>weasel_attribution studies_show>weasel_attribution many_argue>weasel_attribution widely_regarded_as>weasel_attribution serves_as>fake_strong_verb what_if_i_told_you>rhetorical_setup plot_twist>rhetorical_setup in_conclusion>summary_recap
+ing_tail: highlighting underscoring showcasing reflecting emphasizing
 ```
 
 ## Modes
@@ -76,6 +98,8 @@ Run this before returning text. Fix what fails.
 6. Any "not X, it is Y" pivot or hollow intensifier? State the point directly.
 7. Any noun cluster of four or more nouns? Break it up.
 8. Same thing named two ways? Pick one name.
+9. Could a sentence move unchanged to another product or company? Cut it or make it specific.
+10. Would it sound natural read aloud to a sharp colleague?
 
 ## Limits
 

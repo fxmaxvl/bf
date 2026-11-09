@@ -30,10 +30,10 @@ Print banner (plain text, not in a code block):
 
 Fetch everything in one call — never assemble threads from separate `gh` queries. Later scripts take the result's `url`, never `$ARGUMENTS`:
 
+Write `$ARGUMENTS` exactly as given, with the Write tool, to `<working directory>/.bf/tmp/pr-comments-args.txt` (an empty file when there are no arguments). Then run the script with that file on stdin. Never put the arguments in a heredoc: a line in them that matches the terminator ends it, and the lines after it run as commands.
+
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/fetch-pr-comments.sh" <<'BF_ARGS'
-$ARGUMENTS
-BF_ARGS
+bash "${CLAUDE_PLUGIN_ROOT}/skills/pr-comments/scripts/fetch-pr-comments.sh" < "<working directory>/.bf/tmp/pr-comments-args.txt"
 ```
 
 It returns `{pr, url, title, head_sha, last_bot_review, viewer, base, head, threads[], files[], counts{}, notes[]}`.

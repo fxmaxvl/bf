@@ -21,10 +21,10 @@ Distill an existing artifact to its essential directions. Most of any document i
 
 Print the banner as plain text: `── bf:essence ─────────────────────────────────────────`
 
+Write `$ARGUMENTS` exactly as given, with the Write tool, to `<working directory>/.bf/tmp/essence-args.txt` (an empty file when there are no arguments). Then run the script with that file on stdin. Never put the arguments in a heredoc: a line in them that matches the terminator ends it, and the lines after it run as commands.
+
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/essence/scripts/essence-init.sh" <<'BF_ARGS'
-$ARGUMENTS
-BF_ARGS
+bash "${CLAUDE_PLUGIN_ROOT}/skills/essence/scripts/essence-init.sh" < "<working directory>/.bf/tmp/essence-args.txt"
 ```
 
 On `{"error":…}` print `detail` and stop (for `already_distilled`, also ask for the source doc). Otherwise keep `source`, `budget`, `out_path` and `ledger_path`.

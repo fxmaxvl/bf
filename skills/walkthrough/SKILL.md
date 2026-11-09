@@ -31,11 +31,11 @@ Print banner (plain text, not in a code block):
 
 Confirm a repo, then resolve the scope in one call — never derive diffs by hand:
 
+Write `$ARGUMENTS` exactly as given, with the Write tool, to `<working directory>/.bf/tmp/walkthrough-args.txt` (an empty file when there are no arguments). Then run the script with that file on stdin. Never put the arguments in a heredoc: a line in them that matches the terminator ends it, and the lines after it run as commands.
+
 ```bash
 git rev-parse --show-toplevel
-bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff --with-untracked - <<'BF_ARGS'
-$ARGUMENTS
-BF_ARGS
+bash "${CLAUDE_PLUGIN_ROOT}/skills/coherence/scripts/scope.sh" --with-diff --with-untracked - < "<working directory>/.bf/tmp/walkthrough-args.txt"
 ```
 
 If `git rev-parse` fails, or the call returns `error: not_a_git_repo`, print

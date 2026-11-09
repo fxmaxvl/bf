@@ -72,6 +72,9 @@ hook prose-post-write.sh "$(write_in "$repo" Write "$repo/skills/x/SKILL.md" con
 eq "post-write SKILL.md skipped" "$out" ""
 hook prose-post-write.sh "$(write_in "$repo" Write "$repo/.bf/conventions/prose.md" content "A${dash}B.")"
 eq "post-write conventions skipped" "$out" ""
+mkdir -p "$repo/.bf/tmp" && printf 'A\xE2\x80\x94B.\n' > "$repo/.bf/tmp/plain-input.md"
+hook prose-post-write.sh "$(write_in "$repo" Write "$repo/.bf/tmp/plain-input.md" content "A${dash}B.")"
+eq "post-write bf:plain temp text skipped" "$out" ""
 hook prose-post-write.sh "$(write_in "$repo2" Write "$repo2/README.md" content "A${dash}B.")"
 eq "post-write parent conventions dir not skipped" "$(ctx | grep -c '1 em dash')" 1
 hook prose-post-write.sh "$(write_in "$repo" Write "$repo2/README.md" content "A${dash}B.")"

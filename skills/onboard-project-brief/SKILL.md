@@ -22,10 +22,10 @@ Print the banner as plain text: `── bf:onboard-project-brief ─────
 
 One probe call. `$ARGUMENTS` is an optional subdirectory to scope to; omit it for the whole repo.
 
+Write `$ARGUMENTS` exactly as given, with the Write tool, to `<working directory>/.bf/tmp/onboard-project-brief-args.txt` (an empty file when there are no arguments). Then run the script with that file on stdin. Never put the arguments in a heredoc: a line in them that matches the terminator ends it, and the lines after it run as commands.
+
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/onboard-project/scripts/onboard-probe.sh" brief - <<'BF_ARGS'
-$ARGUMENTS
-BF_ARGS
+bash "${CLAUDE_PLUGIN_ROOT}/skills/onboard-project/scripts/onboard-probe.sh" brief - < "<working directory>/.bf/tmp/onboard-project-brief-args.txt"
 ```
 
 On `{"error":…}` follow the Edge Cases table: free text that is not a path falls back to a whole-repo run; any other error is one line and no file. Otherwise keep `repo`, `sha`, `path`, `layout`, `needs_agent`, `output_path`, `units`, `hot_dirs` and `signals`. The probe does all counting and grouping — render its fields, do no arithmetic.
