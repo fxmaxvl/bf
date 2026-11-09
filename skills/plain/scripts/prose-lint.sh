@@ -7,7 +7,7 @@
 #        prose-lint.sh --classify <path>
 #        prose-lint.sh --selftest
 # Output: json: one object {hard:{em_dash,semicolon,contraction}, soft:{replace,banned,empty,pattern,
-#         long_sentence}, words, long_reply, rules_block, summary, hard_summary}. hard_summary counts only the markers in
+#         ing_tail,bold_mid,emoji_heading,long_sentence}, words, long_reply, rules_block, summary, hard_summary}. hard_summary counts only the markers in
 #         the hard list. rules_block is true when the resolved file has a
 #         prose-lint block. text: one finding per line, "<line>: <marker>: <text>". --digest prints the
 #         Self-lint section of the resolved prose.md.
@@ -42,6 +42,9 @@ soft_table='replace|replaceable word|replaceable words
 banned|banned word|banned words
 empty|empty word|empty words
 pattern|slop pattern|slop patterns
+ing_tail|-ing tail|-ing tails
+bold_mid|mid-sentence bold|mid-sentence bold
+emoji_heading|emoji heading|emoji headings
 long_sentence|long sentence|long sentences'
 
 # The selftest fixtures run the script as a child process, so the real command line is the test seam.
@@ -56,7 +59,7 @@ selftest() {
   jf() { jq -r "$1" <<<"$out"; }
   nwords() { local i=0 w=; while [ "$i" -lt "$1" ]; do w="$w word"; i=$((i+1)); done; printf '%s' "${w# }"; }
 
-  local dash=$'\xE2\x80\x94' curly=$'\xE2\x80\x99'
+  local dash=$'\xE2\x80\x94' curly=$'\xE2\x80\x99' rocket=$'\xF0\x9F\x9A\x80' arrow=$'\xE2\x86\x92'
   local full=$tmp/full.md noblock=$tmp/noblock.md dashonly=$tmp/dashonly.md dashnosec=$tmp/dashnosec.md
   st_fixtures
   st_hard
@@ -233,7 +236,32 @@ st_soft() {
   eq "comment mode skips empty" "$(jf .soft.empty)" 0
   lint_text "It just works." --rules "$noblock" --format json
   eq "no block no empty list" "$(jf .soft.empty + .soft.pattern)" 0
-  eq "json soft keys" "$(jf '.soft | keys_unsorted | join(",")')" "replace,banned,empty,pattern,long_sentence"
+  eq "json soft keys" "$(jf '.soft | keys_unsorted | join(",")')" "replace,banned,empty,pattern,ing_tail,bold_mid,emoji_heading,long_sentence"
+  lint_text "It adds search, highlighting the gains." --rules "$full" --format json
+  eq "ing tail" "$(jf .soft.ing_tail)" 1; eq "ing tail exit" "$rc" 0
+  eq "ing tail in summary" "$(jf .summary)" "1 -ing tail, 6 words"
+  lint_text "It adds search, and highlighting works." --rules "$full" --format json
+  eq "ing word after and is no tail" "$(jf .soft.ing_tail)" 0
+  lint_text "This is **very** clear." --rules "$full" --format json
+  eq "mid-sentence bold" "$(jf .soft.bold_mid)" 1; eq "bold exit" "$rc" 0
+  eq "bold in summary" "$(jf .summary)" "1 mid-sentence bold, 4 words"
+  local bold
+  for bold in "- **Governed:** all prose." "1. **Step:** run it." "**Note:** text." $'| a | **b** |\n|---|---|' 'Run `a **b** c` now.'; do
+    lint_text "$bold" --rules "$full" --format json
+    eq "bold label or table or code: ${bold//$'\n'/ }" "$(jf .soft.bold_mid)" 0
+  done
+  lint_text "- **Label:** one **two** three" --rules "$full" --format json
+  eq "bold after a label still counts" "$(jf .soft.bold_mid)" 1
+  lint_text "## $rocket Launch" --rules "$full" --format json
+  eq "emoji heading" "$(jf .soft.emoji_heading)" 1; eq "emoji heading exit" "$rc" 0
+  lint_text "## $rocket Launch" --rules "$full" --format text
+  eq "emoji heading label" "$out" "1: emoji_heading: emoji in heading"
+  lint_text "## A $arrow B" --rules "$full" --format json
+  eq "arrow heading is no emoji" "$(jf .soft.emoji_heading)" 0
+  lint_text "Ship it $rocket now." --rules "$full" --format json
+  eq "emoji in body is no heading hit" "$(jf .soft.emoji_heading)" 0
+  lint_text "# a **very** b, highlighting c" --mode comment --ext sh --rules "$full" --format json
+  eq "comment mode skips new markers" "$(jf '.soft.bold_mid + .soft.ing_tail')" 0
 }
 
 st_modes() {
@@ -440,6 +468,20 @@ emit_pairs() {
   done
 }
 
+# Bold after the first word of a line is emphasis. A leading label, a table row and a code span are formatting.
+find_bold_mid() {
+  awk '
+    /^[ \t]*\|/ { next }
+    {
+      line = $0
+      sub(/^[ \t]*([-*+]|[0-9]+\.)?[ \t]*\*\*[^*]+\*\*/, "", line)
+      while (match(line, /\*\*[^* ][^*]*\*\*/)) {
+        printf "%d\tbold_mid\t%s\n", NR, substr(line, RSTART, RLENGTH)
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }' "$stripped" >> "$findings"
+}
+
 find_markers() {
   apos=$'(\'|\xE2\x80\x99)'
   emit em_dash - -F $'\xE2\x80\x94'
@@ -453,6 +495,10 @@ find_markers() {
     emit_words banned $r_banned
     emit_words empty $r_empty
     emit_pairs pattern $r_pattern
+    emit ing_tail - -E -i ', (highlighting|underscoring|showcasing|reflecting|emphasizing)([^A-Za-z]|$)'
+    # Match on lead bytes: grep has no -P here, and the emoji ranges start with F0 9F or E2 98..9E.
+    emit emoji_heading "emoji in heading" -E $'^#+[ \t].*(\xF0\x9F|\xE2[\x98-\x9E])'
+    find_bold_mid
   fi
 }
 
