@@ -54,10 +54,9 @@ PATTERNS
 - Interpretive metadiscourse (`The key point is`, `As you can see`): delete the aside or add support.
 - Weasel attribution (`Experts agree`, `Studies show`): name the source or flag the claim. If you have no source, ask. Never invent one.
 - Fake-strong verb (`serves as a hub`): write "is" or "has", or name what the thing does.
-- Synonym cycling (`the agent`, then `the assistant`, then `the tool`): repeat the one clear word.
+- Synonym cycling (`the agent`, then `the assistant`, then `the tool`): see the WORDS rule "Use one name for one thing".
 - Negative listing (`Not a plan. Not a spec. A sketch.`): state the last item only.
 - Dramatic fragments (`That's it. That's the whole thing.`): write complete sentences.
-- Robotic rhythm: vary the sentence shape only where it helps the point.
 - Rhetorical setup (`What if I told you`, `Plot twist:`): drop it and make the point.
 - Fake-profound kicker (a final line that turns the point into a metaphor): delete the line. Do not rewrite it into a better metaphor. End on the last concrete sentence.
 - Summary recap (`In conclusion`, `Overall`): end on the last concrete point or the next action.
