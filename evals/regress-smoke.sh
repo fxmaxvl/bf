@@ -16,7 +16,9 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 0
 fi
 
-ROOT_TMP=$(cd "$(mktemp -d)" && pwd -P)
+ROOT_TMP=$(mktemp -d) || { echo "ABORT: mktemp failed" >&2; exit 2; }
+if [ -z "$ROOT_TMP" ] || [ ! -d "$ROOT_TMP" ]; then echo "ABORT: mktemp made no directory" >&2; exit 2; fi
+ROOT_TMP=$(cd "$ROOT_TMP" && pwd -P)
 trap 'rm -rf "$ROOT_TMP"' EXIT
 ctx_n=0
 
@@ -225,6 +227,15 @@ t_list_cases() {
   put evals/gamma-case/case.yaml 'name: gamma-case\ntags: [gamma]\n'
   eq list-cases-ignores-uncommitted-at-head "$(rg list_cases HEAD | tr '\n' ' ')" "alpha-case beta-case "
   eq list-cases-wt-sees-uncommitted "$(rg list_cases WT | tr '\n' ' ')" "alpha-case beta-case gamma-case "
+}
+
+t_list_cases_non_ascii_dir() {
+  make_ctx
+  put evals/café-case/case.yaml 'name: café-case\ntags: [cafe]\n'
+  g add -A && g commit -qm cafe
+  eq list-cases-non-ascii-head "$(rg list_cases HEAD | tr '\n' ' ')" "alpha-case beta-case café-case "
+  eq list-cases-non-ascii-wt "$(rg list_cases WT | tr '\n' ' ')" "alpha-case beta-case café-case "
+  eq cases-with-tag-non-ascii-dir "$(rg cases_with_tag HEAD cafe)" "café-case"
 }
 
 t_cases_with_tag() {
@@ -1258,6 +1269,22 @@ t_compare_interrupt_leaves_no_worktree() {
   set +m
   eq compare-interrupt-stub-was-running "$([ -e "$CTX_TMP/claude-args" ] && echo yes || echo no)" "yes"
   eq compare-interrupt-removes-worktree "$(g worktree list | wc -l | tr -d ' ')" "1"
+}
+
+# A failed mktemp must not make the exit trap of the harness remove the directory it ran in. The
+# nested run starts in a throwaway dir, and SMOKE_NESTED stops it from running this test again.
+t_smoke_failed_mktemp_keeps_cwd() {
+  [ -z "${SMOKE_NESTED:-}" ] || return 0
+  local d=$ROOT_TMP/smoke-cwd mode
+  for mode in fails empty; do
+    mkdir -p "$d/bin"
+    if [ "$mode" = fails ]; then printf '#!/bin/sh\nexit 1\n' > "$d/bin/mktemp"; else printf '#!/bin/sh\nexit 0\n' > "$d/bin/mktemp"; fi
+    chmod +x "$d/bin/mktemp"
+    : > "$d/marker"
+    ( cd "$d" && SMOKE_NESTED=1 PATH="$d/bin:$PATH" "$BASH" "$here/regress-smoke.sh" ) >/dev/null 2>&1
+    eq "smoke-mktemp-$mode-keeps-cwd" "$([ -e "$d/marker" ] && echo kept || echo deleted)" "kept"
+    rm -rf "$d"
+  done
 }
 
 run_tests() {

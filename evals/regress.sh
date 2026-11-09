@@ -154,7 +154,7 @@ list_cases() {
     root=$(repo_root) || return 1
     (cd "$root" && find evals -mindepth 2 -maxdepth 2 \( -name case.yaml -o -name prompt.md \) -print </dev/null)
   else
-    git ls-tree -r --name-only "$src" -- evals </dev/null
+    git -c core.quotePath=false ls-tree -r --name-only "$src" -- evals </dev/null
   fi | sed -En 's#^evals/([^/]+)/(case.yaml|prompt.md)$#\1#p' | grep -v '^results$' | sort -u || true
   return 0
 }
