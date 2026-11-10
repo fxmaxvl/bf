@@ -112,6 +112,8 @@ if [ "$pr_set" = 1 ]; then
       [ -z "$(git -C "$wt" status --porcelain)" ] || die worktree_dirty "$wt has local changes; commit, stash or remove them, then retry"
       git -C "$wt" checkout -q --detach "$pr_head" 2>/dev/null || die worktree_failed "could not move $wt to ${pr_head:0:12}"
     else
+      # A folder removed with rm -rf stays registered, and `worktree add` refuses a registered path.
+      git worktree prune 2>/dev/null
       mkdir -p "$(dirname "$wt")" && git worktree add -q --detach "$wt" "$pr_head" 2>/dev/null ||
         die worktree_failed "git worktree add $wt failed"
     fi

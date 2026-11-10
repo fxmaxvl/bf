@@ -153,6 +153,14 @@ mkdir -p "$whome/.bf/bug-hunt/worktrees/wt-pr-2"
 out=$(hi "$tmp/wt" "$oid3" --pr 2 --worktree)
 check "worktree: a directory that is not a worktree of this repo is worktree_failed" "$(q "$out" '.error == "worktree_failed"')"
 git -C "$tmp/wt" worktree remove --force "$wt1"
+oid4=$(make_pr 3 four)
+wt3="$whome/.bf/bug-hunt/worktrees/wt-pr-3"
+hi "$tmp/wt" "$oid4" --pr 3 --worktree >/dev/null
+rm -rf "$wt3"
+out=$(hi "$tmp/wt" "$oid4" --pr 3 --worktree)
+check "worktree: a folder deleted with rm -rf is created again" "$(q "$out" ".worktree == \"$wt3\"")"
+check "worktree: the recreated worktree is at the PR head" "$(same "$(git -C "$wt3" rev-parse HEAD)" "$oid4")"
+git -C "$tmp/wt" worktree remove --force "$wt3"
 cd "$tmp/r" || exit 1
 
 run="$tmp/run"; mkdir -p "$run/hunters" "$run/verifiers"
