@@ -40,6 +40,10 @@ out=$(bash "$init" --lenses bogus)
 check "bad lens is an error" "$(q "$out" '.error == "unknown_lens"')"
 out=$(bash "$init" --repo lib)
 check "repo plus path is an error" "$(q "$out" '.error == "conflicting_scope"')"
+out=$(bash "$init" 'no"such')
+check "an error detail with a quote is valid JSON" "$(q "$out" '.error == "no_such_path" and .detail == "no\"such"')"
+out=$(bash "$init" --worktree)
+check "--worktree without --pr is an error" "$(q "$out" '.error == "worktree_needs_pr"')"
 # alarm 5: a regression to the old parse loop fails here instead of hanging the smoke.
 out=$(perl -e 'alarm 5; exec @ARGV' bash "$init" --pr)
 check "--pr with no value is missing_value, not a hang" "$(q "$out" '.error == "missing_value"')"
@@ -110,6 +114,71 @@ mkdir -p "$tmp/plug/skills" && cp -R "$here/.." "$tmp/plug/skills/bug-hunt" && c
 rm "$tmp/plug/skills/bug-hunt/scripts/profile.sh"
 out=$(bash "$tmp/plug/skills/bug-hunt/scripts/hunt-init.sh" --repo)
 check "profile: a failing helper gives a null profile and the hunt goes on" "$(q "$out" '.profile == null and .mode == "repo" and .file_count == 2')"
+
+# --worktree: a stub gh answers `gh pr view`, a local bare origin carries main and refs/pull/<n>/head, and
+# HOME points into $tmp so every worktree lands there.
+wbare="$tmp/wt-bare.git"; whome="$tmp/wt-home"; mkdir -p "$tmp/bin" "$whome"
+cat > "$tmp/bin/gh" <<'G'
+#!/usr/bin/env bash
+[ "$1 $2 $4 $5" = "pr view --json headRefOid,headRefName,baseRefName" ] || exit 1
+printf '{"headRefOid":"%s","headRefName":"pr-branch","baseRefName":"main"}\n' "$STUB_OID"
+G
+chmod +x "$tmp/bin/gh"
+git init -q --bare -b main "$wbare"
+git init -q -b main "$tmp/wt-seed" && cd "$tmp/wt-seed" && git config user.email t@t && git config user.name t
+git remote add origin "$wbare" && echo base > f && git add f && git commit -qm base && git push -q origin main
+make_pr() { # PR number, file content: push a commit on top of main to refs/pull/<n>/head (forced) and print its sha
+  ( cd "$tmp/wt-seed" && git switch -q --detach main && echo "$2" > "pr$1.txt" && git add "pr$1.txt" &&
+    git commit -qm "pr $1 $2" && git push -q -f origin "HEAD:refs/pull/$1/head" && git rev-parse HEAD )
+}
+hi() { # repo dir, stub head sha, hunt-init args
+  ( cd "$1" && env HOME="$whome" PATH="$tmp/bin:$PATH" STUB_OID="$2" bash "$init" "${@:3}" )
+}
+git clone -q "$wbare" "$tmp/wt" && git -C "$tmp/wt" config user.email t@t && git -C "$tmp/wt" config user.name t
+wt1="$whome/.bf/bug-hunt/worktrees/wt-pr-1"
+oid1=$(make_pr 1 one)
+out=$(hi "$tmp/wt" "$oid1" --pr 1 --worktree)
+check "worktree: create sets the worktree key and keeps run_dir and report_path under root" "$(q "$out" ". as \$o | \$o.mode == \"pr\" and \$o.worktree == \"$wt1\" and \$o.worktree != \$o.root and (\$o.run_dir | startswith(\$o.root + \"/\")) and (\$o.report_path | startswith(\$o.root + \"/\")) and \$o.files == [\"pr1.txt\"]")"
+check "worktree: create puts HEAD at the PR head and leaves the user's checkout alone" "$(same "$(git -C "$wt1" rev-parse HEAD)|$(git -C "$tmp/wt" rev-parse --abbrev-ref HEAD)" "$oid1|main")"
+oid2=$(make_pr 1 two)
+out=$(hi "$tmp/wt" "$oid2" --pr 1 --worktree)
+check "worktree: reuse moves the existing worktree to the new PR head" "$(q "$out" ".worktree == \"$wt1\" and .pr == 1")"
+check "worktree: reuse leaves HEAD at the new head" "$(same "$(git -C "$wt1" rev-parse HEAD)" "$oid2")"
+out=$(hi "$tmp/wt" "$oid1" --pr 1)
+check "worktree: pr_not_checked_out names the path --worktree would use" "$(q "$out" ".error == \"pr_not_checked_out\" and .worktree_path == \"$wt1\"")"
+git -C "$tmp/wt" switch -q -c pr-branch
+out=$(hi "$tmp/wt" "$oid1" --pr 1)
+check "worktree: pr_not_checked_out on the PR branch names the path too" "$(q "$out" ".error == \"pr_not_checked_out\" and .worktree_path == \"$wt1\"")"
+git -C "$tmp/wt" switch -q main
+echo stray > "$wt1/stray"
+out=$(hi "$tmp/wt" "$oid2" --pr 1 --worktree)
+check "worktree: local changes are worktree_dirty" "$(q "$out" '.error == "worktree_dirty"')"
+rm "$wt1/stray"
+out=$(hi "$tmp/wt" "$oid1" --pr 1 --worktree)
+check "worktree: a stub head that differs from refs/pull/<n>/head is pr_head_moved" "$(q "$out" '.error == "pr_head_moved"')"
+oid3=$(make_pr 2 three)
+mkdir -p "$whome/.bf/bug-hunt/worktrees/wt-pr-2"
+out=$(hi "$tmp/wt" "$oid3" --pr 2 --worktree)
+check "worktree: a directory that is not a worktree of this repo is worktree_failed" "$(q "$out" '.error == "worktree_failed"')"
+git -C "$tmp/wt" worktree remove --force "$wt1"
+oid4=$(make_pr 3 four)
+wt3="$whome/.bf/bug-hunt/worktrees/wt-pr-3"
+hi "$tmp/wt" "$oid4" --pr 3 --worktree >/dev/null
+rm -rf "$wt3"
+out=$(hi "$tmp/wt" "$oid4" --pr 3 --worktree)
+check "worktree: a folder deleted with rm -rf is created again" "$(q "$out" ".worktree == \"$wt3\"")"
+check "worktree: the recreated worktree is at the PR head" "$(same "$(git -C "$wt3" rev-parse HEAD)" "$oid4")"
+git -C "$tmp/wt" worktree remove --force "$wt3"
+out=$(hi "$tmp/wt" "$oid4" --pr https://github.com/acme/other/pull/3 --worktree)
+check "worktree: a PR URL of another repository is worktree_other_repo" "$(q "$out" '.error == "worktree_other_repo" and (.detail | contains("acme/other"))')"
+# A GitHub-style origin URL that insteadOf maps to the local bare repo: the same repository's PR URL goes through.
+git clone -q "$wbare" "$tmp/wtu" && git -C "$tmp/wtu" config user.email t@t && git -C "$tmp/wtu" config user.name t
+git -C "$tmp/wtu" remote set-url origin https://github.com/Acme/wtu.git
+git -C "$tmp/wtu" config url."$wbare".insteadOf https://github.com/Acme/wtu.git
+wtu="$whome/.bf/bug-hunt/worktrees/wtu-pr-3"
+out=$(hi "$tmp/wtu" "$oid4" --pr https://github.com/acme/WTU/pull/3/files --worktree)
+check "worktree: a PR URL of the origin repository passes, whatever its case" "$(q "$out" ".worktree == \"$wtu\"")"
+git -C "$tmp/wtu" worktree remove --force "$wtu"
 cd "$tmp/r" || exit 1
 
 run="$tmp/run"; mkdir -p "$run/hunters" "$run/verifiers"
@@ -161,6 +230,23 @@ fin=$(bash "$findings" resolve "$run")
 check "resolve: verdict joined" "$(q "$fin" '.findings[] | select(.id == "'"$f1"'") | .verdict == "confirmed"')"
 check "resolve: surviving flag and count follow the verdict" "$(q "$fin" '(.findings[] | select(.id == "'"$f1"'") | .surviving) == true and (.findings | map(select(.verdict == "unverified" and .surviving)) | length) == 0 and .counts.surviving == 1')"
 check "resolve: missing verdicts are unverified, failed batch listed" "$(q "$fin" '(.counts.unverified >= 1) and (.failed_batches | length) >= 1')"
+check "merge: the top-severity member carries the cluster id, the rest get member ids" "$(q "$m" '.findings[] | select(.line == 10) | .members[0].id == .id and .members[0].severity == .severity and ([.members[1:][].id] == [range(2; .members | length + 1) as $i | "\(.id).\($i)"])')"
+check "resolve: no member verdict, no split" "$(q "$fin" '(.findings | length) == '"$(jq '.findings | length' <<< "$m")"' and all(.findings[]; has("split_from") | not)')"
+
+sp="$tmp/split"; mkdir -p "$sp/verifiers" && cp -R "$run/hunters" "$sp/"
+sm=$(bash "$findings" merge "$sp")
+sb=$(jq -r '.batches[] | select(.dirs | index("src")) | .id' <<< "$sm")
+sid=$(jq -r '.findings[] | select(.line == 10) | .members[1].id' <<< "$sm")
+sh=$(jq -r '.findings[] | select(.line == 10) | .members[1].hunter_id' <<< "$sm")
+sn=$(jq '.findings | length' <<< "$sm"); sk=$(jq '.findings[] | select(.line == 10) | .members | length - 1' <<< "$sm")
+printf '{"batch_id":"%s","verdicts":[{"id":"%s","verdict":"confirmed","note":"real"},{"id":"%s","verdict":"confirmed","note":"another defect"}]}\n' "$sb" "$f1" "$sid" > "$sp/verifiers/$sb.json"
+sf=$(bash "$findings" resolve "$sp")
+check "resolve: a member verdict splits that member into its own finding after its cluster" "$(q "$sf" '(.findings | length) == '"$sn"' + 1 and ([.findings[].id] | index("'"$sid"'")) == ([.findings[].id] | index("'"$f1"'")) + 1 and (.findings[] | select(.id == "'"$sid"'") | .split_from == "'"$f1"'" and .sources == 1 and .hunters == ["'"$sh"'"] and .verdict == "confirmed" and .surviving)')"
+check "resolve: the split cluster is rebuilt from the members it keeps" "$(q "$sf" '.findings[] | select(.id == "'"$f1"'") | (.members | length) == '"$sk"' and all(.members[]; .id != "'"$sid"'") and .sources == (.hunters | length) and .hunters == ([.members[].hunter_id] | unique)')"
+check "resolve: nothing dropped by a split, counts follow it" "$(q "$sf" '([.findings[].members[]] | length) == 8 and .counts.findings == (.findings | length) and .counts.surviving == 2')"
+printf '{"groups":[{"id":"G1","kind":"root-cause","title":"t","root_cause":"r","fix_direction":"f","members":["%s","%s"]}],"links":[]}\n' "$f1" "$sid" > "$sp/analysis.json"
+sa=$(bash "$findings" analyze "$sp")
+check "analyze: a split finding can be a group member" "$(q "$sa" '(.findings[] | select(.id == "'"$sid"'") | .group) == "G1"')"
 
 an="$tmp/an"; mkdir -p "$an"
 cat > "$an/final.json" <<'J'

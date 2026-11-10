@@ -264,7 +264,7 @@ To override a convention, create the `.bf/conventions/` directory in the right l
 
 ## Prose hooks
 
-bf ships six plugin hooks in `hooks/hooks.json`. They check the text bf writes for three hard markers: the em dash, the semicolon, and the contraction. The lint script is `skills/plain/scripts/prose-lint.sh`, and it reads its rules from the `prose-lint` block of the resolved `prose.md`. The lint also reports soft pattern findings, such as banned words and weasel phrases. These never block.
+bf ships six prose hooks in `hooks/hooks.json`. They check the text bf writes for three hard markers: the em dash, the semicolon, and the contraction. The lint script is `skills/plain/scripts/prose-lint.sh`, and it reads its rules from the `prose-lint` block of the resolved `prose.md`. The lint also reports soft pattern findings, such as banned words and weasel phrases. These never block.
 
 | Hook | What it checks |
 |------|----------------|
@@ -277,7 +277,7 @@ bf ships six plugin hooks in `hooks/hooks.json`. They check the text bf writes f
 
 Only SubagentStop can block. It blocks only when the resolved `prose.md` has a `prose-lint` block. Every other hook adds a note or does nothing, and every hook ends with exit 0 when it fails.
 
-To turn off every hook, set `BF_PROSE_HOOK` to `off` in the `env` block of a settings file:
+To turn off the prose hooks, set `BF_PROSE_HOOK` to `off` in the `env` block of a settings file:
 
 ```json
 { "env": { "BF_PROSE_HOOK": "off" } }
@@ -294,6 +294,10 @@ Limits:
 - `.bf/` artifacts written through `write-block.sh` are not linted, because they are Bash calls.
 - When git finds no repo for a file, or git fails, the skip list matches the full path. Then a file under any parent directory named `conventions`, `agents` or `references` is skipped, and gets no note.
 - Unverified: a team agent that sends its report through `SendMessage` may fire SubagentStop with only a short closing line. Then the hook lints the closing line and not the report.
+
+## Remote-state hook
+
+A seventh hook, PreToolUse (`Bash`), runs `hooks/remote-state-pre-bash.sh` before `git push`, `gh pr edit` and `gh pr merge`. It adds a note that tells the model to run `git fetch` and check the PR state first. A push to a merged or closed PR strands its commits. The hook only adds a note, and never blocks or approves the command. `finalize-git.sh` makes this check itself, so its calls get no note. To turn it off, set `BF_REMOTE_HOOK` to `off` in the `env` block of a settings file.
 
 ## Optional: TypeSafe boosting
 

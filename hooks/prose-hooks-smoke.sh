@@ -264,14 +264,14 @@ eq "subagent no lint result output" "$out" ""; eq "subagent no lint result exit"
 cfg=$hooks/hooks.json
 eq "hooks.json parses" "$(jq -e . "$cfg" >/dev/null 2>&1 && echo yes)" yes
 eq "hooks.json events" "$(jq -r '.hooks | keys | join(",")' "$cfg")" "PostToolUse,PreToolUse,SessionStart,Stop,SubagentStop,UserPromptSubmit"
-eq "hooks.json timeouts" "$(jq -r '[.hooks[][].hooks[].timeout] | unique | join(",")' "$cfg")" 5
+eq "hooks.json timeouts" "$(jq -r '[.hooks[][].hooks[] | select(.command | test("hooks/prose-")) | .timeout] | unique | join(",")' "$cfg")" 5
 eq "hooks.json matchers" "$(jq -r '[.hooks.SessionStart[0].matcher, .hooks.PostToolUse[0].matcher, .hooks.PreToolUse[0].matcher, (.hooks.Stop[0] | has("matcher")), (.hooks.SubagentStop[0] | has("matcher"))] | join(",")' "$cfg")" "compact,Write|Edit,Bash,false,false"
 missing=0
-for s in $(jq -r '.hooks[][].hooks[].command' "$cfg" | sed 's/.*hooks\/\(prose-[a-z-]*\.sh\).*/\1/'); do
+for s in $(jq -r '.hooks[][].hooks[] | select(.command | test("hooks/prose-")) | .command' "$cfg" | sed 's/.*hooks\/\([a-z-]*\.sh\).*/\1/'); do
   [ -f "$hooks/$s" ] || missing=$((missing+1))
 done
 eq "hooks.json scripts exist" "$missing" 0
-eq "hooks.json script count" "$(jq -r '[.hooks[][].hooks[]] | length' "$cfg")" 6
+eq "hooks.json prose script count" "$(jq -r '[.hooks[][].hooks[] | select(.command | test("hooks/prose-"))] | length' "$cfg")" 6
 
 dirty="A${dash}B; it's"
 off_ok=0
