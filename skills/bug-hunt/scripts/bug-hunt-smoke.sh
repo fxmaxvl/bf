@@ -161,6 +161,16 @@ out=$(hi "$tmp/wt" "$oid4" --pr 3 --worktree)
 check "worktree: a folder deleted with rm -rf is created again" "$(q "$out" ".worktree == \"$wt3\"")"
 check "worktree: the recreated worktree is at the PR head" "$(same "$(git -C "$wt3" rev-parse HEAD)" "$oid4")"
 git -C "$tmp/wt" worktree remove --force "$wt3"
+out=$(hi "$tmp/wt" "$oid4" --pr https://github.com/acme/other/pull/3 --worktree)
+check "worktree: a PR URL of another repository is worktree_other_repo" "$(q "$out" '.error == "worktree_other_repo" and (.detail | contains("acme/other"))')"
+# A GitHub-style origin URL that insteadOf maps to the local bare repo: the same repository's PR URL goes through.
+git clone -q "$wbare" "$tmp/wtu" && git -C "$tmp/wtu" config user.email t@t && git -C "$tmp/wtu" config user.name t
+git -C "$tmp/wtu" remote set-url origin https://github.com/Acme/wtu.git
+git -C "$tmp/wtu" config url."$wbare".insteadOf https://github.com/Acme/wtu.git
+wtu="$whome/.bf/bug-hunt/worktrees/wtu-pr-3"
+out=$(hi "$tmp/wtu" "$oid4" --pr https://github.com/acme/WTU/pull/3/files --worktree)
+check "worktree: a PR URL of the origin repository passes, whatever its case" "$(q "$out" ".worktree == \"$wtu\"")"
+git -C "$tmp/wtu" worktree remove --force "$wtu"
 cd "$tmp/r" || exit 1
 
 run="$tmp/run"; mkdir -p "$run/hunters" "$run/verifiers"

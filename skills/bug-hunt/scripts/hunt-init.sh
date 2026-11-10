@@ -73,6 +73,15 @@ if [ "$pr_set" = 1 ]; then
     *) pr="${pr#\#}"; pr_ref=$pr ;;
   esac
   case "$pr" in ''|*[!0-9]*) die bad_pr "--pr takes a PR number or URL" ;; esac
+  # The worktree fetches pull/<n>/head from origin, so a PR URL in another repository would
+  # check out an unrelated commit that happens to share the number.
+  if [ "$worktree" = 1 ] && [ "$pr_ref" != "$pr" ]; then
+    owner_repo() { sed -E 's#(\.git)?/*$##; s#.*[/:]([^/:]+)[/:]([^/:]+)$#\1/\2#' | tr 'A-Z' 'a-z'; }
+    url_repo=$(printf '%s' "${pr_ref%/pull/*}" | owner_repo)
+    origin_repo=$(git config --get remote.origin.url | owner_repo)
+    [ "$url_repo" = "$origin_repo" ] ||
+      die worktree_other_repo "$url_repo is not the origin repository ($origin_repo). --worktree only hunts a PR of origin. Run the hunt from a clone of $url_repo."
+  fi
 fi
 
 lenses_json=null
