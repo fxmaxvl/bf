@@ -35,4 +35,8 @@ quiet 'git push' BF_REMOTE_HOOK=off
 out=$(printf 'not json git push' | bash "$hook"); rc=$?
 if [ -z "$out" ] && [ "$rc" = 0 ]; then echo "PASS quiet: input that is not JSON"; else echo "FAIL quiet: input that is not JSON: rc=$rc [$out]"; fails=$((fails+1)); fi
 
+cfg="$(dirname "$hook")/hooks.json"
+registered=$(jq -r '[.hooks.PreToolUse[]? | select(.matcher == "Bash") | .hooks[].command | select(test("hooks/remote-state-pre-bash[.]sh"))] | length' "$cfg" 2>/dev/null)
+if [ "$registered" = 1 ]; then echo "PASS hooks.json registers the script under PreToolUse Bash"; else echo "FAIL hooks.json registers the script under PreToolUse Bash: got [$registered]"; fails=$((fails+1)); fi
+if [ -f "$hook" ]; then echo "PASS the registered script exists"; else echo "FAIL the registered script exists"; fails=$((fails+1)); fi
 [ "$fails" = 0 ]
