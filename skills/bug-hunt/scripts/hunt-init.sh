@@ -30,9 +30,11 @@ CAP=6
 
 here=$(cd "$(dirname "$0")" && pwd)
 scope="$here/../../coherence/scripts/scope.sh"
-# A third argument adds a worktree_path key. Only pr_not_checked_out passes one, and jq escapes the path.
+# Details can carry user paths, so jq escapes them. printf serves only no_jq, which fires before jq is
+# known to exist. A third argument adds a worktree_path key.
 die() {
-  if [ $# -ge 3 ]; then jq -nc --arg e "$1" --arg d "$2" --arg w "$3" '{error:$e, detail:$d, worktree_path:$w}'
+  if command -v jq >/dev/null; then
+    jq -nc --arg e "$1" --arg d "$2" --arg w "${3-}" '{error:$e, detail:$d} + (if $w == "" then {} else {worktree_path:$w} end)'
   else printf '{"error":"%s","detail":"%s"}\n' "$1" "$2"; fi
   exit 1
 }
