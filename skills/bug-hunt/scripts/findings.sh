@@ -9,7 +9,7 @@
 #       findings: clusters anchored on their first line — a finding joins a cluster when it is in the
 #                 same file and at most 2 lines below the anchor, so clusters never chain past ±2.
 #                 sources counts distinct hunter_id, never lenses. Nothing is dropped. members are
-#                 ordered by severity; the first gives the cluster its title and id (F3), the rest get
+#                 ordered by severity. The first gives the cluster its title and id (F3). The rest get
 #                 member ids (F3.2, F3.3, …) so a verifier can split one out as a separate defect.
 #       batches:  directory groups packed into at most max_batches (default 6) by repeatedly merging
 #                 the lexically adjacent pair with the fewest findings, so neighbours merge first.

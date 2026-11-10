@@ -120,11 +120,11 @@ if [ "$pr_set" = 1 ]; then
   if [ "$(git rev-parse HEAD)" != "$pr_head" ] && [ "$worktree" = 1 ]; then
     git fetch -q origin "pull/$pr/head" 2>/dev/null || die pr_fetch_failed "git fetch origin pull/$pr/head failed"
     [ "$(git rev-parse FETCH_HEAD)" = "$pr_head" ] ||
-      die pr_head_moved "origin pull/$pr/head is not PR #$pr's head (${pr_head:0:12}); retry"
+      die pr_head_moved "origin pull/$pr/head is not PR #$pr's head (${pr_head:0:12}). Retry."
     if [ -e "$wt" ]; then
       [ "$(git -C "$wt" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" = "$(git rev-parse --path-format=absolute --git-common-dir)" ] ||
         die worktree_failed "$wt exists but is not a worktree of this repository"
-      [ -z "$(git -C "$wt" status --porcelain)" ] || die worktree_dirty "$wt has local changes; commit, stash or remove them, then retry"
+      [ -z "$(git -C "$wt" status --porcelain)" ] || die worktree_dirty "$wt has local changes. Commit, stash or remove them, then retry."
       git -C "$wt" checkout -q --detach "$pr_head" 2>/dev/null || die worktree_failed "could not move $wt to ${pr_head:0:12}"
     else
       # A folder removed with rm -rf stays registered, and `worktree add` refuses a registered path.
@@ -137,8 +137,8 @@ if [ "$pr_set" = 1 ]; then
   elif [ "$(git rev-parse HEAD)" != "$pr_head" ]; then
     # gh pr checkout does not move a local branch that already differs from the PR head.
     [ "$(git rev-parse --abbrev-ref HEAD)" = "$pr_branch" ] &&
-      die pr_not_checked_out "branch $pr_branch is checked out but HEAD differs from PR #$pr's pushed head (${pr_head:0:12}); push or pull so they match, or rerun with --worktree to hunt the PR head in a separate worktree" "$wt"
-    die pr_not_checked_out "HEAD is not the head of PR #$pr (${pr_head:0:12}); run gh pr checkout $pr, or rerun with --worktree to hunt the PR head in a separate worktree" "$wt"
+      die pr_not_checked_out "branch $pr_branch is checked out but HEAD differs from PR #$pr's pushed head (${pr_head:0:12}). Push or pull so they match, or rerun with --worktree to hunt the PR head in a separate worktree" "$wt"
+    die pr_not_checked_out "HEAD is not the head of PR #$pr (${pr_head:0:12}). Run gh pr checkout $pr, or rerun with --worktree to hunt the PR head in a separate worktree" "$wt"
   fi
   git rev-parse --verify --quiet "origin/$pr_base" >/dev/null ||
     die no_base "origin/$pr_base not found; run git fetch origin $pr_base"
