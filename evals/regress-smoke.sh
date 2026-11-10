@@ -39,6 +39,12 @@ has() {
   esac
 }
 
+# A fixed sleep before an interrupt races the script's setup on a slow or busy machine.
+wait_for_file() {
+  local i=0
+  while [ ! -e "$1" ] && [ "$i" -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
+}
+
 # A unit call runs in a subshell with errexit on, so a function that relies on errexit
 # behaves the same here as in a real run.
 # shellcheck disable=SC1090,SC1091
@@ -680,7 +686,7 @@ DRIVER
   set -m
   ( cd "$CTX_REPO" && PATH="$CTX_BIN:$PATH" STUB_DIR="$CTX_TMP" STUB_JSON="$CTX_TMP/r.json" STUB_SLEEP=3 exec bash "$CTX_TMP/drive.sh" </dev/null >/dev/null 2>&1 ) &
   local pid=$!
-  sleep 1
+  wait_for_file "$CTX_TMP/claude-args"
   kill -INT -- "-$pid" 2>/dev/null
   wait "$pid" 2>/dev/null
   set +m
@@ -1263,7 +1269,7 @@ t_compare_interrupt_leaves_no_worktree() {
   set -m
   ( cd "$CTX_REPO" && PATH="$CTX_BIN:$PATH" STUB_DIR="$CTX_TMP" STUB_NEW_PATH="$CTX_REPO" STUB_JSON_OLD="$CTX_TMP/old.json" STUB_JSON_NEW="$CTX_TMP/new.json" STUB_SLEEP=3 exec "$REGRESS" --compare </dev/null >/dev/null 2>&1 ) &
   local pid=$!
-  sleep 1
+  wait_for_file "$CTX_TMP/claude-args"
   kill -INT -- "-$pid" 2>/dev/null
   wait "$pid" 2>/dev/null
   set +m
