@@ -141,7 +141,7 @@ if [ "$pr_set" = 1 ]; then
     die pr_not_checked_out "HEAD is not the head of PR #$pr (${pr_head:0:12}). Run gh pr checkout $pr, or rerun with --worktree to hunt the PR head in a separate worktree" "$wt"
   fi
   git rev-parse --verify --quiet "origin/$pr_base" >/dev/null ||
-    die no_base "origin/$pr_base not found; run git fetch origin $pr_base"
+    die no_base "origin/$pr_base not found. Run git fetch origin $pr_base."
   b=$(git merge-base HEAD "origin/$pr_base" 2>/dev/null) || die no_base "cannot find a merge-base with origin/$pr_base"
   base=$(jq -n --arg b "$b" '$b')
   pr_json=$pr
