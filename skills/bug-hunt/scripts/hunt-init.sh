@@ -21,7 +21,8 @@
 #   run_dir (created; holds hunters/, verifiers/ and timing.jsonl, which gets an init row), report_path
 #   (collision-free), slug.
 # -h, --help prints this text on stdout and exits 0.
-# Errors: {"error":"<code>","detail":"..."} on stdout, exit 1.
+# Errors: {"error":"<code>","detail":"..."} on stdout, exit 1. pr_not_checked_out adds "worktree_path", the
+#   directory --worktree would use.
 set -uo pipefail
 
 LENSES="logic errors concurrency data security contracts flow"
@@ -29,7 +30,12 @@ CAP=6
 
 here=$(cd "$(dirname "$0")" && pwd)
 scope="$here/../../coherence/scripts/scope.sh"
-die() { printf '{"error":"%s","detail":"%s"}\n' "$1" "$2"; exit 1; }
+# A third argument adds a worktree_path key. Only pr_not_checked_out passes one, and jq escapes the path.
+die() {
+  if [ $# -ge 3 ]; then jq -nc --arg e "$1" --arg d "$2" --arg w "$3" '{error:$e, detail:$d, worktree_path:$w}'
+  else printf '{"error":"%s","detail":"%s"}\n' "$1" "$2"; fi
+  exit 1
+}
 # The header comment is the usage text, so the two cannot drift. Help is checked before the git
 # check, so it works outside a repository.
 for arg in "$@"; do
@@ -110,8 +116,8 @@ if [ "$pr_set" = 1 ]; then
   pr_head=$(jq -r '.headRefOid' <<< "$info")
   pr_branch=$(jq -r '.headRefName' <<< "$info")
   pr_base=$(jq -r '.baseRefName' <<< "$info")
+  wt="$HOME/.bf/bug-hunt/worktrees/$(basename "$root")-pr-$pr"
   if [ "$(git rev-parse HEAD)" != "$pr_head" ] && [ "$worktree" = 1 ]; then
-    wt="$HOME/.bf/bug-hunt/worktrees/$(basename "$root")-pr-$pr"
     git fetch -q origin "pull/$pr/head" 2>/dev/null || die pr_fetch_failed "git fetch origin pull/$pr/head failed"
     [ "$(git rev-parse FETCH_HEAD)" = "$pr_head" ] ||
       die pr_head_moved "origin pull/$pr/head is not PR #$pr's head (${pr_head:0:12}); retry"
@@ -131,8 +137,8 @@ if [ "$pr_set" = 1 ]; then
   elif [ "$(git rev-parse HEAD)" != "$pr_head" ]; then
     # gh pr checkout does not move a local branch that already differs from the PR head.
     [ "$(git rev-parse --abbrev-ref HEAD)" = "$pr_branch" ] &&
-      die pr_not_checked_out "branch $pr_branch is checked out but HEAD differs from PR #$pr's pushed head (${pr_head:0:12}); push or pull so they match, or rerun with --worktree to hunt the PR head in a separate worktree"
-    die pr_not_checked_out "HEAD is not the head of PR #$pr (${pr_head:0:12}); run gh pr checkout $pr, or rerun with --worktree to hunt the PR head in a separate worktree"
+      die pr_not_checked_out "branch $pr_branch is checked out but HEAD differs from PR #$pr's pushed head (${pr_head:0:12}); push or pull so they match, or rerun with --worktree to hunt the PR head in a separate worktree" "$wt"
+    die pr_not_checked_out "HEAD is not the head of PR #$pr (${pr_head:0:12}); run gh pr checkout $pr, or rerun with --worktree to hunt the PR head in a separate worktree" "$wt"
   fi
   git rev-parse --verify --quiet "origin/$pr_base" >/dev/null ||
     die no_base "origin/$pr_base not found; run git fetch origin $pr_base"

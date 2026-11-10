@@ -142,6 +142,12 @@ oid2=$(make_pr 1 two)
 out=$(hi "$tmp/wt" "$oid2" --pr 1 --worktree)
 check "worktree: reuse moves the existing worktree to the new PR head" "$(q "$out" ".worktree == \"$wt1\" and .pr == 1")"
 check "worktree: reuse leaves HEAD at the new head" "$(same "$(git -C "$wt1" rev-parse HEAD)" "$oid2")"
+out=$(hi "$tmp/wt" "$oid1" --pr 1)
+check "worktree: pr_not_checked_out names the path --worktree would use" "$(q "$out" ".error == \"pr_not_checked_out\" and .worktree_path == \"$wt1\"")"
+git -C "$tmp/wt" switch -q -c pr-branch
+out=$(hi "$tmp/wt" "$oid1" --pr 1)
+check "worktree: pr_not_checked_out on the PR branch names the path too" "$(q "$out" ".error == \"pr_not_checked_out\" and .worktree_path == \"$wt1\"")"
+git -C "$tmp/wt" switch -q main
 echo stray > "$wt1/stray"
 out=$(hi "$tmp/wt" "$oid2" --pr 1 --worktree)
 check "worktree: local changes are worktree_dirty" "$(q "$out" '.error == "worktree_dirty"')"
