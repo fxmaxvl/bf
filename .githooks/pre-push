@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Runs the skill regression gate before a push. Enable it once with: git config core.hooksPath .githooks
+exec "$(git rev-parse --show-toplevel)/evals/regress.sh" --pre-push "$@"
