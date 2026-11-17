@@ -26,6 +26,7 @@ each prints one PASS/FAIL line per case and exits non-zero on any failure. Run t
 | `skills/bug-hunt/scripts/bug-hunt-smoke.sh` | `hunt-init.sh` (including the `--pr --worktree` paths against a stub `gh` and a local bare origin), `profile.sh`, `findings.sh` |
 | `skills/autopilot/hooks/autopilot-hooks-smoke.sh` | `stop.sh`, `user-prompt-cleanup.sh`, `session-start-cleanup.sh`, the helpers in `lib.sh` (sub-agents, teammates and background work, stop words, agent and scheduled turns, the lead session and its process, the second-session warning) |
 | `skills/essence/scripts/essence-smoke.sh` | `essence-init.sh`, `ledger-check.sh` |
+| `skills/cross-agent/scripts/cross-agent-smoke.sh` | `cross-agent-init.sh`, `cross-agent-assemble.sh`, `runners/codex.sh` (argument pass-through with spaces, quotes, `#` and newlines, the reference closure, the argument fence, a missing `codex`) |
 | `skills/pr-comments/scripts/pr-comments-smoke.sh` | `fetch-pr-comments.sh`, `wait-for-review.sh` (argument parsing, `--all`, push time, `--head` and `--bot`, against a stub `gh`) |
 | `hooks/remote-state-hook-smoke.sh` | `hooks/remote-state-pre-bash.sh` (which commands get the reminder, `BF_REMOTE_HOOK=off`, input that is not JSON, the `hooks.json` registration under PreToolUse Bash) |
 | `evals/regress-smoke.sh` | `evals/regress.sh` (all modes, against a stub `claude`) and `.githooks/pre-push` |
