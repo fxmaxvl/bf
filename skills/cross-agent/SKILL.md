@@ -27,12 +27,10 @@ Print banner (plain text):
 
 State the built command in one line before you run it, e.g. *"running `/bf:cross-agent --run codex review #42`"*.
 
-Initialize. Pass the arguments on stdin exactly like this, so quotes, spaces and `#` survive (see **Script Input** in `plugin-main.md`):
+Initialize. Write `$ARGUMENTS` exactly as given, or the arguments you built, with the Write tool, to `<working directory>/.bf/tmp/cross-agent-args.txt` (an empty file when there are no arguments). Then run the script with that file on stdin. Never put the arguments in a heredoc: a line in them that matches the terminator ends it, and the lines after it run as commands.
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/cross-agent/scripts/cross-agent-init.sh" <<'BF_ARGS'
-$ARGUMENTS
-BF_ARGS
+bash "${CLAUDE_PLUGIN_ROOT}/skills/cross-agent/scripts/cross-agent-init.sh" < "<working directory>/.bf/tmp/cross-agent-args.txt"
 ```
 
 It prints JSON: `skill`, `run`, `project_root`, `plugin_root`, `bundle_dir`, `runners`, `docs`, `scripts`. On `{"error": ...}`, see **Edge Cases & Errors**. When `$ARGUMENTS` is empty or names no skill, ask which bf skill to run and with what arguments: one question.
@@ -54,7 +52,7 @@ Keep it under 40 lines. Do not restate the skill's own instructions. When the co
 bash "${CLAUDE_PLUGIN_ROOT}/skills/cross-agent/scripts/cross-agent-assemble.sh" "<bundle_dir>"
 ```
 
-It writes `<bundle_dir>/prompt.md`: the translation preamble (`references/preamble.md`), the paths, the reading list, the scripts, the brief and the verbatim arguments. It prints `prompt`, `bytes` and `run_commands`, one shell command for each runner.
+It writes `<bundle_dir>/prompt.md`: the translation preamble (`references/preamble.md`), the paths, a reading list (the conventions and the skill's own SKILL.md and `references/` to read first, and every other doc the skill cites to read when the skill sends the agent there), the scripts, the brief and the verbatim arguments. It prints `prompt`, `bytes` and `run_commands`, one shell command for each runner.
 
 ## Phase 3 — Run or hand over
 
@@ -63,7 +61,7 @@ It writes `<bundle_dir>/prompt.md`: the translation preamble (`references/preamb
 **With `run`:** restate the effect in one line first: *"this runs bf:<skill> in <agent> on <project_root>, in a workspace-write sandbox with no network"*. Then run `run_commands.<run>` with `run_in_background: true`. These runs take minutes, and a foreground call would hit the Bash timeout. When it finishes:
 
 - Exit 0 and `<bundle_dir>/result.md` is non-empty: read it and relay the result. Lead with the skill's findings or summary, then every `## Gate decisions` and `## Deviations` line. Do not drop the deviations: they tell the requester where this run is weaker than a Claude Code run.
-- Any other outcome: report the exit code and the last 30 lines of `<bundle_dir>/run.log`. Do not retry.
+- Any other outcome: report the exit code and the last 30 lines of `<bundle_dir>/run.log`. When `run.log` does not exist, the runner stopped before the agent started (exit 2 or 127). Its reason is on stderr, in the background task's output: report that instead. Do not retry.
 
 ## Adding a runner
 
@@ -73,12 +71,17 @@ A runner is `runners/<agent>.sh <bundle_dir> <project_root>`. It feeds `prompt.m
 
 | Condition | Handling |
 |-----------|----------|
-| `unknown_skill` / `missing_skill` | Ask which bf skill to run (one question). List `ls "${CLAUDE_PLUGIN_ROOT}/skills"` if the requester asks. |
+| `unknown_skill` / `missing_skill` | Ask which bf skill to run (one question). The `unknown_skill` detail lists the skills that can run. Offer those. |
 | `unknown_runner` | Say which runners exist (the error detail lists them). Offer the bundle-only path. |
 | `unknown_flag` | Only `--run <agent>` may come before the skill name. Flags for the target skill go after its name. |
 | `self_target` | Refuse: `cross-agent` cannot run itself. |
 | `not_a_git_repo` | Stop: the runners need a repository as the working root. |
 | `no_brief` from assemble | Phase 1 did not write `brief.md`. Write it, then re-run assemble. |
+| `no_manifest`, `bad_manifest`, `no_args` or `usage` from assemble | The bundle is incomplete or was not made by init. Start over from **On Invocation**: init makes a fresh bundle dir. |
+| `no_jq` | Stop: both scripts need `jq`. Say so, and that installing it fixes the run. |
+| `conventions_failed`, `manifest_failed`, `mkdir_failed` or `write_failed` | Stop and report the detail. These are environment failures (an unreadable plugin, a read-only `.bf/`), and a rerun does not fix them. |
+| Any other `{"error": ...}` | Stop and report the code and the detail as given. |
 | Runner exits 127 | The agent's CLI is not on PATH. Report it, and give the `prompt.md` path for a manual run. |
+| Runner exits 2 | The runner refused the bundle before the agent started: wrong arguments, no `prompt.md`, or a manifest with no `plugin_root`. There is no `run.log`. Report the stderr line from the background task output. |
 | The skill needs `gh` or a remote (`--pr`, PR comments) | The codex sandbox has no network. Say so before the run. The requester can run the bundle by hand with network enabled (`codex exec -c sandbox_workspace_write.network_access=true ...`). |
 | The skill fans out to isolated agents (bug-hunt, review gates) | The other agent does the passes one after another in one context, so they are less independent. The preamble makes it report this under Deviations. Relay it. |

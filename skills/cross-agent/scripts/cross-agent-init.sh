@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Parse bf:cross-agent arguments, create the bundle dir and write its manifest. Emits one JSON object.
 #
-# Usage: cross-agent-init.sh <<'BF_ARGS'
-#          [--run <agent>] <skill> [skill arguments...]
-#        BF_ARGS
+# Usage: cross-agent-init.sh < <args file>
+#   The args file holds "[--run <agent>] <skill> [skill arguments...]", written by the Write tool.
 #   bf:cross-agent flags come before the skill name. Everything after the skill name is the target skill's
 #   arguments and is kept verbatim (spaces, quotes, #, newlines) in <bundle_dir>/args.txt.
 #   <skill> is a bf skill directory name, with or without a leading "/bf:" or "bf:".
@@ -36,7 +35,11 @@ ws=$'[ \t\n]'
 nws=$'[^ \t\n]'
 re_lead="^${ws}+"
 re_run="^--run(=|${ws}+)(${nws}+)${ws}*"
-re_skill="^(${nws}+)${ws}*"
+# Only the separator after the skill name is consumed: spaces and tabs, then at most one newline,
+# so an indented first argument line keeps its indent.
+hws=$'[ \t]*'
+nl=$'\n'
+re_skill="^(${nws}+)${hws}(${nl})?"
 
 run=""
 [[ $text =~ $re_lead ]] && text=${text:${#BASH_REMATCH[0]}}
@@ -50,12 +53,20 @@ done
 [[ $text =~ $re_skill ]] || die missing_skill "name the bf skill to run"
 skill=${BASH_REMATCH[1]}
 args=${text:${#BASH_REMATCH[0]}}
-# The heredoc that carries the arguments always ends them with a newline that is not part of them.
-while [[ $args == *$'\n' ]]; do args=${args%$'\n'}; done
+# A file written as text usually ends in one newline that is not part of the arguments.
+args=${args%$'\n'}
 skill=${skill#/}; skill=${skill#bf:}
+# The name becomes a path segment twice (the skill lookup and the bundle dir), so it must be one plain
+# directory name: "cross-agent/" or "../x" would get past the self check or escape skills/ and .bf/.
+re_name='^[a-z0-9][a-z0-9-]*$'
+# The detail lists the skills, so SKILL.md can offer them without a shell command it is not allowed to run.
+skill_list() {
+  for d in "$plugin"/skills/*/SKILL.md; do d=${d%/SKILL.md}; d=${d##*/}; [ "$d" = cross-agent ] || printf '%s ' "$d"; done
+}
+[[ $skill =~ $re_name ]] || die unknown_skill "'$skill' is not a bf skill name. Skills: $(skill_list)"
 
 [ "$skill" = cross-agent ] && die self_target "bf:cross-agent cannot run itself"
-[ -f "$plugin/skills/$skill/SKILL.md" ] || die unknown_skill "no skill '$skill' under $plugin/skills"
+[ -f "$plugin/skills/$skill/SKILL.md" ] || die unknown_skill "no skill '$skill'. Skills: $(skill_list)"
 
 runners=$(cd "$runners_dir" && for f in *.sh; do [ -f "$f" ] && echo "${f%.sh}"; done)
 if [ -n "$run" ] && ! grep -Fxq -- "$run" <<< "$runners"; then
@@ -65,8 +76,10 @@ fi
 conv=$(cd "$root" && bash "$plugin/skills/scan-conventions/scripts/resolve-conventions.sh" guidelines prose) \
   || die conventions_failed "resolve-conventions.sh failed"
 
-# Breadth-first over ${CLAUDE_PLUGIN_ROOT} references. Only .md files are followed: scripts are run,
-# not read, so their own references never reach the agent.
+# Breadth-first over the plugin files each doc cites. Skills cite them as ${CLAUDE_PLUGIN_ROOT}/<path>,
+# as a bare skills/<path> ("<resolved absolute path to skills/...>"), relative to skills/ in sub-skill
+# tables, or relative to their own directory (references/fix.md). Only .md files are followed: scripts
+# are run, not read, so their own citations never reach the agent.
 seen=$(mktemp); trap 'rm -f "$seen"' EXIT
 queue=("conventions/plugin-main.md" "skills/$skill/SKILL.md")
 for f in "$plugin/skills/$skill"/references/*.md; do [ -f "$f" ] && queue+=("${f#"$plugin"/}"); done
@@ -75,22 +88,33 @@ i=0
 while [ $i -lt ${#queue[@]} ]; do
   f=${queue[$i]}; i=$((i + 1))
   while IFS= read -r ref; do
-    ref=${ref#'${CLAUDE_PLUGIN_ROOT}/'}; ref=${ref%.}
-    [ -f "$plugin/$ref" ] || continue
-    grep -Fxq -- "$ref" "$seen" && continue
-    echo "$ref" >> "$seen"
-    case "$ref" in *.md) queue+=("$ref") ;; esac
-  done < <(grep -oE '\$\{CLAUDE_PLUGIN_ROOT\}/[A-Za-z0-9_./-]+' "$plugin/$f" 2>/dev/null | sort -u)
+    ref=${ref#'${CLAUDE_PLUGIN_ROOT}/'}; ref=${ref#/}
+    case "$ref" in */*) ;; *) continue ;; esac
+    case "/$ref/" in */../*) continue ;; esac
+    hit=""
+    for cand in "$ref" "skills/$ref" "${f%/*}/$ref"; do
+      [ -f "$plugin/$cand" ] && { hit=$cand; break; }
+    done
+    [ -n "$hit" ] || continue
+    grep -Fxq -- "$hit" "$seen" && continue
+    echo "$hit" >> "$seen"
+    case "$hit" in *.md) queue+=("$hit") ;; esac
+  done < <(grep -oE '(\$\{CLAUDE_PLUGIN_ROOT\}/)?[A-Za-z0-9_./-]+\.(md|sh)' "$plugin/$f" 2>/dev/null | sort -u)
 done
 
 stamp=$(date +%Y%m%d-%H%M%S)
-bundle="$root/.bf/cross-agent/$stamp-$skill"
-n=2
-while [ -e "$bundle" ]; do bundle="$root/.bf/cross-agent/$stamp-$skill-$n"; n=$((n + 1)); done
-mkdir -p "$bundle" || die mkdir_failed "cannot create $bundle"
+parent="$root/.bf/cross-agent"
+mkdir -p "$parent" || die mkdir_failed "cannot create $parent"
+# A plain mkdir is the claim: it fails when the dir exists, so two inits in the same second never share one.
+bundle="$parent/$stamp-$skill"; n=2
+until mkdir "$bundle" 2>/dev/null; do
+  [ -e "$bundle" ] || die mkdir_failed "cannot create $bundle"
+  bundle="$parent/$stamp-$skill-$n"; n=$((n + 1))
+done
 printf '%s' "$args" > "$bundle/args.txt"
 
-jq -n \
+# Built in memory first: a failed jq must not leave an empty manifest.json that a later step trusts.
+manifest=$(jq -n \
   --arg skill "$skill" --arg run "$run" --arg root "$root" --arg plugin "$plugin" --arg bundle "$bundle" \
   --argjson conv "$conv" \
   --arg runners "$runners" --arg seen "$(cat "$seen")" '
@@ -103,5 +127,7 @@ jq -n \
      docs: ([$refs[0]] | map($plugin + "/" + .))
            + ([$conv.guidelines, $conv.prose] | map(select(. != null)))
            + ($refs[1:] | map(select(endswith(".md"))) | map($plugin + "/" + .)),
-     scripts: ($refs | map(select(endswith(".md") | not)) | map($plugin + "/" + .))}' \
-  | tee "$bundle/manifest.json"
+     scripts: ($refs | map(select(endswith(".md") | not)) | map($plugin + "/" + .))}') \
+  || { rm -rf "$bundle"; die manifest_failed "could not build the manifest for $skill"; }
+printf '%s\n' "$manifest" > "$bundle/manifest.json" || { rm -rf "$bundle"; die mkdir_failed "cannot write $bundle/manifest.json"; }
+printf '%s\n' "$manifest"

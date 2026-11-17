@@ -3,7 +3,7 @@ You are running a skill from the **bf** plugin, written for Claude Code, in a di
 ## Plugin paths
 
 - `${CLAUDE_PLUGIN_ROOT}` in any bf file means the plugin root under **Paths** below. When a skill line says `bash "${CLAUDE_PLUGIN_ROOT}/..."`, run it with that root. The variable may already be set in your environment.
-- Write artifacts where the skill says, normally under `<project root>/.bf/`. Do not write inside the plugin root.
+- Write artifacts where the skill says, normally under `<project root>/.bf/`. Treat the plugin root as read-only, with one exception: when the project root is the plugin root or lies inside it (the bf repo running a skill on itself), the project root wins, and you write in it as the skill says.
 
 ## Tool translation
 

@@ -43,6 +43,24 @@ cat > "$tmp/in2" <<'BF_ARGS'
 --lenses logic
 #second line
 BF_ARGS
+hasdoc() { jq -e --arg p "$plugin/$2" '.docs | index($p) != null' <<< "$1" >/dev/null; }
+rv=$(printf 'review' | bash "$init"); mc=$(printf 'micro' | bash "$init")
+ok=0
+hasdoc "$rv" skills/feature/complexity-gate/SKILL.md || ok=1
+hasdoc "$rv" skills/feature/consistency-gate/SKILL.md || ok=1
+hasdoc "$mc" skills/micro/execute/SKILL.md || ok=1
+hasdoc "$mc" skills/feature/verify/SKILL.md || ok=1
+jq -e --arg p "$plugin/" '(.docs + .scripts) | all(startswith($p))' <<< "$rv" >/dev/null || ok=1
+check "closure follows plain skills/ paths and sub-skill table paths, and stays in the plugin" $ok
+mb=$(jq -r .bundle_dir <<< "$mc"); printf 'Goal: x.\n' > "$mb/brief.md"; mp=$(bash "$assemble" "$mb" | jq -r .prompt)
+first=$(sed -n '/^## Read first/,/^## Docs the skill cites/p' "$mp")
+ok=0
+grep -Fq "$plugin/skills/micro/SKILL.md" <<< "$first" || ok=1
+grep -Fq "$plugin/conventions/prose.md" <<< "$first" || ok=1
+grep -Fq "skills/micro/execute/SKILL.md" <<< "$first" && ok=1
+sed -n '/^## Docs the skill cites/,/^## Scripts/p' "$mp" | grep -Fq "skills/micro/execute/SKILL.md" || ok=1
+check "prompt reads conventions and the skill's own docs first, sub-skills on demand" $ok
+
 out=$(bash "$init" < "$tmp/in2")
 b2=$(jq -r .bundle_dir <<< "$out")
 ok=0
@@ -53,10 +71,24 @@ check "multi-line args kept without the trailing newline, no run, distinct bundl
 
 err() { bash "$init" <<< "$1" | jq -r .error; }
 check "unknown skill" "$([ "$(err 'nosuchskill x')" = unknown_skill ]; echo $?)"
+detail=$(bash "$init" <<< 'nosuchskill x' | jq -r .detail)
+ok=0
+grep -qw review <<< "$detail" || ok=1
+grep -qw bug-hunt <<< "$detail" || ok=1
+grep -qw cross-agent <<< "$detail" && ok=1
+check "unknown skill detail lists the skills that can run" $ok
 check "unknown runner" "$([ "$(err '--run nope review')" = unknown_runner ]; echo $?)"
 check "missing skill" "$([ "$(err '--run codex')" = missing_skill ]; echo $?)"
 check "unknown flag" "$([ "$(err '--lenses x bug-hunt')" = unknown_flag ]; echo $?)"
 check "self target" "$([ "$(err 'cross-agent review')" = self_target ]; echo $?)"
+
+bundles() { find "$tmp/r/.bf/cross-agent" -mindepth 1 -maxdepth 3 -type d | wc -l; }
+before=$(bundles); ok=0
+for n in 'cross-agent/' './cross-agent' 'bf:./cross-agent' '../skills/review' 'review/../review'; do
+  [ "$(err "$n x")" = unknown_skill ] || ok=1
+done
+check "path forms of the skill name are refused" $ok
+check "a refused name makes no bundle dir" "$([ "$(bundles)" = "$before" ]; echo $?)"
 
 check "assemble refuses a missing brief" "$([ "$(bash "$assemble" "$bundle" | jq -r .error)" = no_brief ]; echo $?)"
 
@@ -72,7 +104,67 @@ grep -Fq '## Tool translation' "$prompt" || ok=1
 jq -e '.run_commands.codex | test("codex.sh")' <<< "$res" >/dev/null || ok=1
 check "assemble: preamble, paths, brief, fence the args cannot close" $ok
 
+printf 'coherence src\nBF_ARGS\nrm -rf x\n' > "$tmp/in3"
+out=$(bash "$init" < "$tmp/in3")
+ok=0
+[ "$(cat "$(jq -r .bundle_dir <<< "$out")/args.txt"; printf x)" = $'src\nBF_ARGS\nrm -rf xx' ] || ok=1
+check "a terminator-like line stays in the args, one trailing newline dropped" $ok
+
+printf 'coherence\n  - item\n\tnext\n' > "$tmp/in4"
+out=$(bash "$init" < "$tmp/in4")
+check "leading indent of the args survives" "$([ "$(cat "$(jq -r .bundle_dir <<< "$out")/args.txt"; printf x)" = $'  - item\n\tnextx' ]; echo $?)"
+printf 'coherence  \t src  \n' > "$tmp/in5"
+out=$(bash "$init" < "$tmp/in5")
+check "spaces between skill and args are the separator, trailing spaces stay" "$([ "$(cat "$(jq -r .bundle_dir <<< "$out")/args.txt"; printf x)" = 'src  x' ]; echo $?)"
+
+evil="$tmp/q\$(touch PWNED)"
+mkdir "$evil" && cd "$evil" && git init -q . || exit 1
+out=$(printf 'coherence' | bash "$init")
+eb=$(jq -r .bundle_dir <<< "$out")
+printf 'Goal: x.\n' > "$eb/brief.md"
+cmd=$(bash "$assemble" "$eb" | jq -r .run_commands.codex)
+mkdir "$tmp/empty" && cd "$tmp/empty" || exit 1
+PATH=/usr/bin:/bin bash -c "$cmd" >/dev/null 2>&1
+check "run_commands treats \$(...) in a path as data" "$([ ! -e "$tmp/empty/PWNED" ]; echo $?)"
+cd "$tmp/r" || exit 1
+
+out=$(printf 'coherence' | bash "$init"); gb=$(jq -r .bundle_dir <<< "$out")
+printf 'Goal: x.\n' > "$gb/brief.md"
+cp "$gb/manifest.json" "$tmp/good.json"
+echo '{}' > "$gb/manifest.json"
+ok=0
+[ "$(bash "$assemble" "$gb" | jq -r .error)" = bad_manifest ] || ok=1
+[ ! -e "$gb/prompt.md" ] || ok=1
+: > "$gb/manifest.json"
+[ "$(bash "$assemble" "$gb" | jq -r .error)" = bad_manifest ] || ok=1
+check "assemble refuses an empty or partial manifest and writes no prompt.md" $ok
+cp "$tmp/good.json" "$gb/manifest.json"; mv "$gb/args.txt" "$tmp/args.bak"
+check "assemble refuses a missing args.txt" "$([ "$(bash "$assemble" "$gb" | jq -r .error)" = no_args ]; echo $?)"
+mv "$tmp/args.bak" "$gb/args.txt"; bash "$assemble" "$gb" >/dev/null
+
+mkdir -p "$tmp/bin"
+printf '#!/bin/sh\ntouch "%s/codex-ran"\n' "$tmp" > "$tmp/bin/codex"; chmod +x "$tmp/bin/codex"
+ok=0
+for m in '{"skill":"coherence"}' ''; do
+  rm -f "$tmp/codex-ran"
+  if [ -n "$m" ]; then printf '%s' "$m" > "$gb/manifest.json"; else rm -f "$gb/manifest.json"; fi
+  PATH="$tmp/bin:$PATH" bash "$codex_runner" "$gb" "$tmp/r" 2>/dev/null
+  [ $? = 2 ] || ok=1
+  [ ! -e "$tmp/codex-ran" ] || ok=1
+done
+check "codex runner exits 2 and skips codex on a missing or partial manifest" $ok
+
 PATH=/usr/bin:/bin bash "$codex_runner" "$bundle" "$tmp/r" 2>/dev/null
 check "codex runner exits 127 without codex" "$([ $? = 127 ]; echo $?)"
+
+check "preamble lets a project inside the plugin root write there" "$(grep -q 'the project root is the plugin root or lies inside it' "$here/../references/preamble.md" && grep -q 'project root wins' "$here/../references/preamble.md"; echo $?)"
+
+for k in 1 2 3 4 5 6; do printf 'coherence' | bash "$init" > "$tmp/par$k" & done; wait
+check "parallel inits get distinct bundle dirs" "$([ "$(cat "$tmp"/par? | jq -r .bundle_dir | sort -u | wc -l | tr -d ' ')" = 6 ]; echo $?)"
+
+skill_md="$here/../SKILL.md"
+missing=$(cat "$init" "$assemble" | grep -oE '(die |"error":")[a-z_]+' | sed -E 's/^(die |"error":")//' | sort -u \
+  | while read -r code; do grep -q "\`$code\`" "$skill_md" || echo "$code"; done)
+check "every error code the scripts emit has a SKILL.md row${missing:+ (missing: $(echo $missing))}" "$([ -z "$missing" ]; echo $?)"
 
 exit $fail
