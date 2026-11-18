@@ -2,7 +2,10 @@
 
 Maintainer reference, not a skill. Run the matching smoke script after changing a script it covers;
 each prints one PASS/FAIL line per case and exits non-zero on any failure. Run them with macOS
-`/bin/bash` (3.2) first on PATH as well, since that is what many users have.
+`/bin/bash` (3.2) first on PATH as well, since that is what many users have. After a change to a jq
+filter, also run the smoke with a jq 1.6 binary first on PATH. jq 1.6 rejects syntax that 1.7 accepts
+(`{a: x + y}` without parentheses, keywords such as `label` as shorthand keys), and its `-e` exits 0
+on empty input.
 
 | Smoke script | Covers |
 |---|---|

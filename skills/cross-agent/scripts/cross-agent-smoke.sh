@@ -145,14 +145,14 @@ mv "$tmp/args.bak" "$gb/args.txt"; bash "$assemble" "$gb" >/dev/null
 mkdir -p "$tmp/bin"
 printf '#!/bin/sh\ntouch "%s/codex-ran"\n' "$tmp" > "$tmp/bin/codex"; chmod +x "$tmp/bin/codex"
 ok=0
-for m in '{"skill":"coherence"}' ''; do
+for m in '{"skill":"coherence"}' EMPTY ''; do
   rm -f "$tmp/codex-ran"
-  if [ -n "$m" ]; then printf '%s' "$m" > "$gb/manifest.json"; else rm -f "$gb/manifest.json"; fi
+  case "$m" in EMPTY) : > "$gb/manifest.json" ;; '') rm -f "$gb/manifest.json" ;; *) printf '%s' "$m" > "$gb/manifest.json" ;; esac
   PATH="$tmp/bin:$PATH" bash "$codex_runner" "$gb" "$tmp/r" 2>/dev/null
   [ $? = 2 ] || ok=1
   [ ! -e "$tmp/codex-ran" ] || ok=1
 done
-check "codex runner exits 2 and skips codex on a missing or partial manifest" $ok
+check "codex runner exits 2 and skips codex on a missing, empty or partial manifest" $ok
 
 PATH=/usr/bin:/bin bash "$codex_runner" "$bundle" "$tmp/r" 2>/dev/null
 check "codex runner exits 127 without codex" "$([ $? = 127 ]; echo $?)"

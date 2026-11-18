@@ -15,7 +15,8 @@ command -v codex >/dev/null || { echo "codex CLI not found on PATH" >&2; exit 12
 [ -f "$bundle/prompt.md" ] || { echo "$bundle/prompt.md is missing" >&2; exit 2; }
 # Exported so the agent can run the skill's `bash "${CLAUDE_PLUGIN_ROOT}/..."` lines as written. An empty
 # value would point those lines at /skills/..., so a manifest without one stops the run here.
-plugin_root=$(jq -er '.plugin_root | strings' "$bundle/manifest.json" 2>/dev/null) \
+# The emptiness test is needed too: jq 1.6 -e exits 0 and prints nothing on an empty manifest.
+plugin_root=$(jq -er '.plugin_root | strings' "$bundle/manifest.json" 2>/dev/null) && [ -n "$plugin_root" ] \
   || { echo "$bundle/manifest.json is missing or has no plugin_root" >&2; exit 2; }
 
 CLAUDE_PLUGIN_ROOT=$plugin_root \

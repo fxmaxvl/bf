@@ -114,6 +114,7 @@ done
 printf '%s' "$args" > "$bundle/args.txt"
 
 # Built in memory first: a failed jq must not leave an empty manifest.json that a later step trusts.
+# A sum as an object value needs its own parentheses: jq 1.6 rejects `{docs: a + b}`.
 manifest=$(jq -n \
   --arg skill "$skill" --arg run "$run" --arg root "$root" --arg plugin "$plugin" --arg bundle "$bundle" \
   --argjson conv "$conv" \
@@ -124,9 +125,9 @@ manifest=$(jq -n \
      project_root: $root, plugin_root: $plugin, bundle_dir: $bundle,
      manifest: ($bundle + "/manifest.json"),
      runners: ($runners | split("\n") | map(select(. != ""))),
-     docs: ([$refs[0]] | map($plugin + "/" + .))
-           + ([$conv.guidelines, $conv.prose] | map(select(. != null)))
-           + ($refs[1:] | map(select(endswith(".md"))) | map($plugin + "/" + .)),
+     docs: (([$refs[0]] | map($plugin + "/" + .))
+            + ([$conv.guidelines, $conv.prose] | map(select(. != null)))
+            + ($refs[1:] | map(select(endswith(".md"))) | map($plugin + "/" + .))),
      scripts: ($refs | map(select(endswith(".md") | not)) | map($plugin + "/" + .))}') \
   || { rm -rf "$bundle"; die manifest_failed "could not build the manifest for $skill"; }
 printf '%s\n' "$manifest" > "$bundle/manifest.json" || { rm -rf "$bundle"; die mkdir_failed "cannot write $bundle/manifest.json"; }

@@ -262,6 +262,7 @@ mark() {
 
 timing() {
   [ -s "$run_dir/timing.jsonl" ] || die no_timing "timing.jsonl is missing or empty"
+  # `label` is a jq keyword, so jq 1.6 accepts it as a key only when written out as `label: .label`.
   jq -sc '
     def r1: if . == null then null else (. * 10 + 0.5 | floor) / 10 end;
     def mark($s): [.[] | select(.step == $s) | .end] | if length > 0 then .[-1] else null end;
@@ -274,11 +275,11 @@ timing() {
     | (map(select(.by == "agent")) | group_by([.step, .label]) | map(.[-1])) as $agent
     | [$agent[] | select(.step == "hunter")] as $h | [$agent[] | select(.step == "verifier")] as $v
     | ([$script[] | .end - .start] | add // 0) as $script_s
-    | [ ($script[] | {step, label, by, at: (.start - $t0), duration: (.end - .start)}),
-        ($h[] | {step, label, by, at: (.end - $t0), duration: since($hs)}),
-        ($v[] | {step, label, by, at: (.end - $t0), duration: since($vs)}),
+    | [ ($script[] | {step, label: .label, by, at: (.start - $t0), duration: (.end - .start)}),
+        ($h[] | {step, label: .label, by, at: (.end - $t0), duration: since($hs)}),
+        ($v[] | {step, label: .label, by, at: (.end - $t0), duration: since($vs)}),
         ($agent[] | select(.step | IN("hunter", "verifier") | not) | . as $m
-         | {step, label, by, at: (.end - $t0),
+         | {step, label: .label, by, at: (.end - $t0),
             duration: ([$all[] | .end | select(. < $m.end)] | if length > 0 then $m.end - max else null end)}) ]
     | sort_by(.at) | map(.at |= r1 | .duration |= r1) as $steps
     | {wall: ($t1 - $t0 | r1), script: ($script_s | r1), agent: ($t1 - $t0 - $script_s | r1), steps: $steps,
