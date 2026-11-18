@@ -90,6 +90,29 @@ done
 check "path forms of the skill name are refused" $ok
 check "a refused name makes no bundle dir" "$([ "$(bundles)" = "$before" ]; echo $?)"
 
+ok=0
+for n in 'feature/' 'a/b/c' 'feature/nope' 'feature/../review'; do
+  [ "$(err "$n x")" = unknown_skill ] || ok=1
+done
+[ "$(err 'cross-agent/x')" = self_target ] || ok=1
+check "a sub-skill name must be one existing <skill>/<sub-skill>, never under cross-agent" $ok
+
+gate=$(bash "$init" <<< '--read-only feature/consistency-gate src/a.sh'); gb2=$(jq -r .bundle_dir <<< "$gate")
+ok=0
+[ "$(jq -r .skill <<< "$gate")" = feature/consistency-gate ] || ok=1
+[ "$(jq -r .sandbox <<< "$gate")" = read-only ] || ok=1
+[ "$(jq -r .sandbox <<< "$(printf 'coherence' | bash "$init")")" = workspace-write ] || ok=1
+case "$gb2" in */.bf/cross-agent/*/*) ok=1 ;; */.bf/cross-agent/*-feature-consistency-gate) [ -d "$gb2" ] || ok=1 ;; *) ok=1 ;; esac
+[ "$(cat "$gb2/args.txt")" = src/a.sh ] || ok=1
+printf 'Goal: x.\n' > "$gb2/brief.md"; gp=$(bash "$assemble" "$gb2" | jq -r .prompt)
+sed -n '/^## Read first/,/^## Docs the skill cites/p' "$gp" | grep -Fq "$plugin/skills/feature/consistency-gate/SKILL.md" || ok=1
+check "a sub-skill target gets a flat bundle dir and its SKILL.md read first, --read-only sets the sandbox" $ok
+
+ok=0
+grep -Fq '## Sandbox' "$gp" && grep -Fq 'This run is read-only.' "$gp" || ok=1
+grep -Fq 'This run is read-only.' "$mp" && ok=1
+check "assemble adds the sandbox note to a read-only prompt only" $ok
+
 check "assemble refuses a missing brief" "$([ "$(bash "$assemble" "$bundle" | jq -r .error)" = no_brief ]; echo $?)"
 
 printf 'Goal: check the fence.\n' > "$bundle/brief.md"
@@ -138,6 +161,8 @@ ok=0
 : > "$gb/manifest.json"
 [ "$(bash "$assemble" "$gb" | jq -r .error)" = bad_manifest ] || ok=1
 check "assemble refuses an empty or partial manifest and writes no prompt.md" $ok
+jq 'del(.plugin_root) | .skill = 7 | .docs = "x"' "$tmp/good.json" > "$gb/manifest.json"
+check "assemble refuses a manifest with a wrong-typed skill, no plugin_root and docs as a string" "$([ "$(bash "$assemble" "$gb" | jq -r .error)" = bad_manifest ]; echo $?)"
 cp "$tmp/good.json" "$gb/manifest.json"; mv "$gb/args.txt" "$tmp/args.bak"
 check "assemble refuses a missing args.txt" "$([ "$(bash "$assemble" "$gb" | jq -r .error)" = no_args ]; echo $?)"
 mv "$tmp/args.bak" "$gb/args.txt"; bash "$assemble" "$gb" >/dev/null
@@ -145,14 +170,26 @@ mv "$tmp/args.bak" "$gb/args.txt"; bash "$assemble" "$gb" >/dev/null
 mkdir -p "$tmp/bin"
 printf '#!/bin/sh\ntouch "%s/codex-ran"\n' "$tmp" > "$tmp/bin/codex"; chmod +x "$tmp/bin/codex"
 ok=0
-for m in '{"skill":"coherence"}' ''; do
+for m in '{"skill":"coherence"}' EMPTY ''; do
   rm -f "$tmp/codex-ran"
-  if [ -n "$m" ]; then printf '%s' "$m" > "$gb/manifest.json"; else rm -f "$gb/manifest.json"; fi
+  case "$m" in EMPTY) : > "$gb/manifest.json" ;; '') rm -f "$gb/manifest.json" ;; *) printf '%s' "$m" > "$gb/manifest.json" ;; esac
   PATH="$tmp/bin:$PATH" bash "$codex_runner" "$gb" "$tmp/r" 2>/dev/null
   [ $? = 2 ] || ok=1
   [ ! -e "$tmp/codex-ran" ] || ok=1
 done
-check "codex runner exits 2 and skips codex on a missing or partial manifest" $ok
+check "codex runner exits 2 and skips codex on a missing, empty or partial manifest" $ok
+
+printf '#!/bin/sh\necho "$*" > "%s/codex-args"\n' "$tmp" > "$tmp/bin/codex"
+ok=0
+PATH="$tmp/bin:$PATH" bash "$codex_runner" "$gb2" "$tmp/r" 2>/dev/null || ok=1
+grep -q -- '-s read-only ' "$tmp/codex-args" || ok=1
+cp "$tmp/good.json" "$gb/manifest.json"
+PATH="$tmp/bin:$PATH" bash "$codex_runner" "$gb" "$tmp/r" 2>/dev/null || ok=1
+grep -q -- '-s workspace-write ' "$tmp/codex-args" || ok=1
+jq '.sandbox = "danger-full-access"' "$tmp/good.json" > "$gb/manifest.json"; rm -f "$tmp/codex-args"
+PATH="$tmp/bin:$PATH" bash "$codex_runner" "$gb" "$tmp/r" 2>/dev/null
+[ $? = 2 ] && [ ! -e "$tmp/codex-args" ] || ok=1
+check "codex runner takes the sandbox from the manifest and refuses any other value" $ok
 
 PATH=/usr/bin:/bin bash "$codex_runner" "$bundle" "$tmp/r" 2>/dev/null
 check "codex runner exits 127 without codex" "$([ $? = 127 ]; echo $?)"

@@ -2,7 +2,10 @@
 
 Maintainer reference, not a skill. Run the matching smoke script after changing a script it covers;
 each prints one PASS/FAIL line per case and exits non-zero on any failure. Run them with macOS
-`/bin/bash` (3.2) first on PATH as well, since that is what many users have.
+`/bin/bash` (3.2) first on PATH as well, since that is what many users have. After a change to a jq
+filter, also run the smoke with a jq 1.6 binary first on PATH. jq 1.6 rejects syntax that 1.7 accepts
+(`{a: x + y}` without parentheses, keywords such as `label` as shorthand keys), and its `-e` exits 0
+on empty input.
 
 | Smoke script | Covers |
 |---|---|
@@ -26,7 +29,7 @@ each prints one PASS/FAIL line per case and exits non-zero on any failure. Run t
 | `skills/bug-hunt/scripts/bug-hunt-smoke.sh` | `hunt-init.sh` (including the `--pr --worktree` paths against a stub `gh` and a local bare origin), `profile.sh`, `findings.sh` |
 | `skills/autopilot/hooks/autopilot-hooks-smoke.sh` | `stop.sh`, `user-prompt-cleanup.sh`, `session-start-cleanup.sh`, the helpers in `lib.sh` (sub-agents, teammates and background work, stop words, agent and scheduled turns, the lead session and its process, the second-session warning) |
 | `skills/essence/scripts/essence-smoke.sh` | `essence-init.sh`, `ledger-check.sh` |
-| `skills/cross-agent/scripts/cross-agent-smoke.sh` | `cross-agent-init.sh`, `cross-agent-assemble.sh`, `runners/codex.sh` (arguments kept verbatim from a file, the skill-name check, the reference closure and the split reading list, `@sh`-quoted run commands, bad bundles refused, parallel inits, every error code named in SKILL.md, a missing `codex`) |
+| `skills/cross-agent/scripts/cross-agent-smoke.sh` | `cross-agent-init.sh`, `cross-agent-assemble.sh`, `runners/codex.sh` (arguments kept verbatim from a file, the skill-name check and `<skill>/<sub-skill>` names, the `--read-only` sandbox passed to codex, the reference closure and the split reading list, `@sh`-quoted run commands, bad bundles refused, parallel inits, every error code named in SKILL.md, a missing `codex`) |
 | `skills/pr-comments/scripts/pr-comments-smoke.sh` | `fetch-pr-comments.sh`, `wait-for-review.sh` (argument parsing, `--all`, push time, `--head` and `--bot`, against a stub `gh`) |
 | `hooks/remote-state-hook-smoke.sh` | `hooks/remote-state-pre-bash.sh` (which commands get the reminder, `BF_REMOTE_HOOK=off`, input that is not JSON, the `hooks.json` registration under PreToolUse Bash) |
 | `evals/regress-smoke.sh` | `evals/regress.sh` (all modes, against a stub `claude`) and `.githooks/pre-push` |
