@@ -58,6 +58,10 @@ tmp_prompt="$bundle/prompt.md.tmp"
          | if length == 0 then "None." else .[] | "- `\(.)`" end' "$manifest"
   printf '\n## Scripts the skill calls\n\n'
   jq -r 'if (.scripts | length) == 0 then "None." else .scripts[] | "- `\(.)`" end' "$manifest"
+  # Only a read-only run needs the note: the preamble stays generic.
+  if [ "$(jq -r '.sandbox // empty' "$manifest")" = read-only ]; then
+    printf '\n## Sandbox\n\nThis run is read-only. Writes are refused, so do not retry them. List each refused write under **Deviations**. Put any report block the skill would have written (for example the full `## <Name> Report` section) in your last message.\n'
+  fi
   printf '\n## Task brief\n\n'
   cat "$bundle/brief.md"
   printf '\n\n## Arguments\n\n'

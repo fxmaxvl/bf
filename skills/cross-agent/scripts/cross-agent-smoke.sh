@@ -108,6 +108,11 @@ printf 'Goal: x.\n' > "$gb2/brief.md"; gp=$(bash "$assemble" "$gb2" | jq -r .pro
 sed -n '/^## Read first/,/^## Docs the skill cites/p' "$gp" | grep -Fq "$plugin/skills/feature/consistency-gate/SKILL.md" || ok=1
 check "a sub-skill target gets a flat bundle dir and its SKILL.md read first, --read-only sets the sandbox" $ok
 
+ok=0
+grep -Fq '## Sandbox' "$gp" && grep -Fq 'This run is read-only.' "$gp" || ok=1
+grep -Fq 'This run is read-only.' "$mp" && ok=1
+check "assemble adds the sandbox note to a read-only prompt only" $ok
+
 check "assemble refuses a missing brief" "$([ "$(bash "$assemble" "$bundle" | jq -r .error)" = no_brief ]; echo $?)"
 
 printf 'Goal: check the fence.\n' > "$bundle/brief.md"
