@@ -156,6 +156,8 @@ ok=0
 : > "$gb/manifest.json"
 [ "$(bash "$assemble" "$gb" | jq -r .error)" = bad_manifest ] || ok=1
 check "assemble refuses an empty or partial manifest and writes no prompt.md" $ok
+jq 'del(.plugin_root) | .skill = 7 | .docs = "x"' "$tmp/good.json" > "$gb/manifest.json"
+check "assemble refuses a manifest with a wrong-typed skill, no plugin_root and docs as a string" "$([ "$(bash "$assemble" "$gb" | jq -r .error)" = bad_manifest ]; echo $?)"
 cp "$tmp/good.json" "$gb/manifest.json"; mv "$gb/args.txt" "$tmp/args.bak"
 check "assemble refuses a missing args.txt" "$([ "$(bash "$assemble" "$gb" | jq -r .error)" = no_args ]; echo $?)"
 mv "$tmp/args.bak" "$gb/args.txt"; bash "$assemble" "$gb" >/dev/null

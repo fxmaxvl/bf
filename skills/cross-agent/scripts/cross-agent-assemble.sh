@@ -24,8 +24,9 @@ manifest="$bundle/manifest.json"
 [ -f "$manifest" ] || die no_manifest "$manifest is missing. Run cross-agent-init.sh first"
 # Every later jq read trusts these keys, so a partial manifest is refused here, not halfway through the prompt.
 # Slurped because jq 1.6 -e exits 0 on an empty file, which would let an empty manifest through.
-jq -se 'length == 1 and (.[0] | (.skill, .plugin_root, .project_root, .bundle_dir | type == "string")
-       and (.docs, .scripts, .runners | type == "array"))' "$manifest" >/dev/null 2>&1 \
+# The key lists go through all(), because a comma list is a generator and -e judges only its last value.
+jq -se 'length == 1 and (.[0] | ([.skill, .plugin_root, .project_root, .bundle_dir] | all(type == "string"))
+       and ([.docs, .scripts, .runners] | all(type == "array")))' "$manifest" >/dev/null 2>&1 \
   || die bad_manifest "$manifest is not a manifest written by cross-agent-init.sh"
 [ -f "$bundle/args.txt" ] || die no_args "$bundle/args.txt is missing. Run cross-agent-init.sh first"
 [ -s "$bundle/brief.md" ] || die no_brief "$bundle/brief.md is missing or empty"
