@@ -369,7 +369,13 @@ Things to know before you install:
 
 - Findings are advisory. They appear under `### Advisory Issues` as should-consider items and never block or start a fix loop.
 - The gate looks at the changed files only. It passes their paths to the tools.
-- Coverage is read from a report that already exists on disk (`coverage/lcov.info`, `target/coverage/` or `target/site/jacoco/jacoco.xml`). The gate never regenerates it.
+- Coverage is read from a report that already exists on disk, one path per language. The gate never regenerates it. Without the report for a file's language, the file gets a score from complexity alone.
+  - Clojure: `target/coverage/`
+  - Java: `target/site/jacoco/jacoco.xml`
+  - Go: `target/coverage/go/coverage.out`
+  - Rust: `target/coverage/rust/lcov.info`
+  - Python: `target/coverage/python/lcov.info`
+  - TypeScript and JavaScript: `coverage/lcov.info` or `target/coverage/typescript/lcov.info`
 - mutator runs your project tests once per mutant. A run can take minutes. The gate stops all three tools after 540 seconds and reports a note.
 - `/bf:setup` installs the three tools under `~/.bf/tools`, each with its own Python environment. They need Python 3.11 or newer, and `/bf:setup` installs that too when it is missing.
 - Without the tools, the gate prints one line that points to `/bf:setup`.
