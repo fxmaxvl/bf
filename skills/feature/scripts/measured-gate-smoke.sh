@@ -148,5 +148,9 @@ has "a tool past its time limit gives a note" "$out" 'Measured note: crapper hit
 expect "the heading format is documented once, in the wrapper" "$(grep -c '^#   #### Measured / ' "$gate")" "4"
 grep -q 'TOTAL_BUDGET_S = int(os.environ.get("MEASURED_GATE_BUDGET_S", "540"))' "$gate" && ok "the default budget is 540 s" || bad "the default budget is 540 s"
 
+gate_skill=$dir/../complexity-gate/SKILL.md
+grep -q 'timeout: 600000' "$gate_skill" && grep -q '540 s' "$gate_skill" && ok "the gate passes timeout 600000 and names the 540 s budget" || bad "the gate passes timeout 600000 and names the 540 s budget"
+expect "the gate copies the wrapper heading format by reference" "$(grep -c '^#### Measured / ' "$gate_skill")" "2"
+
 echo "---- $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -100,6 +100,21 @@ Focus on structural signals, not style preferences:
 - Methods that only forward arguments to another method (pass-through methods)
 - Chains of `if/else` or `switch` for cases expressible as a uniform rule (special-case proliferation)
 
+### Measured tools (advisory only)
+
+Run the measured tools once per scan. They are opt-in: when they are not installed the wrapper prints one skip line and nothing else changes.
+
+1. Run the wrapper with every `changed_files` path, each in single quotes. Pass `timeout: 600000` on this Bash call, because mutator can run for minutes. The wrapper stops its tools at 540 s (`TOTAL_BUDGET_S` in `measured-gate.sh`). Keep the two values in step.
+
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/measured-gate.sh" -- '<path>' '<path>'
+   ```
+
+2. Its output is report text in the format that the header of `measured-gate.sh` defines: a `#### Measured / Run summary` group with the `Measured:` and `Measured note:` lines, then zero or more finding groups. Copy it unchanged. When STATUS is not PASS, put it under `### Advisory Issues`. When STATUS is PASS, put it directly below the STATUS line. Never put a `Measured:` or `Measured note:` line directly below a STATUS line that is not PASS, because the review merge drops plain lines that come before the first `###` header.
+3. Measured findings are always ADVISORY, even in a file the session introduced. Never list one under Blocked Issues.
+4. A summary line or a note line never changes STATUS. Measured findings alone raise STATUS from PASS to ADVISORY, and never to BLOCK.
+5. Do not run crapper, dryer or mutator any other way.
+
 ### Severity
 
 - **BLOCK** — red flag that the session's diff introduced or made worse.
@@ -122,6 +137,17 @@ No findings:
 STATUS: PASS
 ```
 
+No findings, with the measured output (a skip line or a clean run):
+
+```markdown
+## Complexity Report
+
+STATUS: PASS
+
+#### Measured / Run summary
+<the measured-gate.sh output, copied unchanged>
+```
+
 Findings present:
 
 ```markdown
@@ -138,6 +164,9 @@ STATUS: BLOCK | ADVISORY
 
 #### <Root Cause> / <Symptom> — <Red Flag Name>
 - `<file>:<line or spec section>`: <what was observed>. **Suggestion:** <prescription from COMPLEXITY.md>
+
+#### Measured / Run summary
+<the measured-gate.sh output, copied unchanged>
 ```
 
 Omit sections that have no entries.
