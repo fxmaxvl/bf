@@ -184,10 +184,11 @@ list_missing() {
   done
 }
 
-# The lines of list_missing, with a command that another entry already lists dropped: node and npm
-# share one brew formula, and apt-get update runs once per call, before its first apt install. Run it
-# in a command substitution and read its exit code.
-build_list() { list_missing "$1" | awk -F'\t' '!seen[$2]++'; }
+# The lines of list_missing, with a command that another entry already lists dropped, because node
+# and npm share one brew formula. apt-get update stays in every apt entry: setup/SKILL.md installs one
+# entry per call, so each call must run exactly the commands the user approved. Run it in a command
+# substitution and read its exit code.
+build_list() { list_missing "$1" | awk -F'\t' '$2 ~ /apt-get update$/ || !seen[$2]++'; }
 
 # Prints the blocked object and returns 0 when the list ($1) needs brew and brew is missing.
 blocked_no_brew() {
@@ -224,6 +225,9 @@ cmd_plan() {
 }
 
 RES_OK=true; RES_DETAIL=""
+# The first line that names the error (git's fatal:, apt's E:, an {"error":...} object), else the last
+# line: progress lines such as git's "Cloning into" come first and say nothing about the failure.
+error_line() { awk 'NF { last = $0 } NF && !hit && /fatal:|^E: |[Ee]rror/ { print; hit = 1 } END { if (!hit) print last }'; }
 # Prints the sudo commands that list ($2) holds for one entry ($1), without "sudo -n ", joined by $3.
 sudo_chain() {
   printf '%s\n' "$2" | awk -F'\t' -v n="$1" -v j="$3" '$1 == n && $2 ~ /^sudo -n / { sub(/^sudo -n /, "", $2); printf "%s%s", (c++ ? j : ""), $2 }'
@@ -256,9 +260,9 @@ run_entry() {
     case "$cmd" in
       "sudo -n "*) if sudo_blocked "$n" "$list"; then RES_OK=false; return; fi ;;
     esac
-    if ! out=$(bash -c "$cmd" 2>&1 >/dev/null </dev/null); then
+    if ! out=$(bash -c "$cmd" 2>&1 </dev/null); then
       RES_OK=false
-      RES_DETAIL="$cmd failed: $(printf '%s\n' "$out" | awk 'NF {print; exit}' | cut -c1-200)"
+      RES_DETAIL="$cmd failed: $(printf '%s\n' "$out" | error_line | cut -c1-200)"
       return
     fi
   done <<EOF2

@@ -121,9 +121,9 @@ expect "a later modern python with ensurepip passes" "$(run status | field pytho
 
 reset_env
 ver=$(bash "$here/../../visualize/scripts/install-likec4.sh" --print-version)
+likec4_bin=$(HOME=$HOME_DIR bash "$here/../../visualize/scripts/install-likec4.sh" --print-bin)
 expect "likec4 absent without the cache" "$(run status | field likec4 present)" "false"
-mkdir -p "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin"
-printf '#!/bin/bash\n' > "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin/likec4"; chmod +x "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin/likec4"
+mkdir -p "$(dirname "$likec4_bin")"; printf '#!/bin/bash\n' > "$likec4_bin"; chmod +x "$likec4_bin"
 expect "likec4 present with the pinned cache" "$(run status | field likec4 present)" "true"
 
 reset_env
@@ -156,7 +156,7 @@ stubs_for_install() {
   stub git '
 if [ "$1" = clone ]; then
   for a; do dest=$a; done
-  if [ -f "'$GIT_FAIL'" ] && grep -qxF "$(basename "$dest")" "'$GIT_FAIL'"; then echo "fatal: unable to access" >&2; exit 128; fi
+  if [ -f "'$GIT_FAIL'" ] && grep -qxF "$(basename "$dest")" "'$GIT_FAIL'"; then echo "Cloning into $dest..." >&2; echo "fatal: unable to access" >&2; exit 128; fi
   mkdir -p "$dest"; printf "#!/bin/bash\n" > "$dest/$(basename "$dest")"; chmod +x "$dest/$(basename "$dest")"
 fi'
   stub npm 'for a; do case "$a" in --prefix) take=1; continue ;; esac; [ "${take:-0}" = 1 ] && { prefix=$a; take=0; }; done
@@ -252,6 +252,8 @@ expect "a failed clone of crapper skips mutator" \
   "$(printf '%s' "$out" | jq -r '[.results[] | select(.name == "crapper" or .name == "mutator") | "\(.name):\(.ok)"] | join(",")')" "crapper:false,mutator:false"
 expect "the mutator skip names crapper" \
   "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "mutator") | .detail | startswith("skipped: requires crapper")')" "true"
+expect "a failed clone reports the fatal line, not the progress line" \
+  "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "crapper") | .detail')" "git clone --depth 1 https://github.com/unclebob/crapper.git $HOME_DIR/.bf/tools/crapper failed: fatal: unable to access"
 expect "dryer still installs after a crapper failure" \
   "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "dryer") | .ok')" "true"
 
@@ -269,7 +271,7 @@ expect "a re-run repairs the half-built venv" \
   "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "crapper") | .ok'),$([ -e "$HOME_DIR/.bf/tools/crapper/.venv/.bf-installed" ] && echo marker)" "true,marker"
 
 reset_env; stubs_for_install; stub gh; stub python3; stub curl; stub node; stub npm; mkpy python3.12 3.12
-mkdir -p "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin"; printf '#!/bin/bash\n' > "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin/likec4"; chmod +x "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin/likec4"
+mkdir -p "$(dirname "$likec4_bin")"; printf '#!/bin/bash\n' > "$likec4_bin"; chmod +x "$likec4_bin"
 rm -f "$BIN/brew"
 expect "only git tools missing on macOS without brew is not blocked" "$(run plan | names)" "crapper,dryer,mutator"
 
@@ -277,8 +279,13 @@ reset_env; stubs_for_install
 export BF_SETUP_PLATFORM=linux
 plan_json=$(run plan core)
 expect "the Linux plan uses sudo -n apt-get" "$(printf '%s' "$plan_json" | jq -r '.steps[0].commands[1]')" "sudo -n apt-get install -y gh"
-expect "the Linux plan starts with apt-get update, once" \
-  "$(printf '%s' "$plan_json" | jq -r '[.steps[0].commands[0], ([.steps[].commands[] | select(endswith("update"))] | length)] | join(",")')" "sudo -n apt-get update,1"
+expect "every apt entry starts with its own apt-get update" \
+  "$(printf '%s' "$plan_json" | jq -r '[.steps[] | .commands[0]] | unique | join(",")'),$(printf '%s' "$plan_json" | jq -r '[.steps[].commands[] | select(endswith("update"))] | length')" "sudo -n apt-get update,2"
+: > "$LOG"
+for n in $(printf '%s' "$plan_json" | jq -r '.steps[].name'); do run install core --only "$n" >/dev/null; done
+expect "the --only calls run exactly the approved commands" \
+  "$(grep '^sudo -n apt-get' "$LOG" | tr '\n' ',')" "$(printf '%s' "$plan_json" | jq -r '[.steps[].commands[]] | map(. + ",") | add')"
+reset_env; stubs_for_install
 touch "$SUDO_FAIL"
 out=$(run install core)
 expect "a failing sudo gives the ! sudo line" \
@@ -286,7 +293,7 @@ expect "a failing sudo gives the ! sudo line" \
 rm -f "$SUDO_FAIL"; : > "$LOG"
 out=$(run install core)
 expect "the Linux install runs through sudo -n" "$(grep -c '^sudo -n apt-get install -y' "$LOG")" "2"
-expect "apt-get update runs once, before the first install" \
+expect "apt-get update runs before the first install" \
   "$(grep -n -e '^sudo -n apt-get update' -e '^sudo -n apt-get install' "$LOG" | cut -d: -f2- | head -n 2 | tr '\n' ',')" \
   "sudo -n apt-get update,sudo -n apt-get install -y gh,"
 
@@ -305,6 +312,11 @@ plan_json=$(run plan core)
 expect "as root the plan has no sudo" "$(printf '%s' "$plan_json" | jq -r '.steps[0].commands | join(",")')" "apt-get update,apt-get install -y gh"
 : > "$LOG"; run install core >/dev/null
 expect "as root the install runs apt-get directly" "$(grep -c -e '^apt-get install -y gh' "$LOG"),$(grep -c '^sudo' "$LOG")" "1,0"
+unset BF_SETUP_PLATFORM
+reset_env; stubs_for_install; stub node; stub npm 'echo "npm ERR! code E500" >&2; exit 1'
+out=$(run install --only likec4)
+expect "an error printed on stdout reaches the detail" \
+  "$(printf '%s' "$out" | jq -r '.results[0].detail | test("install_failed")')" "true"
 export BF_SETUP_PLATFORM=other
 reset_env
 expect "an unsupported platform is an error" "$(run plan core | jq -r .error)" "unsupported_platform"
