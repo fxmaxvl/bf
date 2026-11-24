@@ -144,8 +144,7 @@ No findings, with the measured output (a skip line or a clean run):
 
 STATUS: PASS
 
-#### Measured / Run summary
-<the measured-gate.sh output, copied unchanged>
+<the measured-gate.sh output, copied unchanged, starting with its #### Measured / Run summary line>
 ```
 
 Findings present:
@@ -165,8 +164,7 @@ STATUS: BLOCK | ADVISORY
 #### <Root Cause> / <Symptom> — <Red Flag Name>
 - `<file>:<line or spec section>`: <what was observed>. **Suggestion:** <prescription from COMPLEXITY.md>
 
-#### Measured / Run summary
-<the measured-gate.sh output, copied unchanged>
+<the measured-gate.sh output, copied unchanged, starting with its #### Measured / Run summary line>
 ```
 
 Omit sections that have no entries.
