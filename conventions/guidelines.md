@@ -11,8 +11,13 @@ changes that were technically minimal and practically wrong: new behavior staple
 without asking whether the method still made sense afterwards. Sections 2 and 3 below keep the
 anti-sprawl intent and replace the line-tracing test with a coherence test.
 
+Section 5 is adapted from [unclebob/ub-mode](https://github.com/unclebob/ub-mode) (MIT, (c) Robert C. Martin).
+**bf left out the ub-mode rules that conflict with it.** These are: delete dead code (section 3 says to mention it), redesign from scratch without asking (`dev.md`), push to main, keep a log, and worktree cleanup.
+
 **Scope.** These apply to every skill in this plugin, at every phase. Sections 1 and 4 are
-workflow-wide; sections 2 and 3 apply whenever code is being written or modified.
+workflow-wide. Sections 2 and 3 apply whenever code is being written or modified. In section 5,
+Attack the Premise and Build the Lever are workflow-wide. The design rules apply whenever code is
+being written or modified.
 
 **Tradeoff.** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
@@ -148,3 +153,20 @@ you back to the user at every step — and let you declare done on work that isn
 
 Report against the criteria you stated. If a check fails, say so with the output; do not report
 completion on an unverified step.
+
+## 5. Premise, Levers and Design Rules
+
+**Remove the shared cause. Build the tool when the work repeats.**
+
+- **Attack the Premise.** When two fixes that share one premise fail the same gate, write the premise in one sentence and remove it before you try a third fix.
+- **Build the Lever.** Do one unit by hand. Then build the tool that does the rest.
+
+Design rules, for whenever code is written or modified:
+
+- Make illegal states impossible.
+- Validate at the boundary and trust the data inside.
+- Keep business logic in pure functions.
+- Parse outside data once.
+- Do not silence the compiler or the type checker.
+- Make operations idempotent.
+- Allow one writer per shared mutable state.
