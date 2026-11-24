@@ -50,7 +50,7 @@ printf '%s' "$n" >> "\$STUB_LOG"; for a in "\$@"; do printf '|%s' "\$a" >> "\$ST
 [ -n "\${STUB_${u}_ERR:-}" ] && echo "\$STUB_${u}_ERR" >&2
 exit "\${STUB_${u}_RC:-0}"
 STUB
-  printf '#!/bin/bash\n' > "$d/.venv/bin/python"
+  printf '#!/bin/bash\n' > "$d/.venv/bin/python"; : > "$d/.venv/.bf-installed"
   chmod +x "$d/$n" "$d/.venv/bin/python"
 }
 
