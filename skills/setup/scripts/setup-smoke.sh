@@ -57,7 +57,6 @@ mktool() { # name: a ready git tool under the fake HOME
 run() { env -i HOME="$HOME_DIR" PATH="$BIN" ${BF_SETUP_PLATFORM:+BF_SETUP_PLATFORM="$BF_SETUP_PLATFORM"} "${BASH:-bash}" "$setup" "$@"; }
 field() { jq -r --arg n "$1" --arg k "$2" '.deps[] | select(.name == $n) | .[$k] | tostring' ; }
 
-# --- registry shape ---
 bad_req=$(jq -r '. as $all | to_entries[] | .key as $i | .value | .name as $n | .requires[]? as $r
   | select(([$all[:$i][] | .name] | index($r)) == null) | "\($n) needs \($r)"' "$deps")
 expect "every requires entry names an earlier dependency" "$bad_req" ""
@@ -68,7 +67,6 @@ expect "requires chain python3-modern, crapper, mutator" \
   "likec4:node crapper:python3-modern dryer:python3-modern mutator:crapper"
 expect "curl is a core dependency" "$(jq -r '.[] | select(.name == "curl") | .tier' "$deps")" "core"
 
-# --- status and check ---
 reset_env
 out=$(run status)
 expect "every dependency absent: only jq is present" \
@@ -126,7 +124,6 @@ run status >/dev/null; run check crapper >/dev/null
 expect "status and check write nothing under HOME" "$(cd "$HOME_DIR" && find . | sort)" "$before"
 
 
-# --- plan and install: stubs stand in for the package managers, git and pip ---
 AVAIL=$T/avail
 BREW_FAIL=$T/brew_fail; SUDO_FAIL=$T/sudo_fail; GIT_FAIL=$T/git_fail
 
@@ -142,7 +139,6 @@ done'
 stubs_for_install() {
   mkdir -p "$AVAIL"
   local keep=$BIN; BIN=$AVAIL; mkpy python3.12 3.12; BIN=$keep
-  printf '#!/bin/bash\necho "0.0.0"\n' > "$AVAIL/likec4"
   stub brew "$PKG_BODY"
   stub apt-get "$PKG_BODY"
   stub sudo '[ -f "'$SUDO_FAIL'" ] && exit 1; shift; exec "$@"'
@@ -242,8 +238,7 @@ expect "dryer still installs after a crapper failure" \
   "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "dryer") | .ok')" "true"
 
 reset_env; stubs_for_install; stub gh; stub python3; stub curl; stub node; stub npm; mkpy python3.12 3.12
-stub likec4
-mkdir -p "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin"; cp "$BIN/likec4" "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin/likec4"
+mkdir -p "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin"; printf '#!/bin/bash\n' > "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin/likec4"; chmod +x "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin/likec4"
 rm -f "$BIN/brew"
 expect "only git tools missing on macOS without brew is not blocked" "$(run plan | names)" "crapper,dryer,mutator"
 

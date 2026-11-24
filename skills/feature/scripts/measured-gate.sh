@@ -112,9 +112,24 @@ def find_line(path, name):
     return 1
 
 
-def have_coverage_report():
-    return (os.path.isfile("coverage/lcov.info") or os.path.isdir("target/coverage")
-            or os.path.isfile("target/site/jacoco/jacoco.xml"))
+def has_report(path):
+    """True when a coverage report for the language of path is on disk (the paths crapper reads)."""
+    ext = os.path.splitext(path)[1]
+    if ext in (".clj", ".cljs", ".cljc"):
+        return os.path.isdir("target/coverage")
+    if ext == ".java":
+        return os.path.isfile("target/site/jacoco/jacoco.xml")
+    if ext == ".go":
+        return os.path.isfile("target/coverage/go/coverage.out")
+    if ext == ".rs":
+        return os.path.isfile("target/coverage/rust/lcov.info")
+    if ext == ".py":
+        return os.path.isfile("target/coverage/python/lcov.info")
+    return os.path.isfile("coverage/lcov.info") or os.path.isfile("target/coverage/typescript/lcov.info")
+
+
+def coverage_flag(has):
+    return "--use-existing-coverage" if has else "--no-coverage"
 
 
 def parse_crapper(text):
@@ -211,8 +226,6 @@ def main():
 
     deadline = started + TOTAL_BUDGET_S
     existed = {name: os.path.exists(name) for name in (".metrics", "target", "coverage")}
-    covered = have_coverage_report()
-    cov_flag = "--use-existing-coverage" if covered else "--no-coverage"
     notes = []
     groups = []
     ran = []
@@ -230,7 +243,8 @@ def main():
             if limit <= 1:
                 notes.append("crapper hit its time limit, later files were not scored.")
                 break
-            result = run_tool([ready["crapper"], cov_flag, path], limit)
+            covered = has_report(path)
+            result = run_tool([ready["crapper"], coverage_flag(covered), path], limit)
             if result is None:
                 notes.append("crapper hit its time limit, later files were not scored.")
                 break
@@ -281,7 +295,8 @@ def main():
     if "mutator" in ready:
         ran.append("mutator")
         limit = remaining(deadline)
-        result = run_tool([ready["mutator"], cov_flag] + paths, limit) if limit > 1 else None
+        mutator_flag = coverage_flag(all(has_report(p) for p in paths))
+        result = run_tool([ready["mutator"], mutator_flag] + paths, limit) if limit > 1 else None
         if result is None:
             notes.append("mutator hit the time budget, no mutation result reported.")
         elif result[0] == 2:
@@ -300,8 +315,12 @@ def main():
                 groups.append(lines)
 
     for name in (".metrics", "target", "coverage"):
-        if not existed[name] and os.path.isdir(name):
-            shutil.rmtree(name, ignore_errors=True)
+        if existed[name] or not os.path.isdir(name):
+            continue
+        if name == "target" and any(files for _, _, files in os.walk("target/mutator-backup")):
+            notes.append("mutator left copies under target/mutator-backup. Run mutator once to restore them.")
+            continue
+        shutil.rmtree(name, ignore_errors=True)
 
     missing = [t for t in TOOLS if t not in ready]
     summary = "Measured: ran %s." % (ran[0] if len(ran) == 1 else ", ".join(ran[:-1]) + " and " + ran[-1])
