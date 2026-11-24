@@ -154,7 +154,8 @@ grep -q 'TOTAL_BUDGET_S = int(os.environ.get("MEASURED_GATE_BUDGET_S", "540"))' 
 
 gate_skill=$dir/../complexity-gate/SKILL.md
 grep -q 'timeout: 600000' "$gate_skill" && grep -q '540 s' "$gate_skill" && ok "the gate passes timeout 600000 and names the 540 s budget" || bad "the gate passes timeout 600000 and names the 540 s budget"
-expect "the gate copies the wrapper heading format by reference" "$(grep -c '^#### Measured / ' "$gate_skill")" "2"
+expect "the gate templates hold no heading of their own" "$(grep -c '^#### Measured / ' "$gate_skill")" "0"
+expect "both gate templates name the wrapper output with its heading" "$(grep -c '^<the measured-gate.sh output, copied unchanged, starting with its #### Measured / Run summary line>$' "$gate_skill")" "2"
 
 echo "---- $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
