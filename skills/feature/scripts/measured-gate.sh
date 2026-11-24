@@ -29,6 +29,9 @@
 # complexity-gate SKILL.md passes `timeout: 600000` (600 s) on the call. Keep the budget under
 # that value, and change both together. measured-gate-smoke.sh checks the pair.
 #
+# Side effect: the tools write .metrics, target and coverage in the current directory. After the run
+# the wrapper removes each of them that did not exist before it started.
+#
 # Why it passes explicit paths: all three tools implement --changed as `git status`, which sees
 # the working tree only. A committed branch or a PR would show no change.
 set -uo pipefail
@@ -63,6 +66,7 @@ MAX_FINDINGS = 10
 SUPPORTED = {".clj", ".cljs", ".cljc", ".java", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".rs", ".py"}
 TOOLS = ["crapper", "dryer", "mutator"]
 SETUP_HINT = "Run /bf:setup to add them."
+RUN_DIRS = (".metrics", "target", "coverage")
 
 started = time.time()
 out_lines = []
@@ -199,6 +203,17 @@ def parse_mutator_snapshots(paths):
     return found
 
 
+def remove_created_dirs(existed, notes):
+    """Remove the RUN_DIRS the run created, unless mutator left backup copies of source files in target."""
+    for name in RUN_DIRS:
+        if existed[name] or not os.path.isdir(name):
+            continue
+        if name == "target" and any(files for _, _, files in os.walk("target/mutator-backup")):
+            notes.append("mutator left copies under target/mutator-backup. Run mutator once to restore them.")
+            continue
+        shutil.rmtree(name, ignore_errors=True)
+
+
 def main():
     paths = [p for p in sys.argv[1:] if os.path.splitext(p)[1] in SUPPORTED and os.path.isfile(p)]
     emit("#### Measured / Run summary")
@@ -225,7 +240,7 @@ def main():
         return
 
     deadline = started + TOTAL_BUDGET_S
-    existed = {name: os.path.exists(name) for name in (".metrics", "target", "coverage")}
+    existed = {name: os.path.exists(name) for name in RUN_DIRS}
     notes = []
     groups = []
     ran = []
@@ -314,13 +329,7 @@ def main():
                     notes.append("mutator reported %d functions with survivors, showing %d." % (len(survivors), MAX_FINDINGS))
                 groups.append(lines)
 
-    for name in (".metrics", "target", "coverage"):
-        if existed[name] or not os.path.isdir(name):
-            continue
-        if name == "target" and any(files for _, _, files in os.walk("target/mutator-backup")):
-            notes.append("mutator left copies under target/mutator-backup. Run mutator once to restore them.")
-            continue
-        shutil.rmtree(name, ignore_errors=True)
+    remove_created_dirs(existed, notes)
 
     missing = [t for t in TOOLS if t not in ready]
     summary = "Measured: ran %s." % (ran[0] if len(ran) == 1 else ", ".join(ran[:-1]) + " and " + ran[-1])
