@@ -141,12 +141,17 @@ out=$(STUB_CRAPPER_METRICS=1 STUB_CRAPPER_OUT=$fx/crapper-nocoverage.txt run src
 reset; install_tool mutator; install_tool crapper
 out=$(STUB_MUTATOR_BACKUP=1 STUB_MUTATOR_RC=3 run src/demo/board.py)
 [ -f "$T/proj/target/mutator-backup/src/board.py" ] && ok "target is kept while mutator backups exist" || bad "target is kept while mutator backups exist"
-has "the kept backups are named in a note" "$out" 'Measured note: mutator left copies under target/mutator-backup.'
+has "the kept backups are reported as a finding" "$out" '#### Measured / Backup copies left — mutator
+- `target/mutator-backup`: mutator left copies of source files there. **Suggestion:** run mutator once to restore them.'
 
 reset; install_tool mutator; mkdir -p "$T/proj/target"; echo keep > "$T/proj/target/keep"; rm -f "$T/term.log"
 out=$(MEASURED_GATE_BUDGET_S=2 STUB_MUTATOR_WORKERS=1 STUB_MUTATOR_SLEEP=20 STUB_TERM_LOG=$T/term.log run src/demo/board.py)
 has "a timeout sends SIGTERM to the tool first" "$(cat "$T/term.log" 2>/dev/null)" "term"
 [ ! -e "$T/proj/target/mutation-workers" ] && [ -f "$T/proj/target/keep" ] && ok "mutation-workers the run created go, a target that existed stays" || bad "mutation-workers the run created go, a target that existed stays"
+
+reset; install_tool mutator; install_tool crapper; mkdir -p "$T/proj/target"
+out=$(STUB_MUTATOR_BACKUP=1 STUB_MUTATOR_RC=3 run src/demo/board.py)
+has "backups under a target that existed are reported too" "$out" '#### Measured / Backup copies left — mutator'
 
 reset; install_tool dryer
 out=$(STUB_DRYER_OUT=$fx/dryer-text.txt run src/demo/board.py)
@@ -159,7 +164,7 @@ elapsed=$(( $(date +%s) - start ))
 has "a tool past its time limit gives a note" "$out" 'Measured note: crapper hit its time limit'
 [ "$elapsed" -lt 15 ] && ok "a timeout stops the tool at the budget" || bad "a timeout stops the tool at the budget" "took ${elapsed}s"
 
-expect "the heading format is documented once, in the wrapper" "$(grep -c '^#   #### Measured / ' "$gate")" "4"
+expect "the heading format is documented once, in the wrapper" "$(grep -c '^#   #### Measured / ' "$gate")" "5"
 grep -q 'TOTAL_BUDGET_S = int(os.environ.get("MEASURED_GATE_BUDGET_S", "540"))' "$gate" && ok "the default budget is 540 s" || bad "the default budget is 540 s"
 
 gate_skill=$dir/../complexity-gate/SKILL.md

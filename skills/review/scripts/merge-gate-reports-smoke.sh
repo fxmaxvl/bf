@@ -107,4 +107,23 @@ has "the measured run line is kept" "$tmp/report.md" 'Measured: ran crapper. dry
 has "the measured note line is kept" "$tmp/report.md" 'Measured note: crapper reported 14 findings, showing the worst 10.'
 has "the measured group heading is kept" "$tmp/report.md" '### Measured / High CRAP score — crapper'
 
+# A mutator backup finding is a finding group, so a gate that holds only it is ADVISORY and the
+# merge keeps it. The wrapper emits no backup note a PASS gate would drop.
+cat >"$tmp/backup.md" <<'MD'
+## Complexity Report
+
+STATUS: ADVISORY
+
+### Advisory Issues (pre-existing or design risk)
+
+#### Measured / Run summary
+Measured: ran mutator. crapper not installed, run /bf:setup. dryer not installed, run /bf:setup.
+#### Measured / Backup copies left — mutator
+- `target/mutator-backup`: mutator left copies of source files there. **Suggestion:** run mutator once to restore them.
+MD
+report ""
+out=$(bash "$merge" "$tmp/report.md" "$tmp/backup.md" --complexity)
+eq "a mutator backup finding escalates STATUS to CONCERN" "$out" "STATUS: CONCERN"
+has "the mutator backup finding merges as should-consider X1" "$tmp/report.md" '- **X1** [should-consider] `target/mutator-backup`: mutator left copies of source files there. Suggested: run mutator once to restore them.'
+
 [ "$fails" -eq 0 ]

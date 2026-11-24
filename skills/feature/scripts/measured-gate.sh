@@ -21,8 +21,12 @@
 #   - `<fileA>:<a1>-<a2>`: matches `<fileB>:<b1>-<b2>` at score <s>. **Suggestion:** ...
 #   #### Measured / Surviving mutants — mutator
 #   - `<file>:<line>`: <k> mutants survive in `<function>`. **Suggestion:** ...
+#   #### Measured / Backup copies left — mutator
+#   - `target/mutator-backup`: mutator left copies of source files there. **Suggestion:** ...
+# The backup copies are a finding, not a note: a note under STATUS PASS never reaches /bf:review,
+# and a finding turns the gate into ADVISORY.
 #
-# The em dash in two group headings is a parsed literal of the complexity Report Format, and
+# The em dash in the group headings is a parsed literal of the complexity Report Format, and
 # merge-gate-reports.sh reads these lines as Advisory findings. Change the format, the gate
 # template and that parser together, then run measured-gate-smoke.sh and
 # merge-gate-reports-smoke.sh.
@@ -71,6 +75,7 @@ TOOLS = ["crapper", "dryer", "mutator"]
 SETUP_HINT = "Run /bf:setup to add them."
 TERM_GRACE_S = 5
 # Listed children first: mutator's worker trees hold symlinks into the project, so they go even when target stays.
+BACKUP_HEADING = "#### Measured / Backup copies left — mutator"
 RUN_DIRS = (".metrics", "target/mutation-workers", "target", "coverage")
 
 started = time.time()
@@ -218,13 +223,15 @@ def parse_mutator_snapshots(paths):
     return found
 
 
-def remove_created_dirs(existed, notes):
-    """Remove the RUN_DIRS the run created, unless mutator left backup copies of source files in target."""
+def mutator_backups_left():
+    return any(files for _, _, files in os.walk("target/mutator-backup"))
+
+
+def remove_created_dirs(existed):
+    """Remove the RUN_DIRS the run created. target stays while mutator backup copies of source files are in it."""
+    keep_target = mutator_backups_left()
     for name in RUN_DIRS:
-        if existed[name] or not os.path.isdir(name):
-            continue
-        if name == "target" and any(files for _, _, files in os.walk("target/mutator-backup")):
-            notes.append("mutator left copies under target/mutator-backup. Run mutator once to restore them.")
+        if existed[name] or not os.path.isdir(name) or (name == "target" and keep_target):
             continue
         shutil.rmtree(name, ignore_errors=True)
 
@@ -344,7 +351,11 @@ def main():
                     notes.append("mutator reported %d functions with survivors, showing %d." % (len(survivors), MAX_FINDINGS))
                 groups.append(lines)
 
-    remove_created_dirs(existed, notes)
+    remove_created_dirs(existed)
+    if mutator_backups_left():
+        groups.append([BACKUP_HEADING,
+                       "- `target/mutator-backup`: mutator left copies of source files there. "
+                       "**Suggestion:** run mutator once to restore them."])
 
     missing = [t for t in TOOLS if t not in ready]
     summary = "Measured: ran %s." % (ran[0] if len(ran) == 1 else ", ".join(ran[:-1]) + " and " + ran[-1])
