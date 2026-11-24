@@ -118,7 +118,7 @@ Follow the approved plan step by step. For each step:
 3. Run the project's test command (detect via existing repo conventions — `package.json` scripts, `Makefile`, `pyproject.toml`, etc.). On the bug-fix step, confirm the named regression test now passes and nothing outside the recorded failures fails.
 4. Append a short status line to `## Execution` (step N: pass/fail + key evidence).
 
-If a test fails: do **not** ask the user. Diagnose and re-attempt. If both failed attempts share one premise, state it in one sentence and drop it before the decide call (`guidelines.md` section 5, Attack the Premise). After 2 failed attempts on the same step, invoke decide with a `QUESTION: How to proceed given the failing step?` payload and follow its verdict.
+If a test fails: do **not** ask the user. Diagnose and re-attempt. After 2 failed attempts on the same step, invoke decide with a `QUESTION: How to proceed given the failing step?` payload and follow its verdict. Before that call, if both attempts share one premise, state it in one sentence and remove it (`guidelines.md` section 5, Attack the Premise).
 
 ## Phase 7.5 — Sibling sweep
 
