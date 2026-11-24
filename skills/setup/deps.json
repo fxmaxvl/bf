@@ -3,7 +3,7 @@
   {"name": "jq", "tier": "core", "kind": "system", "features": ["all skills"], "requires": [], "brew": "jq", "apt": "jq"},
   {"name": "gh", "tier": "core", "kind": "system", "features": ["bf:gh", "bf:pr-comments", "bf:self-heal", "bf:bug-hunt"], "requires": [], "brew": "gh", "apt": "gh"},
   {"name": "python3", "tier": "core", "kind": "system", "features": ["bf scripts"], "requires": [], "brew": "python3", "apt": "python3"},
-  {"name": "curl", "tier": "core", "kind": "system", "features": ["bf:typesafe"], "requires": [], "brew": "curl", "apt": "curl"},
+  {"name": "curl", "tier": "optional", "kind": "system", "features": ["bf:typesafe"], "requires": [], "brew": "curl", "apt": "curl"},
   {"name": "node", "tier": "optional", "kind": "system", "features": ["bf:visualize"], "requires": [], "brew": "node", "apt": "nodejs"},
   {"name": "npm", "tier": "optional", "kind": "system", "features": ["bf:visualize"], "requires": ["node"], "brew": "node", "apt": "npm"},
   {"name": "likec4", "tier": "optional", "kind": "likec4", "features": ["bf:visualize"], "requires": ["npm"]},

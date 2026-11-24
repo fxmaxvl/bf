@@ -65,7 +65,7 @@ expect "every kind is a documented kind" \
 expect "requires chain python3-modern, crapper, mutator" \
   "$(jq -r '[.[] | select(.name == "crapper" or .name == "dryer" or .name == "mutator" or .name == "npm" or .name == "likec4") | "\(.name):\(.requires | join(","))"] | join(" ")' "$deps")" \
   "npm:node likec4:npm crapper:python3-modern dryer:python3-modern mutator:crapper"
-expect "curl is a core dependency" "$(jq -r '.[] | select(.name == "curl") | .tier' "$deps")" "core"
+expect "curl is optional, only TypeSafe needs it" "$(jq -r '.[] | select(.name == "curl") | .tier' "$deps")" "optional"
 
 reset_env
 out=$(run status)
@@ -162,7 +162,7 @@ ver=$(bash "$here/../../visualize/scripts/install-likec4.sh" --print-version)
 export BF_SETUP_PLATFORM=macos
 
 reset_env; stubs_for_install
-expect "plan core lists only the missing core dependencies" "$(run plan core | names)" "gh,python3,curl"
+expect "plan core lists only the missing core dependencies" "$(run plan core | names)" "gh,python3"
 expect "plan never lists typesafe" "$(run plan | names | tr ',' '\n' | grep -c '^typesafe$')" "0"
 expect "plan prints the python placeholder and a note for git tools" \
   "$(run plan | jq -r '[(.steps[] | select(.name == "crapper") | .commands[1] | startswith("<python 3.11+> -m venv")), (.note | contains("<python 3.11+>"))] | join(",")')" "true,true"
@@ -261,7 +261,7 @@ expect "a failing sudo gives the ! sudo line" \
   "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "gh") | .detail')" "sudo needs a password. Run this yourself: ! sudo apt-get install -y gh"
 rm -f "$SUDO_FAIL"; : > "$LOG"
 out=$(run install core)
-expect "the Linux install runs through sudo -n" "$(grep -c '^sudo -n apt-get install -y' "$LOG")" "3"
+expect "the Linux install runs through sudo -n" "$(grep -c '^sudo -n apt-get install -y' "$LOG")" "2"
 export BF_SETUP_PLATFORM=other
 reset_env
 expect "an unsupported platform is an error" "$(run plan core | jq -r .error)" "unsupported_platform"
