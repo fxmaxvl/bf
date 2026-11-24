@@ -74,8 +74,8 @@ SUPPORTED = {".clj", ".cljs", ".cljc", ".java", ".go", ".ts", ".tsx", ".js", ".j
 TOOLS = ["crapper", "dryer", "mutator"]
 SETUP_HINT = "Run /bf:setup to add them."
 TERM_GRACE_S = 5
-# Listed children first: mutator's worker trees hold symlinks into the project, so they go even when target stays.
 BACKUP_HEADING = "#### Measured / Backup copies left — mutator"
+# Listed children first: mutator's worker trees hold symlinks into the project, so they go even when target stays.
 RUN_DIRS = (".metrics", "target/mutation-workers", "target", "coverage")
 
 started = time.time()
