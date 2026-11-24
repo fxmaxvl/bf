@@ -83,4 +83,28 @@ bash "$merge" "$tmp/report.md" "$tmp/mixed.md" --consistency >/dev/null
 has "an unreadable finding before a readable one is kept" "$tmp/report.md" '- src/a.ts:3, **Naming**: path without backticks.'
 has "the readable finding is still numbered" "$tmp/report.md" '- **Y1** [should-consider] `src/c.ts:7`: name differs.'
 
+# measured-gate.sh output sits under "### Advisory Issues". The finding merges as a
+# [should-consider] item, and the run summary and note lines are kept (plain lines before the
+# first "###" header would be dropped, so the wrapper output never goes there).
+cat >"$tmp/measured.md" <<'MD'
+## Complexity Report
+
+STATUS: ADVISORY
+
+### Advisory Issues (pre-existing or design risk)
+
+#### Measured / Run summary
+Measured: ran crapper. dryer not installed, run /bf:setup. mutator not installed, run /bf:setup.
+Measured note: crapper reported 14 findings, showing the worst 10.
+#### Measured / High CRAP score — crapper
+- `src/demo/board.py:2`: `place` scores CRAP 31.2 (CC 12, coverage 40.0%). **Suggestion:** split the function or cover its branches with tests.
+MD
+report ""
+out=$(bash "$merge" "$tmp/report.md" "$tmp/measured.md" --complexity)
+eq "measured findings escalate STATUS to CONCERN" "$out" "STATUS: CONCERN"
+has "a measured finding merges as should-consider X1" "$tmp/report.md" '- **X1** [should-consider] `src/demo/board.py:2`: `place` scores CRAP 31.2 (CC 12, coverage 40.0%). Suggested: split the function or cover its branches with tests.'
+has "the measured run line is kept" "$tmp/report.md" 'Measured: ran crapper. dryer not installed, run /bf:setup. mutator not installed, run /bf:setup.'
+has "the measured note line is kept" "$tmp/report.md" 'Measured note: crapper reported 14 findings, showing the worst 10.'
+has "the measured group heading is kept" "$tmp/report.md" '### Measured / High CRAP score — crapper'
+
 [ "$fails" -eq 0 ]

@@ -1,0 +1,7 @@
+DUPLICATE score=0.89
+  src/billing/invoice.py:3-13
+  src/billing/receipt.py:3-14
+
+DUPLICATE score=0.84
+  src/billing/a b.py:20-30
+  src/billing/receipt.py:40-52
