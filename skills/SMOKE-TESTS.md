@@ -21,7 +21,7 @@ on empty input.
 | `skills/feature/scripts/write-block-smoke.sh` | `write-block.sh` |
 | `skills/feature/scripts/state-ops-smoke.sh` | `state-ops.sh` (`parallel_audit`, `auto_fix_style`, `skip_plan_gates`, `commit_only`, `pending_fixes`, `--archive` with a corrupt state and a same-hour name collision) |
 | `skills/feature/scripts/init-probe-smoke.sh` | `init-probe.sh` (`state_matches` for a leftover build state) |
-| `skills/review/scripts/merge-gate-reports-smoke.sh` | `merge-gate-reports.sh` (renumbering, severity mapping, `UNKNOWN`, STATUS escalation) |
+| `skills/review/scripts/merge-gate-reports-smoke.sh` | `merge-gate-reports.sh` (renumbering, severity mapping, `UNKNOWN`, STATUS escalation, a measured-gate group under Advisory Issues) |
 | `skills/review/scripts/pr-review-payload-smoke.sh` | `pr-review-payload.sh` (inline vs body placement against the diff) |
 | `skills/self-audit/scripts/audit-static-smoke.sh` | `audit-static.sh` (kit-template reference check) |
 | `skills/onboard-project/scripts/onboard-probe-smoke.sh` | `onboard-probe.sh` (`init`, `verify`, `promote` and `brief`) |
@@ -32,6 +32,8 @@ on empty input.
 | `skills/cross-agent/scripts/cross-agent-smoke.sh` | `cross-agent-init.sh`, `cross-agent-assemble.sh`, `runners/codex.sh` (arguments kept verbatim from a file, the skill-name check and `<skill>/<sub-skill>` names, the `--read-only` sandbox passed to codex, the reference closure and the split reading list, `@sh`-quoted run commands, bad bundles refused, parallel inits, every error code named in SKILL.md, a missing `codex`) |
 | `skills/pr-comments/scripts/pr-comments-smoke.sh` | `fetch-pr-comments.sh`, `wait-for-review.sh` (argument parsing, `--all`, push time, `--head` and `--bot`, against a stub `gh`) |
 | `hooks/remote-state-hook-smoke.sh` | `hooks/remote-state-pre-bash.sh` (which commands get the reminder, `BF_REMOTE_HOOK=off`, input that is not JSON, the `hooks.json` registration under PreToolUse Bash) |
+| `skills/setup/scripts/setup-smoke.sh` | `setup.sh` (`status`, `check`, `plan` and `install`, against stub `brew`, `apt-get`, `sudo`, `git`, `npm` and python, in a fake HOME and PATH: the registry `requires` order, the readiness rule, the `no_brew` stop, `--only`, the python placeholder in one batch with crapper, skipped dependents, a second run that does nothing) |
+| `skills/feature/scripts/measured-gate-smoke.sh` | `measured-gate.sh` (the two skip lines, the coverage flag, one finding group per tool, the mutator exit codes, a tool crash, the `.metrics` cleanup, a path with a space, a partial install, the time limit, and the 540 s and `timeout: 600000` pair with `complexity-gate/SKILL.md`). Its fixtures come from the tools' own report formatters |
 | `evals/regress-smoke.sh` | `evals/regress.sh` (all modes, against a stub `claude`) and `.githooks/pre-push` |
 | `hooks/prose-hooks-smoke.sh` | the `hooks/prose-*.sh` hooks and `prose-lib.sh` (skip list, record directory guards, `prose_commit_values` tokenizer) |
 | `skills/plain/scripts/prose-lint.sh --selftest` | `prose-lint.sh` (hard markers, soft markers, rules validation, modes, `--digest`, `--classify`) |
