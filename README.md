@@ -373,3 +373,5 @@ The hook and `--check` read `evals/baseline.json` and `evals/regress.conf` from 
 - Jira MCP server configured (for `/bf:jira`)
 - Excalidraw MCP server (optional, for diagrams in `/bf:design`)
 - TypeSafe API key (optional, see [TypeSafe boosting](#optional-typesafe-boosting))
+
+`/bf:setup` checks these tools and installs the missing ones. Run `/bf:setup status` to see what is missing without installing anything.
