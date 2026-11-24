@@ -94,4 +94,5 @@ Any other `detail` names the command and its first error line: print it as retur
 | A clone fails (network) | Report the `detail`. The tools that need it show as skipped. A re-run retries them. |
 | Nothing is missing | Print the table and say so. Run no install command. |
 | The user declines | Install nothing. The table already shows what is missing. |
+| `python3-modern` still missing after the install | The distro's `python3` is older than 3.11, as on Ubuntu 22.04. Tell the user to install Python 3.11 or newer by hand (for example from the deadsnakes PPA) and run `/bf:setup` again. |
 | A re-run after a partial install | The plan holds only what is still missing. Entries that succeeded do not run again. |
