@@ -119,8 +119,11 @@ has "mutator gets the no-coverage flag and the path" "$(calls)" 'mutator|--no-co
 expect "mutator runs once for all paths" "$(printf '%s' "$(calls)" | grep -c '^mutator')" "1"
 
 reset; install_tool mutator; install_tool crapper
-out=$(STUB_MUTATOR_EDN=$fx/mutator-snapshot.edn STUB_MUTATOR_RC=2 run src/demo/board.py)
-has "mutator exit 2 gives the baseline note" "$out" 'Measured note: mutator skipped, baseline tests fail.'
+out=$(STUB_MUTATOR_EDN=$fx/mutator-snapshot.edn STUB_MUTATOR_RC=2 STUB_MUTATOR_ERR="baseline tests fail" run src/demo/board.py)
+has "mutator exit 2 gives the first stderr line" "$out" 'Measured note: mutator skipped: baseline tests fail'
+out=$(STUB_MUTATOR_RC=2 STUB_MUTATOR_ERR="cannot import crapper" run src/demo/board.py)
+has "mutator exit 2 does not claim the tests fail" "$out" 'Measured note: mutator skipped: cannot import crapper'
+lacks "mutator exit 2 for a missing crapper says nothing about baseline tests" "$out" 'baseline tests'
 lacks "mutator exit 2 gives no finding" "$out" 'Surviving mutants'
 
 reset; install_tool mutator; install_tool crapper

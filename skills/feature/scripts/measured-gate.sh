@@ -330,7 +330,7 @@ def main():
         if result is None:
             notes.append("mutator hit the time budget, no mutation result reported.")
         elif result[0] == 2:
-            notes.append("mutator skipped, baseline tests fail.")
+            notes.append("mutator skipped: %s" % first_line(result[2] or result[1]))
         elif result[0] not in (0, 3):
             notes.append("mutator failed: %s" % first_line(result[2] or result[1]))
         else:
