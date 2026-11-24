@@ -82,7 +82,7 @@ Local only: never publish, upload or offer to.
 | `source` = `spec`, error says "plugin bug, please report" | The bundled base spec is broken. Print the message and stop. |
 | `source` = `toolchain`, `mirror_lag` | The npm registry or mirror has not synced the pinned likec4. Print the detail. The version is pinned on purpose and no other is tried. |
 | `source` = `toolchain`, `install_failed` or `verify_failed` | `npm install` failed, or the installed likec4 does not run. Print the detail and stop; the next run wipes the cache and reinstalls. |
-| `jq_missing` | `jq` is not installed. Tell the user to install it. |
+| `jq_missing` | `jq` is not installed. Tell the user to install it, then run `/bf:setup` to check the other tools. |
 | `source` = `toolchain`, `no_node` | Node.js and npm are missing. Tell the user to install them, or to run `/bf:setup`. |
 | `source` = `staging` | The model file is missing or likec4 failed without a diagnostic. Print it and stop. |
 | Failed after 3 attempts | Keep the stamped `.c4`, print the remaining diagnostics, leave no `index.html`, do not open anything. |
