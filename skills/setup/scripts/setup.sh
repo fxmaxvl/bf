@@ -16,8 +16,8 @@
 #   install run exactly the list plan prints, and continue past a failed entry. An entry whose
 #           requires are not ready is skipped. --only <name> runs one entry, so the caller can
 #           give each entry its own time limit. Without --only it prints {results, deps}.
-#           On Linux an apt command runs through sudo -n, or directly as root, and the first one is
-#           apt-get update. When sudo cannot run, the detail holds the command for the user.
+#           On Linux an apt command runs through sudo -n, or directly as root, and each apt entry
+#           starts with its own apt-get update. When sudo cannot run, the detail holds the command for the user.
 #           Never runs curl|bash: with no brew on macOS it prints {"blocked":"no_brew",...}.
 #
 # deps.json fields: name, tier (core|optional), kind, features, requires (names that must be
@@ -225,9 +225,10 @@ cmd_plan() {
 }
 
 RES_OK=true; RES_DETAIL=""
-# The first line that names the error (git's fatal:, apt's E:, an {"error":...} object), else the last
-# line: progress lines such as git's "Cloning into" come first and say nothing about the failure.
-error_line() { awk 'NF { last = $0 } NF && !hit && /fatal:|^E: |[Ee]rror/ { print; hit = 1 } END { if (!hit) print last }'; }
+# The first line that starts with an error marker (git's fatal:, brew's Error:, pip's ERROR:, apt's E:,
+# npm ERR!, an {"error":...} object), else the last line. Only line starts count: progress and package
+# lines such as git's "Cloning into" or pip's "Collecting pyerrors" come first and may contain the word.
+error_line() { awk 'NF { last = $0 } NF && !hit && /^(fatal|error|Error|ERROR):|^E: |^npm ERR!|^\{"error":/ { print; hit = 1 } END { if (!hit) print last }'; }
 # Prints the sudo commands that list ($2) holds for one entry ($1), without "sudo -n ", joined by $3.
 sudo_chain() {
   printf '%s\n' "$2" | awk -F'\t' -v n="$1" -v j="$3" '$1 == n && $2 ~ /^sudo -n / { sub(/^sudo -n /, "", $2); printf "%s%s", (c++ ? j : ""), $2 }'

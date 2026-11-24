@@ -40,7 +40,7 @@ mkpy() { # name version [novenv: python -m ensurepip fails, as on Debian without
   stub "$1" '
 case "$1" in
   -m) if [ "$2" = ensurepip ] && [ "'"${3:-}"'" = novenv ]; then exit 1; fi
-      if [ "$2" = venv ]; then mkdir -p "$3/bin"; printf "#!/bin/bash\n" > "$3/bin/python"; printf "#!/bin/bash\necho pip \"\$@\" >> '"$LOG"'\n[ -f '"$T"'/pip_fail ] && exit 1\nexit 0\n" > "$3/bin/pip"; chmod +x "$3/bin/python" "$3/bin/pip"; fi ;;
+      if [ "$2" = venv ]; then mkdir -p "$3/bin"; printf "#!/bin/bash\n" > "$3/bin/python"; printf "#!/bin/bash\necho pip \"\$@\" >> '"$LOG"'\n[ -f '"$T"'/pip_fail ] && { cat '"$T"'/pip_fail >&2; exit 1; }\nexit 0\n" > "$3/bin/pip"; chmod +x "$3/bin/python" "$3/bin/pip"; fi ;;
   -c) case "$2" in
         *"(3, 11)"*) '"$(printf 'v=%s' "$2")"'; if [ "${v%%.*}" -gt 3 ] || [ "${v#*.}" -ge 11 ]; then echo True; else echo False; fi ;;
         *) echo '"$2"' ;;
@@ -258,8 +258,10 @@ expect "dryer still installs after a crapper failure" \
   "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "dryer") | .ok')" "true"
 
 reset_env; stubs_for_install
-touch "$T/pip_fail"
+printf 'Collecting pyerrors\nERROR: No matching distribution found for pyerrors\n[notice] To update, run: pip install --upgrade pip\n' > "$T/pip_fail"
 out=$(run install)
+expect "a failed pip step reports its ERROR: line, past a decoy and a notice" \
+  "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "crapper") | .detail | sub(".* failed: "; "")')" "ERROR: No matching distribution found for pyerrors"
 expect "a failed pip step leaves crapper not ready" \
   "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "crapper") | .ok')" "false"
 expect "a half-built venv has no ready marker" \
