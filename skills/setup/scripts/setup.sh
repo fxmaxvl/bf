@@ -185,7 +185,8 @@ list_missing() {
 }
 
 # The lines of list_missing, with a command that another entry already lists dropped: node and npm
-# share one brew formula, and apt-get update runs once, before the first apt install. Run it in a command substitution and read its exit code.
+# share one brew formula, and apt-get update runs once per call, before its first apt install. Run it
+# in a command substitution and read its exit code.
 build_list() { list_missing "$1" | awk -F'\t' '!seen[$2]++'; }
 
 # Prints the blocked object and returns 0 when the list ($1) needs brew and brew is missing.
