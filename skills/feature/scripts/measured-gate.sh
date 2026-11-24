@@ -31,8 +31,9 @@
 # complexity-gate SKILL.md passes `timeout: 600000` (600 s) on the call. Keep the budget under
 # that value, and change both together. measured-gate-smoke.sh checks the pair.
 #
-# Side effect: the tools write .metrics, target and coverage in the current directory. After the run
-# the wrapper removes each of them that did not exist before it started.
+# Side effect: the tools write .metrics, target and coverage in the current directory, and mutator
+# writes target/mutation-workers. After the run the wrapper removes each of them that did not exist
+# before it started, even when target itself did.
 #
 # Why it passes explicit paths: all three tools implement --changed as `git status`, which sees
 # the working tree only. A committed branch or a PR would show no change.
@@ -68,7 +69,9 @@ MAX_FINDINGS = 10
 SUPPORTED = {".clj", ".cljs", ".cljc", ".java", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".rs", ".py"}
 TOOLS = ["crapper", "dryer", "mutator"]
 SETUP_HINT = "Run /bf:setup to add them."
-RUN_DIRS = (".metrics", "target", "coverage")
+TERM_GRACE_S = 5
+# Listed children first: mutator's worker trees hold symlinks into the project, so they go even when target stays.
+RUN_DIRS = (".metrics", "target/mutation-workers", "target", "coverage")
 
 started = time.time()
 out_lines = []
@@ -85,17 +88,27 @@ def first_line(text):
     return "no output"
 
 
+def signal_group(proc, sig):
+    try:
+        os.killpg(proc.pid, sig)
+    except OSError:
+        pass
+
+
 def run_tool(cmd, limit):
-    """Run cmd for at most limit seconds. Returns (returncode, stdout, stderr), or None on timeout."""
+    """Run cmd for at most limit seconds. Returns (returncode, stdout, stderr), or None on timeout.
+    A tool past its limit gets SIGTERM, so it can remove its own temporary trees, then SIGKILL after TERM_GRACE_S."""
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
                             stdin=subprocess.DEVNULL, start_new_session=True)
     try:
         stdout, stderr = proc.communicate(timeout=limit)
     except subprocess.TimeoutExpired:
+        signal_group(proc, signal.SIGTERM)
         try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except OSError:
+            proc.communicate(timeout=TERM_GRACE_S)
+        except subprocess.TimeoutExpired:
             pass
+        signal_group(proc, signal.SIGKILL)
         proc.communicate()
         return None
     return proc.returncode, stdout, stderr

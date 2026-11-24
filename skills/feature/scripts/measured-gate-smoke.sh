@@ -42,6 +42,8 @@ install_tool() {
   cat > "$d/$n" <<STUB
 #!/bin/bash
 printf '%s' "$n" >> "\$STUB_LOG"; for a in "\$@"; do printf '|%s' "\$a" >> "\$STUB_LOG"; done; echo >> "\$STUB_LOG"
+[ -n "\${STUB_${u}_WORKERS:-}" ] && mkdir -p target/mutation-workers/run-1/src
+trap '[ -n "\${STUB_TERM_LOG:-}" ] && echo term >> "\$STUB_TERM_LOG"; exit 143' TERM
 [ -n "\${STUB_${u}_SLEEP:-}" ] && sleep "\$STUB_${u}_SLEEP"
 [ -n "\${STUB_${u}_METRICS:-}" ] && { mkdir -p .metrics; echo '{:entries []}' > .metrics/crap.edn; }
 [ -n "\${STUB_${u}_BACKUP:-}" ] && { mkdir -p target/mutator-backup/src; echo old > target/mutator-backup/src/board.py; }
@@ -137,6 +139,11 @@ reset; install_tool mutator; install_tool crapper
 out=$(STUB_MUTATOR_BACKUP=1 STUB_MUTATOR_RC=3 run src/demo/board.py)
 [ -f "$T/proj/target/mutator-backup/src/board.py" ] && ok "target is kept while mutator backups exist" || bad "target is kept while mutator backups exist"
 has "the kept backups are named in a note" "$out" 'Measured note: mutator left copies under target/mutator-backup.'
+
+reset; install_tool mutator; mkdir -p "$T/proj/target"; echo keep > "$T/proj/target/keep"; rm -f "$T/term.log"
+out=$(MEASURED_GATE_BUDGET_S=2 STUB_MUTATOR_WORKERS=1 STUB_MUTATOR_SLEEP=20 STUB_TERM_LOG=$T/term.log run src/demo/board.py)
+has "a timeout sends SIGTERM to the tool first" "$(cat "$T/term.log" 2>/dev/null)" "term"
+[ ! -e "$T/proj/target/mutation-workers" ] && [ -f "$T/proj/target/keep" ] && ok "mutation-workers the run created go, a target that existed stays" || bad "mutation-workers the run created go, a target that existed stays"
 
 reset; install_tool dryer
 out=$(STUB_DRYER_OUT=$fx/dryer-text.txt run src/demo/board.py)
