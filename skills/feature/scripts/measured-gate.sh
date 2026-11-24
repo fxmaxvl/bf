@@ -9,6 +9,8 @@
 #         The "#### Measured / ..." heading format is defined only here:
 #
 #   #### Measured / Run summary
+#   Measured: skipped. python3 is not installed. Run /bf:setup to add it.
+#   Measured: skipped. The tool check failed: <error>. Run /bf:setup to add them.
 #   Measured: skipped. crapper, dryer and mutator are not installed. Run /bf:setup to add them.
 #   Measured: skipped. No changed file is in a supported language.
 #   Measured: ran <tools>.[ <tool> not installed, run /bf:setup.]
