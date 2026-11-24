@@ -95,7 +95,7 @@ probe() {
       LAUNCHER=$d/$name; DETAIL="ready"; return 0 ;;
     likec4)
       v=$(bash "$plugin/skills/visualize/scripts/install-likec4.sh" --print-version 2>/dev/null) || { DETAIL="cannot read pinned version"; return 1; }
-      bin=${BF_LIKEC4_CACHE_DIR:-$HOME/.bf/cache}/likec4@$v/node_modules/.bin/likec4
+      bin=$(bash "$plugin/skills/visualize/scripts/install-likec4.sh" --print-bin 2>/dev/null)
       if [ -x "$bin" ]; then LAUNCHER=$bin; DETAIL="pinned $v installed"; return 0; fi
       DETAIL="pinned $v not installed"; return 1 ;;
     typesafe)

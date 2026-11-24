@@ -113,6 +113,8 @@ eq "resolve-spec: no arg -> usage" "$(err_of rsj)" usage:1
 inst=$here/install-likec4.sh
 V=$(bash "$inst" --print-version)
 eq "install: --print-version" "$([ -n "$V" ] && echo set)" set
+eq "install: --print-bin names the pinned cache binary" "$(BF_LIKEC4_CACHE_DIR=$tmp/c-bin bash "$inst" --print-bin)" "$tmp/c-bin/likec4@$V/node_modules/.bin/likec4"
+eq "install: --print-bin installs nothing" "$([ -e "$tmp/c-bin" ] && echo made || echo none)" none
 mkdir -p "$tmp/nonode" "$tmp/shim"
 ln -s "$(command -v jq)" "$tmp/nonode/jq"
 eq "install: no node -> no_node" "$(err_of env PATH="$tmp/nonode:/usr/bin:/bin" BF_LIKEC4_CACHE_DIR="$tmp/c-nonode" bash "$inst")" no_node:1
