@@ -213,7 +213,7 @@ Then run `/reload-plugins` to activate it.
 /bf:setup
 ```
 
-The skill checks `git`, `jq`, `gh` and `python3`, plus the optional tools: `curl` (TypeSafe boosting), `node`, `npm` and `likec4` (`/bf:visualize`), and Python 3.11 or newer with `crapper`, `dryer` and `mutator` (the measured gate). It prints one table, lists every install command, and asks one question. After you confirm, it installs what is missing with brew on macOS or apt on Linux. Git tools go under `~/.bf/tools`. It never runs `curl | bash`: with no brew on macOS, it prints the brew install line for you to run. `/bf:setup core` installs only the required tools. `/bf:setup status` changes nothing. A second run installs nothing that is already there.
+The skill checks `git`, `jq`, `gh` and `python3`, plus the optional tools. Those are `curl` for TypeSafe boosting, `node`, `npm` and `likec4` for `/bf:visualize`, and Python 3.11 or newer with `crapper`, `dryer` and `mutator` for the measured gate. It prints one table, lists every install command, and asks one question. After you confirm, it installs what is missing with brew on macOS or apt on Linux. Git tools go under `~/.bf/tools`. It never runs `curl | bash`: with no brew on macOS, it prints the brew install line for you to run. `/bf:setup core` installs only the required tools. `/bf:setup status` changes nothing. A second run installs nothing that is already there.
 
 ### Stay up to date
 
