@@ -377,7 +377,7 @@ Things to know before you install:
   - Python: `target/coverage/python/lcov.info`
   - TypeScript and JavaScript: `coverage/lcov.info` or `target/coverage/typescript/lcov.info`
 - mutator runs your project tests once per mutant. A run can take minutes. The gate stops all three tools after 540 seconds and reports a note.
-- `/bf:setup` installs the three tools under `~/.bf/tools`, each with its own Python environment. They need Python 3.11 or newer, and `/bf:setup` installs that too when it is missing.
+- `/bf:setup` installs the three tools under `~/.bf/tools`, each with its own Python environment. They need Python 3.11 or newer. On macOS `/bf:setup` installs it with brew. On Linux it installs the distro's `python3` and `python3-venv`, which is 3.11 or newer on Debian 12 and Ubuntu 24.04 but 3.10 on Ubuntu 22.04. There you install Python 3.11 or newer yourself.
 - Without the tools, the gate prints one line that points to `/bf:setup`.
 
 ## Maintainers
@@ -410,4 +410,4 @@ The hook and `--check` read `evals/baseline.json` and `evals/regress.conf` from 
 - Excalidraw MCP server (optional, for diagrams in `/bf:design`)
 - TypeSafe API key (optional, see [TypeSafe boosting](#optional-typesafe-boosting))
 
-`/bf:setup` checks these tools and installs the missing ones. Run `/bf:setup status` to see what is missing without installing anything.
+`/bf:setup` checks and installs `git`, `jq`, `gh` and `python3`, plus the optional tools listed in [Run /bf:setup](#run-bfsetup). It reports whether the TypeSafe key is set. It does not check Claude Code or the MCP servers. Run `/bf:setup status` to see what is missing without installing anything.
