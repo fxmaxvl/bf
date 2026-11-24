@@ -7,7 +7,7 @@
   {"name": "node", "tier": "optional", "kind": "system", "features": ["bf:visualize"], "requires": [], "brew": "node", "apt": "nodejs"},
   {"name": "npm", "tier": "optional", "kind": "system", "features": ["bf:visualize"], "requires": ["node"], "brew": "node", "apt": "npm"},
   {"name": "likec4", "tier": "optional", "kind": "likec4", "features": ["bf:visualize"], "requires": ["npm"]},
-  {"name": "python3-modern", "tier": "optional", "kind": "python_min", "features": ["measured gate"], "requires": [], "brew": "python@3.12", "apt": "python3.12 python3.12-venv"},
+  {"name": "python3-modern", "tier": "optional", "kind": "python_min", "features": ["measured gate"], "requires": [], "brew": "python@3.12", "apt": "python3 python3-venv"},
   {"name": "crapper", "tier": "optional", "kind": "git_tool", "features": ["measured gate"], "requires": ["python3-modern"], "repo": "https://github.com/unclebob/crapper.git"},
   {"name": "dryer", "tier": "optional", "kind": "git_tool", "features": ["measured gate"], "requires": ["python3-modern"], "repo": "https://github.com/unclebob/dryer.git"},
   {"name": "mutator", "tier": "optional", "kind": "git_tool", "features": ["measured gate"], "requires": ["crapper"], "repo": "https://github.com/unclebob/mutator.git"},

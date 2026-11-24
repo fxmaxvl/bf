@@ -36,10 +36,11 @@ stub() { # name [body]
 }
 
 # A fake python reports version $2 and builds a fake venv for `-m venv <dir>`.
-mkpy() { # name version
+mkpy() { # name version [novenv: python -m ensurepip fails, as on Debian without python3-venv]
   stub "$1" '
 case "$1" in
-  -m) if [ "$2" = venv ]; then mkdir -p "$3/bin"; printf "#!/bin/bash\n" > "$3/bin/python"; printf "#!/bin/bash\necho pip \"\$@\" >> '"$LOG"'\n[ -f '"$T"'/pip_fail ] && exit 1\nexit 0\n" > "$3/bin/pip"; chmod +x "$3/bin/python" "$3/bin/pip"; fi ;;
+  -m) if [ "$2" = ensurepip ] && [ "'"${3:-}"'" = novenv ]; then exit 1; fi
+      if [ "$2" = venv ]; then mkdir -p "$3/bin"; printf "#!/bin/bash\n" > "$3/bin/python"; printf "#!/bin/bash\necho pip \"\$@\" >> '"$LOG"'\n[ -f '"$T"'/pip_fail ] && exit 1\nexit 0\n" > "$3/bin/pip"; chmod +x "$3/bin/python" "$3/bin/pip"; fi ;;
   -c) case "$2" in
         *"(3, 11)"*) '"$(printf 'v=%s' "$2")"'; if [ "${v%%.*}" -gt 3 ] || [ "${v#*.}" -ge 11 ]; then echo True; else echo False; fi ;;
         *) echo '"$2"' ;;
@@ -110,6 +111,14 @@ expect "python3-modern detail names the version seen" "$(printf '%s' "$out" | fi
 reset_env; mkpy python3 3.10; mkpy python3.12 3.12
 expect "python3-modern found at python3.12" "$(run status | field python3-modern path)" "$BIN/python3.12"
 
+reset_env; mkpy python3 3.12 novenv
+out=$(run status)
+expect "python3 3.12 without ensurepip fails python3-modern" \
+  "$(printf '%s' "$out" | field python3-modern present),$(printf '%s' "$out" | field python3-modern detail)" \
+  "false,$BIN/python3 cannot build a venv: ensurepip is missing"
+reset_env; mkpy python3 3.12 novenv; mkpy python3.11 3.11
+expect "a later modern python with ensurepip passes" "$(run status | field python3-modern path)" "$BIN/python3.11"
+
 reset_env
 ver=$(bash "$here/../../visualize/scripts/install-likec4.sh" --print-version)
 expect "likec4 absent without the cache" "$(run status | field likec4 present)" "false"
@@ -155,7 +164,7 @@ mkdir -p "$prefix/node_modules/.bin"; printf "#!/bin/bash\necho %s\n" "'"$ver"'"
   rm -f "$BREW_FAIL" "$SUDO_FAIL" "$GIT_FAIL"
 }
 
-has_no_calls() { [ -z "$(grep -v ' -c ' "$LOG")" ]; }
+has_no_calls() { [ -z "$(grep -v -e ' -c ' -e ' -m ensurepip ' "$LOG")" ]; }
 names() { jq -r '[.steps[].name] | join(",")'; }
 
 ver=$(bash "$here/../../visualize/scripts/install-likec4.sh" --print-version)
@@ -184,7 +193,7 @@ plan_json=$(run plan)
 out=$(run install)
 expect_cmds=$(printf '%s' "$plan_json" | jq -r '.steps[] | select(.name != "likec4") | .commands[]' \
   | sed -e 's|^<python 3.11+>|python3.12|' -e 's|^[^ ]*/\.venv/bin/pip|pip|' -e 's| && touch .*||')
-actual_cmds=$(grep -v -e ' -c ' -e '^npm ' "$LOG")
+actual_cmds=$(grep -v -e ' -c ' -e ' -m ensurepip ' -e '^npm ' "$LOG")
 expect "install runs the same commands plan printed" "$actual_cmds" "$expect_cmds"
 expect "install of the batch reports no failure" "$(printf '%s' "$out" | jq -r '[.results[] | select(.ok | not) | .name] | join(",")')" ""
 expect "python3-modern and crapper install in one batch" \

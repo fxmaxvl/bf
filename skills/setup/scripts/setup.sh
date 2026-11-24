@@ -24,7 +24,10 @@
 # ready first, for the install order and for the install gate), and per kind: brew and apt (system, python_min), repo (git_tool).
 # Kinds:
 #   system      present when `command -v <name>` finds it
-#   python_min  present when python3.13, 3.12, 3.11 or python3 reports version 3.11 or newer
+#   python_min  present when python3.13, 3.12, 3.11 or python3 reports version 3.11 or newer and
+#               `-m ensurepip --version` works, which a venv needs. The apt packages are the distro's
+#               default python3 and python3-venv: Debian 12 and 13 and Ubuntu 24.04 then reach 3.11 or
+#               newer, and Ubuntu 22.04 stops at 3.10 and the check reports it.
 #   git_tool    ready when ~/.bf/tools/<n>/<n> and ~/.bf/tools/<n>/.venv/bin/python are executable
 #               and the pip step has finished: the install command ends by writing
 #               ~/.bf/tools/<n>/.venv/.bf-installed, so a half-built venv fails the check and the next
@@ -62,18 +65,22 @@ apt_cmd="sudo -n apt-get"
 dep_names() { jq -r '.[].name' "$deps_file"; }
 dep_field() { jq -r --arg n "$1" --arg k "$2" '.[] | select(.name == $n) | .[$k] // empty | if type == "array" then join(" ") else . end' "$deps_file"; }
 
-# Sets PY_FOUND to the first interpreter at 3.11 or newer, and returns 1 when there is none.
-# PY_SEEN holds the newest version found. Call it without a subshell so both survive.
-PY_FOUND=""; PY_SEEN=""
+# Sets PY_FOUND to the first interpreter at 3.11 or newer that can build a venv, and returns 1 when
+# there is none. `-m ensurepip --version` is the probe: Debian and Ubuntu ship ensurepip in the
+# python3-venv package, so a stock python3 without it fails here. PY_SEEN holds the first version
+# found, and PY_NOVENV the first modern interpreter without ensurepip. Call it without a subshell so
+# all three survive.
+PY_FOUND=""; PY_SEEN=""; PY_NOVENV=""
 find_python_modern() {
   local c p v
-  PY_FOUND=""; PY_SEEN=""
+  PY_FOUND=""; PY_SEEN=""; PY_NOVENV=""
   for c in python3.13 python3.12 python3.11 python3; do
     p=$(command -v "$c" 2>/dev/null) || continue
     v=$("$p" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null) || continue
     [ -n "$PY_SEEN" ] || PY_SEEN=$v
     if [ "$("$p" -c 'import sys; print(sys.version_info >= (3, 11))' 2>/dev/null)" = True ]; then
-      PY_FOUND=$p; return 0
+      if "$p" -m ensurepip --version >/dev/null 2>&1; then PY_FOUND=$p; return 0; fi
+      [ -n "$PY_NOVENV" ] || PY_NOVENV=$p
     fi
   done
   return 1
@@ -92,7 +99,9 @@ probe() {
       LAUNCHER=$p; DETAIL="found"; return 0 ;;
     python_min)
       if find_python_modern; then LAUNCHER=$PY_FOUND; DETAIL="found $PY_FOUND"; return 0; fi
-      if [ -n "$PY_SEEN" ]; then DETAIL="newest is $PY_SEEN, need 3.11 or newer"; else DETAIL="no python3 found"; fi
+      if [ -n "$PY_NOVENV" ]; then DETAIL="$PY_NOVENV cannot build a venv: ensurepip is missing"
+      elif [ -n "$PY_SEEN" ]; then DETAIL="newest is $PY_SEEN, need 3.11 or newer"
+      else DETAIL="no python3 found"; fi
       return 1 ;;
     git_tool)
       d=$tools_dir/$name
