@@ -24,7 +24,7 @@ LOG=$T/calls.log
 reset_env() {
   rm -rf "$HOME_DIR" "$BIN"; mkdir -p "$HOME_DIR" "$BIN"; : > "$LOG"
   local t p
-  for t in jq bash uname dirname basename cat grep sed tr mktemp awk sort head tail cut ls find rm mkdir chmod cp ln date touch; do
+  for t in jq bash uname dirname basename cat grep sed tr mktemp awk sort head tail cut ls find rm mkdir chmod cp ln date touch id; do
     p=$(command -v "$t") && ln -s "$p" "$BIN/$t"
   done
 }
@@ -132,7 +132,7 @@ BREW_FAIL=$T/brew_fail; SUDO_FAIL=$T/sudo_fail; GIT_FAIL=$T/git_fail
 # What a package manager "installs": a stub from $AVAIL when one exists, else an empty executable.
 PKG_BODY='
 for a in "$@"; do
-  case "$a" in install|-y|-n|apt-get) continue ;; esac
+  case "$a" in install|update|-y|-n|apt-get) continue ;; esac
   if [ -f "'$BREW_FAIL'" ] && grep -qxF "$a" "'$BREW_FAIL'"; then echo "no formula $a" >&2; exit 1; fi
   n=$a; case "$a" in python@3.12|python3.12-venv|python3.12) n=python3.12 ;; nodejs) n=node ;; esac
   if [ -x "'$AVAIL'/$n" ]; then cp "'$AVAIL'/$n" "'$BIN'/$n"; else printf "#!/bin/bash\n" > "'$BIN'/$n"; chmod +x "'$BIN'/$n"; fi
@@ -143,7 +143,7 @@ stubs_for_install() {
   local keep=$BIN; BIN=$AVAIL; mkpy python3.12 3.12; BIN=$keep
   stub brew "$PKG_BODY"
   stub apt-get "$PKG_BODY"
-  stub sudo '[ -f "'$SUDO_FAIL'" ] && exit 1; shift; exec "$@"'
+  stub sudo '[ -f "'$SUDO_FAIL'" ] && exit 1; shift; [ "$1" = true ] && exit 0; exec "$@"'
   stub git '
 if [ "$1" = clone ]; then
   for a; do dest=$a; done
@@ -267,14 +267,35 @@ expect "only git tools missing on macOS without brew is not blocked" "$(run plan
 reset_env; stubs_for_install
 export BF_SETUP_PLATFORM=linux
 plan_json=$(run plan core)
-expect "the Linux plan uses sudo -n apt-get" "$(printf '%s' "$plan_json" | jq -r '.steps[0].commands[0]')" "sudo -n apt-get install -y gh"
+expect "the Linux plan uses sudo -n apt-get" "$(printf '%s' "$plan_json" | jq -r '.steps[0].commands[1]')" "sudo -n apt-get install -y gh"
+expect "the Linux plan starts with apt-get update, once" \
+  "$(printf '%s' "$plan_json" | jq -r '[.steps[0].commands[0], ([.steps[].commands[] | select(endswith("update"))] | length)] | join(",")')" "sudo -n apt-get update,1"
 touch "$SUDO_FAIL"
 out=$(run install core)
 expect "a failing sudo gives the ! sudo line" \
-  "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "gh") | .detail')" "sudo needs a password. Run this yourself: ! sudo apt-get install -y gh"
+  "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "gh") | .detail')" "sudo needs a password. Run this yourself: ! sudo apt-get update && sudo apt-get install -y gh"
 rm -f "$SUDO_FAIL"; : > "$LOG"
 out=$(run install core)
 expect "the Linux install runs through sudo -n" "$(grep -c '^sudo -n apt-get install -y' "$LOG")" "2"
+expect "apt-get update runs once, before the first install" \
+  "$(grep -n -e '^sudo -n apt-get update' -e '^sudo -n apt-get install' "$LOG" | cut -d: -f2- | head -n 2 | tr '\n' ',')" \
+  "sudo -n apt-get update,sudo -n apt-get install -y gh,"
+
+reset_env; stubs_for_install; echo gh > "$BREW_FAIL"
+out=$(run install core)
+expect "an apt failure reports its own error, not a password" \
+  "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "gh") | .detail')" "sudo -n apt-get install -y gh failed: no formula gh"
+
+reset_env; stubs_for_install; rm -f "$BIN/sudo"
+out=$(run install core)
+expect "no sudo binary says so and gives the command" \
+  "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "gh") | .detail')" "sudo is not installed and this is not root. Run this as root: apt-get update && apt-get install -y gh"
+
+reset_env; stubs_for_install; rm -f "$BIN/sudo" "$BIN/id"; stub id 'echo 0'
+plan_json=$(run plan core)
+expect "as root the plan has no sudo" "$(printf '%s' "$plan_json" | jq -r '.steps[0].commands | join(",")')" "apt-get update,apt-get install -y gh"
+: > "$LOG"; run install core >/dev/null
+expect "as root the install runs apt-get directly" "$(grep -c -e '^apt-get install -y gh' "$LOG"),$(grep -c '^sudo' "$LOG")" "1,0"
 export BF_SETUP_PLATFORM=other
 reset_env
 expect "an unsupported platform is an error" "$(run plan core | jq -r .error)" "unsupported_platform"

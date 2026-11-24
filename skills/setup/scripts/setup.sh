@@ -16,6 +16,8 @@
 #   install run exactly the list plan prints, and continue past a failed entry. An entry whose
 #           requires are not ready is skipped. --only <name> runs one entry, so the caller can
 #           give each entry its own time limit. Without --only it prints {results, deps}.
+#           On Linux an apt command runs through sudo -n, or directly as root, and the first one is
+#           apt-get update. When sudo cannot run, the detail holds the command for the user.
 #           Never runs curl|bash: with no brew on macOS it prints {"blocked":"no_brew",...}.
 #
 # deps.json fields: name, tier (core|optional), kind, features, requires (names that must be
@@ -54,6 +56,8 @@ esac
 pkg_manager=null
 if [ "$platform" = macos ] && command -v brew >/dev/null 2>&1; then pkg_manager=brew; fi
 if [ "$platform" = linux ] && command -v apt-get >/dev/null 2>&1; then pkg_manager=apt; fi
+apt_cmd="sudo -n apt-get"
+[ "$(id -u 2>/dev/null)" != 0 ] || apt_cmd="apt-get"
 
 dep_names() { jq -r '.[].name' "$deps_file"; }
 dep_field() { jq -r --arg n "$1" --arg k "$2" '.[] | select(.name == $n) | .[$k] // empty | if type == "array" then join(" ") else . end' "$deps_file"; }
@@ -156,7 +160,8 @@ list_missing() {
       system|python_min)
         case "$platform" in
           macos) add_cmd "$n" "brew install $(dep_field "$n" brew)" ;;
-          linux) add_cmd "$n" "sudo -n apt-get install -y $(dep_field "$n" apt)" ;;
+          linux) add_cmd "$n" "$apt_cmd update"
+                 add_cmd "$n" "$apt_cmd install -y $(dep_field "$n" apt)" ;;
           *) die unsupported_platform "bf:setup installs system tools with brew on macOS and apt on Linux" ;;
         esac ;;
       git_tool)
@@ -171,7 +176,7 @@ list_missing() {
 }
 
 # The lines of list_missing, with a command that another entry already lists dropped: node and npm
-# share one brew formula, so it runs once. Run it in a command substitution and read its exit code.
+# share one brew formula, and apt-get update runs once, before the first apt install. Run it in a command substitution and read its exit code.
 build_list() { list_missing "$1" | awk -F'\t' '!seen[$2]++'; }
 
 # Prints the blocked object and returns 0 when the list ($1) needs brew and brew is missing.
@@ -209,6 +214,21 @@ cmd_plan() {
 }
 
 RES_OK=true; RES_DETAIL=""
+# Prints the sudo commands that list ($2) holds for one entry ($1), without "sudo -n ", joined by $3.
+sudo_chain() {
+  printf '%s\n' "$2" | awk -F'\t' -v n="$1" -v j="$3" '$1 == n && $2 ~ /^sudo -n / { sub(/^sudo -n /, "", $2); printf "%s%s", (c++ ? j : ""), $2 }'
+}
+
+# Returns 0 and sets RES_DETAIL when the sudo commands of entry $1 in list $2 cannot run: there is no
+# sudo, or sudo asks for a password. Any other failure is reported from the command's own error line.
+sudo_blocked() {
+  if ! command -v sudo >/dev/null 2>&1; then
+    RES_DETAIL="sudo is not installed and this is not root. Run this as root: $(sudo_chain "$1" "$2" ' && ')"; return 0
+  fi
+  ! sudo -n true >/dev/null 2>&1 || return 1
+  RES_DETAIL="sudo needs a password. Run this yourself: ! sudo $(sudo_chain "$1" "$2" ' && sudo ')"
+}
+
 # Runs the commands that list ($2) holds for one entry ($1). Sets RES_OK and RES_DETAIL.
 run_entry() {
   local n=$1 list=$2 r cmd out py
@@ -223,12 +243,12 @@ run_entry() {
         find_python_modern || { RES_OK=false; RES_DETAIL="no Python 3.11 or newer found. Install python3-modern first"; return; }
         cmd="$(printf '%q' "$PY_FOUND")${cmd#"$PLACEHOLDER"}" ;;
     esac
-    if ! out=$(bash -c "$cmd" 2>&1 </dev/null); then
+    case "$cmd" in
+      "sudo -n "*) if sudo_blocked "$n" "$list"; then RES_OK=false; return; fi ;;
+    esac
+    if ! out=$(bash -c "$cmd" 2>&1 >/dev/null </dev/null); then
       RES_OK=false
-      case "$cmd" in
-        "sudo -n "*) RES_DETAIL="sudo needs a password. Run this yourself: ! sudo ${cmd#sudo -n }" ;;
-        *) RES_DETAIL="$cmd failed: $(printf '%s' "$out" | tail -n 1 | cut -c1-200)" ;;
-      esac
+      RES_DETAIL="$cmd failed: $(printf '%s\n' "$out" | awk 'NF {print; exit}' | cut -c1-200)"
       return
     fi
   done <<EOF2
