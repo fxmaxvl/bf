@@ -3,10 +3,20 @@
 #
 # Usage: setup.sh status
 #        setup.sh check <name>...
+#        setup.sh plan [core|all]
+#        setup.sh install [core|all] [--only <name>]
 #   status  read-only. Print every dependency and whether it is present.
 #   check   print {"<name>": {"ready": bool, "path": "<launcher>"|null}} for the names given.
 #           This is the one place that decides whether a tool is ready. The measured gate
 #           runs the path it returns and never rebuilds the tool layout itself.
+#   plan    print the install commands for the missing dependencies in scope (default all), in
+#           deps.json order. A git tool builds its .venv with the placeholder <python 3.11+>,
+#           because the interpreter may not exist until an earlier entry installs it. install
+#           resolves the placeholder when it runs the command.
+#   install run exactly the list plan prints, and continue past a failed entry. An entry whose
+#           requires are not ready is skipped. --only <name> runs one entry, so the caller can
+#           give each entry its own time limit. Without --only it prints {results, deps}.
+#           Never runs curl|bash: with no brew on macOS it prints {"blocked":"no_brew",...}.
 #
 # deps.json fields: name, tier (core|optional), kind, features, requires (names that must be
 # present first), and per kind: brew and apt (system, python_min), repo (git_tool).
@@ -26,7 +36,7 @@ die() { jq -cn --arg e "$1" --arg d "${2:-}" '{error:$e, detail:$d}' 2>/dev/null
 command -v jq >/dev/null 2>&1 || die jq_missing "jq not installed"
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-plugin=$here/../../..
+plugin=$(cd "$here/../../.." && pwd)
 deps_file=$here/../deps.json
 tools_dir=$HOME/.bf/tools
 
@@ -125,9 +135,120 @@ cmd_check() {
   printf '%s\n' "$out"
 }
 
+PLACEHOLDER='<python 3.11+>'
+TAB=$(printf '\t')
+LIST=""; NEED_BREW=0
+
+add_cmd() { LIST="$LIST$1$TAB$2
+"; }
+
+# Fills LIST with "name<TAB>command" lines for the missing dependencies in scope, and NEED_BREW.
+build_list() {
+  local scope=$1 n kind d qd
+  LIST=""; NEED_BREW=0
+  for n in $(dep_names); do
+    kind=$(dep_field "$n" kind)
+    [ "$kind" = typesafe ] && continue
+    [ "$scope" = core ] && [ "$(dep_field "$n" tier)" != core ] && continue
+    probe "$n" && continue
+    case "$kind" in
+      system|python_min)
+        case "$platform" in
+          macos) add_cmd "$n" "brew install $(dep_field "$n" brew)"; NEED_BREW=1 ;;
+          linux) add_cmd "$n" "sudo -n apt-get install -y $(dep_field "$n" apt)" ;;
+          *) die unsupported_platform "bf:setup installs system tools with brew on macOS and apt on Linux" ;;
+        esac ;;
+      git_tool)
+        d=$tools_dir/$n; qd=$(printf '%q' "$d")
+        [ -d "$d" ] || add_cmd "$n" "git clone --depth 1 $(dep_field "$n" repo) $qd"
+        add_cmd "$n" "$PLACEHOLDER -m venv $qd/.venv"
+        add_cmd "$n" "$qd/.venv/bin/pip install -e $qd" ;;
+      likec4)
+        add_cmd "$n" "bash $(printf '%q' "$plugin")/skills/visualize/scripts/install-likec4.sh" ;;
+    esac
+  done
+}
+
+# Prints the blocked object and returns 0 when the list needs brew and brew is missing.
+blocked_no_brew() {
+  [ "$NEED_BREW" -eq 1 ] && [ "$pkg_manager" != brew ] || return 1
+  jq -cn --arg h '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' \
+    '{blocked:"no_brew", hint:$h}'
+}
+
+parse_scope() { # sets SCOPE and ONLY from the arguments
+  SCOPE=all; ONLY=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      core|all) SCOPE=$1; shift ;;
+      --only) [ -n "${2:-}" ] || die bad_args "--only needs a dependency name"; ONLY=$2; shift 2 ;;
+      *) die bad_args "unknown argument: $1" ;;
+    esac
+  done
+  [ -z "$ONLY" ] || dep_names | grep -qxF -- "$ONLY" || die unknown_dep "$ONLY is not in deps.json"
+}
+
+cmd_plan() {
+  parse_scope "$@"
+  build_list "$SCOPE"
+  blocked_no_brew && return 0
+  printf '%s' "$LIST" | jq -Rsc --arg scope "$SCOPE" --arg pl "$platform" --arg ph "$PLACEHOLDER" '
+    (split("\n") | map(select(length > 0) | split("\t") | {name: .[0], cmd: .[1]})
+      | reduce .[] as $c ([]; if length > 0 and .[-1].name == $c.name then .[-1].commands += [$c.cmd]
+          else . + [{name: $c.name, commands: [$c.cmd]}] end)) as $steps
+    | {scope:$scope, platform:$pl, steps:$steps}
+      + (if ([$steps[].commands[] | select(contains($ph))] | length) > 0
+         then {note: "\($ph) is replaced at run time by the Python 3.11 or newer interpreter found then."} else {} end)'
+}
+
+RES_OK=true; RES_DETAIL=""
+# Runs the listed commands of one entry. Sets RES_OK and RES_DETAIL.
+run_entry() {
+  local n=$1 r cmd out py
+  RES_OK=true; RES_DETAIL="installed"
+  for r in $(dep_field "$n" requires); do
+    if ! probe "$r"; then RES_OK=false; RES_DETAIL="skipped: requires $r, which is not ready ($DETAIL)"; return; fi
+  done
+  while IFS="$TAB" read -r name cmd; do
+    [ "$name" = "$n" ] || continue
+    case "$cmd" in
+      "$PLACEHOLDER"*)
+        find_python_modern || { RES_OK=false; RES_DETAIL="no Python 3.11 or newer found. Install python3-modern first"; return; }
+        cmd="$(printf '%q' "$PY_FOUND")${cmd#"$PLACEHOLDER"}" ;;
+    esac
+    if ! out=$(bash -c "$cmd" 2>&1 </dev/null); then
+      RES_OK=false
+      case "$cmd" in
+        "sudo -n "*) RES_DETAIL="sudo needs a password. Run this yourself: ! sudo ${cmd#sudo -n }" ;;
+        *) RES_DETAIL="$cmd failed: $(printf '%s' "$out" | tail -n 1 | cut -c1-200)" ;;
+      esac
+      return
+    fi
+  done <<EOF2
+$LIST
+EOF2
+  if ! probe "$n"; then RES_OK=false; RES_DETAIL="commands ran but the check still fails: $DETAIL"; fi
+}
+
+cmd_install() {
+  parse_scope "$@"
+  build_list "$SCOPE"
+  blocked_no_brew && return 0
+  local n results='[]'
+  for n in $(printf '%s' "$LIST" | cut -f1 | awk '!seen[$0]++'); do
+    [ -z "$ONLY" ] || [ "$n" = "$ONLY" ] || continue
+    run_entry "$n"
+    results=$(printf '%s' "$results" | jq -c --arg n "$n" --argjson ok "$RES_OK" --arg d "$RES_DETAIL" '. + [{name:$n, ok:$ok, detail:$d}]')
+  done
+  if [ -n "$ONLY" ]; then jq -cn --argjson r "$results" '{results:$r}'
+  else jq -cn --argjson r "$results" --argjson d "$(cmd_status)" '{results:$r, deps:$d}'; fi
+}
+
 mode=${1:-}; [ $# -eq 0 ] || shift
 case "$mode" in
   status) cmd_status ;;
   check) cmd_check "$@" ;;
-  *) die bad_args "mode must be status or check" ;;
+  plan) cmd_plan "$@" ;;
+  install) cmd_install "$@" ;;
+  *) die bad_args "mode must be status, check, plan or install" ;;
 esac

@@ -24,7 +24,7 @@ LOG=$T/calls.log
 reset_env() {
   rm -rf "$HOME_DIR" "$BIN"; mkdir -p "$HOME_DIR" "$BIN"; : > "$LOG"
   local t p
-  for t in jq bash uname dirname basename cat grep sed tr mktemp awk sort head ls find rm mkdir chmod cp ln date; do
+  for t in jq bash uname dirname basename cat grep sed tr mktemp awk sort head tail cut ls find rm mkdir chmod cp ln date; do
     p=$(command -v "$t") && ln -s "$p" "$BIN/$t"
   done
 }
@@ -124,6 +124,143 @@ reset_env; stub git; mktool crapper
 before=$(cd "$HOME_DIR" && find . | sort)
 run status >/dev/null; run check crapper >/dev/null
 expect "status and check write nothing under HOME" "$(cd "$HOME_DIR" && find . | sort)" "$before"
+
+
+# --- plan and install: stubs stand in for the package managers, git and pip ---
+AVAIL=$T/avail
+BREW_FAIL=$T/brew_fail; SUDO_FAIL=$T/sudo_fail; GIT_FAIL=$T/git_fail
+
+# What a package manager "installs": a stub from $AVAIL when one exists, else an empty executable.
+PKG_BODY='
+for a in "$@"; do
+  case "$a" in install|-y|-n|apt-get) continue ;; esac
+  if [ -f "'$BREW_FAIL'" ] && grep -qxF "$a" "'$BREW_FAIL'"; then echo "no formula $a" >&2; exit 1; fi
+  n=$a; case "$a" in python@3.12|python3.12-venv|python3.12) n=python3.12 ;; nodejs) n=node ;; esac
+  if [ -x "'$AVAIL'/$n" ]; then cp "'$AVAIL'/$n" "'$BIN'/$n"; else printf "#!/bin/bash\n" > "'$BIN'/$n"; chmod +x "'$BIN'/$n"; fi
+done'
+
+stubs_for_install() {
+  mkdir -p "$AVAIL"
+  local keep=$BIN; BIN=$AVAIL; mkpy python3.12 3.12; BIN=$keep
+  printf '#!/bin/bash\necho "0.0.0"\n' > "$AVAIL/likec4"
+  stub brew "$PKG_BODY"
+  stub apt-get "$PKG_BODY"
+  stub sudo '[ -f "'$SUDO_FAIL'" ] && exit 1; shift; exec "$@"'
+  stub git '
+if [ "$1" = clone ]; then
+  for a; do dest=$a; done
+  if [ -f "'$GIT_FAIL'" ] && grep -qxF "$(basename "$dest")" "'$GIT_FAIL'"; then echo "fatal: unable to access" >&2; exit 128; fi
+  mkdir -p "$dest"; printf "#!/bin/bash\n" > "$dest/$(basename "$dest")"; chmod +x "$dest/$(basename "$dest")"
+fi'
+  stub npm 'for a; do case "$a" in --prefix) take=1; continue ;; esac; [ "${take:-0}" = 1 ] && { prefix=$a; take=0; }; done
+mkdir -p "$prefix/node_modules/.bin"; printf "#!/bin/bash\necho %s\n" "'"$ver"'" > "$prefix/node_modules/.bin/likec4"; chmod +x "$prefix/node_modules/.bin/likec4"'
+  rm -f "$BREW_FAIL" "$SUDO_FAIL" "$GIT_FAIL"
+}
+
+has_no_calls() { [ -z "$(grep -v ' -c ' "$LOG")" ]; }
+names() { jq -r '[.steps[].name] | join(",")'; }
+
+ver=$(bash "$here/../../visualize/scripts/install-likec4.sh" --print-version)
+export BF_SETUP_PLATFORM=macos
+
+reset_env; stubs_for_install
+expect "plan core lists only the missing core dependencies" "$(run plan core | names)" "gh,python3,curl"
+expect "plan never lists typesafe" "$(run plan | names | tr ',' '\n' | grep -c '^typesafe$')" "0"
+expect "plan prints the python placeholder and a note for git tools" \
+  "$(run plan | jq -r '[(.steps[] | select(.name == "crapper") | .commands[1] | startswith("<python 3.11+> -m venv")), (.note | contains("<python 3.11+>"))] | join(",")')" "true,true"
+expect "plan lists requirements before dependents" \
+  "$(run plan | names)" "gh,python3,curl,node,likec4,python3-modern,crapper,dryer,mutator"
+
+reset_env; stubs_for_install; rm -f "$BIN/brew"
+out=$(run plan)
+expect "plan on macOS without brew is blocked" "$(printf '%s' "$out" | jq -r .blocked)" "no_brew"
+expect "the no_brew hint is printed, not run" "$(printf '%s' "$out" | jq -r '.hint | startswith("/bin/bash -c")')" "true"
+out=$(run install)
+expect "install on macOS without brew is blocked" "$(printf '%s' "$out" | jq -r .blocked)" "no_brew"
+has_no_calls && ok "a blocked install runs nothing" || bad "a blocked install runs nothing" "$(cat "$LOG")"
+
+# A batch where python3-modern and crapper are both missing at plan time.
+reset_env; stubs_for_install
+plan_json=$(run plan)
+: > "$LOG"
+out=$(run install)
+expect_cmds=$(printf '%s' "$plan_json" | jq -r '.steps[] | select(.name != "likec4") | .commands[]' \
+  | sed -e 's|^<python 3.11+>|python3.12|' -e 's|^[^ ]*/\.venv/bin/pip|pip|')
+actual_cmds=$(grep -v -e ' -c ' -e '^npm ' "$LOG")
+expect "install runs the same commands plan printed" "$actual_cmds" "$expect_cmds"
+expect "install of the batch reports no failure" "$(printf '%s' "$out" | jq -r '[.results[] | select(.ok | not) | .name] | join(",")')" ""
+expect "python3-modern and crapper install in one batch" \
+  "$(printf '%s' "$out" | jq -r '[.results[] | select(.name == "python3-modern" or .name == "crapper") | .ok] | join(",")')" "true,true"
+expect "the placeholder resolves to the interpreter installed in the batch" \
+  "$(grep -c "^python3.12 -m venv $HOME_DIR/.bf/tools/crapper/.venv" "$LOG")" "1"
+expect "crapper installs before mutator" \
+  "$(grep -n -e 'git clone .*crapper' -e 'git clone .*mutator' "$LOG" | sed 's/.*unclebob\/\([a-z]*\).git.*/\1/' | tr '\n' ',')" "crapper,mutator,"
+expect "likec4 installs after node in the batch" "$(printf '%s' "$out" | jq -r '[.results[] | select(.name == "likec4") | .ok] | join(",")')" "true"
+expect "install prints the status of every dependency" "$(printf '%s' "$out" | jq -r '[.deps.deps[] | select(.present | not) | .name] | join(",")')" "typesafe"
+: > "$LOG"
+out=$(run install)
+has_no_calls && ok "a second install logs no command" || bad "a second install logs no command" "$(cat "$LOG")"
+expect "a second install reports no result" "$(printf '%s' "$out" | jq -c .results)" "[]"
+
+reset_env; stubs_for_install; mkpy python3.12 3.12; stub gh; stub python3; stub curl; stub node; stub npm; mktool crapper
+: > "$LOG"
+out=$(run install --only dryer)
+expect "install --only runs only that entry" "$(printf '%s' "$out" | jq -c '[.results[].name]')" '["dryer"]'
+expect "install --only dryer touches no other tool" "$(grep -c -e 'crapper' -e 'mutator' "$LOG")" "0"
+
+reset_env; stubs_for_install
+: > "$LOG"
+out=$(run install --only crapper)
+expect "install --only skips an entry whose requirement is missing" \
+  "$(printf '%s' "$out" | jq -r '.results[0] | "\(.ok) \(.detail | startswith("skipped: requires python3-modern"))"')" "false true"
+has_no_calls && ok "a skipped entry runs no command" || bad "a skipped entry runs no command" "$(cat "$LOG")"
+
+reset_env; stubs_for_install
+echo "python@3.12" > "$BREW_FAIL"
+out=$(run install)
+expect "no python 3.11 skips every tool that requires it" \
+  "$(printf '%s' "$out" | jq -r '[.results[] | select(.ok | not) | .name] | join(",")')" "python3-modern,crapper,dryer,mutator"
+expect "the skip detail names python3-modern" \
+  "$(printf '%s' "$out" | jq -r '[.results[] | select(.name == "dryer") | .detail | startswith("skipped: requires python3-modern")] | join(",")')" "true"
+expect "a failed entry does not stop an unrelated one" \
+  "$(printf '%s' "$out" | jq -r '[.results[] | select(.name == "likec4") | .ok] | join(",")')" "true"
+
+reset_env; stubs_for_install
+echo "gh" > "$BREW_FAIL"
+out=$(run install)
+expect "a failing brew for one dependency does not stop the next" \
+  "$(printf '%s' "$out" | jq -r '[.results[] | select(.name == "gh" or .name == "python3") | .ok] | join(",")')" "false,true"
+
+reset_env; stubs_for_install
+echo "crapper" > "$GIT_FAIL"
+out=$(run install)
+expect "a failed clone of crapper skips mutator" \
+  "$(printf '%s' "$out" | jq -r '[.results[] | select(.name == "crapper" or .name == "mutator") | "\(.name):\(.ok)"] | join(",")')" "crapper:false,mutator:false"
+expect "the mutator skip names crapper" \
+  "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "mutator") | .detail | startswith("skipped: requires crapper")')" "true"
+expect "dryer still installs after a crapper failure" \
+  "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "dryer") | .ok')" "true"
+
+reset_env; stubs_for_install; stub gh; stub python3; stub curl; stub node; stub npm; mkpy python3.12 3.12
+stub likec4
+mkdir -p "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin"; cp "$BIN/likec4" "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin/likec4"
+rm -f "$BIN/brew"
+expect "only git tools missing on macOS without brew is not blocked" "$(run plan | names)" "crapper,dryer,mutator"
+
+reset_env; stubs_for_install
+export BF_SETUP_PLATFORM=linux
+plan_json=$(run plan core)
+expect "the Linux plan uses sudo -n apt-get" "$(printf '%s' "$plan_json" | jq -r '.steps[0].commands[0]')" "sudo -n apt-get install -y gh"
+touch "$SUDO_FAIL"
+out=$(run install core)
+expect "a failing sudo gives the ! sudo line" \
+  "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "gh") | .detail')" "sudo needs a password. Run this yourself: ! sudo apt-get install -y gh"
+rm -f "$SUDO_FAIL"; : > "$LOG"
+out=$(run install core)
+expect "the Linux install runs through sudo -n" "$(grep -c '^sudo -n apt-get install -y' "$LOG")" "3"
+export BF_SETUP_PLATFORM=other
+reset_env
+expect "an unsupported platform is an error" "$(run plan core | jq -r .error)" "unsupported_platform"
 
 echo "---- $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
