@@ -90,7 +90,7 @@ Any other `detail` names the command and its first error line: print it as retur
 | `{"error":"jq_missing"}` | `jq` is the one tool the script needs to run. Tell the user to install it (`brew install jq` or `sudo apt-get install -y jq`) and run `/bf:setup` again. |
 | `no_brew` | Print the hint for the user. Do not install anything, not even the git tools. |
 | `unsupported_platform` | Say that `/bf:setup` installs with brew on macOS and apt on Linux. List the missing tools from the status table so the user can install them by hand. |
-| `sudo -n` cannot run on Linux | Print the `! sudo apt-get install -y <pkg>` line from `detail`. The user runs it, then runs `/bf:setup` again. When `detail` says sudo is not installed, the user runs the line as root. |
+| `sudo -n` cannot run on Linux | Print the `! sudo ...` line from `detail` exactly as returned. The user runs it, then runs `/bf:setup` again. When `detail` says sudo is not installed, the user runs the line as root. |
 | A clone fails (network) | Report the `detail`. The tools that need it show as skipped. A re-run retries them. |
 | Nothing is missing | Print the table and say so. Run no install command. |
 | The user declines | Install nothing. The table already shows what is missing. |
