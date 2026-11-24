@@ -24,7 +24,7 @@ LOG=$T/calls.log
 reset_env() {
   rm -rf "$HOME_DIR" "$BIN"; mkdir -p "$HOME_DIR" "$BIN"; : > "$LOG"
   local t p
-  for t in jq bash uname dirname basename cat grep sed tr mktemp awk sort head tail cut ls find rm mkdir chmod cp ln date; do
+  for t in jq bash uname dirname basename cat grep sed tr mktemp awk sort head tail cut ls find rm mkdir chmod cp ln date touch; do
     p=$(command -v "$t") && ln -s "$p" "$BIN/$t"
   done
 }
@@ -39,7 +39,7 @@ stub() { # name [body]
 mkpy() { # name version
   stub "$1" '
 case "$1" in
-  -m) if [ "$2" = venv ]; then mkdir -p "$3/bin"; printf "#!/bin/bash\n" > "$3/bin/python"; printf "#!/bin/bash\necho pip \"\$@\" >> '"$LOG"'\n" > "$3/bin/pip"; chmod +x "$3/bin/python" "$3/bin/pip"; fi ;;
+  -m) if [ "$2" = venv ]; then mkdir -p "$3/bin"; printf "#!/bin/bash\n" > "$3/bin/python"; printf "#!/bin/bash\necho pip \"\$@\" >> '"$LOG"'\n[ -f '"$T"'/pip_fail ] && exit 1\nexit 0\n" > "$3/bin/pip"; chmod +x "$3/bin/python" "$3/bin/pip"; fi ;;
   -c) case "$2" in
         *"(3, 11)"*) '"$(printf 'v=%s' "$2")"'; if [ "${v%%.*}" -gt 3 ] || [ "${v#*.}" -ge 11 ]; then echo True; else echo False; fi ;;
         *) echo '"$2"' ;;
@@ -50,7 +50,7 @@ esac'
 mktool() { # name: a ready git tool under the fake HOME
   local d=$HOME_DIR/.bf/tools/$1
   mkdir -p "$d/.venv/bin"
-  printf '#!/bin/bash\n' > "$d/$1"; printf '#!/bin/bash\n' > "$d/.venv/bin/python"
+  printf '#!/bin/bash\n' > "$d/$1"; printf '#!/bin/bash\n' > "$d/.venv/bin/python"; : > "$d/.venv/.bf-installed"
   chmod +x "$d/$1" "$d/.venv/bin/python"
 }
 
@@ -183,7 +183,7 @@ plan_json=$(run plan)
 : > "$LOG"
 out=$(run install)
 expect_cmds=$(printf '%s' "$plan_json" | jq -r '.steps[] | select(.name != "likec4") | .commands[]' \
-  | sed -e 's|^<python 3.11+>|python3.12|' -e 's|^[^ ]*/\.venv/bin/pip|pip|')
+  | sed -e 's|^<python 3.11+>|python3.12|' -e 's|^[^ ]*/\.venv/bin/pip|pip|' -e 's| && touch .*||')
 actual_cmds=$(grep -v -e ' -c ' -e '^npm ' "$LOG")
 expect "install runs the same commands plan printed" "$actual_cmds" "$expect_cmds"
 expect "install of the batch reports no failure" "$(printf '%s' "$out" | jq -r '[.results[] | select(.ok | not) | .name] | join(",")')" ""
@@ -245,6 +245,19 @@ expect "the mutator skip names crapper" \
   "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "mutator") | .detail | startswith("skipped: requires crapper")')" "true"
 expect "dryer still installs after a crapper failure" \
   "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "dryer") | .ok')" "true"
+
+reset_env; stubs_for_install
+touch "$T/pip_fail"
+out=$(run install)
+expect "a failed pip step leaves crapper not ready" \
+  "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "crapper") | .ok')" "false"
+expect "a half-built venv has no ready marker" \
+  "$([ -x "$HOME_DIR/.bf/tools/crapper/.venv/bin/python" ] && [ ! -e "$HOME_DIR/.bf/tools/crapper/.venv/.bf-installed" ] && echo half)" "half"
+expect "status names the unfinished install" "$(run status | field crapper detail)" "install did not finish. Run /bf:setup again"
+rm -f "$T/pip_fail"
+out=$(run install)
+expect "a re-run repairs the half-built venv" \
+  "$(printf '%s' "$out" | jq -r '.results[] | select(.name == "crapper") | .ok'),$([ -e "$HOME_DIR/.bf/tools/crapper/.venv/.bf-installed" ] && echo marker)" "true,marker"
 
 reset_env; stubs_for_install; stub gh; stub python3; stub curl; stub node; stub npm; mkpy python3.12 3.12
 mkdir -p "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin"; printf '#!/bin/bash\n' > "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin/likec4"; chmod +x "$HOME_DIR/.bf/cache/likec4@$ver/node_modules/.bin/likec4"

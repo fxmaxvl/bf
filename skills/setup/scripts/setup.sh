@@ -24,6 +24,9 @@
 #   system      present when `command -v <name>` finds it
 #   python_min  present when python3.13, 3.12, 3.11 or python3 reports version 3.11 or newer
 #   git_tool    ready when ~/.bf/tools/<n>/<n> and ~/.bf/tools/<n>/.venv/bin/python are executable
+#               and the pip step has finished: the install command ends by writing
+#               ~/.bf/tools/<n>/.venv/.bf-installed, so a half-built venv fails the check and the next
+#               run repairs it
 #   likec4      the pinned build under the bf:visualize cache
 #   typesafe    the key and the config flag, read from typesafe-setup.sh status
 #
@@ -39,6 +42,7 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 plugin=$(cd "$here/../../.." && pwd)
 deps_file=$here/../deps.json
 tools_dir=$HOME/.bf/tools
+INSTALLED_MARKER=.bf-installed
 
 [ -f "$deps_file" ] || die registry_missing "$deps_file not found"
 
@@ -91,6 +95,7 @@ probe() {
       [ -d "$d" ] || { DETAIL="not cloned"; return 1; }
       [ -x "$d/$name" ] || { DETAIL="launcher $d/$name missing"; return 1; }
       [ -x "$d/.venv/bin/python" ] || { DETAIL="no .venv"; return 1; }
+      [ -f "$d/.venv/$INSTALLED_MARKER" ] || { DETAIL="install did not finish. Run /bf:setup again"; return 1; }
       LAUNCHER=$d/$name; DETAIL="ready"; return 0 ;;
     likec4)
       v=$(bash "$plugin/skills/visualize/scripts/install-likec4.sh" --print-version 2>/dev/null) || { DETAIL="cannot read pinned version"; return 1; }
@@ -158,7 +163,7 @@ list_missing() {
         d=$tools_dir/$n; qd=$(printf '%q' "$d")
         [ -d "$d" ] || add_cmd "$n" "git clone --depth 1 $(dep_field "$n" repo) $qd"
         add_cmd "$n" "$PLACEHOLDER -m venv $qd/.venv"
-        add_cmd "$n" "$qd/.venv/bin/pip install -e $qd" ;;
+        add_cmd "$n" "$qd/.venv/bin/pip install -e $qd && touch $qd/.venv/$INSTALLED_MARKER" ;;
       likec4)
         add_cmd "$n" "bash $(printf '%q' "$plugin")/skills/visualize/scripts/install-likec4.sh" ;;
     esac
