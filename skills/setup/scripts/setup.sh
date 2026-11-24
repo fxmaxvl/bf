@@ -19,9 +19,9 @@
 #           Never runs curl|bash: with no brew on macOS it prints {"blocked":"no_brew",...}.
 #
 # deps.json fields: name, tier (core|optional), kind, features, requires (names that must be
-# present first), and per kind: brew and apt (system, python_min), repo (git_tool).
+# ready first, for the install order and for the install gate), and per kind: brew and apt (system, python_min), repo (git_tool).
 # Kinds:
-#   system      present when `command -v <name>` finds it (node also needs npm)
+#   system      present when `command -v <name>` finds it
 #   python_min  present when python3.13, 3.12, 3.11 or python3 reports version 3.11 or newer
 #   git_tool    ready when ~/.bf/tools/<n>/<n> and ~/.bf/tools/<n>/.venv/bin/python are executable
 #   likec4      the pinned build under the bf:visualize cache
@@ -71,7 +71,8 @@ find_python_modern() {
   return 1
 }
 
-# Sets DETAIL and LAUNCHER for <name>. Returns 0 when the dependency is ready.
+# Sets DETAIL and LAUNCHER for <name>. Returns 0 when the dependency is ready. It checks the
+# dependency alone: the requires of an entry gate its install in run_entry.
 DETAIL=""; LAUNCHER=""
 probe() {
   local name=$1 kind p d bin v out
@@ -80,7 +81,6 @@ probe() {
   case "$kind" in
     system)
       p=$(command -v "$name" 2>/dev/null) || { DETAIL="not found on PATH"; return 1; }
-      if [ "$name" = node ] && ! command -v npm >/dev/null 2>&1; then DETAIL="node found, npm missing"; return 1; fi
       LAUNCHER=$p; DETAIL="found"; return 0 ;;
     python_min)
       if find_python_modern; then LAUNCHER=$PY_FOUND; DETAIL="found $PY_FOUND"; return 0; fi
@@ -91,7 +91,6 @@ probe() {
       [ -d "$d" ] || { DETAIL="not cloned"; return 1; }
       [ -x "$d/$name" ] || { DETAIL="launcher $d/$name missing"; return 1; }
       [ -x "$d/.venv/bin/python" ] || { DETAIL="no .venv"; return 1; }
-      if [ "$name" = mutator ] && [ ! -d "$tools_dir/crapper" ]; then DETAIL="needs ../crapper"; return 1; fi
       LAUNCHER=$d/$name; DETAIL="ready"; return 0 ;;
     likec4)
       v=$(bash "$plugin/skills/visualize/scripts/install-likec4.sh" --print-version 2>/dev/null) || { DETAIL="cannot read pinned version"; return 1; }
@@ -139,8 +138,12 @@ PLACEHOLDER='<python 3.11+>'
 TAB=$(printf '\t')
 LIST=""; NEED_BREW=0
 
-add_cmd() { LIST="$LIST$1$TAB$2
-"; }
+# A command another entry already lists runs once (node and npm share one brew formula).
+add_cmd() {
+  case "$LIST" in *"$TAB$2"$'\n'*) return ;; esac
+  LIST="$LIST$1$TAB$2
+"
+}
 
 # Fills LIST with "name<TAB>command" lines for the missing dependencies in scope, and NEED_BREW.
 build_list() {

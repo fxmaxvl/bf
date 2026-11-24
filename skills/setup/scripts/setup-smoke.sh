@@ -63,8 +63,8 @@ expect "every requires entry names an earlier dependency" "$bad_req" ""
 expect "every kind is a documented kind" \
   "$(jq -r '[.[] | .kind] | map(select(. != "system" and . != "python_min" and . != "git_tool" and . != "likec4" and . != "typesafe")) | join(",")' "$deps")" ""
 expect "requires chain python3-modern, crapper, mutator" \
-  "$(jq -r '[.[] | select(.name == "crapper" or .name == "dryer" or .name == "mutator" or .name == "likec4") | "\(.name):\(.requires | join(","))"] | join(" ")' "$deps")" \
-  "likec4:node crapper:python3-modern dryer:python3-modern mutator:crapper"
+  "$(jq -r '[.[] | select(.name == "crapper" or .name == "dryer" or .name == "mutator" or .name == "npm" or .name == "likec4") | "\(.name):\(.requires | join(","))"] | join(" ")' "$deps")" \
+  "npm:node likec4:npm crapper:python3-modern dryer:python3-modern mutator:crapper"
 expect "curl is a core dependency" "$(jq -r '.[] | select(.name == "curl") | .tier' "$deps")" "core"
 
 reset_env
@@ -86,7 +86,7 @@ expect "crapper ready" "$(printf '%s' "$out" | field crapper present)" "true"
 expect "ready crapper reports its launcher path" "$(printf '%s' "$out" | field crapper path)" "$HOME_DIR/.bf/tools/crapper/crapper"
 
 reset_env; mktool mutator
-expect "mutator ready but no ../crapper" "$(run status | field mutator detail)" "needs ../crapper"
+expect "mutator readiness does not read crapper" "$(run status | field mutator present)" "true"
 
 reset_env; stub mutator
 expect "a mutator on PATH does not make mutator present" "$(run status | field mutator present)" "false"
@@ -97,9 +97,11 @@ expect "check with two names" "$(run check crapper dryer)" \
 expect "check rejects an unknown name" "$(run check nosuch | jq -r .error)" "unknown_dep"
 
 reset_env; stub node; stub npm
-expect "node needs npm too" "$(run status | field node present)" "true"
+out=$(run status)
+expect "node and npm both present" "$(printf '%s' "$out" | field node present),$(printf '%s' "$out" | field npm present)" "true,true"
 reset_env; stub node
-expect "node without npm is absent" "$(run status | field node detail)" "node found, npm missing"
+out=$(run status)
+expect "node without npm: node present, npm absent" "$(printf '%s' "$out" | field node present),$(printf '%s' "$out" | field npm detail)" "true,not found on PATH"
 
 reset_env; mkpy python3 3.10
 out=$(run status)
@@ -197,6 +199,13 @@ expect "install prints the status of every dependency" "$(printf '%s' "$out" | j
 out=$(run install)
 has_no_calls && ok "a second install logs no command" || bad "a second install logs no command" "$(cat "$LOG")"
 expect "a second install reports no result" "$(printf '%s' "$out" | jq -c .results)" "[]"
+
+reset_env; stubs_for_install; rm -f "$BIN/npm"
+expect "likec4 install is skipped while npm is not ready" \
+  "$(run install --only likec4 | jq -r '.results[0].detail | startswith("skipped: requires npm")')" "true"
+reset_env; stubs_for_install
+expect "mutator install is skipped while crapper is not ready" \
+  "$(run install --only mutator | jq -r '.results[0].detail | startswith("skipped: requires crapper")')" "true"
 
 reset_env; stubs_for_install; mkpy python3.12 3.12; stub gh; stub python3; stub curl; stub node; stub npm; mktool crapper
 : > "$LOG"
