@@ -136,19 +136,12 @@ cmd_check() {
 
 PLACEHOLDER='<python 3.11+>'
 TAB=$(printf '\t')
-LIST=""; NEED_BREW=0
 
-# A command another entry already lists runs once (node and npm share one brew formula).
-add_cmd() {
-  case "$LIST" in *"$TAB$2"$'\n'*) return ;; esac
-  LIST="$LIST$1$TAB$2
-"
-}
+add_cmd() { printf '%s\t%s\n' "$1" "$2"; }
 
-# Fills LIST with "name<TAB>command" lines for the missing dependencies in scope, and NEED_BREW.
-build_list() {
+# Prints "name<TAB>command" lines for the missing dependencies in scope, in deps.json order.
+list_missing() {
   local scope=$1 n kind d qd
-  LIST=""; NEED_BREW=0
   for n in $(dep_names); do
     kind=$(dep_field "$n" kind)
     [ "$kind" = typesafe ] && continue
@@ -157,7 +150,7 @@ build_list() {
     case "$kind" in
       system|python_min)
         case "$platform" in
-          macos) add_cmd "$n" "brew install $(dep_field "$n" brew)"; NEED_BREW=1 ;;
+          macos) add_cmd "$n" "brew install $(dep_field "$n" brew)" ;;
           linux) add_cmd "$n" "sudo -n apt-get install -y $(dep_field "$n" apt)" ;;
           *) die unsupported_platform "bf:setup installs system tools with brew on macOS and apt on Linux" ;;
         esac ;;
@@ -172,9 +165,14 @@ build_list() {
   done
 }
 
-# Prints the blocked object and returns 0 when the list needs brew and brew is missing.
+# The lines of list_missing, with a command that another entry already lists dropped: node and npm
+# share one brew formula, so it runs once. Run it in a command substitution and read its exit code.
+build_list() { list_missing "$1" | awk -F'\t' '!seen[$2]++'; }
+
+# Prints the blocked object and returns 0 when the list ($1) needs brew and brew is missing.
 blocked_no_brew() {
-  [ "$NEED_BREW" -eq 1 ] && [ "$pkg_manager" != brew ] || return 1
+  case "$1" in *"${TAB}brew install"*) ;; *) return 1 ;; esac
+  [ "$pkg_manager" != brew ] || return 1
   jq -cn --arg h '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' \
     '{blocked:"no_brew", hint:$h}'
 }
@@ -193,9 +191,10 @@ parse_scope() { # sets SCOPE and ONLY from the arguments
 
 cmd_plan() {
   parse_scope "$@"
-  build_list "$SCOPE"
-  blocked_no_brew && return 0
-  printf '%s' "$LIST" | jq -Rsc --arg scope "$SCOPE" --arg pl "$platform" --arg ph "$PLACEHOLDER" '
+  local list
+  list=$(build_list "$SCOPE") || { printf '%s\n' "$list"; exit 1; }
+  blocked_no_brew "$list" && return 0
+  printf '%s\n' "$list" | jq -Rsc --arg scope "$SCOPE" --arg pl "$platform" --arg ph "$PLACEHOLDER" '
     (split("\n") | map(select(length > 0) | split("\t") | {name: .[0], cmd: .[1]})
       | reduce .[] as $c ([]; if length > 0 and .[-1].name == $c.name then .[-1].commands += [$c.cmd]
           else . + [{name: $c.name, commands: [$c.cmd]}] end)) as $steps
@@ -205,9 +204,9 @@ cmd_plan() {
 }
 
 RES_OK=true; RES_DETAIL=""
-# Runs the listed commands of one entry. Sets RES_OK and RES_DETAIL.
+# Runs the commands that list ($2) holds for one entry ($1). Sets RES_OK and RES_DETAIL.
 run_entry() {
-  local n=$1 r cmd out py
+  local n=$1 list=$2 r cmd out py
   RES_OK=true; RES_DETAIL="installed"
   for r in $(dep_field "$n" requires); do
     if ! probe "$r"; then RES_OK=false; RES_DETAIL="skipped: requires $r, which is not ready ($DETAIL)"; return; fi
@@ -228,19 +227,19 @@ run_entry() {
       return
     fi
   done <<EOF2
-$LIST
+$list
 EOF2
   if ! probe "$n"; then RES_OK=false; RES_DETAIL="commands ran but the check still fails: $DETAIL"; fi
 }
 
 cmd_install() {
   parse_scope "$@"
-  build_list "$SCOPE"
-  blocked_no_brew && return 0
-  local n results='[]'
-  for n in $(printf '%s' "$LIST" | cut -f1 | awk '!seen[$0]++'); do
+  local list n results='[]'
+  list=$(build_list "$SCOPE") || { printf '%s\n' "$list"; exit 1; }
+  blocked_no_brew "$list" && return 0
+  for n in $(printf '%s\n' "$list" | cut -f1 | awk '!seen[$0]++'); do
     [ -z "$ONLY" ] || [ "$n" = "$ONLY" ] || continue
-    run_entry "$n"
+    run_entry "$n" "$list"
     results=$(printf '%s' "$results" | jq -c --arg n "$n" --argjson ok "$RES_OK" --arg d "$RES_DETAIL" '. + [{name:$n, ok:$ok, detail:$d}]')
   done
   if [ -n "$ONLY" ]; then jq -cn --argjson r "$results" '{results:$r}'
