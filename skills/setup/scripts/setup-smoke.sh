@@ -323,5 +323,12 @@ export BF_SETUP_PLATFORM=other
 reset_env
 expect "an unsupported platform is an error" "$(run plan core | jq -r .error)" "unsupported_platform"
 
+reset_env; stub git; stub gh; stub curl; stub node; stub npm; mkpy python3 3.9
+for mode in "plan" "install --only likec4"; do
+  out=$(run $mode); rc=$?
+  expect "$mode on an unsupported platform prints one JSON line" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" "1"
+  expect "$mode on an unsupported platform prints only the error object" "$(printf '%s' "$out" | jq -r .error),$rc" "unsupported_platform,1"
+done
+
 echo "---- $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

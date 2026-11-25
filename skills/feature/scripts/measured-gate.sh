@@ -17,6 +17,8 @@
 #   Measured note: <one line per problem>
 #   #### Measured / High CRAP score — crapper
 #   - `<file>:<line>`: `<function>` scores CRAP <n> (CC <cc>, coverage <p>%). **Suggestion:** ...
+#   - `<file>:<line>`: `<function>` scores CC <cc>, no coverage report. **Suggestion:** ...
+#   - `<file>:<line>`: `<function>` scores CC <cc>, no coverage data for this function. **Suggestion:** ...
 #   #### Measured / Duplicate structure — dryer
 #   - `<fileA>:<a1>-<a2>`: matches `<fileB>:<b1>-<b2>` at score <s>. **Suggestion:** ...
 #   #### Measured / Surviving mutants — mutator
@@ -274,6 +276,7 @@ def main():
         ran.append("crapper")
         cap = time.time() + CRAPPER_BUDGET_S
         rows = []
+        covered_by_path = {}
         failure = None
         for path in paths:
             limit = remaining(cap)
@@ -293,6 +296,7 @@ def main():
                 score = crap if (covered and crap is not None) else None
                 if (score is not None and score >= CRAP_LIMIT) or (score is None and cc >= CRAP_LIMIT):
                     rows.append((score if score is not None else cc, path, name, cc, cov, score))
+                    covered_by_path[path] = covered
         if failure:
             notes.append(failure)
         if rows:
@@ -305,7 +309,7 @@ def main():
                 if score is not None:
                     detail = "scores CRAP %s (CC %d, coverage %s%%)" % (("%.1f" % score), cc, ("%.1f" % (cov or 0.0)))
                 else:
-                    detail = "scores CC %d, no coverage report" % cc
+                    detail = "scores CC %d, %s" % (cc, "no coverage data for this function" if covered_by_path[path] else "no coverage report")
                 lines.append("- %s: `%s` %s. **Suggestion:** split the function or cover its branches with tests."
                              % (where, name, detail))
             groups.append(lines)

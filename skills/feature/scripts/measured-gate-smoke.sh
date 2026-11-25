@@ -93,6 +93,12 @@ has "the no-coverage flag is passed" "$(calls)" 'crapper|--no-coverage|src/demo/
 lacks "no crapper finding below CC 10" "$out" '`clear`'
 
 reset; install_tool crapper
+mkdir -p "$T/proj/target/coverage/python"; echo "TN:" > "$T/proj/target/coverage/python/lcov.info"
+out=$(STUB_CRAPPER_OUT=$fx/crapper-na-with-report.txt run src/demo/board.py)
+has "a function crapper cannot score, with a report on disk, says so" "$out" '- `src/demo/board.py:2`: `place` scores CC 12, no coverage data for this function. **Suggestion:**'
+lacks "a report on disk is never called missing" "$out" 'no coverage report'
+
+reset; install_tool crapper
 out=$(STUB_CRAPPER_RC=1 STUB_CRAPPER_ERR="boom: tree-sitter missing" run src/demo/board.py)
 has "a crapper crash gives a note" "$out" 'Measured note: crapper failed on src/demo/board.py: boom: tree-sitter missing'
 lacks "a crapper crash gives no finding" "$out" 'High CRAP score'

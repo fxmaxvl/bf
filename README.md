@@ -361,7 +361,7 @@ Three third-party tools by [Robert C. Martin (unclebob)](https://github.com/uncl
 
 | Tool | Measures | Reported when |
 |------|----------|---------------|
-| [crapper](https://github.com/unclebob/crapper) | CRAP score per function, from cyclomatic complexity and test coverage | CRAP is 10 or more. With no coverage report on disk, the gate reports a cyclomatic complexity of 10 or more instead |
+| [crapper](https://github.com/unclebob/crapper) | CRAP score per function, from cyclomatic complexity and test coverage | CRAP is 10 or more. With no coverage report on disk, or no coverage data for a function, the gate reports a cyclomatic complexity of 10 or more instead, as "scores CC n, no coverage report" or "scores CC n, no coverage data for this function" |
 | [dryer](https://github.com/unclebob/dryer) | Structural duplication between functions in the changed files | The similarity score is 0.82 or more |
 | [mutator](https://github.com/unclebob/mutator) | Mutation testing: changes the code and checks that a test fails | A mutant survives |
 

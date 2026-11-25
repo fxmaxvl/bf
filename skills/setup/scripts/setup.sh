@@ -187,8 +187,12 @@ list_missing() {
 # The lines of list_missing, with a command that another entry already lists dropped, because node
 # and npm share one brew formula. apt-get update stays in every apt entry: setup/SKILL.md installs one
 # entry per call, so each call must run exactly the commands the user approved. Run it in a command
-# substitution and read its exit code.
-build_list() { list_missing "$1" | awk -F'\t' '$2 ~ /apt-get update$/ || !seen[$2]++'; }
+# substitution and read its exit code. On failure it prints only list_missing's last line, the error object.
+build_list() {
+  local raw
+  raw=$(list_missing "$1") || { printf '%s\n' "$raw" | tail -n 1; return 1; }
+  printf '%s\n' "$raw" | awk -F'\t' '$2 ~ /apt-get update$/ || !seen[$2]++'
+}
 
 # Prints the blocked object and returns 0 when the list ($1) needs brew and brew is missing.
 blocked_no_brew() {
