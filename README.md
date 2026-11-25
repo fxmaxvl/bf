@@ -47,6 +47,7 @@ bf also has a standalone design tool, `/bf:design`, that writes shareable system
 | `/bf:self-heal [top N \| ids]` | Utility | Harvests the plugin's own open issues, scores them on token frugality, quality, and speed, argues for the top 3, fixes them, and ships one PR | The backlog has collected skill-improvement suggestions and you want the best three fixed in one pass |
 | `/bf:scan-conventions [task]` | Utility | Discovers user-defined custom conventions and keeps the ones that apply to the current task | Before you act on a task where project or user convention files outside the predefined set might apply |
 | `/bf:typesafe [status \| on \| off]` | Utility | Opt-in TypeSafe (System One / Jev) boosting. It checks your API key with a live smoke call, then sets one flag in `~/.bf/config.json` | You want typed model judgments in the places where bf now guesses with regex. It is optional, and bf behaves the same without it |
+| `/bf:setup [core \| status]` | Utility | Checks the tools bf uses, lists the exact install commands, and installs the missing ones after one confirmation. `core` installs only the required tools. `status` changes nothing | First run on a new machine, or when a skill reports a missing tool |
 | `/bf:session-summary` | Utility | Summary of what happened this session | At the end of a work session, to record what changed and why |
 | `/bf:gather <feature or PRD>` | Utility | Iterative requirements gathering and versioned PRD distillation across sessions | You have a vague PRD and must track open questions, scope a POC, and build a versioned source of truth |
 | `/bf:research <topic>` | Utility | Decision-oriented researcher. It clarifies usecase → issue → focus, collects cited evidence, and writes an Options + Recommendation report | You need prior art, a library comparison, or decision support before you build, and want a cited report saved to `.bf/research/` |
@@ -206,6 +207,14 @@ Register the `bf` marketplace with Claude Code (one-time setup):
 
 Then run `/reload-plugins` to activate it.
 
+### Run /bf:setup
+
+```shell
+/bf:setup
+```
+
+The skill checks `git`, `jq`, `gh` and `python3`, plus the optional tools. Those are `curl` for TypeSafe boosting, `node`, `npm` and `likec4` for `/bf:visualize`, and Python 3.11 or newer with `crapper`, `dryer` and `mutator` for the measured gate. It prints one table, lists every install command, and asks one question. After you confirm, it installs what is missing with brew on macOS or apt on Linux. Git tools go under `~/.bf/tools`. It never runs `curl | bash`: with no brew on macOS, it prints the brew install line for you to run. `/bf:setup core` installs only the required tools. `/bf:setup status` changes nothing. A second run installs nothing that is already there.
+
 ### Stay up to date
 
 **Turn on auto-update (recommended).** Claude Code refreshes marketplaces that have auto-update
@@ -344,9 +353,36 @@ when removed is a dependency, and it does not ship. See
 [`docs/typesafe-opportunities.md`](docs/typesafe-opportunities.md) for the call sites and the ones
 still on the list.
 
+## Optional: measured gate
+
+**bf works fully without this.** The gate runs only when you install the tools, and it never blocks a change.
+
+Three third-party tools by [Robert C. Martin (unclebob)](https://github.com/unclebob) add measured findings to the complexity scan. The scan runs after feature and micro verify, and inside `/bf:review`. All three are 0BSD-licensed and support Clojure, Java, Go, TypeScript, Rust and Python.
+
+| Tool | Measures | Reported when |
+|------|----------|---------------|
+| [crapper](https://github.com/unclebob/crapper) | CRAP score per function, from cyclomatic complexity and test coverage | CRAP is 10 or more. With no coverage report on disk, or no coverage data for a function, the gate reports a cyclomatic complexity of 10 or more instead, as "scores CC n, no coverage report" or "scores CC n, no coverage data for this function" |
+| [dryer](https://github.com/unclebob/dryer) | Structural duplication between functions in the changed files | The similarity score is 0.82 or more |
+| [mutator](https://github.com/unclebob/mutator) | Mutation testing: changes the code and checks that a test fails | A mutant survives |
+
+Things to know before you install:
+
+- Findings are advisory. They appear under `### Advisory Issues` as should-consider items and never block or start a fix loop.
+- The gate looks at the changed files only. It passes their paths to the tools.
+- Coverage is read from a report that already exists on disk, one path per language. The gate never regenerates it. Without the report for a file's language, the file gets a score from complexity alone.
+  - Clojure: `target/coverage/`
+  - Java: `target/site/jacoco/jacoco.xml`
+  - Go: `target/coverage/go/coverage.out`
+  - Rust: `target/coverage/rust/lcov.info`
+  - Python: `target/coverage/python/lcov.info`
+  - TypeScript and JavaScript: `coverage/lcov.info` or `target/coverage/typescript/lcov.info`
+- mutator runs your project tests once per mutant. A run can take minutes. The gate stops all three tools after 540 seconds and reports a note.
+- `/bf:setup` installs the three tools under `~/.bf/tools`, each with its own Python environment. They need Python 3.11 or newer. On macOS `/bf:setup` installs it with brew. On Linux it installs the distro's `python3` and `python3-venv`, which is 3.11 or newer on Debian 12 and Ubuntu 24.04 but 3.10 on Ubuntu 22.04. There you install Python 3.11 or newer yourself.
+- Without the tools, the gate prints one line that points to `/bf:setup`.
+
 ## Maintainers
 
-This section is for people who change bf itself. A git pre-push hook checks every change to `skills/`. A new skill needs at least one eval case tagged with its name. An edited skill with cases runs those cases and fails the push when a case scores more than 0.34 below its stored score in `evals/baseline.json`. Today 10 of 36 skills have cases, and 26 only get a warning. A push that does not touch `skills/` costs nothing.
+This section is for people who change bf itself. A git pre-push hook checks every change to `skills/`. A new skill needs at least one eval case tagged with its name. An edited skill with cases runs those cases and fails the push when a case scores more than 0.34 below its stored score in `evals/baseline.json`. Today 9 of 38 skills have cases, and 29 only get a warning. A push that does not touch `skills/` costs nothing.
 
 Enable the hook once per clone:
 
@@ -373,3 +409,5 @@ The hook and `--check` read `evals/baseline.json` and `evals/regress.conf` from 
 - Jira MCP server configured (for `/bf:jira`)
 - Excalidraw MCP server (optional, for diagrams in `/bf:design`)
 - TypeSafe API key (optional, see [TypeSafe boosting](#optional-typesafe-boosting))
+
+`/bf:setup` checks and installs `git`, `jq`, `gh` and `python3`, plus the optional tools listed in [Run /bf:setup](#run-bfsetup). It reports whether the TypeSafe key is set. It does not check Claude Code or the MCP servers. Run `/bf:setup status` to see what is missing without installing anything.

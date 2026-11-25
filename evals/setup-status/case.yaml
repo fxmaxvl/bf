@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: setup-status
+description: "/bf:setup status prints the dependency table, runs no install command and asks no confirmation question"
+tags: [setup]
+context:
+  scaffold_script: scaffold.sh

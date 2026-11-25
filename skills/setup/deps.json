@@ -1,0 +1,15 @@
+[
+  {"name": "git", "tier": "core", "kind": "system", "features": ["all skills"], "requires": [], "brew": "git", "apt": "git"},
+  {"name": "jq", "tier": "core", "kind": "system", "features": ["all skills"], "requires": [], "brew": "jq", "apt": "jq"},
+  {"name": "gh", "tier": "core", "kind": "system", "features": ["bf:gh", "bf:pr-comments", "bf:self-heal", "bf:bug-hunt", "bf:review", "bf:feature", "bf:micro"], "requires": [], "brew": "gh", "apt": "gh"},
+  {"name": "python3", "tier": "core", "kind": "system", "features": ["bf scripts"], "requires": [], "brew": "python3", "apt": "python3"},
+  {"name": "curl", "tier": "optional", "kind": "system", "features": ["bf:typesafe"], "requires": [], "brew": "curl", "apt": "curl"},
+  {"name": "node", "tier": "optional", "kind": "system", "features": ["bf:visualize"], "requires": [], "brew": "node", "apt": "nodejs"},
+  {"name": "npm", "tier": "optional", "kind": "system", "features": ["bf:visualize"], "requires": ["node"], "brew": "node", "apt": "npm"},
+  {"name": "likec4", "tier": "optional", "kind": "likec4", "features": ["bf:visualize"], "requires": ["npm"]},
+  {"name": "python3-modern", "tier": "optional", "kind": "python_min", "features": ["measured gate"], "requires": [], "brew": "python@3.12", "apt": "python3 python3-venv"},
+  {"name": "crapper", "tier": "optional", "kind": "git_tool", "features": ["measured gate"], "requires": ["python3-modern"], "repo": "https://github.com/unclebob/crapper.git"},
+  {"name": "dryer", "tier": "optional", "kind": "git_tool", "features": ["measured gate"], "requires": ["python3-modern"], "repo": "https://github.com/unclebob/dryer.git"},
+  {"name": "mutator", "tier": "optional", "kind": "git_tool", "features": ["measured gate"], "requires": ["crapper"], "repo": "https://github.com/unclebob/mutator.git"},
+  {"name": "typesafe", "tier": "optional", "kind": "typesafe", "features": ["TypeSafe boosting"], "requires": []}
+]

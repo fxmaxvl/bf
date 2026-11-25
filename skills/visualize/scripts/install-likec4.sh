@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Install the pinned likec4 once into a versioned cache and prove the binary runs.
 #
-# Usage:  install-likec4.sh [--print-version]
+# Usage:  install-likec4.sh [--print-version|--print-bin]
 # Output: {"bin":...,"version":...,"cache_dir":...,"allowlist":[<Perl regex>...]}
 #         --print-version prints LIKEC4_VERSION and exits without installing.
+#         --print-bin prints the path the pinned binary has once installed, and exits without installing.
 #         Cache root is $BF_LIKEC4_CACHE_DIR, default $HOME/.bf/cache (test seam).
 # Errors: {"error":...,"detail":...} + exit 1 — no_node, mirror_lag, install_failed, verify_failed, jq_missing.
 
@@ -18,15 +19,18 @@ LIKEC4_ALLOWLIST='^transforming\.\.\.$
 
 set -euo pipefail
 
-if [ "${1:-}" = "--print-version" ]; then echo "$LIKEC4_VERSION"; exit 0; fi
+cache_dir=${BF_LIKEC4_CACHE_DIR:-$HOME/.bf/cache}/likec4@$LIKEC4_VERSION
+bin=$cache_dir/node_modules/.bin/likec4
+
+case "${1:-}" in
+  --print-version) echo "$LIKEC4_VERSION"; exit 0 ;;
+  --print-bin) echo "$bin"; exit 0 ;;
+esac
 
 command -v jq >/dev/null 2>&1 || { printf '{"error":"jq_missing","detail":"jq not installed"}\n'; exit 1; }
 fail() { jq -cn --arg e "$1" --arg d "$2" '{error:$e, detail:$d}'; exit 1; }
 
 command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 || fail no_node "node and npm are required to build the diagram; install Node.js and re-run"
-
-cache_dir=${BF_LIKEC4_CACHE_DIR:-$HOME/.bf/cache}/likec4@$LIKEC4_VERSION
-bin=$cache_dir/node_modules/.bin/likec4
 
 runs_pinned() { [ -x "$bin" ] && "$bin" --version 2>&1 | grep -qF "$LIKEC4_VERSION"; }
 

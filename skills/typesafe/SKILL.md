@@ -100,7 +100,7 @@ copying a shape from memory.
 | Condition | Handling |
 |-----------|----------|
 | `~/.bf/config.json` is malformed JSON | Script exits `{"error":"config_malformed"}`. Do not rewrite the file — report it and let the user fix or move it; it holds their other settings. |
-| `jq` or `curl` missing | Reported as an error (setup) or as unavailable (helper). Boosting stays off; nothing else in bf is affected. |
+| `jq` or `curl` missing | Reported as an error (setup) or as unavailable (helper). Boosting stays off; nothing else in bf is affected. `/bf:setup` installs `jq` and `curl`. |
 | Key exported in a different shell than the one Claude runs | `key_present: false` despite the user "having set it". Point at their shell profile, not at the key. |
 | User asks to store the key in the config file | Decline and explain: the config is world-readable in `$HOME` and gets pasted into issues. The env var name is stored; the key is not. |
 | `off` when no config exists | Nothing to write; report off. The absence of config already means off. |

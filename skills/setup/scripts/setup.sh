@@ -1,0 +1,300 @@
+#!/usr/bin/env bash
+# Check bf dependencies against skills/setup/deps.json.
+#
+# Usage: setup.sh status
+#        setup.sh check <name>...
+#        setup.sh plan [core|all]
+#        setup.sh install [core|all] [--only <name>]
+#   status  read-only. Print every dependency and whether it is present.
+#   check   print {"<name>": {"ready": bool, "path": "<launcher>"|null}} for the names given.
+#           This is the one place that decides whether a tool is ready. The measured gate
+#           runs the path it returns and never rebuilds the tool layout itself.
+#   plan    print the install commands for the missing dependencies in scope (default all), in
+#           deps.json order. A git tool builds its .venv with the placeholder <python 3.11+>,
+#           because the interpreter may not exist until an earlier entry installs it. install
+#           resolves the placeholder when it runs the command.
+#   install run exactly the list plan prints, and continue past a failed entry. An entry whose
+#           requires are not ready is skipped. --only <name> runs one entry, so the caller can
+#           give each entry its own time limit. Without --only it prints {results, deps}.
+#           On Linux an apt command runs through sudo -n, or directly as root, and each apt entry
+#           starts with its own apt-get update. When sudo cannot run, the detail holds the command for the user.
+#           Never runs curl|bash: with no brew on macOS it prints {"blocked":"no_brew",...}.
+#
+# deps.json fields: name, tier (core|optional), kind, features, requires (names that must be
+# ready first, for the install order and for the install gate), and per kind: brew and apt (system, python_min), repo (git_tool).
+# Kinds:
+#   system      present when `command -v <name>` finds it
+#   python_min  present when python3.13, 3.12, 3.11 or python3 reports version 3.11 or newer and
+#               `-m ensurepip --version` works, which a venv needs. The apt packages are the distro's
+#               default python3 and python3-venv: Debian 12 and 13 and Ubuntu 24.04 then reach 3.11 or
+#               newer, and Ubuntu 22.04 stops at 3.10 and the check reports it.
+#   git_tool    ready when ~/.bf/tools/<n>/<n> and ~/.bf/tools/<n>/.venv/bin/python are executable
+#               and the pip step has finished: the install command ends by writing
+#               ~/.bf/tools/<n>/.venv/.bf-installed, so a half-built venv fails the check and the next
+#               run repairs it
+#   likec4      the pinned build under the bf:visualize cache
+#   typesafe    the key and the config flag, read from typesafe-setup.sh status
+#
+# Output: one JSON object on stdout. Errors: {"error":"<code>","detail":"..."} and exit 1.
+# Test-only: BF_SETUP_PLATFORM=macos|linux|other forces the platform.
+set -uo pipefail
+
+die() { jq -cn --arg e "$1" --arg d "${2:-}" '{error:$e, detail:$d}' 2>/dev/null || printf '{"error":"%s","detail":"%s"}\n' "$1" "${2:-}"; exit 1; }
+
+command -v jq >/dev/null 2>&1 || die jq_missing "jq not installed"
+
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+plugin=$(cd "$here/../../.." && pwd)
+deps_file=$here/../deps.json
+tools_dir=$HOME/.bf/tools
+INSTALLED_MARKER=.bf-installed
+
+[ -f "$deps_file" ] || die registry_missing "$deps_file not found"
+
+platform=other
+case "${BF_SETUP_PLATFORM:-$(uname -s 2>/dev/null)}" in
+  macos|Darwin) platform=macos ;;
+  linux|Linux) platform=linux ;;
+esac
+pkg_manager=null
+if [ "$platform" = macos ] && command -v brew >/dev/null 2>&1; then pkg_manager=brew; fi
+if [ "$platform" = linux ] && command -v apt-get >/dev/null 2>&1; then pkg_manager=apt; fi
+apt_cmd="sudo -n apt-get"
+[ "$(id -u 2>/dev/null)" != 0 ] || apt_cmd="apt-get"
+
+dep_names() { jq -r '.[].name' "$deps_file"; }
+dep_field() { jq -r --arg n "$1" --arg k "$2" '.[] | select(.name == $n) | .[$k] // empty | if type == "array" then join(" ") else . end' "$deps_file"; }
+
+# Sets PY_FOUND to the first interpreter at 3.11 or newer that can build a venv, and returns 1 when
+# there is none. `-m ensurepip --version` is the probe: Debian and Ubuntu ship ensurepip in the
+# python3-venv package, so a stock python3 without it fails here. PY_SEEN holds the first version
+# found, and PY_NOVENV the first modern interpreter without ensurepip. Call it without a subshell so
+# all three survive.
+PY_FOUND=""; PY_SEEN=""; PY_NOVENV=""
+find_python_modern() {
+  local c p v
+  PY_FOUND=""; PY_SEEN=""; PY_NOVENV=""
+  for c in python3.13 python3.12 python3.11 python3; do
+    p=$(command -v "$c" 2>/dev/null) || continue
+    v=$("$p" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null) || continue
+    [ -n "$PY_SEEN" ] || PY_SEEN=$v
+    if [ "$("$p" -c 'import sys; print(sys.version_info >= (3, 11))' 2>/dev/null)" = True ]; then
+      if "$p" -m ensurepip --version >/dev/null 2>&1; then PY_FOUND=$p; return 0; fi
+      [ -n "$PY_NOVENV" ] || PY_NOVENV=$p
+    fi
+  done
+  return 1
+}
+
+# Sets DETAIL and LAUNCHER for <name>. Returns 0 when the dependency is ready. It checks the
+# dependency alone: the requires of an entry gate its install in run_entry.
+DETAIL=""; LAUNCHER=""
+probe() {
+  local name=$1 kind p d bin v out
+  kind=$(dep_field "$name" kind)
+  DETAIL=""; LAUNCHER=""
+  case "$kind" in
+    system)
+      p=$(command -v "$name" 2>/dev/null) || { DETAIL="not found on PATH"; return 1; }
+      LAUNCHER=$p; DETAIL="found"; return 0 ;;
+    python_min)
+      if find_python_modern; then LAUNCHER=$PY_FOUND; DETAIL="found $PY_FOUND"; return 0; fi
+      if [ -n "$PY_NOVENV" ]; then DETAIL="$PY_NOVENV cannot build a venv: ensurepip is missing"
+      elif [ -n "$PY_SEEN" ]; then DETAIL="newest is $PY_SEEN, need 3.11 or newer"
+      else DETAIL="no python3 found"; fi
+      return 1 ;;
+    git_tool)
+      d=$tools_dir/$name
+      [ -d "$d" ] || { DETAIL="not cloned"; return 1; }
+      [ -x "$d/$name" ] || { DETAIL="launcher $d/$name missing"; return 1; }
+      [ -x "$d/.venv/bin/python" ] || { DETAIL="no .venv"; return 1; }
+      [ -f "$d/.venv/$INSTALLED_MARKER" ] || { DETAIL="install did not finish. Run /bf:setup again"; return 1; }
+      LAUNCHER=$d/$name; DETAIL="ready"; return 0 ;;
+    likec4)
+      v=$(bash "$plugin/skills/visualize/scripts/install-likec4.sh" --print-version 2>/dev/null) || { DETAIL="cannot read pinned version"; return 1; }
+      bin=$(bash "$plugin/skills/visualize/scripts/install-likec4.sh" --print-bin 2>/dev/null)
+      if [ -x "$bin" ]; then LAUNCHER=$bin; DETAIL="pinned $v installed"; return 0; fi
+      DETAIL="pinned $v not installed"; return 1 ;;
+    typesafe)
+      out=$(bash "$plugin/skills/typesafe/scripts/typesafe-setup.sh" status 2>/dev/null) || { DETAIL="status failed, see /bf:typesafe"; return 1; }
+      if [ "$(printf '%s' "$out" | jq -r '.enabled and .key_present' 2>/dev/null)" = true ]; then DETAIL="boosting on, key set"; return 0; fi
+      if [ "$(printf '%s' "$out" | jq -r '.key_present' 2>/dev/null)" = true ]; then DETAIL="key set, boosting off. Run /bf:typesafe"; else DETAIL="no key. Run /bf:typesafe"; fi
+      return 1 ;;
+    *) DETAIL="unknown kind $kind"; return 1 ;;
+  esac
+}
+
+status_deps() {
+  local n
+  for n in $(dep_names); do
+    if probe "$n"; then ok=true; else ok=false; fi
+    jq -cn --arg n "$n" --argjson ok "$ok" --arg d "$DETAIL" --arg p "$LAUNCHER" \
+      --arg tier "$(dep_field "$n" tier)" --arg req "$(dep_field "$n" requires)" \
+      --argjson f "$(jq -c --arg n "$n" '.[] | select(.name == $n) | .features' "$deps_file")" \
+      '{name:$n, tier:$tier, present:$ok, detail:$d, path:(if $p == "" then null else $p end), requires:($req | split(" ") | map(select(. != ""))), features:$f}'
+  done | jq -s '.'
+}
+
+cmd_status() {
+  jq -cn --arg pl "$platform" --arg pm "$pkg_manager" --argjson deps "$(status_deps)" \
+    '{platform:$pl, pkg_manager:(if $pm == "null" then null else $pm end), deps:$deps}'
+}
+
+cmd_check() {
+  [ $# -gt 0 ] || die bad_args "check needs at least one dependency name"
+  local n out='{}'
+  for n in "$@"; do
+    dep_names | grep -qxF -- "$n" || die unknown_dep "$n is not in deps.json"
+    if probe "$n"; then ok=true; else ok=false; fi
+    out=$(printf '%s' "$out" | jq -c --arg n "$n" --argjson ok "$ok" --arg p "$LAUNCHER" \
+      '. + {($n): {ready:$ok, path:(if $p == "" then null else $p end)}}')
+  done
+  printf '%s\n' "$out"
+}
+
+PLACEHOLDER='<python 3.11+>'
+TAB=$(printf '\t')
+
+add_cmd() { printf '%s\t%s\n' "$1" "$2"; }
+
+# Prints "name<TAB>command" lines for the missing dependencies in scope, in deps.json order.
+list_missing() {
+  local scope=$1 n kind d qd
+  for n in $(dep_names); do
+    kind=$(dep_field "$n" kind)
+    [ "$kind" = typesafe ] && continue
+    [ "$scope" = core ] && [ "$(dep_field "$n" tier)" != core ] && continue
+    probe "$n" && continue
+    case "$kind" in
+      system|python_min)
+        case "$platform" in
+          macos) add_cmd "$n" "brew install $(dep_field "$n" brew)" ;;
+          linux) add_cmd "$n" "$apt_cmd update"
+                 add_cmd "$n" "$apt_cmd install -y $(dep_field "$n" apt)" ;;
+          *) die unsupported_platform "bf:setup installs system tools with brew on macOS and apt on Linux" ;;
+        esac ;;
+      git_tool)
+        d=$tools_dir/$n; qd=$(printf '%q' "$d")
+        [ -d "$d" ] || add_cmd "$n" "git clone --depth 1 $(dep_field "$n" repo) $qd"
+        add_cmd "$n" "$PLACEHOLDER -m venv $qd/.venv"
+        add_cmd "$n" "$qd/.venv/bin/pip install -e $qd && touch $qd/.venv/$INSTALLED_MARKER" ;;
+      likec4)
+        add_cmd "$n" "bash $(printf '%q' "$plugin")/skills/visualize/scripts/install-likec4.sh" ;;
+    esac
+  done
+}
+
+# The lines of list_missing, with a command that another entry already lists dropped, because node
+# and npm share one brew formula. apt-get update stays in every apt entry: setup/SKILL.md installs one
+# entry per call, so each call must run exactly the commands the user approved. Run it in a command
+# substitution and read its exit code. On failure it prints only list_missing's last line, the error object.
+build_list() {
+  local raw
+  raw=$(list_missing "$1") || { printf '%s\n' "$raw" | tail -n 1; return 1; }
+  printf '%s\n' "$raw" | awk -F'\t' '$2 ~ /apt-get update$/ || !seen[$2]++'
+}
+
+# Prints the blocked object and returns 0 when the list ($1) needs brew and brew is missing.
+blocked_no_brew() {
+  case "$1" in *"${TAB}brew install"*) ;; *) return 1 ;; esac
+  [ "$pkg_manager" != brew ] || return 1
+  jq -cn --arg h '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' \
+    '{blocked:"no_brew", hint:$h}'
+}
+
+parse_scope() { # sets SCOPE and ONLY from the arguments
+  SCOPE=all; ONLY=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      core|all) SCOPE=$1; shift ;;
+      --only) [ -n "${2:-}" ] || die bad_args "--only needs a dependency name"; ONLY=$2; shift 2 ;;
+      *) die bad_args "unknown argument: $1" ;;
+    esac
+  done
+  [ -z "$ONLY" ] || dep_names | grep -qxF -- "$ONLY" || die unknown_dep "$ONLY is not in deps.json"
+}
+
+cmd_plan() {
+  parse_scope "$@"
+  local list
+  list=$(build_list "$SCOPE") || { printf '%s\n' "$list"; exit 1; }
+  blocked_no_brew "$list" && return 0
+  printf '%s\n' "$list" | jq -Rsc --arg scope "$SCOPE" --arg pl "$platform" --arg ph "$PLACEHOLDER" '
+    (split("\n") | map(select(length > 0) | split("\t") | {name: .[0], cmd: .[1]})
+      | reduce .[] as $c ([]; if length > 0 and .[-1].name == $c.name then .[-1].commands += [$c.cmd]
+          else . + [{name: $c.name, commands: [$c.cmd]}] end)) as $steps
+    | {scope:$scope, platform:$pl, steps:$steps}
+      + (if ([$steps[].commands[] | select(contains($ph))] | length) > 0
+         then {note: "\($ph) is replaced at run time by the Python 3.11 or newer interpreter found then."} else {} end)'
+}
+
+RES_OK=true; RES_DETAIL=""
+# The first line that starts with an error marker (git's fatal:, brew's Error:, pip's ERROR:, apt's E:,
+# npm ERR!, an {"error":...} object), else the last line. Only line starts count: progress and package
+# lines such as git's "Cloning into" or pip's "Collecting pyerrors" come first and may contain the word.
+error_line() { awk 'NF { last = $0 } NF && !hit && /^(fatal|error|Error|ERROR):|^E: |^npm ERR!|^\{"error":/ { print; hit = 1 } END { if (!hit) print last }'; }
+# Prints the sudo commands that list ($2) holds for one entry ($1), without "sudo -n ", joined by $3.
+sudo_chain() {
+  printf '%s\n' "$2" | awk -F'\t' -v n="$1" -v j="$3" '$1 == n && $2 ~ /^sudo -n / { sub(/^sudo -n /, "", $2); printf "%s%s", (c++ ? j : ""), $2 }'
+}
+
+# Returns 0 and sets RES_DETAIL when the sudo commands of entry $1 in list $2 cannot run: there is no
+# sudo, or sudo asks for a password. Any other failure is reported from the command's own error line.
+sudo_blocked() {
+  if ! command -v sudo >/dev/null 2>&1; then
+    RES_DETAIL="sudo is not installed and this is not root. Run this as root: $(sudo_chain "$1" "$2" ' && ')"; return 0
+  fi
+  ! sudo -n true >/dev/null 2>&1 || return 1
+  RES_DETAIL="sudo needs a password. Run this yourself: ! sudo $(sudo_chain "$1" "$2" ' && sudo ')"
+}
+
+# Runs the commands that list ($2) holds for one entry ($1). Sets RES_OK and RES_DETAIL.
+run_entry() {
+  local n=$1 list=$2 r cmd out py
+  RES_OK=true; RES_DETAIL="installed"
+  for r in $(dep_field "$n" requires); do
+    if ! probe "$r"; then RES_OK=false; RES_DETAIL="skipped: requires $r, which is not ready ($DETAIL)"; return; fi
+  done
+  while IFS="$TAB" read -r name cmd; do
+    [ "$name" = "$n" ] || continue
+    case "$cmd" in
+      "$PLACEHOLDER"*)
+        find_python_modern || { RES_OK=false; RES_DETAIL="no Python 3.11 or newer found. Install python3-modern first"; return; }
+        cmd="$(printf '%q' "$PY_FOUND")${cmd#"$PLACEHOLDER"}" ;;
+    esac
+    case "$cmd" in
+      "sudo -n "*) if sudo_blocked "$n" "$list"; then RES_OK=false; return; fi ;;
+    esac
+    if ! out=$(bash -c "$cmd" 2>&1 </dev/null); then
+      RES_OK=false
+      RES_DETAIL="$cmd failed: $(printf '%s\n' "$out" | error_line | cut -c1-200)"
+      return
+    fi
+  done <<EOF2
+$list
+EOF2
+  if ! probe "$n"; then RES_OK=false; RES_DETAIL="commands ran but the check still fails: $DETAIL"; fi
+}
+
+cmd_install() {
+  parse_scope "$@"
+  local list n results='[]'
+  list=$(build_list "$SCOPE") || { printf '%s\n' "$list"; exit 1; }
+  blocked_no_brew "$list" && return 0
+  for n in $(printf '%s\n' "$list" | cut -f1 | awk '!seen[$0]++'); do
+    [ -z "$ONLY" ] || [ "$n" = "$ONLY" ] || continue
+    run_entry "$n" "$list"
+    results=$(printf '%s' "$results" | jq -c --arg n "$n" --argjson ok "$RES_OK" --arg d "$RES_DETAIL" '. + [{name:$n, ok:$ok, detail:$d}]')
+  done
+  if [ -n "$ONLY" ]; then jq -cn --argjson r "$results" '{results:$r}'
+  else jq -cn --argjson r "$results" --argjson d "$(cmd_status)" '{results:$r, deps:$d}'; fi
+}
+
+mode=${1:-}; [ $# -eq 0 ] || shift
+case "$mode" in
+  status) cmd_status ;;
+  check) cmd_check "$@" ;;
+  plan) cmd_plan "$@" ;;
+  install) cmd_install "$@" ;;
+  *) die bad_args "mode must be status, check, plan or install" ;;
+esac

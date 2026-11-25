@@ -593,7 +593,7 @@ When the user selects fixes in Phase 3, read `${CLAUDE_PLUGIN_ROOT}/skills/revie
 | Condition | Handling |
 |-----------|----------|
 | Nothing to review (empty diff, no files match) | Pre-check exits with `STATUS: NOTHING_TO_REVIEW` before any Agent is spawned. |
-| `gh` error (not installed, not authenticated, PR not found) | Scope resolution fails — print the error and exit before spawning any Agent. |
+| `gh` error (not installed, not authenticated, PR not found) | Scope resolution fails — print the error and exit before spawning any Agent. When `gh` is not installed, also tell the user to run `/bf:setup`. |
 | Review Agent fails or returns invalid output | Surfaces warning; write partial report stub; proceed with X*/Y* aggregation. |
 | Complexity Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |
 | Consistency Agent fails or errors | Append `STATUS: UNKNOWN` block. Do not block the review. |

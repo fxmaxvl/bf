@@ -1,0 +1,9 @@
+CRAP Report
+===========
+Languages: python
+
+Function                       Namespace                             CC    Cov%     CRAP
+----------------------------------------------------------------------------------------
+place                          demo.board.Board                      12  40.0%     31.2
+clear                          demo.board.Board                       3 100.0%      3.0
+tiny                           demo.board.Board                       1 100.0%      1.0
