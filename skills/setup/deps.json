@@ -1,7 +1,7 @@
 [
   {"name": "git", "tier": "core", "kind": "system", "features": ["all skills"], "requires": [], "brew": "git", "apt": "git"},
   {"name": "jq", "tier": "core", "kind": "system", "features": ["all skills"], "requires": [], "brew": "jq", "apt": "jq"},
-  {"name": "gh", "tier": "core", "kind": "system", "features": ["bf:gh", "bf:pr-comments", "bf:self-heal", "bf:bug-hunt"], "requires": [], "brew": "gh", "apt": "gh"},
+  {"name": "gh", "tier": "core", "kind": "system", "features": ["bf:gh", "bf:pr-comments", "bf:self-heal", "bf:bug-hunt", "bf:review", "bf:feature", "bf:micro"], "requires": [], "brew": "gh", "apt": "gh"},
   {"name": "python3", "tier": "core", "kind": "system", "features": ["bf scripts"], "requires": [], "brew": "python3", "apt": "python3"},
   {"name": "curl", "tier": "optional", "kind": "system", "features": ["bf:typesafe"], "requires": [], "brew": "curl", "apt": "curl"},
   {"name": "node", "tier": "optional", "kind": "system", "features": ["bf:visualize"], "requires": [], "brew": "node", "apt": "nodejs"},
