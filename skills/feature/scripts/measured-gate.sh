@@ -276,7 +276,6 @@ def main():
         ran.append("crapper")
         cap = time.time() + CRAPPER_BUDGET_S
         rows = []
-        covered_by_path = {}
         failure = None
         for path in paths:
             limit = remaining(cap)
@@ -295,8 +294,7 @@ def main():
             for name, cc, cov, crap in parse_crapper(stdout):
                 score = crap if (covered and crap is not None) else None
                 if (score is not None and score >= CRAP_LIMIT) or (score is None and cc >= CRAP_LIMIT):
-                    rows.append((score if score is not None else cc, path, name, cc, cov, score))
-                    covered_by_path[path] = covered
+                    rows.append((score if score is not None else cc, path, name, cc, cov, score, covered))
         if failure:
             notes.append(failure)
         if rows:
@@ -304,12 +302,12 @@ def main():
             if len(rows) > MAX_FINDINGS:
                 notes.append("crapper reported %d findings, showing the worst %d." % (len(rows), MAX_FINDINGS))
             lines = ["#### Measured / High CRAP score — crapper"]
-            for _, path, name, cc, cov, score in rows[:MAX_FINDINGS]:
+            for _, path, name, cc, cov, score, covered in rows[:MAX_FINDINGS]:
                 where = "`%s:%d`" % (path, find_line(path, name))
                 if score is not None:
                     detail = "scores CRAP %s (CC %d, coverage %s%%)" % (("%.1f" % score), cc, ("%.1f" % (cov or 0.0)))
                 else:
-                    detail = "scores CC %d, %s" % (cc, "no coverage data for this function" if covered_by_path[path] else "no coverage report")
+                    detail = "scores CC %d, %s" % (cc, "no coverage data for this function" if covered else "no coverage report")
                 lines.append("- %s: `%s` %s. **Suggestion:** split the function or cover its branches with tests."
                              % (where, name, detail))
             groups.append(lines)
