@@ -19,7 +19,13 @@ SUGGEST_TAIL_BYTES=${BF_SUGGEST_TAIL_BYTES:-2097152}
 SUGGEST_WINDOW_PROMPTS=3
 SUGGEST_PROMPT_CHARS=2000
 SUGGEST_REASON_CHARS=80
+SUGGEST_REPLY_CHARS=4000
+SUGGEST_ASK_TIMEOUT=4
+SUGGEST_HELPS_BAR=0.6
+SUGGEST_PICK_BAR=0.8
+SUGGEST_MIN_PHRASES=2
 SUGGEST_SKILLS_ROOT=${BF_SUGGEST_SKILLS_ROOT:-$hooks_dir/../skills}
+SUGGEST_TS_ASK=${TYPESAFE_ASK:-$hooks_dir/../skills/typesafe/scripts/typesafe-ask.sh}
 
 # suggest_has_banner <text>: succeeds when the text holds the banner prefix. The prefix is the other side
 # of a contract with every top-level skills/*/SKILL.md that prints a banner. A skill that prints a
@@ -150,10 +156,97 @@ suggest_catalog() {
   ' "$root"/*/SKILL.md 2>/dev/null | jq -Rc --argjson max "$SUGGEST_REASON_CHARS" "$SUGGEST_CATALOG_JQ" 2>/dev/null
 }
 
+# suggest_tail <chars>: prints the last chars characters of stdin. jq counts characters, so a multibyte
+# character is never split.
+suggest_tail() { jq -Rsj --argjson n "$1" '.[-$n:]' 2>/dev/null; }
+
+# suggest_build_questions <catalog>: prints the two questions for TypeSafe. jq builds the JSON, because a
+# description holds quotes and dashes.
+suggest_build_questions() {
+  printf '%s\n' "$1" | jq -s '
+    {helps: {type: "noul",
+             instructions: "Would one of the bf workflow skills help with what the user is likely to do next?"},
+     skill: {type: "choice",
+             instructions: "Which bf skill fits what the user is likely to do next?",
+             criteria: ((map({(.name): .description}) | add) + {none: "no bf skill fits what the user is likely to do next, or the conversation is casual or finished"})}}'
+}
+
+# suggest_build_state <prompt> <reply>: prints the state that TypeSafe judges.
+suggest_build_state() { jq -cn --arg p "$1" --arg r "$2" '{user_prompt: $p, reply: $r}'; }
+
+# suggest_ask <catalog> <prompt> <reply>: asks TypeSafe and prints one outcome: "answer<TAB><answers json>",
+# "fallback" or "silent". This function owns the exit-code table of skills/typesafe/scripts/typesafe-ask.sh.
+# Exit 3 of that script means unavailable (off, no key, timeout, HTTP error, no answers), and only that is
+# "fallback". The script also exits 3 when its own input is bad (questions that are not JSON, a missing state
+# file, no temp file). Those are bugs of this hook, so the hook checks both files first and answers "silent"
+# instead of hiding the bug behind the keyword fallback.
+suggest_ask() {
+  local q s ans rc=0
+  q=$(mktemp "${TMPDIR:-/tmp}/bf-suggest.XXXXXX" 2>/dev/null) || { printf 'silent\n'; return 0; }
+  s=$(mktemp "${TMPDIR:-/tmp}/bf-suggest.XXXXXX" 2>/dev/null) || { rm -f "$q"; printf 'silent\n'; return 0; }
+  suggest_build_questions "$1" > "$q" 2>/dev/null
+  suggest_build_state "$2" "$3" > "$s" 2>/dev/null
+  if jq -e . "$q" >/dev/null 2>&1 && jq -e . "$s" >/dev/null 2>&1; then
+    ans=$(bash "$SUGGEST_TS_ASK" --questions "$q" --state "$s" --timeout "$SUGGEST_ASK_TIMEOUT" 2>/dev/null) || rc=$?
+  else
+    rc=2
+  fi
+  rm -f "$q" "$s"
+  case $rc in
+    0) # jq 1.6 -e exits 0 on empty input, so test for empty output first.
+       if [ -n "$ans" ] && printf '%s' "$ans" | jq -e 'type == "object" and has("helps") and has("skill")' >/dev/null 2>&1
+       then printf 'answer\t%s\n' "$ans"; else printf 'silent\n'; fi ;;
+    3) printf 'fallback\n' ;;
+    *) printf 'silent\n' ;;
+  esac
+}
+
+# suggest_fallback <catalog> <prompt> <reply>: prints the name of the skill with the most distinct trigger
+# phrases in the text, or nothing. It needs the minimum count and no tie. jq contains() matches plain text,
+# so a phrase with a regex character is safe.
+suggest_fallback() {
+  printf '%s\n' "$1" | jq -rs --arg t "$(printf '%s\n%s' "$2" "$3" | tr '[:upper:]' '[:lower:]')" --argjson min "$SUGGEST_MIN_PHRASES" '
+    map({name, score: ([.phrases[] | select(. as $p | $t | contains($p))] | unique | length)})
+    | sort_by(-.score) as $r
+    | if ($r | length) > 0 and $r[0].score >= $min and (($r | length) < 2 or $r[1].score != $r[0].score) then $r[0].name else empty end' 2>/dev/null
+}
+
+# suggest_decide <catalog> <source> <payload>: prints the decision object that the tip and the log both read:
+# {skill, confidence, source, due, shown, reason}. For source typesafe the payload is the answers JSON. For
+# source keyword it is the picked name or an empty string. skill is the name of the chosen skill whenever
+# the choice is a catalog name, even when the helps gate or the confidence bar fails, and none otherwise.
+# due says that a tip is justified. shown starts false, and suggest_main sets it after the dedupe check.
+suggest_decide() {
+  local cat
+  cat=$(printf '%s\n' "$1" | jq -cs . 2>/dev/null) || return 0
+  if [ "$2" = typesafe ]; then
+    jq -cn --argjson cat "$cat" --argjson ans "$3" --argjson hb "$SUGGEST_HELPS_BAR" --argjson pb "$SUGGEST_PICK_BAR" '
+      ($ans.skill | objects | .choice // "") as $c
+      | ([$cat[] | select(.name == $c)] | first) as $hit
+      | (if $hit == null then "none" else $c end) as $skill
+      | (if ($ans.skill | objects | .confidence | type) == "number" then $ans.skill.confidence else null end) as $conf
+      | (if ($ans.helps | objects | .noul | type) == "number" then $ans.helps.noul else 0 end) as $helps
+      | {skill: $skill, confidence: $conf, source: "typesafe",
+         due: ($skill != "none" and $helps >= $hb and ($conf // 0) >= $pb),
+         shown: false, reason: (if $hit == null then "" else $hit.reason end)}' 2>/dev/null
+  else
+    jq -cn --argjson cat "$cat" --arg n "$3" '
+      ([$cat[] | select(.name == $n)] | first) as $hit
+      | {skill: (if $hit == null then "none" else $n end), confidence: null, source: "keyword",
+         due: ($hit != null), shown: false, reason: (if $hit == null then "" else $hit.reason end)}' 2>/dev/null
+  fi
+}
+
+# suggest_tip <decision>: prints the hook output. The object holds only systemMessage, so the tip never
+# blocks the turn and never adds a model turn.
+suggest_tip() {
+  printf '%s\n' "$1" | jq -c '{systemMessage: ("Tip: /bf:" + .skill + " fits this." + (if (.reason // "") != "" then " " + .reason else "" end))}'
+}
+
 suggest_main() {
   [ "${BF_SUGGEST_HOOK:-}" = off ] && exit 0
   prose_read_input
-  local sid agent active reply transcript scan catalog
+  local sid agent active reply transcript scan catalog prompt outcome decision
   sid=$(prose_field .session_id)
   [ -n "$sid" ] || exit 0
   agent=$(prose_field .agent_id)
@@ -167,6 +260,19 @@ suggest_main() {
   [ "$(printf '%s' "$scan" | jq -r .state 2>/dev/null)" != inside ] || exit 0
   catalog=$(suggest_catalog)
   [ -n "$catalog" ] || exit 0
+  prompt=$(printf '%s' "$scan" | jq -r .prompt 2>/dev/null)
+  reply=$(printf '%s' "$reply" | suggest_tail "$SUGGEST_REPLY_CHARS")
+  outcome=$(suggest_ask "$catalog" "$prompt" "$reply")
+  case ${outcome%%$'\t'*} in
+    answer) decision=$(suggest_decide "$catalog" typesafe "${outcome#*$'\t'}") ;;
+    fallback) decision=$(suggest_decide "$catalog" keyword "$(suggest_fallback "$catalog" "$prompt" "$reply")") ;;
+    *) exit 0 ;;
+  esac
+  [ -n "$decision" ] || exit 0
+  if [ "$(printf '%s' "$decision" | jq -r .due)" = true ]; then
+    decision=$(printf '%s' "$decision" | jq -c '.shown = true')
+    suggest_tip "$decision"
+  fi
   exit 0
 }
 

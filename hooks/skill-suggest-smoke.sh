@@ -144,6 +144,44 @@ mk_skill() {
 # cat_field <name> <jq field>: one field of one entry of the catalog of the case skills root.
 cat_field() { unit 'suggest_catalog' | jq -r --arg n "$1" "select(.name == \$n) | $2"; }
 
+# stub <rc> <stdout text> [sleep seconds]: makes the TypeSafe stub of the case. It records that it ran and the
+# files it was given, then prints the text and exits with the code.
+stub() {
+  {
+    echo '#!/bin/bash'
+    echo "d=$c_dir"
+    cat <<'EOS'
+touch "$d/called"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --questions) cp "$2" "$d/q.json"; shift 2 ;;
+    --state) cp "$2" "$d/s.json"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+echo "noise on stderr" >&2
+EOS
+    [ -z "${3:-}" ] || printf 'sleep %s\n' "$3"
+    printf 'printf %%s %q\n' "$2"
+    printf 'exit %s\n' "$1"
+  } > "$c_ts"
+}
+# answer <noul> <choice> <confidence>: the answers JSON of TypeSafe for the two questions of the hook.
+answer() {
+  jq -cn --argjson n "$1" --arg c "$2" --argjson f "$3" \
+    '{helps: {type: "noul", noul: $n}, skill: {type: "choice", choice: $c, confidence: $f, probabilities: {}}}'
+}
+called() { test -f "$c_dir/called" && echo yes || echo no; }
+# fixture_skills: three candidates and one skill that opts out.
+fixture_skills() {
+  mk_skill alpha "Use when the user wants alpha work. Say 'alpha one' or 'alpha two'."
+  mk_skill beta "Use when the user wants beta work. Say 'beta one' or 'beta two'."
+  mk_skill meta "Use when the user says 'a.c' or 'x(y)?'."
+  mk_skill hidden "Use when internal. Say 'hidden one' or 'hidden two'." false
+}
+# tip_text <out>: the tip sentence of a hook output.
+tip_text() { printf '%s' "$1" | jq -r '.systemMessage // empty' 2>/dev/null; }
+
 cases_layout() {
   local self=$hooks/skill-suggest-smoke.sh
   eq "the cases sit in main and main is called on the last line" "$(grep -v '^[[:space:]]*$' "$self" | tail -n 1)" 'main "$@"'
@@ -199,12 +237,114 @@ cases_catalog() {
   eq "phrases: an apostrophe inside a phrase does not close it" "$(cat_field ph2 '.phrases | join("|")')" "don't stop|go on"
 }
 
+cases_ask() {
+  local text long
+  ctx; fixture_skills
+  stub 0 "$(answer 0.9 alpha 0.9)"
+  run "$(input)"
+  eq "a confident pick prints a tip with the reason" "$(tip_text "$out")" "Tip: /bf:alpha fits this. Use it when the user wants alpha work."
+  eq "the tip object has exactly one key" "$(printf '%s' "$out" | jq -c 'keys')" '["systemMessage"]'
+  eq "noise of the stub does not reach stdout" "$(printf '%s' "$out" | jq -c 'type')" '"object"'
+  eq "the questions hold every candidate and none, and not the opt-out skill" "$(jq -r '.skill.criteria | keys | join(",")' "$c_dir/q.json")" "alpha,beta,meta,none"
+  eq "the helps question is a noul" "$(jq -r '.helps.type' "$c_dir/q.json")" noul
+  rm -f "$c_dir/called"
+  eq "twin of the guards: the same input with a sub-agent id asks nothing" "$(run "$(input '{"agent_id":"a"}')"; echo "$out|$(called)")" "|no"
+  run "$(input '{"stop_hook_active":true}')"; eq "twin: stop_hook_active asks nothing" "$out|$(called)" "|no"
+  run "$(input '{"last_assistant_message":"── bf:feature | Plan ──"}')"; eq "twin: a banner asks nothing" "$out|$(called)" "|no"
+  run "$(input)" BF_SUGGEST_HOOK=off; eq "twin: the off switch asks nothing" "$out|$(called)" "|no"
+  { tl_cmd bf:research; tl_user a; } > "$c_dir/inside.jsonl"; c_tp=$c_dir/inside.jsonl
+  run "$(input)"; eq "twin: an inside transcript asks nothing" "$out|$(called)" "|no"
+  c_tp=
+
+  stub 0 "$(answer 0.9 alpha 0.79)"; run "$(input)"; eq "confidence below the bar prints nothing" "$out" ""
+  stub 0 "$(answer 0.5 alpha 0.95)"; run "$(input)"; eq "helps below the bar prints nothing" "$out" ""
+  stub 0 "$(answer 0.9 none 0.95)"; run "$(input)"; eq "choice none prints nothing" "$out" ""
+  stub 0 "$(answer 0.9 hidden 0.95)"; run "$(input)"; eq "a choice outside the catalog prints nothing" "$out" ""
+  stub 0 ""; run "$(input)"; eq "exit 0 with empty stdout prints nothing" "$out" ""
+  stub 0 "not json"; run "$(input)"; eq "exit 0 with text that is not JSON prints nothing" "$out" ""
+  stub 0 "{}"; run "$(input)"; eq "exit 0 with an answer that lacks helps and skill prints nothing" "$out" ""
+  stub 2 ""; run "$(input)"; eq "exit 2 prints nothing" "$out" ""
+  run "$(input)" TYPESAFE_ASK="$c_dir/missing.sh"; eq "a missing script prints nothing" "$out" ""
+
+  long=$(head -c 5000 /dev/zero | tr '\0' 'r')
+  { tl_user "$(head -c 2500 /dev/zero | tr '\0' 'p')"; } > "$c_dir/long.jsonl"; c_tp=$c_dir/long.jsonl
+  stub 0 "$(answer 0.9 alpha 0.9)"
+  run "$(input "$(jq -cn --arg m "$long" '{last_assistant_message: $m}')")"
+  eq "the state holds the last reply characters up to the reply limit" "$(jq -r '.reply | length' "$c_dir/s.json")" 4000
+  eq "the state holds the prompt up to the prompt limit" "$(jq -r '.user_prompt | length' "$c_dir/s.json")" 2000
+  c_tp=
+}
+
+cases_fallback() {
+  ctx; fixture_skills
+  local cat
+  cat=$(unit 'suggest_catalog')
+  fb() { unit 'suggest_fallback "$1" "$2" "$3"' "$cat" "$1" "$2"; }
+  eq "two distinct phrases of one skill pick it" "$(fb "please do alpha one" "and also alpha two")" alpha
+  eq "one phrase picks nothing" "$(fb "alpha one" "nothing else")" ""
+  eq "the same phrase twice counts once" "$(fb "alpha one alpha one" "alpha one")" ""
+  eq "a tie at the minimum picks nothing" "$(fb "alpha one alpha two" "beta one beta two")" ""
+  eq "a higher score beats a lower one" "$(fb "alpha one alpha two beta one" "")" alpha
+  eq "the match ignores case" "$(fb "ALPHA One" "alpha TWO")" alpha
+  eq "a phrase with regex characters matches as plain text" "$(fb "see a.c and x(y)? here" "")" meta
+  eq "a regex character does not act as a pattern" "$(fb "see abc and xyy here" "")" ""
+
+  stub 3 ""
+  run "$(input '{"last_assistant_message":"We could try alpha one, then alpha two."}')"
+  eq "exit 3 with a strong match prints the fallback tip" "$(tip_text "$out")" "Tip: /bf:alpha fits this. Use it when the user wants alpha work."
+  run "$(input '{"last_assistant_message":"We could try alpha one only."}')"
+  eq "exit 3 with a weak match prints nothing" "$out" ""
+  stub 0 "$(answer 0.9 none 0.95)"
+  run "$(input '{"last_assistant_message":"We could try alpha one, then alpha two."}')"
+  eq "an answer of none never runs the fallback" "$out" ""
+  stub 0 "not json"
+  run "$(input '{"last_assistant_message":"We could try alpha one, then alpha two."}')"
+  eq "a malformed answer never runs the fallback" "$out" ""
+
+  stub 3 "" 4
+  SECONDS=0
+  run "$(input '{"last_assistant_message":"We could try alpha one, then alpha two."}')"
+  eq "a slow TypeSafe call ends with the fallback tip in under 6 seconds" "$([ "$SECONDS" -lt 6 ] && tip_text "$out")" "Tip: /bf:alpha fits this. Use it when the user wants alpha work."
+}
+
+cases_unavailable() {
+  local msg
+  ctx; fixture_skills
+  msg='{"last_assistant_message":"We could try alpha one, then alpha two."}'
+  stub 3 ""
+  run "$(input "$msg")" TMPDIR=$c_dir/no-such-dir BF_SUGGEST_RECORD_ROOT=$c_rec
+  eq "no temp file is a hook fault: no fallback tip, no call" "$out|$(called)" "|no"
+  run "$(input "$msg")"
+  eq "twin: with a temp directory the same input gives the fallback tip" "$(tip_text "$out" | cut -c1-24)|$(called)" "Tip: /bf:alpha fits this|yes"
+  rm -f "$c_dir/called"
+  eq "questions that are not JSON are a hook fault: silent, no call" \
+    "$(unit 'suggest_build_questions() { echo "{bad"; }; suggest_ask "$1" p r' "$(unit suggest_catalog)")|$(called)" "silent|no"
+  eq "twin: good questions reach the script and exit 3 means fallback" "$(unit 'suggest_ask "$1" p r' "$(unit suggest_catalog)")|$(called)" "fallback|yes"
+}
+
+cases_tip() {
+  local lint t
+  ctx
+  eq "tip with a reason" "$(unit 'suggest_tip "$1"' '{"skill":"research","reason":"Use it when the user says '"'"'research X'"'"'."}' | jq -r .systemMessage)" "Tip: /bf:research fits this. Use it when the user says 'research X'."
+  eq "tip with an empty reason" "$(unit 'suggest_tip "$1"' '{"skill":"quick","reason":""}' | jq -r .systemMessage)" "Tip: /bf:quick fits this."
+  fixture_skills; stub 0 "$(answer 0.9 alpha 0.9)"
+  run "$(input)"
+  t=$(tip_text "$out")
+  printf '%s' "$t" | bash "$hooks/../skills/plain/scripts/prose-lint.sh" - --mode chat --format json >/dev/null 2>&1; lint=$?
+  eq "the tip text has no hard marker of the prose lint" "$lint" 0
+}
+
+
 main() {
   cases_layout
   cases_guards
   cases_registration
   cases_scan
   cases_catalog
+  cases_ask
+  cases_fallback
+  cases_unavailable
+  cases_tip
   [ "$fails" = 0 ]
 }
 
