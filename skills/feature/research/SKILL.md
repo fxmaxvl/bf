@@ -3,10 +3,12 @@ name: research
 description: Scan the local codebase to surface reuse candidates, conventions, and risk signals relevant to the current feature. Writes a ## Context block to session-log consumed by plan and do-todo.
 disable-model-invocation: true
 model: sonnet
-allowed-tools: Read, Grep, Glob, Bash(git *), Bash(bash *), mcp__octocode__localViewStructure, mcp__octocode__localSearchCode, mcp__octocode__localFindFiles, mcp__octocode__localGetFileContent
+allowed-tools: Read, Grep, Glob, Bash(git *), Bash(bash *), Bash(gh *), mcp__octocode__localViewStructure, mcp__octocode__localSearchCode, mcp__octocode__localFindFiles, mcp__octocode__localGetFileContent
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md` first — it contains plugin-wide rules that apply to this skill.
+
+Read the `reuse` convention too. Resolve it with `resolve-conventions.sh`, per the Convention Lookup in `plugin-main.md`.
 
 Run the helper scripts to load state and project root:
 
@@ -67,6 +69,15 @@ Use `id` values like `research-01`, `research-02`, etc. (stable, sequential).
 
 These caps prevent context bloat. If the list is exhausted, stop scanning — do not exceed them.
 
+## Reuse lookup
+
+Run this after the scan, and before you write the `## Context` block.
+
+1. From the QA (quick mode) or the Spec (full mode), list the generic needs, as the `reuse` convention defines them.
+2. For each need, run the level order of the `reuse` convention and stop at the first hit.
+3. The org-search cap of `reuse` and its 3-file manifest cap are separate from the octocode caps above. Manifest reads do not count against the 10-file cap.
+4. Research is read-only and asks no questions. Record an L5 hit as a candidate only. The plan sets it out as an option.
+
 ## Output
 
 Append a `## Context` block to `paths.session_log` using the Block Writing Pattern from `plugin-main.md`.
@@ -80,7 +91,7 @@ If research produced usable findings:
 <directories and files likely to be modified, one per line with a one-sentence description>
 
 ### Reuse candidates
-<existing helpers, types, hooks, or utilities that the plan should use instead of reinventing; include file path and a one-line description>
+<existing helpers, types, hooks, or utilities that the plan should use instead of reinventing; include file path and a one-line description. Start each entry with its level tag, in the tag format of the `reuse` convention>
 
 ### Local conventions
 <patterns found in adjacent files: naming style, error handling, test file layout, import style — 3-8 bullet points>
