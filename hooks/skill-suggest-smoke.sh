@@ -131,10 +131,72 @@ cases_scan() {
   eq "whole hook run with an inside transcript prints nothing" "$out|$rc" "|0"
 }
 
+# mk_skill <name> <description> [suggest value] [extra frontmatter line]: writes a fixture skill into the case skills root.
+mk_skill() {
+  local d=$c_skills/$1 esc
+  mkdir -p "$d"
+  esc=$(printf '%s' "$2" | sed 's/\\/\\\\/g; s/"/\\"/g')
+  { printf -- '---\nname: %s\ndescription: "%s"\nmodel: sonnet\n' "$1" "$esc"
+    [ -z "${3:-}" ] || printf 'suggest: %s\n' "$3"
+    [ -z "${4:-}" ] || printf '%s\n' "$4"
+    printf -- '---\n\nBody.\n'; } > "$d/SKILL.md"
+}
+# cat_field <name> <jq field>: one field of one entry of the catalog of the case skills root.
+cat_field() { unit 'suggest_catalog' | jq -r --arg n "$1" "select(.name == \$n) | $2"; }
+
 cases_layout() {
   local self=$hooks/skill-suggest-smoke.sh
   eq "the cases sit in main and main is called on the last line" "$(grep -v '^[[:space:]]*$' "$self" | tail -n 1)" 'main "$@"'
   eq "ctx is defined after main" "$([ "$(grep -n '^ctx()' "$self" | cut -d: -f1)" -gt "$(grep -n '^main()' "$self" | cut -d: -f1)" ] && echo yes)" yes
+}
+
+cases_catalog() {
+  local research
+  ctx
+  mk_skill on "Use when the user wants a thing." "" ""
+  mk_skill off "Use when internal." false
+  mk_skill nokey "Use when the user wants another thing." "" "disable-model-invocation: true"
+  mkdir -p "$c_skills/on/phase"; printf -- '---\nname: phase\ndescription: Use when nested.\n---\n' > "$c_skills/on/phase/SKILL.md"
+  eq "catalog names" "$(unit 'suggest_catalog' | jq -r .name | sort | tr '\n' ' ')" "nokey on "
+  mk_skill quoted 'Use when the user says "fix it" or quotes "x" in a "plan".'
+  eq "a description with escaped quotes is read whole" "$(cat_field quoted .description)" 'Use when the user says "fix it" or quotes "x" in a "plan".'
+  mk_skill plainq "Use when it is plain text: with a colon."
+  eq "an unquoted-looking colon description is kept" "$(cat_field plainq .description)" "Use when it is plain text: with a colon."
+
+  mk_skill r1 "Use when the user wants a plan. Second sentence here."
+  eq "reason: Use when becomes Use it when, cut at a period before a capital" "$(cat_field r1 .reason)" "Use it when the user wants a plan."
+  mk_skill r2 "Use when the user wants a plan — with a dash."
+  eq "reason: cut at an em dash" "$(cat_field r2 .reason)" "Use it when the user wants a plan."
+  mk_skill r3 "Use when the user wants a plan; then more."
+  eq "reason: cut at a semicolon" "$(cat_field r3 .reason)" "Use it when the user wants a plan."
+  mk_skill r4 "Use when the user wants a plan for e.g. the build tool and more words follow here to pass the cut limit"
+  eq "reason: a period inside e.g. is not a cut" "$(cat_field r4 '.reason | test("e[.]g[.]")')" "true"
+  mk_skill r5 "Use when the user wants a quick walk through every part of a very large and old system today"
+  eq "reason: word cut stays within the limit" "$(cat_field r5 '.reason | length <= 81')" "true"
+  eq "reason: word cut ends on a whole word" "$(cat_field r5 .reason)" "Use it when the user wants a quick walk through every part of a very large."
+  mk_skill r6 "Use when you don't know where to look."
+  eq "reason: a contraction empties the reason" "$(cat_field r6 .reason)" ""
+  mk_skill r7 "Use when the plugin's docs lag behind."
+  eq "reason: a possessive is not a contraction" "$(cat_field r7 .reason)" "Use it when the plugin's docs lag behind."
+  mk_skill r8 "Use when the user says 'research X', 'done'. Another sentence follows."
+  eq "reason: the opening quote of a trigger phrase is not a contraction" "$(cat_field r8 .reason)" "Use it when the user says 'research X', 'done'."
+  mk_skill r9 "Use when the user says 'research X', 'prior art', 'how do other projects solve things', 'compare libraries'."
+  eq "reason: a cut inside a quoted phrase goes back to the last closed quote" "$(cat_field r9 .reason)" "Use it when the user says 'research X', 'prior art'."
+  mk_skill r9b "Use when the user says 'research the X' or 'how do other projects solve problems of caching' now."
+  eq "reason: a cut inside a quoted phrase with no comma goes back before the phrase" "$(cat_field r9b .reason)" "Use it when the user says 'research the X'."
+  mk_skill r10 "Quick workflow (refine → research → plan → execute → verify → audit → review → finalize) — skips brainstorm."
+  eq "reason: a cut inside a parenthesis goes back before it" "$(cat_field r10 .reason)" "Quick workflow."
+  mk_skill r11 'Use when the user says "a long first quoted phrase that runs past the limit of the reason text".'
+  eq "reason: nothing is left when the cut removes the only phrase" "$(cat_field r11 .reason)" ""
+
+  research='Use when the user says '"'"'research X'"'"', '"'"'prior art'"'"', '"'"'how do other projects solve…'"'"', '"'"'compare libraries…'"'"', or describes a topic and asks for a research report. Decision-oriented researcher.'
+  mk_skill research "$research"
+  eq "phrases: the research description gives its quoted phrases" "$(cat_field research '.phrases | join("|")')" "research x|prior art|how do other projects solve…|compare libraries…"
+  eq "the real research description gives a reason" "$(cat_field research '.reason | length > 0')" "true"
+  mk_skill ph1 "Use when the plugin's docs lag, or (e.g. \"can we make this look nicer\") appears."
+  eq "phrases: a possessive gives no phrase and a quote in a parenthesis does" "$(cat_field ph1 '.phrases | join("|")')" "can we make this look nicer"
+  mk_skill ph2 "Use when the user says 'don't stop' or 'go on'."
+  eq "phrases: an apostrophe inside a phrase does not close it" "$(cat_field ph2 '.phrases | join("|")')" "don't stop|go on"
 }
 
 main() {
@@ -142,6 +204,7 @@ main() {
   cases_guards
   cases_registration
   cases_scan
+  cases_catalog
   [ "$fails" = 0 ]
 }
 

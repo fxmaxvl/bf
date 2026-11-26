@@ -18,6 +18,8 @@ SUGGEST_BANNER_PREFIX='── bf:'
 SUGGEST_TAIL_BYTES=${BF_SUGGEST_TAIL_BYTES:-2097152}
 SUGGEST_WINDOW_PROMPTS=3
 SUGGEST_PROMPT_CHARS=2000
+SUGGEST_REASON_CHARS=80
+SUGGEST_SKILLS_ROOT=${BF_SUGGEST_SKILLS_ROOT:-$hooks_dir/../skills}
 
 # suggest_has_banner <text>: succeeds when the text holds the banner prefix. The prefix is the other side
 # of a contract with every top-level skills/*/SKILL.md that prints a banner. A skill that prints a
@@ -72,10 +74,86 @@ def bfskill: .type == "assistant" and ((content) | type) == "array"
    prompt: (if ($p | length) > 0 then ($region[$p[-1]] | text | .[0:$cap]) else "" end)}
 ' 
 
+# The jq program of suggest_catalog. It turns one tab-separated row (name, description, suggest) into one
+# catalog entry. The reason is the first clause of the description, cut at a word, with no open quote or
+# open parenthesis at the cut. A contraction or a dash that the cut leaves in the clause empties the reason,
+# because the tip text must pass the prose rules. A contraction is a letter before the apostrophe, so the
+# opening quote of a trigger phrase such as 'research X' is not one.
+read -r -d '' SUGGEST_CATALOG_JQ <<'JQ' || true
+def trim: sub("[ ,]+$"; "");
+def lastat($re): ([match($re; "g")] | last) as $m | if $m == null then null else $m.offset end;
+def unclosed_quote:
+  ([match("(^|[ (])(['\"])"; "g")] | last) as $o
+  | if $o == null then null
+    else ($o.captures[1].string) as $q
+      | (.[($o.offset + $o.length):]) as $rest
+      | if ($rest | test($q + "(?=[,. )]|$)")) then null else $o.offset end
+    end;
+def cut_quote: unclosed_quote as $i | if $i == null then . else (.[0:$i] | trim | sub(" (or|and)$"; "")) end;
+def cut_paren:
+  ((gsub("[^(]"; "") | length) > (gsub("[^)]"; "") | length)) as $open
+  | if $open then (lastat("\\(")) as $i | (.[0:$i] | trim) else . end;
+def settle: (cut_paren | cut_quote) as $n | if $n == . then . else ($n | settle) end;
+def has_phrase: test("(^|[ (])['\"]");
+def first_clause:
+  ([match("—|;|\\. (?=[A-Z])")] | first) as $m | if $m == null then . else .[0:$m.offset] end;
+def drop_dangling:
+  if test(" (a|an|the|or|and|to|of|in|on|for|with|its|that|you|your|is|are|as|by|from|how|when|who|which)$")
+  then (sub(" [^ ]*$"; "") | drop_dangling) else . end;
+# A cut at a word prefers the last comma, then drops a function word that the cut leaves at the end.
+def word_cut($max):
+  if length > $max
+  then (.[0:$max]) as $h
+    | (if .[$max:($max + 1)] == " " then $h else ($h | sub(" [^ ]*$"; "")) end) as $w
+    | (if ($w | test("^.{50,},")) then ($w | sub(",[^,]*$"; "")) else ($w | drop_dangling) end)
+  else . end;
+def reason($max):
+  (if startswith("Use when") then "Use it when" + .[8:] else . end)
+  | first_clause | trim | word_cut($max) | trim
+  | . as $pre | settle
+  | (if ($pre | has_phrase) and (has_phrase | not) and ($pre != .) then "" else . end)
+  | sub("[. ,]+$"; "")
+  | if . == "" or test("—|;|[A-Za-z](n['’]t|['’](re|ve|ll|m|d))([^A-Za-z]|$)") then "" else . + "." end;
+def phrases:
+  [match("(^|[ (])(['\"])(.+?)\\2(?=[,. )]|$)"; "g") | .captures[2].string | ascii_downcase];
+split("\t")
+| select(length >= 3 and .[0] != "" and .[2] != "false")
+| {name: .[0], description: .[1], reason: (.[1] | reason($max)), phrases: (.[1] | phrases)}
+JQ
+
+# suggest_catalog [skills_root]: prints one JSON line per candidate skill: {name, description, reason, phrases}.
+# This is the only function that reads SKILL.md frontmatter and the only one that applies the description
+# rules, so the file layout stays behind one interface. The description shape it expects is "Use when ..."
+# first, with trigger phrases in single or double quotes, as skills/write-skill/SKILL.md asks. The
+# frontmatter reader in skills/self-audit/scripts/audit-static.sh is the other parser: keep the two in step.
+# It reads only skills/*/SKILL.md, never a nested phase skill. A skill with suggest: false is left out.
+suggest_catalog() {
+  local root=${1:-$SUGGEST_SKILLS_ROOT}
+  awk '
+    function unquote(v,   q) {
+      q = substr(v, 1, 1)
+      if ((q == "\"" || q == "\047") && length(v) >= 2 && substr(v, length(v), 1) == q) {
+        v = substr(v, 2, length(v) - 2)
+        if (q == "\"") { gsub(/\\"/, "\"", v); gsub(/\\\\/, "\\", v) } else gsub(/\047\047/, "\047", v)
+      }
+      return v
+    }
+    function flush() { if (seen) { gsub(/\t/, " ", desc); print name "\t" desc "\t" sug } }
+    FNR == 1 { flush(); seen = 1; fm = 0; name = ""; desc = ""; sug = "" }
+    /^---[ \t]*$/ { fm++; next }
+    fm == 1 {
+      if (match($0, /^name:[ \t]*/)) name = unquote(substr($0, RLENGTH + 1))
+      else if (match($0, /^description:[ \t]*/)) desc = unquote(substr($0, RLENGTH + 1))
+      else if (match($0, /^suggest:[ \t]*/)) sug = substr($0, RLENGTH + 1)
+    }
+    END { flush() }
+  ' "$root"/*/SKILL.md 2>/dev/null | jq -Rc --argjson max "$SUGGEST_REASON_CHARS" "$SUGGEST_CATALOG_JQ" 2>/dev/null
+}
+
 suggest_main() {
   [ "${BF_SUGGEST_HOOK:-}" = off ] && exit 0
   prose_read_input
-  local sid agent active reply transcript scan
+  local sid agent active reply transcript scan catalog
   sid=$(prose_field .session_id)
   [ -n "$sid" ] || exit 0
   agent=$(prose_field .agent_id)
@@ -87,6 +165,8 @@ suggest_main() {
   transcript=$(prose_field .transcript_path)
   scan=$(suggest_transcript_scan "$transcript")
   [ "$(printf '%s' "$scan" | jq -r .state 2>/dev/null)" != inside ] || exit 0
+  catalog=$(suggest_catalog)
+  [ -n "$catalog" ] || exit 0
   exit 0
 }
 
