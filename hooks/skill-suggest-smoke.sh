@@ -365,6 +365,53 @@ cases_dedupe() {
   eq "a symlinked record file is not written through" "$(cat "$c_dir/victim")" keep
 }
 
+cases_log() {
+  local reply
+  ctx
+  reply="Caching caching cache layer layer redis 2024 the and with because database database database tuning tuning alpha1 bravo2 charlie3 delta4 echoes"
+  eq "reply_words ranks by count then first position, with no short word, number or common word" \
+    "$(unit 'suggest_words "$1"' "$reply" | jq -r 'join(" ")')" "database caching layer tuning cache redis alpha1 bravo2"
+  eq "reply_words keeps at most the top words" "$(unit 'suggest_words "$1"' "$reply" | jq 'length')" 8
+
+  ctx; fixture_skills
+  local log=$c_log/log.jsonl rep="We could try the caching layer redesign because queries run slowly under production traffic again"
+  stub 0 "$(answer 0.9 alpha 0.9)"
+  run "$(input "$(jq -cn --arg m "$rep" '{last_assistant_message: $m}')")"
+  eq "a shown tip writes one line: typesafe, a number, shown true" "$(jq -c '[.skill, .source, .confidence, .shown]' "$log")" '["alpha","typesafe",0.9,true]'
+  eq "the log line holds the repo name and a UTC time" "$(jq -r '(.repo | length > 0) and (.time | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z$"))' "$log")" true
+  eq "the log line holds no 5-word run of the reply" "$(echo "$rep" | tr ' ' '\n' | awk '{w[NR]=$0} END{for(i=1;i+4<=NR;i++) print w[i]" "w[i+1]" "w[i+2]" "w[i+3]" "w[i+4]}' | while read -r run5; do grep -qF "$run5" "$log" && echo hit; done | wc -l | tr -d ' ')" 0
+  run "$(input)"
+  eq "a dedupe hit writes shown false and keeps the skill" "$(tail -n 1 "$log" | jq -c '[.skill, .shown]')" '["alpha",false]'
+  stub 0 "$(answer 0.9 none 0.95)"; run "$(input '{"session_id":"s9"}')"
+  eq "a pick of none writes skill none and shown false" "$(tail -n 1 "$log" | jq -c '[.skill, .shown]')" '["none",false]'
+  stub 0 "$(answer 0.4 beta 0.9)"; run "$(input '{"session_id":"s9"}')"
+  eq "helps below the bar with a candidate choice writes that skill, shown false" "$(tail -n 1 "$log" | jq -c '[.skill, .confidence, .shown]')" '["beta",0.9,false]'
+  stub 0 "$(answer 0.9 beta 0.79)"; run "$(input '{"session_id":"s9"}')"
+  eq "a candidate choice below the confidence bar writes that skill, shown false" "$(tail -n 1 "$log" | jq -c '[.skill, .confidence, .shown]')" '["beta",0.79,false]'
+  stub 0 "$(answer 0.9 hidden 0.9)"; run "$(input '{"session_id":"s9"}')"
+  eq "a choice outside the catalog writes none" "$(tail -n 1 "$log" | jq -r '.skill')" none
+  stub 3 ""; run "$(input '{"session_id":"s10","last_assistant_message":"try alpha one and alpha two"}')"
+  eq "a fallback run writes source keyword and a null confidence" "$(tail -n 1 "$log" | jq -c '[.skill, .source, .confidence, .shown]')" '["alpha","keyword",null,true]'
+
+  ctx; fixture_skills; log=$c_log/log.jsonl
+  stub 2 ""; run "$(input)"; eq "an exit 2 stub writes no line" "$(test -e "$log" && echo yes || echo no)" no
+  stub 0 ""; run "$(input)"; eq "an exit 0 stub with empty stdout writes no line" "$(test -e "$log" && echo yes || echo no)" no
+  stub 0 "not json"; run "$(input)"; eq "a malformed answer writes no line" "$(test -e "$log" && echo yes || echo no)" no
+  stub 0 "$(answer 0.9 alpha 0.9)"; run "$(input)" BF_SUGGEST_HOOK=off; eq "a guard exit writes no line" "$(test -e "$log" && echo yes || echo no)" no
+  run "$(input '{"agent_id":"a"}')"; eq "a sub-agent turn writes no line" "$(test -e "$log" && echo yes || echo no)" no
+  run "$(input)"; eq "twin: the same input without the guard writes a line" "$(wc -l < "$log" | tr -d ' ')" 1
+
+  ctx; fixture_skills; log=$c_log/log.jsonl
+  mkdir -p "$c_log"; head -c 300 /dev/zero | tr '\0' 'z' > "$log"
+  stub 0 "$(answer 0.9 alpha 0.9)"; run "$(input)" BF_SUGGEST_LOG_MAX_BYTES=100
+  eq "a log over the size limit moves to log.jsonl.1" "$(wc -c < "$log.1" | tr -d ' ')" 300
+  eq "the new log has one line" "$(wc -l < "$log" | tr -d ' ')" 1
+
+  ctx; fixture_skills; stub 0 "$(answer 0.9 alpha 0.9)"
+  run "$(input)" BF_SUGGEST_LOG_ROOT=/dev/null/nope
+  eq "a log root that cannot be written still gives the tip" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
+}
+
 main() {
   cases_layout
   cases_guards
@@ -376,6 +423,7 @@ main() {
   cases_unavailable
   cases_tip
   cases_dedupe
+  cases_log
   [ "$fails" = 0 ]
 }
 

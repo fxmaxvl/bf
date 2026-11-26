@@ -24,6 +24,8 @@ SUGGEST_ASK_TIMEOUT=4
 SUGGEST_HELPS_BAR=0.6
 SUGGEST_PICK_BAR=0.8
 SUGGEST_MIN_PHRASES=2
+SUGGEST_LOG_WORDS=8
+SUGGEST_LOG_MAX_BYTES=${BF_SUGGEST_LOG_MAX_BYTES:-5242880}
 SUGGEST_SKILLS_ROOT=${BF_SUGGEST_SKILLS_ROOT:-$hooks_dir/../skills}
 SUGGEST_TS_ASK=${TYPESAFE_ASK:-$hooks_dir/../skills/typesafe/scripts/typesafe-ask.sh}
 
@@ -271,6 +273,47 @@ suggest_mark() {
   printf '%s\n' "$2" >> "$f"
 }
 
+# suggest_words <reply>: prints the most frequent words of the reply as a JSON array, so the log can show
+# which topics decided a tip without holding any sentence. It drops words under four letters, numbers and
+# common words. Ties go to the word that comes first.
+suggest_words() {
+  printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]' | LC_ALL=C tr -cs 'a-z0-9' '\n' | awk -v max="$SUGGEST_LOG_WORDS" '
+    BEGIN {
+      n = split("that this with have from they will would there their what when which your been were then than them into also some more other about should could just like only over such these those each does here very must because", sw, " ")
+      for (i = 1; i <= n; i++) stop[sw[i]] = 1
+    }
+    length($0) >= 4 && $0 !~ /^[0-9]+$/ && !($0 in stop) { c[$0]++; if (!($0 in pos)) pos[$0] = ++np }
+    END {
+      for (k = 1; k <= max; k++) {
+        best = ""
+        for (w in c) {
+          if (w in used) continue
+          if (best == "" || c[w] > c[best] || (c[w] == c[best] && pos[w] < pos[best])) best = w
+        }
+        if (best == "") break
+        used[best] = 1
+        print best
+      }
+    }' | jq -Rsc 'split("\n") | map(select(. != ""))'
+}
+
+# suggest_log <cwd> <decision> <reply>: appends one JSON line to the local log. It writes no sentence of the
+# reply, only the ranked words. A log that is over the size limit moves to log.jsonl.1 first. It takes no
+# lock, so two hooks that run at the same moment can lose one line or rotate twice, which the log accepts.
+# skill is the name of the chosen skill when the choice is a catalog name, whatever the gates said, and
+# none otherwise. shown says whether the tip printed.
+suggest_log() {
+  local root=${BF_SUGGEST_LOG_ROOT:-$HOME/.bf/suggest} log repo top size
+  mkdir -p -m 700 "$root" || return 0
+  log=$root/log.jsonl
+  size=$(wc -c < "$log" 2>/dev/null | tr -d ' ')
+  if [ "${size:-0}" -gt "$SUGGEST_LOG_MAX_BYTES" ]; then mv -f "$log" "$log.1"; fi
+  top=$(git -C "$1" rev-parse --show-toplevel 2>/dev/null) || top=$1
+  repo=$(basename "$top")
+  jq -cn --argjson d "$2" --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg r "$repo" --argjson w "$(suggest_words "$3")" \
+    '{time: $t, repo: $r, skill: $d.skill, confidence: $d.confidence, source: $d.source, shown: $d.shown, reply_words: $w}' >> "$log"
+}
+
 suggest_main() {
   [ "${BF_SUGGEST_HOOK:-}" = off ] && exit 0
   prose_read_input
@@ -305,6 +348,7 @@ suggest_main() {
       suggest_mark "$sid" "$name"
     fi
   fi
+  suggest_log "$(prose_cwd)" "$decision" "$reply" 2>/dev/null || true
   exit 0
 }
 
