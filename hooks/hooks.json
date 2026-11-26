@@ -27,7 +27,7 @@
         "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prose-stop.sh\"", "timeout": 5}]
       },
       {
-        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/skill-suggest-stop.sh\"", "timeout": 6}]
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/skill-suggest-stop.sh\"", "timeout": 8}]
       }
     ],
     "UserPromptSubmit": [

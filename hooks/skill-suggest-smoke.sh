@@ -81,8 +81,8 @@ cases_guards() {
 
 cases_registration() {
   local cfg=$hooks/hooks.json
-  eq "hooks.json has one Stop command for the hook, timeout 6" \
-    "$(jq -r '[.hooks.Stop[].hooks[] | select(.command | test("hooks/skill-suggest-stop[.]sh\"$")) | .timeout] | join(",")' "$cfg")" 6
+  eq "hooks.json has one Stop command for the hook, timeout 8" \
+    "$(jq -r '[.hooks.Stop[].hooks[] | select(.command | test("hooks/skill-suggest-stop[.]sh\"$")) | .timeout] | join(",")' "$cfg")" 8
   eq "hooks.json keeps the prose-stop.sh Stop entry" \
     "$(jq -r '[.hooks.Stop[].hooks[] | select(.command | test("hooks/prose-stop[.]sh"))] | length' "$cfg")" 1
   eq "the registered script exists" "$(test -f "$hook" && echo yes)" yes
