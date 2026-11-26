@@ -42,7 +42,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/detect-stack.sh"
 
 Also extract the `## Context` block from `paths.session_log` (Block Reading Pattern). If it exists and does not contain `STATUS: NONE`, use it as grounding for your plan: prefer the reuse candidates it names over inventing new abstractions, follow the local conventions it documents, and flag any risks it surfaces as plan notes.
 
-Read the `reuse` convention too. Resolve it with `resolve-conventions.sh`, per the Convention Lookup in `plugin-main.md`. Every step that adds a utility names what it reuses, with the level tag from the Context reuse candidates, or gives a one-line reason for writing it by hand. Write an L5 candidate as an option next to the hand-written one, as §5 of `reuse` (Suggest, never force) sets out.
+Read the `reuse` convention too. Resolve it with `resolve-conventions.sh`, per the Convention Lookup in `plugin-main.md`. Every step that adds a utility names what it reuses, with the level tag from the Context reuse candidates, or gives a one-line reason for writing it by hand. For a generic need with no entry in the Context reuse candidates, apply the short form of `reuse` first, then give the reason. Write an L5 candidate as an option next to the hand-written one, as §5 of `reuse` (Suggest, never force) sets out.
 
 ## Quality gates — detect and document
 

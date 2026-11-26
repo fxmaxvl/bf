@@ -13,12 +13,12 @@ Check the levels in order and stop at the first hit.
 - L1 repo helper: Grep or Glob the repo for an existing function, type or module that does the job.
 - L2 standard library: the language's standard library.
 - L3 declared dependency: read the manifest files at the repo root or in the touched package (package.json, BUILD.bazel, MODULE.bazel, pom.xml, build.gradle, build.gradle.kts, pyproject.toml, requirements.txt, go.mod, Cargo.toml). A library that is already declared adds no new dependency. Manifest reads are capped at 3 files per skill run. They do not count against any other file cap of the skill.
-- L4 org shared library: the org is the owner segment of `git remote get-url origin` (git@host:org/repo or https://host/org/repo). Run `gh search code --owner=<org> "<query>"`, at most 3 queries per skill run. Skip this level silently when `gh` is missing or not logged in, when the remote has no org, when the search fails, or when the running skill's allowed-tools do not include `Bash(gh *)`.
+- L4 org shared library: the org is the owner segment of `git remote get-url origin` (git@host:org/repo or https://host/org/repo). Run `gh search code --owner=<org> "<query>"`, at most 3 queries per skill run. Skip this level silently when `gh` is missing or not logged in, when the remote has no org, or when the search fails or is denied.
 - L5 well-known community library: from your own knowledge. No install and no network call.
 
 ## 3. Short form
 
-The short form is L1 to L3 only. It has no org search and no L5 suggestion. The review is the backstop.
+The short form is L1 to L3 only. It has no org search and no L5 suggestion. The backstop is the review-impl phase in the feature, quick and micro flows, and `bf:review` in every other case. Bug-fix runs no review phase, so its backstop is a later `bf:review`.
 
 ## 4. Recording a hit
 
@@ -34,4 +34,4 @@ Writing by hand is valid when the need is a few lines and a new dependency costs
 
 ## 6. Review check
 
-Flag hand-written code that an L1 to L4 source already covers. Read the manifest files from section 2 first, within the same file cap. Run the org search only within its query cap. Name the helper or library that covers the code in the finding.
+Flag hand-written code that an L1 to L4 source already covers. Read the manifest files from section 2 first, within the manifest cap in section 2. Search L4 directly, within its query cap, for any hand-written utility that an org library may cover. Tag a concern `[org-search]` only when it asks how other repos do something. Name the helper or library that covers the code in the finding.
