@@ -75,7 +75,7 @@ Run this after the scan, and before you write the `## Context` block.
 
 1. From the QA (quick mode) or the Spec (full mode), list the generic needs, as the `reuse` convention defines them.
 2. For each need, run the level order of the `reuse` convention and stop at the first hit.
-3. The org-search cap of `reuse` and its 3-file manifest cap are separate from the octocode caps above. Manifest reads do not count against the 10-file cap.
+3. The org-search cap of `reuse` and its manifest cap (§2) are separate from the octocode caps above. Manifest reads do not count against the 10-file cap.
 4. Research is read-only and asks no questions. Record an L5 hit as a candidate only. The plan sets it out as an option.
 
 ## Output
@@ -91,7 +91,7 @@ If research produced usable findings:
 <directories and files likely to be modified, one per line with a one-sentence description>
 
 ### Reuse candidates
-<existing helpers, types, hooks, or utilities that the plan should use instead of reinventing; include file path and a one-line description. Start each entry with its level tag, in the tag format of the `reuse` convention>
+<existing helpers, types, hooks, or utilities that the plan should use instead of reinventing; include file path and a one-line description. Each entry starts with its level tag, then gives the name, the file path or library coordinates, and a one-line fit, as §4 of `reuse` defines>
 
 ### Local conventions
 <patterns found in adjacent files: naming style, error handling, test file layout, import style — 3-8 bullet points>
