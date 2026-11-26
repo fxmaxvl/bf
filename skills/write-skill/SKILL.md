@@ -22,6 +22,7 @@ Ask ONE question at a time (per plugin-main.md). Clarify in this order, stopping
 2. **Does it need interactive Q&A, or is it fully autonomous?** — determines whether to include a gather/clarify phase.
 3. **Does it need scripts, agents, or external tools?** — determines `allowed-tools` and whether a companion script is warranted. Scripts are the right call for any deterministic operation (path computation, JSON state, stack detection, status parsing) — they run once and pass a compact result to Claude instead of burning tokens on inline derivation.
 4. **What is the target model?** — default is `sonnet`; use `opus` for multi-phase reasoning; `haiku` for cheap, fast tasks.
+5. **Should the skill-suggestion hook ever suggest this skill to users?** — internal or maintainer skills answer no and get `suggest: false`.
 
 Stop gathering when you have enough to fill all frontmatter fields and sketch the top-level sections.
 
@@ -86,6 +87,7 @@ name: <skill-name>
 description: <see Description Requirements below>
 model: <opus | sonnet | haiku>
 disable-model-invocation: false
+suggest: true
 argument-hint: "[free-form hint shown to user, e.g. 'idea or Jira URL']"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *)
 ---
@@ -119,6 +121,8 @@ Print banner (plain text):
 | <condition> | <how to handle> |
 ````
 
+The `suggest` key is for the skill-suggestion hook. `suggest: false` keeps the hook from naming the skill to users. Write the value as plain `true` or `false`, with no comment after it.
+
 ---
 
 ## Description Requirements
@@ -127,6 +131,7 @@ The `description:` field must:
 
 - Be **third-person, action-trigger phrasing** — describe when the model should invoke the skill, not what it does internally.
 - Start with "Use when…" or list trigger phrases (e.g. "Review code against…").
+- Suit the skill-suggestion hook, which reads the description. Put each trigger phrase in single or double quotes, so the keyword check can match it. Keep the first sentence free of semicolons, em dashes and contractions, because the hook shows its first clause in a tip. A description that starts with "Use when" reads best there.
 - Match the style of existing descriptions:
   - `review`: "Review code against feature conventions and the complexity gate."
   - `autopilot`: "General autonomous wrapper — runs the core bf workflows (feature, quick, micro, review, design) without user input."
@@ -149,6 +154,7 @@ The `description:` field must:
 Before finishing, verify each item. Fix any gap before marking done.
 
 - [ ] **Frontmatter complete** — `name`, `description`, `model`, `disable-model-invocation`, `argument-hint`, `allowed-tools` all present and filled.
+- [ ] **suggest set on purpose** — `suggest: true` for a skill users should discover, `suggest: false` for an internal or maintainer skill. The key is optional and a missing key means true.
 - [ ] **Reads plugin-main.md first** — the exact line `Read \`${CLAUDE_PLUGIN_ROOT}/conventions/plugin-main.md\` first` appears as the first non-frontmatter line.
 - [ ] **ONE-question-per-turn respected** — any interactive gather phase asks one question, then waits. No batched questions anywhere in the skill.
 - [ ] **Single file unless justified** — no companion files created unless the skill exceeds ~130 lines or scripts are reusable across skills.

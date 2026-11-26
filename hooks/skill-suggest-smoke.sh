@@ -446,6 +446,15 @@ cases_real_skills() {
   eq "every real tip passes the prose lint" "$bad" 0
 }
 
+cases_docs() {
+  local readme row
+  readme=$(awk '/^## /{t=($0=="## Skill-suggestion hook")} t' "$hooks/../README.md")
+  row=$(grep -F 'skill-suggest-stop.sh' "$hooks/../skills/typesafe/SKILL.md")
+  eq "the README section exists" "$(printf '%s' "$readme" | head -n 1)" "## Skill-suggestion hook"
+  eq "the typesafe row exists in the existing cell form" "$(printf '%s' "$row" | cut -c1-37)" '| `/bf:*` — `skill-suggest-stop.sh` |'
+  eq "the docs copy no limit value of the hook" "$( { printf '%s\n%s\n' "$readme" "$row" | grep -cE '4000|2000|0[.]8|0[.]6|2097152|5242880'; } | tr -d ' ')" 0
+}
+
 main() {
   cases_layout
   cases_guards
@@ -459,6 +468,7 @@ main() {
   cases_dedupe
   cases_log
   cases_real_skills
+  cases_docs
   [ "$fails" = 0 ]
 }
 
