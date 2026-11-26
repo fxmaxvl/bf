@@ -81,21 +81,23 @@ prose_record_path() {
 
 # Ls prints the mode in field 1 and the owner uid in field 3 on both BSD and GNU, where stat flags differ.
 # The directory must belong to the user and give no access to group or other, because mkdir -m leaves an
-# existing directory as it is.
+# existing directory as it is. The optional uid is the owner to expect. It defaults to the user of the
+# prose hooks, and another hook that keeps its own records passes its own uid.
 _prose_record_dir_owned() {
-  local dir=$1 mode owner
+  local dir=$1 uid=${2:-} mode owner
+  [ -n "$uid" ] || uid=$(_prose_record_uid)
   [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
   read -r mode _ owner _ < <(ls -nd "$dir")
-  [ "${mode:4:6}" = "------" ] && [ "$owner" = "$(_prose_record_uid)" ]
+  [ "${mode:4:6}" = "------" ] && [ "$owner" = "$uid" ]
 }
 
-# prose_record_dir_ensure <dir>: creates the directory when it is missing. Fails unless the result passes
-# the owner and mode check.
+# prose_record_dir_ensure <dir> [uid]: creates the directory when it is missing. Fails unless the result passes
+# the owner and mode check for the uid (default: the user of the prose hooks).
 prose_record_dir_ensure() {
-  local dir=$1
+  local dir=$1 uid=${2:-}
   [ ! -L "$dir" ] || return 1
   mkdir -p -m 700 "$dir" 2>/dev/null || return 1
-  _prose_record_dir_owned "$dir"
+  _prose_record_dir_owned "$dir" "$uid"
 }
 
 # prose_record_write <session_id> <line>: overwrites the record. It never appends, because autopilot can
