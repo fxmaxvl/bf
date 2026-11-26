@@ -414,6 +414,15 @@ cases_log() {
   eq "a log root that cannot be written still gives the tip" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
 }
 
+# clean_end <description> <reason>: prints true when the reason is empty, or is the start of the description
+# and stops at a clause boundary of it: a comma, a semicolon, an em dash, a sentence end, or the end.
+clean_end() {
+  jq -nr --arg d "$1" --arg r "$2" '
+    ($d | sub("^Use when"; "Use it when")) as $d
+    | ($r | sub("[.]$"; "")) as $r
+    | $r == "" or ($d | startswith($r) and (.[($r | length):] | test("^($|,|;| —|[.] [A-Z]|[.]$)")))'
+}
+
 cases_real_skills() {
   local f prefix cat bad r q n
   ctx; c_skills=$hooks/../skills
@@ -437,9 +446,23 @@ cases_real_skills() {
     q=${r//[^\']/}; [ $(( ${#q} % 2 )) = 0 ] || { echo "FAIL odd quote count: $r"; bad=$((bad+1)); }
     q=${r//[^\"]/}; [ $(( ${#q} % 2 )) = 0 ] || { echo "FAIL odd double quote count: $r"; bad=$((bad+1)); }
     [ "$(printf '%s' "${r//[^(]/}" | wc -c | tr -d ' ')" = "$(printf '%s' "${r//[^)]/}" | wc -c | tr -d ' ')" ] || { echo "FAIL unbalanced parenthesis: $r"; bad=$((bad+1)); }
-    case $r in *→.|*,.|*" ") echo "FAIL ragged end: $r"; bad=$((bad+1)) ;; esac
   done < <(printf '%s\n' "$cat" | jq -r .reason)
-  eq "every real reason has balanced quotes and parentheses and a clean end" "$bad" 0
+  eq "every real reason has balanced quotes and parentheses" "$bad" 0
+
+  bad=0
+  while IFS=$'\t' read -r n d r; do
+    [ "$(clean_end "$d" "$r")" = true ] || { echo "FAIL reason does not end at a clause boundary: $n: $r"; bad=$((bad+1)); }
+  done < <(printf '%s\n' "$cat" | jq -r '[.name, .description, .reason] | @tsv')
+  eq "every real reason is empty or ends at a clause boundary of its description" "$bad" 0
+
+  d=$(printf '%s\n' "$cat" | jq -r 'select(.name == "design") | .description')
+  eq "the clean-end check rejects the design cut" "$(clean_end "$d" "Produce a shareable system-design document (with diagrams) from a high-level.")" false
+  d=$(printf '%s\n' "$cat" | jq -r 'select(.name == "gather") | .description')
+  eq "the clean-end check rejects the gather cut" "$(clean_end "$d" "Use it when you have a PRD, product brief, or research doc that needs iterative.")" false
+  d=$(printf '%s\n' "$cat" | jq -r 'select(.name == "consilium") | .description')
+  eq "the clean-end check rejects the consilium cut" "$(clean_end "$d" "Use it when the user explicitly invokes /bf:consilium or another bf skill calls.")" false
+  eq "the clean-end check accepts a cut at a comma" "$(clean_end "Use when a, b, c" "Use it when a, b.")" true
+  eq "the clean-end check accepts an empty reason" "$(clean_end "Use when a long thing" "")" true
 
   bad=0
   while IFS= read -r r; do
