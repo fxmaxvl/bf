@@ -91,7 +91,7 @@ If research produced usable findings:
 <directories and files likely to be modified, one per line with a one-sentence description>
 
 ### Reuse candidates
-<existing helpers, types, hooks, or utilities that the plan should use instead of reinventing; include file path and a one-line description. Each entry starts with its level tag, then gives the name, the file path or library coordinates, and a one-line fit, as §4 of `reuse` defines>
+<existing helpers, types, hooks, or utilities that the plan should use instead of reinventing. Each entry starts with its level tag, then gives the name, the file path or library coordinates, and a one-line fit, as §4 of `reuse` defines>
 
 ### Local conventions
 <patterns found in adjacent files: naming style, error handling, test file layout, import style — 3-8 bullet points>
