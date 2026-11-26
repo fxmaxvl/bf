@@ -229,7 +229,7 @@ suggest_tip() {
   name=$(printf '%s\n' "$1" | jq -r .skill)
   reason=$(printf '%s\n' "$1" | jq -r '.reason // ""')
   text="Tip: /bf:$name fits this."
-  if [ -n "$reason" ] && printf '%s %s' "$text" "$reason" | bash "$_prose_lint_script" - --mode chat --format json >/dev/null 2>&1; then
+  if [ -n "$reason" ] && printf '%s %s' "$text" "$reason" | prose_lint "$(prose_cwd)" chat >/dev/null; then
     text="$text $reason"
   fi
   jq -cn --arg t "$text" '{systemMessage: $t}'
