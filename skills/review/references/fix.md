@@ -115,6 +115,7 @@ Read each of these files and apply it strictly:
 - Architecture: <resolved absolute path to architecture.md>
 - Code review: <resolved absolute path to code-review.md>
 - Prose (for all prose you return): <resolved absolute path to prose.md>
+- Reuse (for the review check in Code Review §4): <resolved absolute path to reuse.md>
 
 Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
 

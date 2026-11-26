@@ -113,13 +113,13 @@ If either step fails, print the git error and stop. The shell cwd can reset betw
 
 ### Resolve conventions
 
-Resolve all five conventions in one call, per the Convention Lookup in `plugin-main.md`:
+Resolve all six conventions in one call, per the Convention Lookup in `plugin-main.md`:
 
 ```bash
-cd "<project_root>" && bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" code-review dev testing architecture prose
+cd "<project_root>" && bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" code-review dev testing architecture prose reuse
 ```
 
-Read the five absolute paths from the JSON; a `null` is the "Convention file missing" edge case. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
+Read the six absolute paths from the JSON; a `null` is the "Convention file missing" edge case. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
 
 Then list the host repository's own rule files the same way — paths only, never bodies:
 
@@ -278,6 +278,7 @@ Read each of these files and apply it strictly:
 - Architecture: <resolved absolute path to architecture.md>
 - Code review: <resolved absolute path to code-review.md>
 - Prose (for all prose you return): <resolved absolute path to prose.md>
+- Reuse (for the review check in Code Review §4): <resolved absolute path to reuse.md>
 
 Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
 

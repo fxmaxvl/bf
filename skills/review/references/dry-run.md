@@ -4,7 +4,7 @@ When `dry_run=true`, skip every Agent spawn and exit before Phase 1 work begins.
 
 Steps:
 
-1. Resolve conventions exactly as Phase 1 does, in the current repo (a dry-run never clones) — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture`, `prose`, plus one `host-rules.sh` call — but do **not** read the file bodies. Capture only the resolved absolute paths.
+1. Resolve conventions exactly as Phase 1 does, in the current repo (a dry-run never clones) — one `resolve-conventions.sh` call for `code-review`, `dev`, `testing`, `architecture`, `prose`, `reuse`, plus one `host-rules.sh` call — but do **not** read the file bodies. Capture only the resolved absolute paths.
 2. Print this block (plain text, not in a code fence):
 
    ```
@@ -18,6 +18,7 @@ Steps:
      - testing:     <resolved path or "MISSING">
      - architecture: <resolved path or "MISSING">
      - prose:       <resolved path or "MISSING">
+     - reuse:       <resolved path or "MISSING">
    Host repository rules: <one path per line from host_rules, or "none">
    Agents that would be spawned (skipped in dry-run):
      - review Agent        (model: opus), Phase 1 parallel batch
