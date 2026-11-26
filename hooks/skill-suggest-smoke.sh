@@ -303,7 +303,7 @@ cases_fallback() {
 
   stub 3 "" 4
   SECONDS=0
-  run "$(input '{"last_assistant_message":"We could try alpha one, then alpha two."}')"
+  run "$(input '{"session_id":"slow","last_assistant_message":"We could try alpha one, then alpha two."}')"
   eq "a slow TypeSafe call ends with the fallback tip in under 6 seconds" "$([ "$SECONDS" -lt 6 ] && tip_text "$out")" "Tip: /bf:alpha fits this. Use it when the user wants alpha work."
 }
 
@@ -335,6 +335,36 @@ cases_tip() {
 }
 
 
+cases_dedupe() {
+  local uid recdir
+  uid=$(id -u)
+  ctx; fixture_skills
+  recdir=$c_rec/bf-suggest-$uid
+  stub 0 "$(answer 0.9 alpha 0.9)"
+  run "$(input)"; eq "dedupe: the first tip prints" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
+  run "$(input)"; eq "dedupe: the same skill in the same session prints nothing" "$out" ""
+  stub 0 "$(answer 0.9 beta 0.9)"
+  run "$(input)"; eq "dedupe: another skill in the same session still prints" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:beta fits t"
+  stub 0 "$(answer 0.9 alpha 0.9)"
+  run "$(input '{"session_id":"s2"}')"; eq "dedupe: another session prints again" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
+  eq "dedupe: the record dir mode is 700" "$(ls -ld "$recdir" | cut -c1-10)" "drwx------"
+
+  ctx; fixture_skills; stub 0 "$(answer 0.9 alpha 0.9)"
+  run "$(input)" BF_SUGGEST_UID=99999; eq "a foreign owner still prints the tip" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
+  run "$(input)" BF_SUGGEST_UID=99999; eq "a foreign owner prints it again, so nothing was recorded" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
+  eq "a foreign owner writes no record file" "$(find "$c_rec" -type f | wc -l | tr -d ' ')" 0
+
+  ctx; fixture_skills; stub 0 "$(answer 0.9 alpha 0.9)"
+  mkdir -p "$c_rec" "$c_dir/target"; ln -s "$c_dir/target" "$c_rec/bf-suggest-$uid"
+  run "$(input)"; eq "a symlinked record dir still prints the tip" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
+  eq "a symlinked record dir is not written through" "$(find "$c_dir/target" -type f | wc -l | tr -d ' ')" 0
+
+  ctx; fixture_skills; stub 0 "$(answer 0.9 alpha 0.9)"
+  mkdir -p -m 700 "$c_rec/bf-suggest-$uid"; printf 'keep\n' > "$c_dir/victim"; ln -s "$c_dir/victim" "$c_rec/bf-suggest-$uid/s1"
+  run "$(input)"; eq "a symlinked record file still prints the tip" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
+  eq "a symlinked record file is not written through" "$(cat "$c_dir/victim")" keep
+}
+
 main() {
   cases_layout
   cases_guards
@@ -345,6 +375,7 @@ main() {
   cases_fallback
   cases_unavailable
   cases_tip
+  cases_dedupe
   [ "$fails" = 0 ]
 }
 

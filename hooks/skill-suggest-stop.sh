@@ -243,10 +243,38 @@ suggest_tip() {
   printf '%s\n' "$1" | jq -c '{systemMessage: ("Tip: /bf:" + .skill + " fits this." + (if (.reason // "") != "" then " " + .reason else "" end))}'
 }
 
+# suggest_record_file <session_id>: prints the path of the record of the session, or fails. It is the only
+# place that builds the path, strips the id, and applies the owner and symlink checks. It uses one helper of
+# prose-lib.sh, prose_record_dir_ensure, and no other record helper. The record is a per-user 0700 directory
+# because a shared /tmp can hold a directory that another user made first.
+suggest_record_file() {
+  local uid=${BF_SUGGEST_UID:-$(id -u)} sid dir
+  sid=$(printf '%s' "$1" | tr -cd 'A-Za-z0-9_-')
+  [ -n "$sid" ] || return 1
+  dir=${BF_SUGGEST_RECORD_ROOT:-${TMPDIR:-/tmp}}/bf-suggest-$uid
+  prose_record_dir_ensure "$dir" "$uid" || return 1
+  [ ! -L "$dir/$sid" ] || return 1
+  printf '%s/%s' "$dir" "$sid"
+}
+
+# suggest_seen <session_id> <name>: succeeds when the tip for the skill was already shown in the session.
+suggest_seen() {
+  local f
+  f=$(suggest_record_file "$1") || return 1
+  [ -f "$f" ] && grep -Fxq -- "$2" "$f"
+}
+
+# suggest_mark <session_id> <name>: records the tip. A failed check writes nothing.
+suggest_mark() {
+  local f
+  f=$(suggest_record_file "$1") || return 0
+  printf '%s\n' "$2" >> "$f"
+}
+
 suggest_main() {
   [ "${BF_SUGGEST_HOOK:-}" = off ] && exit 0
   prose_read_input
-  local sid agent active reply transcript scan catalog prompt outcome decision
+  local sid agent active reply transcript scan catalog prompt outcome decision name
   sid=$(prose_field .session_id)
   [ -n "$sid" ] || exit 0
   agent=$(prose_field .agent_id)
@@ -270,8 +298,12 @@ suggest_main() {
   esac
   [ -n "$decision" ] || exit 0
   if [ "$(printf '%s' "$decision" | jq -r .due)" = true ]; then
-    decision=$(printf '%s' "$decision" | jq -c '.shown = true')
-    suggest_tip "$decision"
+    name=$(printf '%s' "$decision" | jq -r .skill)
+    if ! suggest_seen "$sid" "$name"; then
+      decision=$(printf '%s' "$decision" | jq -c '.shown = true')
+      suggest_tip "$decision"
+      suggest_mark "$sid" "$name"
+    fi
   fi
   exit 0
 }
