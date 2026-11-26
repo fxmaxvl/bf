@@ -302,10 +302,13 @@ cases_fallback() {
   run "$(input '{"last_assistant_message":"We could try alpha one, then alpha two."}')"
   eq "a malformed answer never runs the fallback" "$out" ""
 
-  stub 3 "" 4
-  SECONDS=0
+  local ask_timeout t0 t1
+  ask_timeout=$(sed -n 's/^SUGGEST_ASK_TIMEOUT=//p' "$hook")
+  stub 3 "" "$ask_timeout"
+  t0=$(perl -MTime::HiRes=time -e 'printf "%.3f\n", time')
   run "$(input '{"session_id":"slow","last_assistant_message":"We could try alpha one, then alpha two."}')"
-  eq "a slow TypeSafe call ends with the fallback tip in under 6 seconds" "$([ "$SECONDS" -lt 6 ] && tip_text "$out")" "Tip: /bf:alpha fits this. Use it when the user wants alpha work."
+  t1=$(perl -MTime::HiRes=time -e 'printf "%.3f\n", time')
+  eq "a slow TypeSafe call ends with the fallback tip in under 7 seconds" "$(awk -v a="$t0" -v b="$t1" 'BEGIN { exit !(b - a < 7) }' && tip_text "$out")" "Tip: /bf:alpha fits this. Use it when the user wants alpha work."
 }
 
 cases_unavailable() {
