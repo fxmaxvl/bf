@@ -261,7 +261,7 @@ suggest_mark() {
 }
 
 # suggest_words <reply>: prints the most frequent words of the reply as a JSON array, so the log can show
-# which topics decided a tip without holding any sentence. It drops words under four letters, numbers and
+# which topics decided a tip without holding any sentence. It drops words shorter than SUGGEST_LOG_WORD_MIN, numbers and
 # common words. Ties go to the word that comes first.
 suggest_words() {
   printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]' | LC_ALL=C tr -cs 'a-z0-9' '\n' | awk -v max="$SUGGEST_LOG_WORDS" -v minlen="$SUGGEST_LOG_WORD_MIN" '
