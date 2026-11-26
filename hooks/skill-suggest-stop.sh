@@ -84,7 +84,7 @@ def bfskill: .type == "assistant" and ((content) | type) == "array"
 | ([$win[] | select(bfcmd or bfskill)] | length > 0) as $hit
 | {state: (if $hit or ($reached | not) and ($p | length) < $n then "inside" else "free" end),
    prompt: (if ($p | length) > 0 then ($region[$p[-1]] | text | .[0:$cap]) else "" end)}
-' 
+'
 
 # The jq program of suggest_catalog. It turns one tab-separated row (name, description, suggest) into one
 # catalog entry. The reason is the first clause of the description. A clause over the limit is cut at its
