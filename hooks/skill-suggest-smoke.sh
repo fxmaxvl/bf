@@ -412,6 +412,40 @@ cases_log() {
   eq "a log root that cannot be written still gives the tip" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
 }
 
+cases_real_skills() {
+  local f prefix cat bad r q n
+  ctx; c_skills=$hooks/../skills
+  cat=$(unit 'suggest_catalog')
+  eq "the real catalog has 29 candidates" "$(printf '%s\n' "$cat" | jq -s 'length')" 29
+  eq "the real catalog has none of the 9 opt-out skills" "$(printf '%s\n' "$cat" | jq -rs '[.[].name | select(. == "self-audit" or . == "self-heal" or . == "write-skill" or . == "onboard-skill" or . == "typesafe" or . == "setup" or . == "kit" or . == "cross-agent" or . == "autopilot")] | length')" 0
+  eq "the real catalog gives at least 12 skills with 2 or more trigger phrases" "$(printf '%s\n' "$cat" | jq -s '[.[] | select(.phrases | length >= 2)] | length >= 12')" true
+
+  prefix=$(unit 'printf %s "$SUGGEST_BANNER_PREFIX"')
+  bad=0
+  for f in "$hooks"/../skills/*/SKILL.md; do
+    n=$(basename "$(dirname "$f")")
+    [ "$(printf '%s\n' "$cat" | jq -r --arg n "$n" 'select(.name == $n) | .name')" = "$n" ] || continue
+    grep -qF -- "$prefix" "$f" || { echo "FAIL banner prefix missing in $f"; bad=$((bad+1)); }
+  done
+  eq "every candidate SKILL.md holds the banner prefix that the hook reads" "$bad" 0
+
+  bad=0
+  while IFS= read -r r; do
+    [ -n "$r" ] || continue
+    q=${r//[^\']/}; [ $(( ${#q} % 2 )) = 0 ] || { echo "FAIL odd quote count: $r"; bad=$((bad+1)); }
+    q=${r//[^\"]/}; [ $(( ${#q} % 2 )) = 0 ] || { echo "FAIL odd double quote count: $r"; bad=$((bad+1)); }
+    [ "$(printf '%s' "${r//[^(]/}" | wc -c | tr -d ' ')" = "$(printf '%s' "${r//[^)]/}" | wc -c | tr -d ' ')" ] || { echo "FAIL unbalanced parenthesis: $r"; bad=$((bad+1)); }
+    case $r in *→.|*,.|*" ") echo "FAIL ragged end: $r"; bad=$((bad+1)) ;; esac
+  done < <(printf '%s\n' "$cat" | jq -r .reason)
+  eq "every real reason has balanced quotes and parentheses and a clean end" "$bad" 0
+
+  bad=0
+  while IFS= read -r r; do
+    printf '%s' "$r" | bash "$hooks/../skills/plain/scripts/prose-lint.sh" - --mode chat --format json >/dev/null 2>&1 || { echo "FAIL prose lint: $r"; bad=$((bad+1)); }
+  done < <(printf '%s\n' "$cat" | jq -r '"Tip: /bf:" + .name + " fits this." + (if .reason != "" then " " + .reason else "" end)')
+  eq "every real tip passes the prose lint" "$bad" 0
+}
+
 main() {
   cases_layout
   cases_guards
@@ -424,6 +458,7 @@ main() {
   cases_tip
   cases_dedupe
   cases_log
+  cases_real_skills
   [ "$fails" = 0 ]
 }
 

@@ -3,6 +3,7 @@ name: cross-agent
 description: "Use when the user wants another coding agent (Codex, Gemini CLI, or any other) to run a bf skill, whether they name the skill or only describe its work and name the agent — 'run bf:review in codex', 'hand this bug-hunt to codex', 'let codex do the review', 'have codex review this branch', 'ask gemini to hunt for bugs in src/payments', 'dispatch the review to another agent', 'get codex's take on this PR', 'prepare a task for another agent'. Not for work Claude should do itself, and not for tasks no bf skill covers. Builds a self-contained bundle (the skill's reference closure, resolved conventions, a Claude-Code-to-other-harness translation preamble, and a brief with the context from this conversation), and with --run <agent> launches it and brings the result back."
 model: sonnet
 disable-model-invocation: false
+suggest: false
 argument-hint: "[--run <agent>] [--read-only] <skill> [skill arguments] — e.g. '--run codex bug-hunt src/payments'"
 allowed-tools: Read, Write, Bash(bash *), Bash(git *)
 ---

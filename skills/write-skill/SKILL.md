@@ -3,6 +3,7 @@ name: write-skill
 description: Use when asked to create a new bf skill, author a SKILL.md, build a plugin skill, add a skill to the bf plugin, or write a skill from scratch.
 model: opus
 disable-model-invocation: false
+suggest: false
 argument-hint: "[skill name or description, e.g. 'deploy-checker' or 'a skill that reviews Jira tickets']"
 allowed-tools: Read, Write, Edit, Grep, Glob
 ---

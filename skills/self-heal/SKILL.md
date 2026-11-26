@@ -3,6 +3,7 @@ name: self-heal
 description: Use when asked to self-heal the plugin, pay down its own issue backlog, or turn accumulated skill-improvement suggestions into a PR. Harvests open GitHub issues, scores them on token frugality, code quality, and speed, argues for the top 3, fixes them, and ships one PR.
 model: opus
 disable-model-invocation: false
+suggest: false
 argument-hint: "[optional: 'top N', or explicit item ids like '34:3 15:3']"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git *), Bash(gh *), Bash(bash *)
 ---

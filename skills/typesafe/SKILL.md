@@ -1,6 +1,7 @@
 ---
 name: typesafe
 description: Use when the user wants to turn TypeSafe (System One / Jev) boosting on or off for this plugin, check whether their API key works, or understand what boosting changes. Opt-in only — bf works identically without it.
+suggest: false
 model: sonnet
 argument-hint: "[status | on | off] (default: status)"
 allowed-tools: Read, Bash(bash *), Bash(jq *), Bash(git *)
