@@ -41,8 +41,8 @@ unit() {
 input() {
   local x=${1:-}
   [ -n "$x" ] || x='{}'
-  jq -cn --arg tp "${c_tp:-}" --argjson x "$x" \
-    '{session_id: "s1", transcript_path: $tp, cwd: "/x", last_assistant_message: "I fixed the build."} + $x'
+  jq -cn --arg tp "${c_tp:-}" --arg cwd "$tmp" --argjson x "$x" \
+    '{session_id: "s1", transcript_path: $tp, cwd: $cwd, last_assistant_message: "I fixed the build."} + $x'
 }
 
 # Transcript line builders. They copy the line shapes of a real session file.
