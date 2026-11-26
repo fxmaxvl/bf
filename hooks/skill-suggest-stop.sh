@@ -247,18 +247,15 @@ suggest_tip() {
   printf '%s\n' "$1" | jq -c '{systemMessage: ("Tip: /bf:" + .skill + " fits this." + (if (.reason // "") != "" then " " + .reason else "" end))}'
 }
 
-# suggest_record_file <session_id>: prints the path of the record of the session, or fails. It is the only
-# place that builds the path, strips the id, and applies the owner and symlink checks. It uses one helper of
-# prose-lib.sh, prose_record_dir_ensure, and no other record helper. The record is a per-user 0700 directory
-# because a shared /tmp can hold a directory that another user made first.
+# suggest_record_file <session_id>: prints the path of the record of the session, or fails. The path, the
+# directory checks and the test seam come from prose-lib.sh. The name suggest keeps this record apart from
+# the record of the prose hooks.
 suggest_record_file() {
-  local uid=${BF_SUGGEST_UID:-$(id -u)} sid dir
-  sid=$(printf '%s' "$1" | tr -cd 'A-Za-z0-9_-')
-  [ -n "$sid" ] || return 1
-  dir=${BF_SUGGEST_RECORD_ROOT:-${TMPDIR:-/tmp}}/bf-suggest-$uid
-  prose_record_dir_ensure "$dir" "$uid" || return 1
-  [ ! -L "$dir/$sid" ] || return 1
-  printf '%s/%s' "$dir" "$sid"
+  local path
+  path=$(prose_record_path "$1" suggest) || return 1
+  prose_record_dir_ensure "$(dirname "$path")" || return 1
+  [ ! -L "$path" ] || return 1
+  printf '%s' "$path"
 }
 
 # suggest_seen <session_id> <name>: succeeds when the tip for the skill was already shown in the session.

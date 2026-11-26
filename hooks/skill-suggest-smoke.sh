@@ -19,7 +19,7 @@ eq() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1: got [$2], wa
 # iso <command...>: runs a command with the state of the current case and nothing of the real machine.
 iso() {
   env -u BF_SUGGEST_HOOK -u CLAUDE_PLUGIN_ROOT HOME="$c_home" BF_SUGGEST_LOG_ROOT="$c_log" \
-    BF_SUGGEST_RECORD_ROOT="$c_rec" BF_SUGGEST_SKILLS_ROOT="$c_skills" TYPESAFE_ASK="$c_ts" \
+    BF_PROSE_RECORD_ROOT="$c_rec" BF_SUGGEST_SKILLS_ROOT="$c_skills" TYPESAFE_ASK="$c_ts" \
     GIT_CEILING_DIRECTORIES="$tmp" "$@"
 }
 
@@ -312,7 +312,7 @@ cases_unavailable() {
   ctx; fixture_skills
   msg='{"last_assistant_message":"We could try alpha one, then alpha two."}'
   stub 3 ""
-  run "$(input "$msg")" TMPDIR=$c_dir/no-such-dir BF_SUGGEST_RECORD_ROOT=$c_rec
+  run "$(input "$msg")" TMPDIR=$c_dir/no-such-dir BF_PROSE_RECORD_ROOT=$c_rec
   eq "no temp file is a hook fault: no fallback tip, no call" "$out|$(called)" "|no"
   run "$(input "$msg")"
   eq "twin: with a temp directory the same input gives the fallback tip" "$(tip_text "$out" | cut -c1-24)|$(called)" "Tip: /bf:alpha fits this|yes"
@@ -350,8 +350,8 @@ cases_dedupe() {
   eq "dedupe: the record dir mode is 700" "$(ls -ld "$recdir" | cut -c1-10)" "drwx------"
 
   ctx; fixture_skills; stub 0 "$(answer 0.9 alpha 0.9)"
-  run "$(input)" BF_SUGGEST_UID=99999; eq "a foreign owner still prints the tip" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
-  run "$(input)" BF_SUGGEST_UID=99999; eq "a foreign owner prints it again, so nothing was recorded" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
+  run "$(input)" BF_PROSE_UID=99999; eq "a foreign owner still prints the tip" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
+  run "$(input)" BF_PROSE_UID=99999; eq "a foreign owner prints it again, so nothing was recorded" "$(tip_text "$out" | cut -c1-20)" "Tip: /bf:alpha fits "
   eq "a foreign owner writes no record file" "$(find "$c_rec" -type f | wc -l | tr -d ' ')" 0
 
   ctx; fixture_skills; stub 0 "$(answer 0.9 alpha 0.9)"

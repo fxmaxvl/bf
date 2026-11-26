@@ -228,11 +228,6 @@ rm -f "$recdir/s8"; ln -s "$tmp/victim" "$recdir/s8"
 hook prose-user-prompt.sh "$(prompt_in s8)" BF_PROSE_RECORD_ROOT=$recroot
 eq "symlinked record file is not read" "$out" ""
 rm -f "$recdir/s8"
-owned() { ( . "$hooks/prose-lib.sh"; if _prose_record_dir_owned "$@"; then echo yes; else echo no; fi ); }
-eq "owner check passes with the explicit current uid" "$(owned "$recdir" "$(id -u)")" yes
-eq "owner check fails with a different explicit uid" "$(env -u BF_PROSE_UID bash -c '. "$0/prose-lib.sh"; if _prose_record_dir_owned "$1" 99999; then echo yes; else echo no; fi' "$hooks" "$recdir")" no
-eq "owner check with one argument still passes" "$(owned "$recdir")" yes
-eq "ensure with a different uid fails on an existing directory" "$( ( . "$hooks/prose-lib.sh"; if prose_record_dir_ensure "$recdir" 99999; then echo yes; else echo no; fi ) )" no
 hook prose-stop.sh "$(stop_in "$gone" s5 "one; two")" BF_PROSE_RECORD_ROOT=$recroot
 eq "stop no lint result output" "$out" ""; eq "stop no lint result exit" "$rc" 0
 eq "stop no lint result writes nothing" "$(test -f "$recdir/s5" && echo yes || echo no)" no

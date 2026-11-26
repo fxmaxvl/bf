@@ -66,38 +66,38 @@ prose_context() {
 
 # Record of the last reply, for the Stop and UserPromptSubmit pair. It lives in a per-user 0700 directory
 # because a shared /tmp can hold a directory that another user made first, and mkdir -m does not change
-# an existing one. BF_PROSE_RECORD_ROOT and BF_PROSE_UID are the test seam for the owner check.
+# an existing one. BF_PROSE_RECORD_ROOT and BF_PROSE_UID are the test seam for the owner check. A hook
+# with its own records passes its own name, so its directory is bf-<name>-<uid>.
 _prose_record_uid() { printf '%s' "${BF_PROSE_UID:-$(id -u)}"; }
 
-_prose_record_dir() { printf '%s/bf-prose-%s' "${BF_PROSE_RECORD_ROOT:-${TMPDIR:-/tmp}}" "$(_prose_record_uid)"; }
+# _prose_record_dir [name]: the name defaults to prose.
+_prose_record_dir() { printf '%s/bf-%s-%s' "${BF_PROSE_RECORD_ROOT:-${TMPDIR:-/tmp}}" "${1:-prose}" "$(_prose_record_uid)"; }
 
-# prose_record_path <session_id>: fails when nothing is left of the id after sanitizing.
+# prose_record_path <session_id> [name]: fails when nothing is left of the id after sanitizing.
 prose_record_path() {
   local sid
   sid=$(printf '%s' "$1" | tr -cd 'A-Za-z0-9_-')
   [ -n "$sid" ] || return 1
-  printf '%s/%s' "$(_prose_record_dir)" "$sid"
+  printf '%s/%s' "$(_prose_record_dir "${2:-prose}")" "$sid"
 }
 
 # Ls prints the mode in field 1 and the owner uid in field 3 on both BSD and GNU, where stat flags differ.
 # The directory must belong to the user and give no access to group or other, because mkdir -m leaves an
-# existing directory as it is. The optional uid is the owner to expect. It defaults to the user of the
-# prose hooks, and another hook that keeps its own records passes its own uid.
+# existing directory as it is.
 _prose_record_dir_owned() {
-  local dir=$1 uid=${2:-} mode owner
-  [ -n "$uid" ] || uid=$(_prose_record_uid)
+  local dir=$1 mode owner
   [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
   read -r mode _ owner _ < <(ls -nd "$dir")
-  [ "${mode:4:6}" = "------" ] && [ "$owner" = "$uid" ]
+  [ "${mode:4:6}" = "------" ] && [ "$owner" = "$(_prose_record_uid)" ]
 }
 
-# prose_record_dir_ensure <dir> [uid]: creates the directory when it is missing. Fails unless the result passes
-# the owner and mode check for the uid (default: the user of the prose hooks).
+# prose_record_dir_ensure <dir>: creates the directory when it is missing. Fails unless the result passes
+# the owner and mode check.
 prose_record_dir_ensure() {
-  local dir=$1 uid=${2:-}
+  local dir=$1
   [ ! -L "$dir" ] || return 1
   mkdir -p -m 700 "$dir" 2>/dev/null || return 1
-  _prose_record_dir_owned "$dir" "$uid"
+  _prose_record_dir_owned "$dir"
 }
 
 # prose_record_write <session_id> <line>: overwrites the record. It never appends, because autopilot can
