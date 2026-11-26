@@ -55,6 +55,7 @@ Read the surrounding code — the file, the module, and related components — b
 
 - Logic placed in the wrong layer or abstraction level (e.g., business logic leaking into UI or data layer)
 - New code that duplicates something that already exists elsewhere in the codebase
+- Hand-written code that a standard library, a declared dependency or an org library covers. Apply the review check in the `reuse` convention, resolved via the Convention Lookup in `plugin-main.md`
 - Inconsistency with the architectural patterns already in use — read the `architecture` convention, resolved via the Convention Lookup in `plugin-main.md`
 - Abstractions introduced prematurely for a single use case (YAGNI)
 - Missing abstractions where similar logic appears more than twice (DRY)

@@ -2,7 +2,7 @@
 name: review-impl
 description: Review implementation against spec and plan for completeness and quality. Produces a structured PASS/CONCERN report file.
 disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Bash(git *), Bash(bash *)
+allowed-tools: Read, Grep, Glob, Bash(git *), Bash(bash *), Bash(gh *)
 model: opus
 ---
 
@@ -57,6 +57,9 @@ Do **not** run the test suite — `verify` already ran it before this phase. If 
 - Naming is evergreen (no "new", "improved", "enhanced")
 - Code is simple and readable over clever
 - No orphaned or dead code
+
+### 5. Reuse
+- Resolve the `reuse` convention (via the lookup in `plugin-main.md`) and apply its section 6, Review check, to the changed files.
 
 ## Output
 

@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: micro-reuse-repo-helper
+description: "Reuse convention — a script written through /bf:micro sources the repo's existing slugify helper and does not define its own"
+tags: [reuse, micro]
+context:
+  scaffold_script: scaffold.sh

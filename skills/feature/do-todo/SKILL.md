@@ -22,6 +22,7 @@ Before starting the loop, read these once:
 - the project's custom conventions — run `bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/discover-conventions.sh"` and read each listed file that applies to the files the plan touches. A violation you skip here is one the gates and review-impl can flag as drift, and each one costs a fix-and-rescan cycle.
 - the `## Plan` and `## Quality Gates` blocks from `paths.plan` (Block Reading Pattern from `plugin-main.md`) — overview, dependency graph, step structure, and the test and lint commands. You will NOT re-read the plan inside the loop.
 - the `## Context` block from `paths.session_log` (Block Reading Pattern from `plugin-main.md`), if present and not `STATUS: NONE` — use the reuse candidates and local conventions it documents when implementing each todo item.
+- the short form in the `reuse` convention, before you write a utility the plan did not cover
 
 Repeat the following loop until no unchecked items remain — do not wait for user approval between iterations:
 
