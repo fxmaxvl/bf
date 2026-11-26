@@ -1,0 +1,8 @@
+{"type":"user","message":{"role":"user","content":"Please look at the failing build"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"The build fails in the lint step."}]}}
+{"type":"user","message":{"role":"user","content":"<command-name>/bf:research</command-name>\n<command-args>caching options</command-args>"}}
+{"type":"user","isMeta":true,"message":{"role":"user","content":[{"type":"text","text":"Base directory for this skill: /plugins/bf/skills/research"}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Skill","input":{"skill":"bf:feature"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"Launching skill"}]}}
+{"type":"user","message":{"role":"user","content":"<command-name>/clear</command-name>"}}
+{"type":"user","message":{"role":"user","content":"Fix the typo in the read
