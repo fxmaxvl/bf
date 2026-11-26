@@ -207,13 +207,12 @@ cases_catalog() {
   eq "reason: cut at an em dash" "$(cat_field r2 .reason)" "Use it when the user wants a plan."
   mk_skill r3 "Use when the user wants a plan; then more."
   eq "reason: cut at a semicolon" "$(cat_field r3 .reason)" "Use it when the user wants a plan."
-  mk_skill r4 "Use when the user wants a plan for e.g. the build tool and more words follow here to pass the cut limit"
+  mk_skill r4 "Use when the user wants a plan for e.g. the build tool, and more words follow here to pass the cut limit"
   eq "reason: a period inside e.g. is not a cut" "$(cat_field r4 '.reason | test("e[.]g[.]")')" "true"
   mk_skill r5 "Use when the user wants a quick walk through every part of a very large and old system today"
-  eq "reason: word cut stays within the limit" "$(cat_field r5 '.reason | length <= 81')" "true"
-  eq "reason: word cut ends on a whole word" "$(cat_field r5 .reason)" "Use it when the user wants a quick walk through every part of a very large."
+  eq "reason: a clause over the limit with no comma gives an empty reason" "$(cat_field r5 .reason)" ""
   mk_skill r6 "Use when you don't know where to look."
-  eq "reason: a contraction empties the reason" "$(cat_field r6 .reason)" ""
+  eq "reason: the catalog leaves the prose rules to the lint, so a contraction stays" "$(cat_field r6 .reason)" "Use it when you don't know where to look."
   mk_skill r7 "Use when the plugin's docs lag behind."
   eq "reason: a possessive is not a contraction" "$(cat_field r7 .reason)" "Use it when the plugin's docs lag behind."
   mk_skill r8 "Use when the user says 'research X', 'done'. Another sentence follows."
@@ -221,9 +220,11 @@ cases_catalog() {
   mk_skill r9 "Use when the user says 'research X', 'prior art', 'how do other projects solve things', 'compare libraries'."
   eq "reason: a cut inside a quoted phrase goes back to the last closed quote" "$(cat_field r9 .reason)" "Use it when the user says 'research X', 'prior art'."
   mk_skill r9b "Use when the user says 'research the X' or 'how do other projects solve problems of caching' now."
-  eq "reason: a cut inside a quoted phrase with no comma goes back before the phrase" "$(cat_field r9b .reason)" "Use it when the user says 'research the X'."
+  eq "reason: a cut inside a quoted phrase with no comma gives an empty reason" "$(cat_field r9b .reason)" ""
+  mk_skill r9c "Use when the user says 'research X', 'how do other projects solve problems, of caching' now."
+  eq "reason: a comma cut inside a quoted phrase gives an empty reason" "$(cat_field r9c .reason)" ""
   mk_skill r10 "Quick workflow (refine → research → plan → execute → verify → audit → review → finalize) — skips brainstorm."
-  eq "reason: a cut inside a parenthesis goes back before it" "$(cat_field r10 .reason)" "Quick workflow."
+  eq "reason: a parenthesis that the clause limit cuts gives an empty reason" "$(cat_field r10 .reason)" ""
   mk_skill r11 'Use when the user says "a long first quoted phrase that runs past the limit of the reason text".'
   eq "reason: nothing is left when the cut removes the only phrase" "$(cat_field r11 .reason)" ""
 
@@ -326,6 +327,7 @@ cases_tip() {
   local lint t
   ctx
   eq "tip with a reason" "$(unit 'suggest_tip "$1"' '{"skill":"research","reason":"Use it when the user says '"'"'research X'"'"'."}' | jq -r .systemMessage)" "Tip: /bf:research fits this. Use it when the user says 'research X'."
+  eq "tip drops a reason that the prose lint rejects" "$(unit 'suggest_tip "$1"' '{"skill":"quick","reason":"Use it when you don'"'"'t know."}' | jq -r .systemMessage)" "Tip: /bf:quick fits this."
   eq "tip with an empty reason" "$(unit 'suggest_tip "$1"' '{"skill":"quick","reason":""}' | jq -r .systemMessage)" "Tip: /bf:quick fits this."
   fixture_skills; stub 0 "$(answer 0.9 alpha 0.9)"
   run "$(input)"

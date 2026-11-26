@@ -87,45 +87,26 @@ def bfskill: .type == "assistant" and ((content) | type) == "array"
 ' 
 
 # The jq program of suggest_catalog. It turns one tab-separated row (name, description, suggest) into one
-# catalog entry. The reason is the first clause of the description, cut at a word, with no open quote or
-# open parenthesis at the cut. A contraction or a dash that the cut leaves in the clause empties the reason,
-# because the tip text must pass the prose rules. A contraction is a letter before the apostrophe, so the
-# opening quote of a trigger phrase such as 'research X' is not one.
+# catalog entry. The reason is the first clause of the description. A clause over the limit is cut at its
+# last comma, and a clause that has no such comma, or that the cut leaves with an open quote or parenthesis,
+# gives an empty reason, so the tip is the short form. suggest_tip checks the prose rules of the final text.
 read -r -d '' SUGGEST_CATALOG_JQ <<'JQ' || true
-def trim: sub("[ ,]+$"; "");
-def lastat($re): ([match($re; "g")] | last) as $m | if $m == null then null else $m.offset end;
-def unclosed_quote:
-  ([match("(^|[ (])(['\"])"; "g")] | last) as $o
-  | if $o == null then null
-    else ($o.captures[1].string) as $q
-      | (.[($o.offset + $o.length):]) as $rest
-      | if ($rest | test($q + "(?=[,. )]|$)")) then null else $o.offset end
-    end;
-def cut_quote: unclosed_quote as $i | if $i == null then . else (.[0:$i] | trim | sub(" (or|and)$"; "")) end;
-def cut_paren:
-  ((gsub("[^(]"; "") | length) > (gsub("[^)]"; "") | length)) as $open
-  | if $open then (lastat("\\(")) as $i | (.[0:$i] | trim) else . end;
-def settle: (cut_paren | cut_quote) as $n | if $n == . then . else ($n | settle) end;
-def has_phrase: test("(^|[ (])['\"]");
 def first_clause:
   ([match("—|;|\\. (?=[A-Z])")] | first) as $m | if $m == null then . else .[0:$m.offset] end;
-def drop_dangling:
-  if test(" (a|an|the|or|and|to|of|in|on|for|with|its|that|you|your|is|are|as|by|from|how|when|who|which)$")
-  then (sub(" [^ ]*$"; "") | drop_dangling) else . end;
-# A cut at a word prefers the last comma, then drops a function word that the cut leaves at the end.
-def word_cut($max):
-  if length > $max
-  then (.[0:$max]) as $h
-    | (if .[$max:($max + 1)] == " " then $h else ($h | sub(" [^ ]*$"; "")) end) as $w
-    | (if ($w | test("^.{" + ($commamin | tostring) + ",},")) then ($w | sub(",[^,]*$"; "")) else ($w | drop_dangling) end)
-  else . end;
+def opens: [match("(^|[ (])['\"]"; "g")] | length;
+def closes: [match("['\"](?=[,. )]|$)"; "g")] | length;
+def balanced:
+  opens == closes and ((gsub("[^(]"; "") | length) == (gsub("[^)]"; "") | length));
+def comma_cut($max):
+  if length <= $max then .
+  elif (.[0:$max] | test("^.{" + ($commamin | tostring) + ",},")) then (.[0:$max] | sub(",[^,]*$"; ""))
+  else "" end;
 def reason($max):
   (if startswith("Use when") then "Use it when" + .[8:] else . end)
-  | first_clause | trim | word_cut($max) | trim
-  | . as $pre | settle
-  | (if ($pre | has_phrase) and (has_phrase | not) and ($pre != .) then "" else . end)
+  | first_clause | sub("[ ,]+$"; "") | comma_cut($max)
+  | if balanced then . else "" end
   | sub("[. ,]+$"; "")
-  | if . == "" or test("—|;|[A-Za-z](n['’]t|['’](re|ve|ll|m|d))([^A-Za-z]|$)") then "" else . + "." end;
+  | if . == "" then "" else . + "." end;
 def phrases:
   [match("(^|[ (])(['\"])(.+?)\\2(?=[,. )]|$)"; "g") | .captures[2].string | ascii_downcase];
 split("\t")
@@ -242,9 +223,17 @@ suggest_decide() {
 }
 
 # suggest_tip <decision>: prints the hook output. The object holds only systemMessage, so the tip never
-# blocks the turn and never adds a model turn.
+# blocks the turn and never adds a model turn. The reason stays out of the text when the prose lint of
+# skills/plain rejects the text, so this script holds no copy of its rules.
 suggest_tip() {
-  printf '%s\n' "$1" | jq -c '{systemMessage: ("Tip: /bf:" + .skill + " fits this." + (if (.reason // "") != "" then " " + .reason else "" end))}'
+  local name reason text
+  name=$(printf '%s\n' "$1" | jq -r .skill)
+  reason=$(printf '%s\n' "$1" | jq -r '.reason // ""')
+  text="Tip: /bf:$name fits this."
+  if [ -n "$reason" ] && printf '%s %s' "$text" "$reason" | bash "$_prose_lint_script" - --mode chat --format json >/dev/null 2>&1; then
+    text="$text $reason"
+  fi
+  jq -cn --arg t "$text" '{systemMessage: $t}'
 }
 
 # suggest_record_file <session_id>: prints the path of the record of the session, or fails. The path, the
