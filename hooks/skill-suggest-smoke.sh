@@ -437,8 +437,12 @@ cases_real_skills() {
     n=$(basename "$(dirname "$f")")
     [ "$(printf '%s\n' "$cat" | jq -r --arg n "$n" 'select(.name == $n) | .name')" = "$n" ] || continue
     grep -qF -- "$prefix" "$f" || { echo "FAIL banner prefix missing in $f"; bad=$((bad+1)); }
+    # A banner line starts with ── and may sit in backticks. Each one must be ── bf:<name> or ── bf:<name> | <Phase>.
+    while IFS= read -r l; do
+      printf '%s\n' "$l" | grep -Eq -- "── bf:$n( \\| .+)? ─" || { echo "FAIL banner form in $f: $l"; bad=$((bad+1)); }
+    done < <(grep -F -- '── ' "$f" | grep -E -- '(^|`)── ' | grep -v -- '^|' || true)
   done
-  eq "every candidate SKILL.md holds the banner prefix that the hook reads" "$bad" 0
+  eq "every candidate SKILL.md holds the banner prefix that the hook reads, in every banner line" "$bad" 0
 
   bad=0
   while IFS= read -r r; do
