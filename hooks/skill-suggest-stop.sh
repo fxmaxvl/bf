@@ -121,24 +121,23 @@ JQ
 # frontmatter lines come from skill_frontmatter, the reader that skills/self-audit/scripts/audit-static.sh also uses.
 # It reads only skills/*/SKILL.md, never a nested phase skill. A skill with suggest: false is left out.
 suggest_catalog() {
-  local root=${1:-$SUGGEST_SKILLS_ROOT} f
-  for f in "$root"/*/SKILL.md; do
-    [ -f "$f" ] || continue
-    skill_frontmatter "$f" | awk '
-      function unquote(v,   q) {
-        q = substr(v, 1, 1)
-        if ((q == "\"" || q == "\047") && length(v) >= 2 && substr(v, length(v), 1) == q) {
-          v = substr(v, 2, length(v) - 2)
-          if (q == "\"") { gsub(/\\"/, "\"", v); gsub(/\\\\/, "\\", v) } else gsub(/\047\047/, "\047", v)
-        }
-        return v
+  local root=${1:-$SUGGEST_SKILLS_ROOT}
+  SKILL_FM_SEP=$'\f' skill_frontmatter "$root"/*/SKILL.md 2>/dev/null | awk '
+    function unquote(v,   q) {
+      q = substr(v, 1, 1)
+      if ((q == "\"" || q == "\047") && length(v) >= 2 && substr(v, length(v), 1) == q) {
+        v = substr(v, 2, length(v) - 2)
+        if (q == "\"") { gsub(/\\"/, "\"", v); gsub(/\\\\/, "\\", v) } else gsub(/\047\047/, "\047", v)
       }
-      match($0, /^name:[ \t]*/) { name = unquote(substr($0, RLENGTH + 1)) }
-      match($0, /^description:[ \t]*/) { desc = unquote(substr($0, RLENGTH + 1)) }
-      match($0, /^suggest:[ \t]*/) { sug = substr($0, RLENGTH + 1) }
-      END { gsub(/\t/, " ", desc); print name "\t" desc "\t" sug }
-    '
-  done 2>/dev/null | jq -Rc --argjson max "$SUGGEST_REASON_CHARS" --argjson commamin "$SUGGEST_COMMA_MIN" "$SUGGEST_CATALOG_JQ" 2>/dev/null
+      return v
+    }
+    function flush() { if (seen) { gsub(/\t/, " ", desc); print name "\t" desc "\t" sug } }
+    $0 == "\f" { flush(); seen = 1; name = ""; desc = ""; sug = ""; next }
+    match($0, /^name:[ \t]*/) { name = unquote(substr($0, RLENGTH + 1)) }
+    match($0, /^description:[ \t]*/) { desc = unquote(substr($0, RLENGTH + 1)) }
+    match($0, /^suggest:[ \t]*/) { sug = substr($0, RLENGTH + 1) }
+    END { flush() }
+  ' | jq -Rc --argjson max "$SUGGEST_REASON_CHARS" --argjson commamin "$SUGGEST_COMMA_MIN" "$SUGGEST_CATALOG_JQ" 2>/dev/null
 }
 
 # suggest_tail <chars>: prints the last chars characters of stdin. jq counts characters, so a multibyte
