@@ -25,6 +25,8 @@ SUGGEST_HELPS_BAR=0.6
 SUGGEST_PICK_BAR=0.8
 SUGGEST_MIN_PHRASES=2
 SUGGEST_LOG_WORDS=8
+SUGGEST_LOG_WORD_MIN=4
+SUGGEST_COMMA_MIN=50
 SUGGEST_LOG_MAX_BYTES=${BF_SUGGEST_LOG_MAX_BYTES:-5242880}
 SUGGEST_SKILLS_ROOT=${BF_SUGGEST_SKILLS_ROOT:-$hooks_dir/../skills}
 SUGGEST_TS_ASK=${TYPESAFE_ASK:-$hooks_dir/../skills/typesafe/scripts/typesafe-ask.sh}
@@ -113,7 +115,7 @@ def word_cut($max):
   if length > $max
   then (.[0:$max]) as $h
     | (if .[$max:($max + 1)] == " " then $h else ($h | sub(" [^ ]*$"; "")) end) as $w
-    | (if ($w | test("^.{50,},")) then ($w | sub(",[^,]*$"; "")) else ($w | drop_dangling) end)
+    | (if ($w | test("^.{" + ($commamin | tostring) + ",},")) then ($w | sub(",[^,]*$"; "")) else ($w | drop_dangling) end)
   else . end;
 def reason($max):
   (if startswith("Use when") then "Use it when" + .[8:] else . end)
@@ -155,7 +157,7 @@ suggest_catalog() {
       else if (match($0, /^suggest:[ \t]*/)) sug = substr($0, RLENGTH + 1)
     }
     END { flush() }
-  ' "$root"/*/SKILL.md 2>/dev/null | jq -Rc --argjson max "$SUGGEST_REASON_CHARS" "$SUGGEST_CATALOG_JQ" 2>/dev/null
+  ' "$root"/*/SKILL.md 2>/dev/null | jq -Rc --argjson max "$SUGGEST_REASON_CHARS" --argjson commamin "$SUGGEST_COMMA_MIN" "$SUGGEST_CATALOG_JQ" 2>/dev/null
 }
 
 # suggest_tail <chars>: prints the last chars characters of stdin. jq counts characters, so a multibyte
@@ -277,12 +279,12 @@ suggest_mark() {
 # which topics decided a tip without holding any sentence. It drops words under four letters, numbers and
 # common words. Ties go to the word that comes first.
 suggest_words() {
-  printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]' | LC_ALL=C tr -cs 'a-z0-9' '\n' | awk -v max="$SUGGEST_LOG_WORDS" '
+  printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]' | LC_ALL=C tr -cs 'a-z0-9' '\n' | awk -v max="$SUGGEST_LOG_WORDS" -v minlen="$SUGGEST_LOG_WORD_MIN" '
     BEGIN {
       n = split("that this with have from they will would there their what when which your been were then than them into also some more other about should could just like only over such these those each does here very must because", sw, " ")
       for (i = 1; i <= n; i++) stop[sw[i]] = 1
     }
-    length($0) >= 4 && $0 !~ /^[0-9]+$/ && !($0 in stop) { c[$0]++; if (!($0 in pos)) pos[$0] = ++np }
+    length($0) >= minlen && $0 !~ /^[0-9]+$/ && !($0 in stop) { c[$0]++; if (!($0 in pos)) pos[$0] = ++np }
     END {
       for (k = 1; k <= max; k++) {
         best = ""

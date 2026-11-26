@@ -131,7 +131,7 @@ The `description:` field must:
 
 - Be **third-person, action-trigger phrasing** — describe when the model should invoke the skill, not what it does internally.
 - Start with "Use when…" or list trigger phrases (e.g. "Review code against…").
-- Suit the skill-suggestion hook, which reads the description. Put each trigger phrase in single or double quotes, so the keyword check can match it. Keep the first sentence free of semicolons, em dashes and contractions, because the hook shows its first clause in a tip. A description that starts with "Use when" reads best there.
+- Suit the skill-suggestion hook, which reads the description. The hook shows the text before the first dash, semicolon or sentence end as the tip reason, so keep that text free of contractions. Put each trigger phrase in single or double quotes, so the keyword check can match it.
 - Match the style of existing descriptions:
   - `review`: "Review code against feature conventions and the complexity gate."
   - `autopilot`: "General autonomous wrapper — runs the core bf workflows (feature, quick, micro, review, design) without user input."
