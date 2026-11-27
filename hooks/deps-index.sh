@@ -40,6 +40,7 @@ MANIFEST_NAMES="package.json BUILD.bazel BUILD MODULE.bazel pom.xml build.gradle
 root=
 cache=
 work=
+index=
 
 is_manifest() {
   local pat
@@ -55,6 +56,7 @@ open_repo() {
   root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
   cache=$root/.bf/cache
   work=$cache/deps.work.$$
+  index=$work/index.json
   [ ! -L "$root/.bf" ] && [ ! -L "$cache" ] || return 1
   mkdir -p "$cache" 2>/dev/null && dir_guard_check "$cache" "$(id -u)" || return 1
   [ -e "$cache/.gitignore" ] || printf '*\n' > "$cache/.gitignore"
@@ -256,7 +258,7 @@ parse_entry() {
              | {name: .[0], version: (if (.[1] // "") == "" then null else .[1] end)}) | unique)}}'
 }
 
-# build_index: parses only the manifests whose content hash changed. It keeps its result in $work/index.json
+# build_index: parses only the manifests whose content hash changed. It keeps its result in $index
 # until the EXIT trap, so the caller can pass that file to read_index. read then prints the index this build
 # made, even when another build wins the mv.
 build_index() {
@@ -295,15 +297,15 @@ build_index() {
     ($old[0].manifests // {}) as $o
     | {schema: 1,
        manifests: (($cur[0] | to_entries | map(select($o[.key].hash == .value) | {key: .key, value: $o[.key]}))
-                   + $new | from_entries)}' > "$work/index.json" || return 1
-  cp "$work/index.json" "$tmp" && mv "$tmp" "$old" || { rm -f "$tmp"; return 1; }
+                   + $new | from_entries)}' > "$index" || return 1
+  cp "$index" "$tmp" && mv "$tmp" "$old" || { rm -f "$tmp"; return 1; }
 }
 
-# read_index <index> [path ...]: prints the entries in the index file of the manifests at the repo root and under each path. A relative
-# path starts at the cwd. Each path is resolved with cd and pwd -P, so "..", "." and symlinks work, and a file
-# path stands for its directory. The repo root selects the root manifests only. A path that is missing or
-# outside the repo is dropped. When every path is dropped nothing prints, so the caller falls back and does not
-# take the root entries for those of another tree.
+# read_index <index> [path ...]: prints from the index file the entries of the manifests at the repo root and
+# under each path. A relative path starts at the cwd. Each path is resolved with cd and pwd -P, so "..", "."
+# and symlinks work, and a file path stands for its directory. The repo root selects the root manifests only.
+# A path that is missing or outside the repo is dropped. When every path is dropped nothing prints, so the
+# caller falls back and does not take the root entries for those of another tree.
 read_index() {
   local index=$1 a d rootp pre=[]
   shift
@@ -361,7 +363,7 @@ main() {
       ;;
     read)
       open_repo || return 0
-      build_index && read_index "$work/index.json" "$@"
+      build_index && read_index "$index" "$@"
       ;;
   esac
   return 0
