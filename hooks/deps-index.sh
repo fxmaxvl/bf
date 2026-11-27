@@ -28,8 +28,8 @@ set -uo pipefail
 # against the cwd. Only sweep_dead_work_dirs turns it on.
 set -f
 # _here is absolute, so start_background can name this script after it changes directory. It uses the builtins
-# cd and pwd, not dirname, because the no-jq smoke case runs with an empty PATH. A hook that cannot find its
-# guard ends quietly.
+# cd and pwd, not dirname, so it still works when PATH holds no dirname. A hook that cannot find its guard ends
+# quietly.
 _dir=${BASH_SOURCE[0]%/*}
 [ "$_dir" != "${BASH_SOURCE[0]}" ] || _dir=.
 _here=$(cd "$_dir" 2>/dev/null && pwd) || exit 0
@@ -39,6 +39,7 @@ MANIFEST_NAMES="package.json BUILD.bazel BUILD MODULE.bazel pom.xml build.gradle
 
 root=
 cache=
+work=
 
 is_manifest() {
   local pat
@@ -53,6 +54,7 @@ is_manifest() {
 open_repo() {
   root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
   cache=$root/.bf/cache
+  work=$cache/deps.work.$$
   [ ! -L "$root/.bf" ] && [ ! -L "$cache" ] || return 1
   mkdir -p "$cache" 2>/dev/null && dir_guard_check "$cache" "$(id -u)" || return 1
   [ -e "$cache/.gitignore" ] || printf '*\n' > "$cache/.gitignore"
@@ -70,7 +72,7 @@ sweep_dead_work_dirs() {
 }
 
 cleanup() {
-  rm -rf "$cache/deps.work.$$"
+  rm -rf "$work"
   rm -f "$cache/deps.json.tmp.$$"
 }
 
@@ -226,7 +228,7 @@ EOF
 
 # parse_manifest <file>: prints one "name<TAB>version" line per dependency. It returns non-zero on failure.
 # The case arms must cover every name in MANIFEST_NAMES. A name without an arm fails here, so the index shows
-# error true for it, and names_cases in the smoke test checks that no listed name hits the default arm.
+# error true for it, and names_parse_cases in the smoke test checks that no listed name hits the default arm.
 parse_manifest() {
   local f=$1
   case ${f##*/} in
@@ -254,10 +256,11 @@ parse_entry() {
              | {name: .[0], version: (if (.[1] // "") == "" then null else .[1] end)}) | unique)}}'
 }
 
-# build_index: parses only the manifests whose content hash changed. It keeps its result in
-# $work/index.json, so read prints the index this build made even when another build wins the mv.
+# build_index: parses only the manifests whose content hash changed. It keeps its result in $work/index.json
+# until the EXIT trap, so the caller can pass that file to read_index. read then prints the index this build
+# made, even when another build wins the mv.
 build_index() {
-  local work=$cache/deps.work.$$ old=$cache/deps.json p h tmp
+  local old=$cache/deps.json p h tmp
   local -a paths=()
   sweep_dead_work_dirs
   mkdir -p "$work" || return 1
@@ -296,13 +299,14 @@ build_index() {
   cp "$work/index.json" "$tmp" && mv "$tmp" "$old" || { rm -f "$tmp"; return 1; }
 }
 
-# read_index [path ...]: prints the entries of the manifests at the repo root and under each path. A relative
+# read_index <index> [path ...]: prints the entries in the index file of the manifests at the repo root and under each path. A relative
 # path starts at the cwd. Each path is resolved with cd and pwd -P, so "..", "." and symlinks work, and a file
 # path stands for its directory. The repo root selects the root manifests only. A path that is missing or
 # outside the repo is dropped. When every path is dropped nothing prints, so the caller falls back and does not
 # take the root entries for those of another tree.
 read_index() {
-  local a d rootp pre=[]
+  local index=$1 a d rootp pre=[]
+  shift
   local -a prefixes=()
   rootp=$(cd "$root" && pwd -P) || return 1
   for a in "$@"; do
@@ -321,7 +325,7 @@ read_index() {
     [.manifests | to_entries[]
      | select(($pre | length) == 0 or (.key | contains("/") | not)
               or (.key as $k | $pre | any(.[]; . as $p | $k | startswith($p + "/"))))
-     | .key as $m | .value.deps[] | {name, version, manifest: $m}]' "$cache/deps.work.$$/index.json"
+     | .key as $m | .value.deps[] | {name, version, manifest: $m}]' "$index"
 }
 
 # start_background: reads the hook input, enters its cwd and starts build detached. All three fds must be
@@ -357,7 +361,7 @@ main() {
       ;;
     read)
       open_repo || return 0
-      build_index && read_index "$@"
+      build_index && read_index "$work/index.json" "$@"
       ;;
   esac
   return 0
