@@ -6,9 +6,10 @@
 # Usage: deps-index.sh build [--background]   bring the index up to date. --background reads the hook
 #                                             input JSON on stdin, takes cwd from it and returns at once.
 #        deps-index.sh read [path ...]        build, then print a JSON array of {name, version, manifest}.
-#                                             With paths, print only the manifests at the repo root and
-#                                             under those paths. A relative path starts at the cwd. "." at
-#                                             the repo root, or the root path, prints only the root manifests.
+#                                             With paths, print only the manifests at the repo root, in the
+#                                             dirs above each path and under each path. A relative path
+#                                             starts at the cwd. "." at the repo root, or the root path,
+#                                             prints only the root manifests.
 #        deps-index.sh names                  print the manifest file names the index covers.
 #        deps-index.sh parse-files <type> <file ...>   internal. build runs it through xargs on a batch.
 # Env:   BF_DEPS_HOOK=off turns build and read off. names still prints. BF_DEPS_TRACE=1 prints
@@ -126,7 +127,6 @@ function coord(s, free,   c) {
 function kvdep(line,   k, v, ver, s) {
   if (line !~ /^[ \t]*[A-Za-z0-9_."-]+[ \t]*=/) return
   k = line; sub(/[ \t]*=.*/, "", k); gsub(/^[ \t]+|"/, "", k)
-  if (k == "python") return
   v = line; sub(/^[^=]*=[ \t]*/, "", v); ver = ""
   if (v ~ /^"/) { ver = v; sub(/^"/, "", ver); sub(/".*/, "", ver) }
   else if (match(v, /(^|[^-A-Za-z_])version[ \t]*=[ \t]*"[^"]*"/)) {
@@ -167,7 +167,10 @@ sec == "project" || sec == "project.optional-dependencies" || sec == "dependency
   if (line ~ /\]/) inlist = 0
   next
 }
-sec ~ /^tool\.poetry\.(dev-)?dependencies$|^tool\.poetry\.group\.[^.]+\.dependencies$/ { kvdep($0) }
+# Poetry declares the interpreter as a dependency (python = "^3.11"). It is not a library, so it is skipped.
+sec ~ /^tool\.poetry\.(dev-)?dependencies$|^tool\.poetry\.group\.[^.]+\.dependencies$/ {
+  if ($0 !~ /^[ \t]*"?python"?[ \t]*=/) kvdep($0)
+}
 EOF
 
 read -r -d '' AWK_REQUIREMENTS <<'EOF'
@@ -218,12 +221,16 @@ inb {
 EOF
 
 read -r -d '' AWK_POM <<'EOF'
-FNR == 1 { indep = 0; inex = 0; newfile() }
+FNR == 1 { indep = 0; inex = 0; skip = 0; newfile() }
 function tag(line, n,   s) {
   if (!match(line, "<" n ">[^<]*</" n ">")) return ""
   s = substr(line, RSTART, RLENGTH); sub(/^<[^>]*>/, "", s); sub(/<.*/, "", s); return s
 }
-/<dependency>/ { indep = 1; g = ""; a = ""; v = ""; inex = 0 }
+# A <dependencyManagement> entry only pins a version, and a <plugin> dependency is on the plugin classpath. Neither
+# is a dependency of the module, so skip counts the open blocks of both kinds.
+/<dependencyManagement>/ { skip++ }
+/<plugin>/ { skip++ }
+/<dependency>/ && !skip { indep = 1; g = ""; a = ""; v = ""; inex = 0 }
 indep && /<\/exclusions>/ { inex = 0; next }
 indep && /<exclusions>/ { inex = 1 }
 indep && !inex {
@@ -232,6 +239,8 @@ indep && !inex {
   x = tag($0, "version"); if (x != "") v = x
 }
 /<\/dependency>/ { if (indep && g != "" && a != "") print g ":" a "\t" v; indep = 0 }
+/<\/dependencyManagement>/ { if (skip > 0) skip-- }
+/<\/plugin>/ { if (skip > 0) skip-- }
 EOF
 
 read -r -d '' AWK_GRADLE <<'EOF'
@@ -300,23 +309,15 @@ parse_type() {
   done < "$list"
 }
 
-# build_index: parses only the manifests whose content hash changed. It keeps its result in $index
-# until the EXIT trap, so the caller can pass that file to read_index. read then prints the index this build
-# made, even when another build wins the mv.
-build_index() {
-  local old=$cache/deps.json p h tmp
+# list_manifests: writes $work/cur.json, the content hash of every tracked manifest, keyed by path.
+list_manifests() {
+  local p
   local -a paths=()
-  sweep_dead_work_dirs
-  # A killed build with the same pid can leave this dir behind, and its list files would be parsed again.
-  rm -rf "$work"
-  mkdir -p "$work" || return 1
-  trap cleanup EXIT
   while IFS= read -r -d '' p; do
     # The work files (paths, hashes, cur.tsv) hold one path per line, so a path with a newline would split.
     case $p in *$'\n'*) continue ;; esac
     is_manifest "${p##*/}" && [ -f "$root/$p" ] && paths+=("$p")
   done < <(git -C "$root" ls-files -z)
-
   : > "$work/cur.tsv"
   if [ ${#paths[@]} -gt 0 ]; then
     printf '%s\n' "${paths[@]}" > "$work/paths"
@@ -324,17 +325,25 @@ build_index() {
     paste "$work/paths" "$work/hashes" > "$work/cur.tsv"
   fi
   jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t") | {key: .[0], value: .[1]}) | from_entries' \
-    "$work/cur.tsv" > "$work/cur.json" || return 1
-  if jq -e '.schema == 1' "$old" >/dev/null 2>&1; then cp "$old" "$work/old.json"; else echo '{}' > "$work/old.json"; fi
+    "$work/cur.tsv" > "$work/cur.json"
+}
 
+# changed_manifests <old>: copies the old index to $work/old.json, or an empty one when it is missing or has
+# another schema. Then it writes $work/changed.tsv, a "path<TAB>hash" line per manifest whose hash changed.
+changed_manifests() {
+  if jq -e '.schema == 1' "$1" >/dev/null 2>&1; then cp "$1" "$work/old.json"; else echo '{}' > "$work/old.json"; fi
   jq -n -r --slurpfile old "$work/old.json" --slurpfile cur "$work/cur.json" '
     ($old[0].manifests // {}) as $o
-    | $cur[0] | to_entries[] | select(($o[.key].hash // "") != .value) | "\(.key)\t\(.value)"' > "$work/changed.tsv" || return 1
-  # Rows: a manifest line ("\003path<TAB>hash<TAB>error") per changed manifest, then the parser output of each
-  # type. A marker line (\001) starts the dependencies of a file, and an error line (\002) marks a file the
-  # parser could not read. Each kind starts with a control character, because a dependency line can start with
-  # any name, "M" included.
-  local t types=
+    | $cur[0] | to_entries[] | select(($o[.key].hash // "") != .value) | "\(.key)\t\(.value)"' > "$work/changed.tsv"
+}
+
+# parse_changed: parses the manifests in $work/changed.tsv and writes their entries to $work/new.json.
+# Rows: a manifest line ("\003path<TAB>hash<TAB>error") per changed manifest, then the parser output of each
+# type. A marker line (\001) starts the dependencies of a file, and an error line (\002) marks a file the parser
+# could not read. Each kind starts with a control character, because a dependency line can start with any
+# name, "M" included.
+parse_changed() {
+  local p h t types=
   while IFS=$'\t' read -r p h; do
     [ -n "${BF_DEPS_TRACE:-}" ] && echo "parse $p" >&2
     if manifest_type "${p##*/}"; then
@@ -358,20 +367,40 @@ build_index() {
       elif .cur == null then .
       else ($l | split("\t")) as $r
         | .m[.cur].deps += [{name: $r[0], version: (if ($r[1] // "") == "" then null else $r[1] end)}] end)
-    | .m | map_values(.deps |= unique)' "$work/rows.tsv" > "$work/new.json" || return 1
+    | .m | map_values(.deps |= unique)' "$work/rows.tsv" > "$work/new.json"
+}
 
-  [ -n "${BF_DEPS_TEST_DELAY:-}" ] && sleep "$BF_DEPS_TEST_DELAY"
-  tmp=$cache/deps.json.tmp.$$
+# write_index <old>: merges the unchanged old entries with the new ones into $index and moves a copy over the
+# old index. The mv is atomic, so a reader never sees a partial file.
+write_index() {
+  local tmp=$cache/deps.json.tmp.$$
   jq -n -c --slurpfile old "$work/old.json" --slurpfile cur "$work/cur.json" --slurpfile new "$work/new.json" '
     ($old[0].manifests // {}) as $o
     | {schema: 1,
        manifests: (($cur[0] | to_entries | map(select($o[.key].hash == .value) | {key: .key, value: $o[.key]}))
                    + ($new[0] | to_entries) | from_entries)}' > "$index" || return 1
-  cp "$index" "$tmp" && mv "$tmp" "$old" || { rm -f "$tmp"; return 1; }
+  cp "$index" "$tmp" && mv "$tmp" "$1" || { rm -f "$tmp"; return 1; }
 }
 
-# read_index <index> [path ...]: prints from the index file the entries of the manifests at the repo root and
-# under each path. A relative path starts at the cwd. Each path is resolved with cd and pwd -P, so "..", "."
+# build_index: parses only the manifests whose content hash changed. It keeps its result in $index until the
+# EXIT trap, so the caller can pass that file to read_index. read then prints the index this build made, even
+# when another build wins the mv.
+build_index() {
+  local old=$cache/deps.json
+  sweep_dead_work_dirs
+  # A killed build with the same pid can leave this dir behind, and its list files would be parsed again.
+  rm -rf "$work"
+  mkdir -p "$work" || return 1
+  trap cleanup EXIT
+  list_manifests || return 1
+  changed_manifests "$old" || return 1
+  parse_changed || return 1
+  [ -n "${BF_DEPS_TEST_DELAY:-}" ] && sleep "$BF_DEPS_TEST_DELAY"
+  write_index "$old"
+}
+
+# read_index <index> [path ...]: prints from the index file the entries of the manifests at the repo root, in
+# the dirs above each path and under each path. So a source dir or file inside a package selects that package. A relative path starts at the cwd. Each path is resolved with cd and pwd -P, so "..", "."
 # and symlinks work, and a file path stands for its directory. The repo root selects the root manifests only.
 # A path that is missing or outside the repo is dropped. When every path is dropped nothing prints, so the
 # caller falls back and does not take the root entries for those of another tree.
@@ -394,8 +423,11 @@ read_index() {
   fi
   jq -c --argjson pre "$pre" '
     [.manifests | to_entries[]
-     | select(($pre | length) == 0 or (.key | contains("/") | not)
-              or (.key as $k | $pre | any(.[]; . as $p | $k | startswith($p + "/"))))
+     # A manifest counts when it sits at the root, in a dir above a path, or under a path. Index keys never
+     # start with "./", because rel in parse_changed strips it, so the prefix "." selects only the root.
+     | (.key | split("/") | .[:-1] | join("/")) as $d
+     | select(($pre | length) == 0 or $d == ""
+              or (.key as $k | $pre | any(.[]; . as $p | ($k | startswith($p + "/")) or ($p | startswith($d + "/")))))
      | .key as $m | .value.deps[] | {name, version, manifest: $m}]' "$index"
 }
 

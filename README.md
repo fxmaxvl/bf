@@ -318,7 +318,7 @@ The hook writes into the repo of the session. It creates `.bf/cache/` and puts a
 
 ## Skill-suggestion hook
 
-An eighth hook, Stop, runs `hooks/skill-suggest-stop.sh`. After a reply, it shows one line that names the bf skill that fits your likely next step. An example is `Tip: /bf:research fits this. Use it when the user says 'research X', 'prior art'.` The line comes from the skill description. The hook sends no message to the model, so it costs no Claude tokens and never adds a Claude turn. It exits 0 on every path.
+The Stop hook `hooks/skill-suggest-stop.sh` runs after a reply. It shows one line that names the bf skill that fits your likely next step. An example is `Tip: /bf:research fits this. Use it when the user says 'research X', 'prior art'.` The line comes from the skill description. The hook sends no message to the model, so it costs no Claude tokens and never adds a Claude turn. It exits 0 on every path.
 
 The hook stays silent when:
 

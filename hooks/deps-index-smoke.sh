@@ -31,20 +31,20 @@ guard_cases() {
   plain=$tmp/plain
   mkdir -p "$plain"
   out=$(cd "$plain" && bash "$script" build 2>&1); rc=$?
-  check "not a git repo: exit and output" "$rc:$out" "0:"
-  check "not a git repo: no cache" "$([ -e "$plain/.bf/cache" ] && echo yes || echo no)" no
+  eq "not a git repo: exit and output" "$rc:$out" "0:"
+  eq "not a git repo: no cache" "$([ -e "$plain/.bf/cache" ] && echo yes || echo no)" no
 
   ctx_init
   put package.json <<'EOF'
 {"dependencies":{"a":"1"}}
 EOF
   out=$(cd "$repo" && env PATH=/nonexistent /bin/bash "$script" build 2>&1); rc=$?
-  check "no jq on PATH: exit and output" "$rc:$out" "0:"
-  check "no jq on PATH: no index" "$([ -e "$repo/.bf/cache/deps.json" ] && echo yes || echo no)" no
+  eq "no jq on PATH: exit and output" "$rc:$out" "0:"
+  eq "no jq on PATH: no index" "$([ -e "$repo/.bf/cache/deps.json" ] && echo yes || echo no)" no
 
   out=$(cd "$repo" && BF_DEPS_HOOK=off bash "$script" build 2>&1); rc=$?
-  check "BF_DEPS_HOOK=off: exit and output" "$rc:$out" "0:"
-  check "BF_DEPS_HOOK=off: no cache dir" "$([ -e "$repo/.bf/cache" ] && echo yes || echo no)" no
+  eq "BF_DEPS_HOOK=off: exit and output" "$rc:$out" "0:"
+  eq "BF_DEPS_HOOK=off: no cache dir" "$([ -e "$repo/.bf/cache" ] && echo yes || echo no)" no
 }
 
 unit_cases() {
@@ -54,14 +54,14 @@ unit_cases() {
  "peerDependencies":{"c":">=3"},"optionalDependencies":{"d":"4.0.0"}}
 EOF
   idx build
-  check "package.json: four dependency tables" "$(deps_of package.json)" "false a=^1.0.0,b=~2.0,c=>=3,d=4.0.0"
+  eq "package.json: four dependency tables" "$(deps_of package.json)" "false a=^1.0.0,b=~2.0,c=>=3,d=4.0.0"
 
   ctx_init
   put package.json <<'EOF'
 { not json
 EOF
   idx build
-  check "package.json: invalid JSON gives error and no deps" "$(deps_of package.json)" "true "
+  eq "package.json: invalid JSON gives error and no deps" "$(deps_of package.json)" "true "
 
   ctx_init
   put Cargo.toml <<'EOF'
@@ -87,7 +87,7 @@ anyhow = "1"
 version = "1.5"
 EOF
   idx build
-  check "Cargo.toml: dependency tables and inline tables" "$(deps_of Cargo.toml)" \
+  eq "Cargo.toml: dependency tables and inline tables" "$(deps_of Cargo.toml)" \
     "false anyhow=1,cc=1.0,local=null,rand=0.8,regex=1.5,serde=1.0,tokio=1.2"
 
   ctx_init
@@ -110,7 +110,7 @@ flask = "^1.2"
 httpx = { version = "^0.27", extras = ["http2"] }
 EOF
   idx build
-  check "pyproject.toml: PEP 621 and poetry" "$(deps_of pyproject.toml)" \
+  eq "pyproject.toml: PEP 621 and poetry" "$(deps_of pyproject.toml)" \
     "false flask=^1.2,httpx=^0.27,pytest=>=8,pyyaml=null,requests=>=2.31,uvicorn===0.30"
 
   ctx_init
@@ -128,9 +128,9 @@ EOF
 pytest>=8
 EOF
   idx build
-  check "requirements.txt: specifiers, comments, options, markers" "$(deps_of requirements.txt)" \
+  eq "requirements.txt: specifiers, comments, options, markers" "$(deps_of requirements.txt)" \
     "false flask=>=2.0,numpy=null,pandas===2.0,requests===2.31.0"
-  check "requirements-dev.txt is a manifest" "$(deps_of requirements-dev.txt)" "false pytest=>=8"
+  eq "requirements-dev.txt is a manifest" "$(deps_of requirements-dev.txt)" "false pytest=>=8"
 
   ctx_init
   put go.mod <<'EOF'
@@ -148,7 +148,7 @@ require github.com/e/f v2.0.0
 replace github.com/a/b => ../b
 EOF
   idx build
-  check "go.mod: block, single line and indirect" "$(deps_of go.mod)" \
+  eq "go.mod: block, single line and indirect" "$(deps_of go.mod)" \
     "false github.com/a/b=v1.2.3,github.com/c/d=v0.1.0,github.com/e/f=v2.0.0"
 
   ctx_init
@@ -169,9 +169,9 @@ EOF
 py_library(name = "p", deps = ["@pip//numpy", "//x:y"])
 EOF
   idx build
-  check "BUILD.bazel: external labels, deduplicated" "$(deps_of BUILD.bazel)" \
+  eq "BUILD.bazel: external labels, deduplicated" "$(deps_of BUILD.bazel)" \
     "false @maven//:com_google_guava_guava=null,@maven//:org_slf4j_slf4j_api=null,@repo=null"
-  check "BUILD: single-line deps" "$(deps_of sub/BUILD)" "false @pip//numpy=null"
+  eq "BUILD: single-line deps" "$(deps_of sub/BUILD)" "false @pip//numpy=null"
 
   ctx_init
   put MODULE.bazel <<'EOF'
@@ -188,7 +188,7 @@ maven.install(artifacts = [
 ])
 EOF
   idx build
-  check "MODULE.bazel: bazel_dep in any order and maven artifacts" "$(deps_of MODULE.bazel)" \
+  eq "MODULE.bazel: bazel_dep in any order and maven artifacts" "$(deps_of MODULE.bazel)" \
     "false abseil-cpp=1.2,com.google.guava:guava=32.1.2-jre,org.slf4j:slf4j-api=2.0.9,rules_java=7.1.0"
 
   ctx_init
@@ -213,7 +213,7 @@ EOF
 </project>
 EOF
   idx build
-  check "pom.xml: coordinates, property version, exclusions ignored" "$(deps_of pom.xml)" \
+  eq "pom.xml: coordinates, property version, exclusions ignored" "$(deps_of pom.xml)" \
     'false com.fasterxml:jackson-databind=2.15.0,org.junit:junit=${junit.version},org.managed:m=null'
 
   ctx_init
@@ -232,9 +232,9 @@ dependencies {
 }
 EOF
   idx build
-  check "build.gradle: configurations with and without parens" "$(deps_of build.gradle)" \
+  eq "build.gradle: configurations with and without parens" "$(deps_of build.gradle)" \
     "false com.google.guava:guava=32.1.2-jre,junit:junit=4.13,org.projectlombok:lombok=null,org.slf4j:slf4j-api=2.0.9"
-  check "build.gradle.kts: runtimeOnly" "$(deps_of sub/build.gradle.kts)" "false com.h2database:h2=2.2.224"
+  eq "build.gradle.kts: runtimeOnly" "$(deps_of sub/build.gradle.kts)" "false com.h2database:h2=2.2.224"
 }
 
 integration_cases() {
@@ -246,16 +246,16 @@ integration_cases() {
 EOF
   idx build
   t=$(BF_DEPS_TRACE=1 idx build 2>&1)
-  check "incremental: unchanged manifest is not parsed again" "$t" ""
+  eq "incremental: unchanged manifest is not parsed again" "$t" ""
 
   printf '{"dependencies":{"a":"2"}}\n' > "$repo/package.json"
   t=$(BF_DEPS_TRACE=1 idx build 2>&1)
-  check "incremental: changed manifest is parsed again" "$t" "parse package.json"
-  check "incremental: changed manifest has the new version" "$(deps_of package.json)" "false a=2"
+  eq "incremental: changed manifest is parsed again" "$t" "parse package.json"
+  eq "incremental: changed manifest has the new version" "$(deps_of package.json)" "false a=2"
 
   git -C "$repo" rm -q -f package.json
   idx build
-  check "incremental: removed manifest is dropped" "$(deps_of package.json)" missing
+  eq "incremental: removed manifest is dropped" "$(deps_of package.json)" missing
 
   ctx_init
   put package.json <<'EOF'
@@ -267,13 +267,13 @@ EOF
   idx build
   rm "$repo/sub/package.json"
   idx build; rc=$?
-  check "file deleted in the work tree: build exits 0" "$rc" 0
-  check "file deleted in the work tree: entry dropped" "$(deps_of sub/package.json)" missing
-  check "file deleted in the work tree: other entry kept" "$(deps_of package.json)" "false a=1"
-  check "index parses with jq" "$(jq -e '.schema == 1' "$repo/.bf/cache/deps.json" >/dev/null 2>&1 && echo yes)" yes
-  check "no temp file remains" "$(ls "$repo/.bf/cache" | grep -c 'deps.json.tmp')" 0
-  check "cache .gitignore holds *" "$(cat "$repo/.bf/cache/.gitignore")" '*'
-  check "no work dir remains after a build" "$(ls -A "$repo/.bf/cache" | grep -c 'deps[.]work')" 0
+  eq "file deleted in the work tree: build exits 0" "$rc" 0
+  eq "file deleted in the work tree: entry dropped" "$(deps_of sub/package.json)" missing
+  eq "file deleted in the work tree: other entry kept" "$(deps_of package.json)" "false a=1"
+  eq "index parses with jq" "$(jq -e '.schema == 1' "$repo/.bf/cache/deps.json" >/dev/null 2>&1 && echo yes)" yes
+  eq "no temp file remains" "$(ls "$repo/.bf/cache" | grep -c 'deps.json.tmp')" 0
+  eq "cache .gitignore holds *" "$(cat "$repo/.bf/cache/.gitignore")" '*'
+  eq "no work dir remains after a build" "$(ls -A "$repo/.bf/cache" | grep -c 'deps[.]work')" 0
 
   # A killed build leaves its work dir. The next build removes it.
   ctx_init
@@ -282,8 +282,8 @@ EOF
 EOF
   mkdir -p "$repo/.bf/cache/deps.work.99999999"
   idx build
-  check "dead build: its work dir is swept" "$([ -e "$repo/.bf/cache/deps.work.99999999" ] && echo yes || echo no)" no
-  check "dead build: the index is built" "$(deps_of package.json)" "false a=1"
+  eq "dead build: its work dir is swept" "$([ -e "$repo/.bf/cache/deps.work.99999999" ] && echo yes || echo no)" no
+  eq "dead build: the index is built" "$(deps_of package.json)" "false a=1"
 
   # Builds at once: each parses in its own work dir and the index stays whole.
   local pa i
@@ -293,14 +293,14 @@ EOF
 EOF
   (cd "$repo" && BF_DEPS_TEST_DELAY=2 exec bash "$script" build) & pa=$!
   out=$(idx read)
-  check "read during a slow build prints its own result" "$out" '[{"name":"a","version":"1","manifest":"package.json"}]'
+  eq "read during a slow build prints its own result" "$out" '[{"name":"a","version":"1","manifest":"package.json"}]'
   wait "$pa"
   for i in 1 2 3 4 5 6 7 8; do
     (cd "$repo" && bash "$script" build) &
   done
   wait
-  check "8 builds at once: index is valid" "$(deps_of package.json)" "false a=1"
-  check "8 builds at once: nothing left over" "$(ls -A "$repo/.bf/cache" | grep -c 'deps[.]\(work\|json[.]tmp\)')" 0
+  eq "8 builds at once: index is valid" "$(deps_of package.json)" "false a=1"
+  eq "8 builds at once: nothing left over" "$(ls -A "$repo/.bf/cache" | grep -c 'deps[.]\(work\|json[.]tmp\)')" 0
 
   ctx_init
   mkdir -p -m 755 "$repo/.bf/cache"
@@ -308,7 +308,7 @@ EOF
 {"dependencies":{"a":"1"}}
 EOF
   idx build
-  check "existing cache dir with mode 755 works" "$(deps_of package.json)" "false a=1"
+  eq "existing cache dir with mode 755 works" "$(deps_of package.json)" "false a=1"
 }
 
 read_cases() {
@@ -319,11 +319,11 @@ read_cases() {
 {"dependencies":{"a":"1"}}
 EOF
   out=$(idx read)
-  check "read on a fresh repo builds and prints entries" "$out" '[{"name":"a","version":"1","manifest":"package.json"}]'
+  eq "read on a fresh repo builds and prints entries" "$out" '[{"name":"a","version":"1","manifest":"package.json"}]'
 
   printf '{"dependencies":{"a":"2"}}\n' > "$repo/package.json"
   out=$(idx read)
-  check "read after a manifest edit prints the new version" "$out" '[{"name":"a","version":"2","manifest":"package.json"}]'
+  eq "read after a manifest edit prints the new version" "$out" '[{"name":"a","version":"2","manifest":"package.json"}]'
 
   ctx_init
   put package.json <<'EOF'
@@ -342,46 +342,52 @@ EOF
 {"dependencies":{"web":"1"}}
 EOF
   out=$(idx read | jq -r 'map(.name) | sort | join(",")')
-  check "read without a prefix prints every manifest" "$out" "api,apiary,deep,root,web"
+  eq "read without a prefix prints every manifest" "$out" "api,apiary,deep,root,web"
   out=$(idx read services/api | jq -r 'map(.name) | sort | join(",")')
-  check "read with a prefix: root and that tree only" "$out" "api,deep,root"
+  eq "read with a prefix: root and that tree only" "$out" "api,deep,root"
   out=$(idx read services/api/ | jq -r 'map(.name) | sort | join(",")')
-  check "read with a trailing slash" "$out" "api,deep,root"
+  eq "read with a trailing slash" "$out" "api,deep,root"
   out=$(idx read "$repo/services/api" | jq -r 'map(.name) | sort | join(",")')
-  check "read with an absolute prefix" "$out" "api,deep,root"
+  eq "read with an absolute prefix" "$out" "api,deep,root"
   out=$(idx read /somewhere/else/repo)
-  check "read with a path outside the repo prints nothing" "$out" ""
+  eq "read with a path outside the repo prints nothing" "$out" ""
   out=$(idx read /somewhere/else/repo services/web | jq -r 'map(.name) | sort | join(",")')
-  check "read drops the outside path and keeps the other" "$out" "root,web"
+  eq "read drops the outside path and keeps the other" "$out" "root,web"
   out=$(idx read ./services/api | jq -r 'map(.name) | sort | join(",")')
-  check "read with a ./ prefix" "$out" "api,deep,root"
+  eq "read with a ./ prefix" "$out" "api,deep,root"
   out=$(idx read services/api services/web | jq -r 'map(.name) | sort | join(",")')
-  check "read with two prefixes" "$out" "api,deep,root,web"
+  eq "read with two prefixes" "$out" "api,deep,root,web"
   out=$(idx read . | jq -r 'map(.name) | sort | join(",")')
-  check "read . from the root prints the root manifests only" "$out" "root"
+  eq "read . from the root prints the root manifests only" "$out" "root"
   out=$(idx read "$repo" | jq -r 'map(.name) | sort | join(",")')
-  check "read of the repo root path prints the root manifests only" "$out" "root"
+  eq "read of the repo root path prints the root manifests only" "$out" "root"
   out=$(cd "$repo/services" && bash "$script" read api | jq -r 'map(.name) | sort | join(",")')
-  check "read with a relative path from a subdirectory" "$out" "api,deep,root"
+  eq "read with a relative path from a subdirectory" "$out" "api,deep,root"
   out=$(cd "$repo/services/api" && bash "$script" read . | jq -r 'map(.name) | sort | join(",")')
-  check "read . from a subdirectory: root and that tree" "$out" "api,deep,root"
+  eq "read . from a subdirectory: root and that tree" "$out" "api,deep,root"
   out=$(cd "$repo/services/api" && bash "$script" read ../web | jq -r 'map(.name) | sort | join(",")')
-  check "read ../ from a subdirectory: the sibling tree" "$out" "root,web"
+  eq "read ../ from a subdirectory: the sibling tree" "$out" "root,web"
   out=$(cd "$repo/services/api" && bash "$script" read ../..  | jq -r 'map(.name) | sort | join(",")')
-  check "read ../.. to the root prints the root manifests only" "$out" "root"
+  eq "read ../.. to the root prints the root manifests only" "$out" "root"
   out=$(cd "$repo/services/api" && bash "$script" read ../../..)
-  check "read ../ past the root prints nothing" "$out" ""
+  eq "read ../ past the root prints nothing" "$out" ""
   out=$(idx read services/missing)
-  check "read of a missing path prints nothing" "$out" ""
+  eq "read of a missing path prints nothing" "$out" ""
   out=$(idx read services/api/package.json | jq -r 'map(.name) | sort | join(",")')
-  check "read of a file path selects its directory" "$out" "api,deep,root"
+  eq "read of a file path selects its directory" "$out" "api,deep,root"
+  mkdir -p "$repo/services/api/src"
+  : > "$repo/services/api/src/x.js"
+  out=$(idx read services/api/src | jq -r 'map(.name) | sort | join(",")')
+  eq "read of a source dir includes the package above it" "$out" "api,root"
+  out=$(idx read services/api/src/x.js | jq -r 'map(.name) | sort | join(",")')
+  eq "read of a source file includes the package above it" "$out" "api,root"
 
   out=$(cd "$repo" && BF_DEPS_HOOK=off bash "$script" read 2>&1); rc=$?
-  check "read with BF_DEPS_HOOK=off prints nothing" "$rc:$out" "0:"
+  eq "read with BF_DEPS_HOOK=off prints nothing" "$rc:$out" "0:"
   out=$(cd "$tmp/plain" && bash "$script" read 2>&1); rc=$?
-  check "read outside a repo prints nothing" "$rc:$out" "0:"
+  eq "read outside a repo prints nothing" "$rc:$out" "0:"
   out=$(cd "$repo" && env PATH=/nonexistent /bin/bash "$script" read 2>&1); rc=$?
-  check "read without jq prints nothing" "$rc:$out" "0:"
+  eq "read without jq prints nothing" "$rc:$out" "0:"
 }
 
 e2e_cases() {
@@ -396,10 +402,10 @@ EOF
   out=$(printf '{"hook_event_name":"SessionStart","source":"startup","cwd":"%s"}' "$repo" \
     | BF_DEPS_TEST_DELAY=3 bash -c "$cmd"); rc=$?
   elapsed=$(($(date +%s) - start))
-  check "hook command: exit and stdout" "$rc:$out" "0:"
-  check "hook command returns within 1 second while the build is slow" "$([ "$elapsed" -le 1 ] && echo yes || echo "no ($elapsed s)")" yes
+  eq "hook command: exit and stdout" "$rc:$out" "0:"
+  eq "hook command returns within 1 second while the build is slow" "$([ "$elapsed" -le 1 ] && echo yes || echo "no ($elapsed s)")" yes
   for i in $(seq 1 20); do [ -f "$repo/.bf/cache/deps.json" ] && break; sleep 0.5; done
-  check "hook command: the index appears afterwards" "$(deps_of package.json)" "false a=1"
+  eq "hook command: the index appears afterwards" "$(deps_of package.json)" "false a=1"
 
   ctx_init
   put package.json <<'EOF'
@@ -407,28 +413,28 @@ EOF
 EOF
   out=$(printf '{"cwd":"%s"}' "$repo" | BF_DEPS_HOOK=off bash -c "$cmd"); rc=$?
   sleep 1
-  check "BF_DEPS_HOOK=off: hook returns and writes nothing" "$rc:$out:$([ -e "$repo/.bf/cache" ] && echo yes || echo no)" "0::no"
+  eq "BF_DEPS_HOOK=off: hook returns and writes nothing" "$rc:$out:$([ -e "$repo/.bf/cache" ] && echo yes || echo no)" "0::no"
 
   out=$(cd "$repo" && printf 'not json' | bash -c "$cmd"); rc=$?
   sleep 1
-  check "input that is not JSON: exit 0 and nothing written" "$rc:$out:$([ -e "$repo/.bf/cache" ] && echo yes || echo no)" "0::no"
+  eq "input that is not JSON: exit 0 and nothing written" "$rc:$out:$([ -e "$repo/.bf/cache" ] && echo yes || echo no)" "0::no"
 }
 
 registration_cases() {
   local cfg=$(dirname "$script")/hooks.json
-  check "hooks.json: one startup|resume|clear group runs deps-index.sh with timeout 5" \
+  eq "hooks.json: one startup|resume|clear group runs deps-index.sh with timeout 5" \
     "$(jq -r '[.hooks.SessionStart[] | select(.matcher == "startup|resume|clear") | .hooks[]
                | select(.command | test("hooks/deps-index[.]sh\" build --background")) | .timeout] | join(",")' "$cfg")" 5
-  check "hooks.json: the compact prose group stays registered" \
+  eq "hooks.json: the compact prose group stays registered" \
     "$(jq -r '[.hooks.SessionStart[] | select(.matcher == "compact") | .hooks[].command
                | select(test("hooks/prose-session-start[.]sh"))] | length' "$cfg")" 1
-  check "the registered script exists" "$([ -f "$script" ] && echo yes || echo no)" yes
+  eq "the registered script exists" "$([ -f "$script" ] && echo yes || echo no)" yes
 }
 
 names_cases() {
   local conv
   conv=$(dirname "$(dirname "$script")")/conventions/reuse.md
-  check "reuse.md L3 manifest list matches the script" \
+  eq "reuse.md L3 manifest list matches the script" \
     "$(grep '^- L3 ' "$conv" | sed -n 's/.*touched package (\([^)]*\)).*/\1/p' | tr -d ' ' | tr ',' '\n' | sort | tr '\n' ' ')" \
     "$(bash "$script" names | sort | tr '\n' ' ')"
 }
@@ -466,16 +472,38 @@ EOF
 M==1.0
 requests==2
 EOF
+  put c/Cargo.toml <<'EOF'
+[dependencies]
+python = "0.1"
+EOF
+  put pom.xml <<'EOF'
+<project>
+  <dependencyManagement>
+    <dependencies>
+      <dependency><groupId>g</groupId><artifactId>managed-only</artifactId><version>1</version></dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+    <dependency><groupId>g</groupId><artifactId>used</artifactId><version>2</version></dependency>
+  </dependencies>
+  <build><plugins><plugin>
+    <artifactId>p</artifactId>
+    <dependencies><dependency><groupId>p</groupId><artifactId>plugin-dep</artifactId></dependency></dependencies>
+  </plugin></plugins></build>
+</project>
+EOF
   idx build
-  check "batch: an open BUILD list ends with its file" "$(deps_of b/BUILD.bazel)" "false "
-  check "batch: the open BUILD list keeps its own deps" "$(deps_of a/BUILD.bazel)" "false @maven//:a=null"
-  check "batch: a Cargo dependency is flushed into its own file" "$(deps_of a/Cargo.toml)" "false serde=1.0"
-  check "batch: the next Cargo file gets none of it" "$(deps_of b/Cargo.toml)" "false "
-  check "batch: an invalid package.json is marked" "$(deps_of bad/package.json)" "true "
-  check "batch: the valid package.json keeps its deps" "$(deps_of good/package.json)" "false a=1"
-  check "batch: a path that starts with - is parsed" "$(deps_of -x/BUILD)" "false @abseil//:strings=null"
-  check "batch: a dependency named M stays a dependency" "$(deps_of requirements.txt)" "false M===1.0,requests===2"
-  check "batch: no stray manifest keys" "$(jq -r '.manifests | keys | map(select(startswith("=") or . == "")) | length' "$repo/.bf/cache/deps.json")" 0
+  eq "batch: an open BUILD list ends with its file" "$(deps_of b/BUILD.bazel)" "false "
+  eq "batch: the open BUILD list keeps its own deps" "$(deps_of a/BUILD.bazel)" "false @maven//:a=null"
+  eq "batch: a Cargo dependency is flushed into its own file" "$(deps_of a/Cargo.toml)" "false serde=1.0"
+  eq "batch: the next Cargo file gets none of it" "$(deps_of b/Cargo.toml)" "false "
+  eq "batch: an invalid package.json is marked" "$(deps_of bad/package.json)" "true "
+  eq "batch: the valid package.json keeps its deps" "$(deps_of good/package.json)" "false a=1"
+  eq "batch: a path that starts with - is parsed" "$(deps_of -x/BUILD)" "false @abseil//:strings=null"
+  eq "batch: a dependency named M stays a dependency" "$(deps_of requirements.txt)" "false M===1.0,requests===2"
+  eq "Cargo: a dependency named python is kept" "$(deps_of c/Cargo.toml)" "false python=0.1"
+  eq "pom.xml: managed and plugin dependencies are skipped" "$(deps_of pom.xml)" "false g:used=2"
+  eq "batch: no stray manifest keys" "$(jq -r '.manifests | keys | map(select(startswith("=") or . == "")) | length' "$repo/.bf/cache/deps.json")" 0
 }
 
 names_parse_cases() {
@@ -489,7 +517,7 @@ names_parse_cases() {
   idx build
   for name in $(bash "$script" names); do
     file=${name//\*/}
-    check "names: $file has a parser" "$(jq -r --arg f "$file" '.manifests[$f].error' "$repo/.bf/cache/deps.json")" false
+    eq "names: $file has a parser" "$(jq -r --arg f "$file" '.manifests[$f].error' "$repo/.bf/cache/deps.json")" false
   done
 }
 
@@ -526,7 +554,7 @@ deps_of() {
     "$repo/.bf/cache/deps.json" 2>/dev/null
 }
 
-check() {
+eq() {
   if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1: got [$2], want [$3]"; fails=$((fails + 1)); fi
 }
 
