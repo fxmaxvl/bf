@@ -243,8 +243,9 @@ FNR == 1 { newfile() }
 EOF
 
 # manifest_type <name>: sets mtype to the parser key of a manifest file name. It prints nothing, so the build
-# loop needs no subshell per file. It returns non-zero for a name with no parser. The case arms must cover every name in MANIFEST_NAMES. A name without an arm gets error true in the
-# index, and names_parse_cases in the smoke test checks that no listed name hits the default arm.
+# loop needs no subshell per file. It returns non-zero for a name with no parser. The case arms must cover
+# every name in MANIFEST_NAMES. A name without an arm gets error true in the index, and names_parse_cases in
+# the smoke test checks that no listed name hits the default arm.
 manifest_type() {
   case $1 in
     package.json) mtype=package ;;
@@ -306,6 +307,8 @@ build_index() {
   local old=$cache/deps.json p h tmp
   local -a paths=()
   sweep_dead_work_dirs
+  # A killed build with the same pid can leave this dir behind, and its list files would be parsed again.
+  rm -rf "$work"
   mkdir -p "$work" || return 1
   trap cleanup EXIT
   while IFS= read -r -d '' p; do
@@ -327,19 +330,21 @@ build_index() {
   jq -n -r --slurpfile old "$work/old.json" --slurpfile cur "$work/cur.json" '
     ($old[0].manifests // {}) as $o
     | $cur[0] | to_entries[] | select(($o[.key].hash // "") != .value) | "\(.key)\t\(.value)"' > "$work/changed.tsv" || return 1
-  # Rows: "M<TAB>path<TAB>hash<TAB>error" per changed manifest, then the parser output of each type. A marker
-  # line starts the dependencies of a file, and an error line marks a file the parser could not read.
+  # Rows: a manifest line ("\003path<TAB>hash<TAB>error") per changed manifest, then the parser output of each
+  # type. A marker line (\001) starts the dependencies of a file, and an error line (\002) marks a file the
+  # parser could not read. Each kind starts with a control character, because a dependency line can start with
+  # any name, "M" included.
   local t types=
   while IFS=$'\t' read -r p h; do
     [ -n "${BF_DEPS_TRACE:-}" ] && echo "parse $p" >&2
     if manifest_type "${p##*/}"; then
       t=$mtype
-      printf 'M\t%s\t%s\tfalse\n' "$p" "$h"
+      printf '\003%s\t%s\tfalse\n' "$p" "$h"
       # ./ keeps awk from reading a path that starts with - as an option.
       printf './%s\0' "$p" >> "$work/list.$t"
       case " $types " in *" $t "*) ;; *) types="$types $t" ;; esac
     else
-      printf 'M\t%s\t%s\ttrue\n' "$p" "$h"
+      printf '\003%s\t%s\ttrue\n' "$p" "$h"
     fi
   done < "$work/changed.tsv" > "$work/rows.tsv"
   for t in $types; do parse_type "$t"; done >> "$work/rows.tsv"
@@ -348,7 +353,8 @@ build_index() {
     reduce (split("\n")[] | select(length > 0)) as $l ({cur: null, m: {}};
       if ($l | startswith("\u0001")) then .cur = ($l[1:] | rel)
       elif ($l | startswith("\u0002")) then .m[$l[1:] | rel] |= (.error = true | .deps = []) | .cur = null
-      elif ($l | startswith("M\t")) then ($l | split("\t")) as $r | .m[$r[1]] = {hash: $r[2], error: ($r[3] == "true"), deps: []}
+      elif ($l | startswith("\u0003")) then ($l[1:] | split("\t")) as $r
+        | .m[$r[0]] = {hash: $r[1], error: ($r[2] == "true"), deps: []}
       elif .cur == null then .
       else ($l | split("\t")) as $r
         | .m[.cur].deps += [{name: $r[0], version: (if ($r[1] // "") == "" then null else $r[1] end)}] end)

@@ -462,6 +462,10 @@ EOF
   put -x/BUILD <<'EOF'
 cc_library(name = "x", deps = ["@abseil//:strings"])
 EOF
+  put requirements.txt <<'EOF'
+M==1.0
+requests==2
+EOF
   idx build
   check "batch: an open BUILD list ends with its file" "$(deps_of b/BUILD.bazel)" "false "
   check "batch: the open BUILD list keeps its own deps" "$(deps_of a/BUILD.bazel)" "false @maven//:a=null"
@@ -470,6 +474,8 @@ EOF
   check "batch: an invalid package.json is marked" "$(deps_of bad/package.json)" "true "
   check "batch: the valid package.json keeps its deps" "$(deps_of good/package.json)" "false a=1"
   check "batch: a path that starts with - is parsed" "$(deps_of -x/BUILD)" "false @abseil//:strings=null"
+  check "batch: a dependency named M stays a dependency" "$(deps_of requirements.txt)" "false M===1.0,requests===2"
+  check "batch: no stray manifest keys" "$(jq -r '.manifests | keys | map(select(startswith("=") or . == "")) | length' "$repo/.bf/cache/deps.json")" 0
 }
 
 names_parse_cases() {
