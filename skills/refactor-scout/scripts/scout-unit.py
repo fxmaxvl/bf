@@ -113,5 +113,32 @@ with tempfile.TemporaryDirectory() as tmp:
 check("coverage_flag without a report", mt.coverage_flag(False), "--no-coverage")
 check("crapper_rows keeps only rows at the limit", [r["function"] for r in mt.crapper_rows("f.py", mt.NO_COVERAGE, CRAPPER_OUT)], ["hot"])
 
+DRYER_TEXT = "DUPLICATE score=0.91\n  a.py:1-2\n  b.py:3-4\n"
+check("dryer_rows keeps the score text and both spans", mt.dryer_rows(DRYER_TEXT),
+      [{"score": 0.91, "score_text": "0.91", "a": {"file": "a.py", "start": 1, "end": 2},
+        "b": {"file": "b.py", "start": 3, "end": 4}}])
+check("mutator_rows scores a function by its survivors", mt.mutator_rows([("a.py", 4, 2, "hot")]),
+      [{"file": "a.py", "line": 4, "survived": 2, "function": "hot", "score": 2}])
+COVERED_OUT = CRAPPER_OUT + "mid  demo.x  11  50.0%  9.0\nwide  demo.x  14  0.0%  210.0\n"
+check("crapper_rows with coverage scores by CRAP",
+      [(r["function"], r["crap"], r["score"]) for r in mt.crapper_rows("f.py", mt.USE_COVERAGE, COVERED_OUT)],
+      [("hot", None, 12), ("wide", 210.0, 210.0)])
+
+with tempfile.TemporaryDirectory() as tmp:
+    os.makedirs(os.path.join(tmp, "coverage"))
+    here = os.getcwd()
+    os.chdir(tmp)
+    try:
+        try:
+            with mt.run_dirs_cleaned():
+                os.makedirs(os.path.join(".metrics", "mutate"))
+                raise RuntimeError("boom")
+        except RuntimeError:
+            pass
+        check("run_dirs_cleaned removes a created dir after an exception", os.path.exists(".metrics"), False)
+        check("run_dirs_cleaned keeps a dir that existed before", os.path.isdir("coverage"), True)
+    finally:
+        os.chdir(here)
+
 print("---- unit: %d failed" % failed)
 sys.exit(1 if failed else 0)

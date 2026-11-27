@@ -203,7 +203,7 @@ def file_churn(scope, since, deadline, notes):
     code, out = git("log", "--since=" + since, "--format=", "--name-only", "--", *scope,
                     timeout=max(1, deadline - time.time()))
     if code != 0:
-        notes.append("git log failed or timed out, churn is 0 everywhere.")
+        notes.append("git log failed or timed out, so only the uncommitted files have churn.")
         return collections.Counter()
     return collections.Counter(line for line in out.splitlines() if line)
 
@@ -222,12 +222,14 @@ def function_churn(name, file_, since, deadline):
 
 
 def add_function_churn(rows, churn, since, deadline, uncommitted):
-    """A file untracked or changed against HEAD has a change git log cannot see, so its rows never fall below 1."""
+    """A file untracked or changed against HEAD has a change git log cannot see, so its churn is commits + 1 at both
+    levels. The file counter already holds that +1."""
     for rank, row in enumerate(sorted(rows, key=lambda r: -r["score"])):
         counted = function_churn(row["function"], row["file"], since, deadline) if rank < FUNCTION_CHURN_TOP else None
-        row["churn"], row["churn_level"] = (counted, "function") if counted is not None else (churn[row["file"]], "file")
-        if row["file"] in uncommitted:
-            row["churn"] = max(row["churn"], 1)
+        if counted is not None:
+            row["churn"], row["churn_level"] = counted + (row["file"] in uncommitted), "function"
+        else:
+            row["churn"], row["churn_level"] = churn[row["file"]], "file"
 
 
 DONE_TEMPLATES = {
@@ -344,6 +346,23 @@ def write_run(root, data):
     return report
 
 
+def count_uncommitted(churn, files, notes):
+    """Add 1 to the churn of each in-scope file that is untracked or changed against HEAD. Returns those files."""
+    uncommitted = changed_files("HEAD") & set(files)
+    for f in uncommitted:
+        churn[f] += 1
+    if uncommitted:
+        notes.append("%d files in scope are untracked or changed against HEAD. They count as active, not stable."
+                     % len(uncommitted))
+    return uncommitted
+
+
+def group_summary(groups):
+    """The count, the active count and the top active ids of each group, for the scan output."""
+    return {g: {"count": len(c), "active": sum(1 for x in c if not x["stable"]),
+                "top": [x["id"] for x in c if not x["stable"]][:ACTIVE_SHOWN]} for g, c in groups.items()}
+
+
 def scan(argv):
     only, mutate = parse_scan_args(argv)
     root = repo_root()
@@ -373,12 +392,7 @@ def scan(argv):
     since, until = churn_since()
     churn_deadline = time.time() + CHURN_S
     churn = file_churn(scope, since, churn_deadline, notes)
-    uncommitted = changed_files("HEAD") & set(files)
-    for f in uncommitted:
-        churn[f] += 1
-    if uncommitted:
-        notes.append("%d files in scope are untracked or changed against HEAD. They count as active, not stable."
-                     % len(uncommitted))
+    uncommitted = count_uncommitted(churn, files, notes)
     groups = rank_groups(results, churn, since, uncommitted, churn_deadline, notes)
     data = {"run": None, "created": time.strftime("%Y-%m-%d %H:%M"), "head": head.strip(), "scope": scope,
             "churn_window": [since, until], "files": files, "tools": status, "notes": notes, "seconds": round(time.time() - started),
@@ -388,8 +402,7 @@ def scan(argv):
     report = write_run(root, data)
     emit({"applicable": True, "run": data["run"], "report": report, "notes": notes,
           "tools": {t: {k: v for k, v in s.items() if k != "rev"} for t, s in status.items()},
-          "groups": {g: {"count": len(c), "active": sum(1 for x in c if not x["stable"]),
-                         "top": [x["id"] for x in c if not x["stable"]][:ACTIVE_SHOWN]} for g, c in groups.items()}})
+          "groups": group_summary(groups)})
 
 
 def cell(text):

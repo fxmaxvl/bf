@@ -23,8 +23,8 @@ CRAP_LIMIT = 10
 DRY_THRESHOLD = "0.82"  # the string is the exact dryer argument
 USE_COVERAGE = "--use-existing-coverage"
 NO_COVERAGE = "--no-coverage"
-# The extensions the gate filters on. dryer reads none of the JavaScript ones, mutator reads exactly these, and
-# crapper also reads .bb, .mts and .cts. TOOL_EXTS has each tool's own set.
+# The extensions the gate filters on. dryer reads none of the JavaScript ones, mutator reads exactly these, crapper
+# also reads .bb, .mts and .cts, and dryer also reads .cljd, .bb, .mts and .cts. TOOL_EXTS has each tool's own set.
 SUPPORTED = {".clj", ".cljs", ".cljc", ".java", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".rs", ".py"}
 # From each tool's --help. dryer reads no JavaScript, crapper and mutator do.
 TOOL_EXTS = {
