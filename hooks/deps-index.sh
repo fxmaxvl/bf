@@ -19,6 +19,8 @@
 #         The hook indexes only the repo of the session cwd. A different worktree has its own toplevel and its
 #         own .bf/cache, so the first read there does a full cold build in the foreground.
 set -uo pipefail
+# Globbing stays off. The unquoted $MANIFEST_NAMES holds requirements*.txt, and a glob would expand it
+# against the cwd. Only sweep_dead_work_dirs turns it on.
 set -f
 # No dirname here: the no-jq smoke case runs with an empty PATH. A hook that cannot find its guard ends quietly.
 _here=${BASH_SOURCE[0]%/*}
@@ -310,6 +312,7 @@ build_index() {
   sweep_dead_work_dirs
   mkdir -p "$work" || return 1
   while IFS= read -r -d '' p; do
+    # The work files (paths, hashes, cur.tsv) hold one path per line, so a path with a newline would split.
     case $p in *$'\n'*) continue ;; esac
     is_manifest "${p##*/}" && [ -f "$root/$p" ] && paths+=("$p")
     lock_touch
