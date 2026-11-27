@@ -10,8 +10,9 @@
 #                                             under those paths. A relative path starts at the cwd. "." at
 #                                             the repo root, or the root path, prints only the root manifests.
 #        deps-index.sh names                  print the manifest file names the index covers.
-# Env:   BF_DEPS_HOOK=off turns every mode off. DEPS_INDEX_TRACE=1 prints "parse <path>" on stderr for each
-#        manifest that is parsed. DEPS_INDEX_TEST_DELAY=<seconds> makes build wait before it writes.
+# Env:   BF_DEPS_HOOK=off turns build and read off. names still prints. DEPS_INDEX_TRACE=1 prints
+#        "parse <path>" on stderr for each manifest that is parsed. DEPS_INDEX_TEST_DELAY=<seconds> makes
+#        build wait before it writes.
 # Output: build prints nothing. read prints nothing when it fails, when jq is missing, when the directory is
 #         not a git repo, or when a live build holds the lock for more than 5 seconds.
 # Limits: only tracked manifests count, so a new manifest is invisible until it is staged. BUILD files keep
