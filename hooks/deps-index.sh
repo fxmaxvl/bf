@@ -22,9 +22,12 @@ set -uo pipefail
 # Globbing stays off. The unquoted $MANIFEST_NAMES holds requirements*.txt, and a glob would expand it
 # against the cwd. Only sweep_dead_work_dirs turns it on.
 set -f
-# No dirname here: the no-jq smoke case runs with an empty PATH. A hook that cannot find its guard ends quietly.
-_here=${BASH_SOURCE[0]%/*}
-[ "$_here" != "${BASH_SOURCE[0]}" ] || _here=.
+# _here is absolute, so start_background can name this script after it changes directory. It uses the builtins
+# cd and pwd, not dirname, because the no-jq smoke case runs with an empty PATH. A hook that cannot find its
+# guard ends quietly.
+_dir=${BASH_SOURCE[0]%/*}
+[ "$_dir" != "${BASH_SOURCE[0]}" ] || _dir=.
+_here=$(cd "$_dir" 2>/dev/null && pwd) || exit 0
 source "$_here/dir-guard.sh" 2>/dev/null || exit 0
 
 MANIFEST_NAMES="package.json BUILD.bazel BUILD MODULE.bazel pom.xml build.gradle build.gradle.kts pyproject.toml requirements*.txt go.mod Cargo.toml"
@@ -385,7 +388,7 @@ read_index() {
 # lines, because "cd && cmd &" backgrounds a subshell that keeps the hook stdout open.
 start_background() {
   local self cwd
-  self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+  self=$_here/${BASH_SOURCE[0]##*/}
   cwd=$(jq -r '.cwd // empty' 2>/dev/null) || return 0
   if [ -n "$cwd" ]; then
     cd "$cwd" 2>/dev/null || return 0
