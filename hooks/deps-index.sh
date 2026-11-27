@@ -14,8 +14,10 @@
 #        "parse <path>" on stderr for each manifest that is parsed. DEPS_INDEX_TEST_DELAY=<seconds> makes
 #        build wait before it writes.
 # Output: build prints nothing. read prints nothing when it fails, when jq is missing, when the directory is
-#         not a git repo, when a live build holds the lock for more than 5 seconds, or when every path is
-#         outside the repo.
+#         not a git repo, or when every path is missing or outside the repo.
+# Concurrency: there is no lock. Each build works in its own deps.work.<pid> dir and replaces deps.json with an
+#         atomic mv, so a reader never sees a partial index. Two builds at once both parse, and the last mv wins.
+#         Every entry keeps its manifest hash, so the next build parses again what an older winner missed.
 # Limits: only tracked manifests count, so a new manifest is invisible until it is staged. BUILD files keep
 #         external labels only (@repo//...). The awk parsers read the common table shapes and are best
 #         effort. A manifest that fails to parse gets error true and no dependencies.
@@ -37,8 +39,6 @@ MANIFEST_NAMES="package.json BUILD.bazel BUILD MODULE.bazel pom.xml build.gradle
 
 root=
 cache=
-lock=
-touched=0
 
 is_manifest() {
   local pat
@@ -53,60 +53,13 @@ is_manifest() {
 open_repo() {
   root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
   cache=$root/.bf/cache
-  lock=$cache/deps.lock
   [ ! -L "$root/.bf" ] && [ ! -L "$cache" ] || return 1
   mkdir -p "$cache" 2>/dev/null && dir_guard_check "$cache" "$(id -u)" || return 1
   [ -e "$cache/.gitignore" ] || printf '*\n' > "$cache/.gitignore"
 }
 
-# lock_acquire <wait_seconds>: mkdir is atomic and flock(1) is missing on macOS. The lock holds the owner PID
-# and a start time. A lock older than 60 seconds belongs to a killed build, and a live build refreshes the
-# time (lock_touch). The EXIT trap is set only after mkdir succeeds, and it removes the lock only while the
-# lock still names this process, or a build that lost its lock would delete the lock of the next holder.
-# The work files live outside the lock dir (deps.work.<pid>), so a steal cannot delete them.
-lock_acquire() {
-  local wait=$1 waited=0 started now
-  while :; do
-    if mkdir "$lock" 2>/dev/null; then
-      date +%s > "$lock/started"
-      printf '%s\n' "$$" > "$lock/owner"
-      trap lock_release EXIT
-      return 0
-    fi
-    now=$(date +%s)
-    started=$(cat "$lock/started" 2>/dev/null)
-    # The owner makes the dir first and writes started after, so a missing started is normally that short gap.
-    # Starting the clock here makes a lock whose owner died in the gap expire too, in place of staying forever.
-    if [ -z "$started" ]; then
-      [ -d "$lock" ] && printf '%s\n' "$now" > "$lock/started" 2>/dev/null
-      started=$now
-    fi
-    if [ $((now - started)) -gt 60 ]; then
-      lock_steal "$started"
-      continue
-    fi
-    [ "$waited" -ge "$wait" ] && return 1
-    sleep 1
-    waited=$((waited + 1))
-  done
-}
-
-# lock_steal <stale_started>: removes a stale lock. A check and an rm -rf are two steps, so a second caller could
-# delete the fresh lock of the first stealer. The mv is atomic, so only one caller gets the stale dir. That
-# caller deletes it only when it still holds the stale start time. A caller whose mv fails goes back to the loop.
-lock_steal() {
-  local stale=$cache/deps.lock.stale.$$
-  rm -rf "$stale"
-  [ "$(cat "$lock/started" 2>/dev/null)" = "$1" ] || return 0
-  mv "$lock" "$stale" 2>/dev/null || return 0
-  if [ "$(cat "$stale/started" 2>/dev/null)" != "$1" ] && [ ! -e "$lock" ]; then
-    mv "$stale" "$lock" 2>/dev/null
-  fi
-  rm -rf "$stale"
-}
-
-# sweep_dead_work_dirs: removes the deps.work.<pid> dirs of killed builds. The caller holds the lock. The glob
-# needs globbing, so it is turned on for the loop only.
+# sweep_dead_work_dirs: removes the deps.work.<pid> dirs of killed builds. kill -0 keeps the dir of a live
+# build. The glob needs globbing, so it is turned on for the loop only.
 sweep_dead_work_dirs() {
   local d
   set +f
@@ -116,19 +69,9 @@ sweep_dead_work_dirs() {
   set -f
 }
 
-lock_release() {
-  [ "$(cat "$lock/owner" 2>/dev/null)" = "$$" ] && rm -rf "$lock"
+cleanup() {
   rm -rf "$cache/deps.work.$$"
   rm -f "$cache/deps.json.tmp.$$"
-}
-
-# lock_touch: refreshes the start time at most every 10 seconds. A build on a large repo passes 60 seconds,
-# and without it a second caller would steal the lock of a live build.
-lock_touch() {
-  [ $((SECONDS - touched)) -ge 10 ] || return 0
-  touched=$SECONDS
-  date +%s > "$lock/started" 2>/dev/null
-  return 0
 }
 
 parse_package_json() {
@@ -311,17 +254,18 @@ parse_entry() {
              | {name: .[0], version: (if (.[1] // "") == "" then null else .[1] end)}) | unique)}}'
 }
 
-# build_index: the caller holds the lock. It parses only the manifests whose content hash changed.
+# build_index: parses only the manifests whose content hash changed. It keeps its result in
+# $work/index.json, so read prints the index this build made even when another build wins the mv.
 build_index() {
   local work=$cache/deps.work.$$ old=$cache/deps.json p h tmp
   local -a paths=()
   sweep_dead_work_dirs
   mkdir -p "$work" || return 1
+  trap cleanup EXIT
   while IFS= read -r -d '' p; do
     # The work files (paths, hashes, cur.tsv) hold one path per line, so a path with a newline would split.
     case $p in *$'\n'*) continue ;; esac
     is_manifest "${p##*/}" && [ -f "$root/$p" ] && paths+=("$p")
-    lock_touch
   done < <(git -C "$root" ls-files -z)
 
   : > "$work/cur.tsv"
@@ -340,40 +284,34 @@ build_index() {
   : > "$work/new.jsonl"
   while IFS=$'\t' read -r p h; do
     parse_entry "$p" "$h" >> "$work/new.jsonl"
-    lock_touch
   done < "$work/changed.tsv"
 
   [ -n "${DEPS_INDEX_TEST_DELAY:-}" ] && sleep "$DEPS_INDEX_TEST_DELAY"
   tmp=$cache/deps.json.tmp.$$
-  # A steal can hand the lock to another build while this one runs. Its output is then stale, so discard it.
-  [ "$(cat "$lock/owner" 2>/dev/null)" = "$$" ] || return 1
   jq -n -c --slurpfile old "$work/old.json" --slurpfile cur "$work/cur.json" --slurpfile new "$work/new.jsonl" '
     ($old[0].manifests // {}) as $o
     | {schema: 1,
        manifests: (($cur[0] | to_entries | map(select($o[.key].hash == .value) | {key: .key, value: $o[.key]}))
-                   + $new | from_entries)}' > "$tmp" && mv "$tmp" "$old" || { rm -f "$tmp"; return 1; }
+                   + $new | from_entries)}' > "$work/index.json" || return 1
+  cp "$work/index.json" "$tmp" && mv "$tmp" "$old" || { rm -f "$tmp"; return 1; }
 }
 
-# read_index [path ...]: prints the entries of the manifests at the repo root and under each path. An absolute
-# path is taken as it is. A relative path is taken from the caller's cwd, so "read b" from a/ means a/b. A
-# trailing slash does not matter. The repo root, or "." from the root, selects the root manifests only. A path
+# read_index [path ...]: prints the entries of the manifests at the repo root and under each path. A relative
+# path starts at the cwd. Each path is resolved with cd and pwd -P, so "..", "." and symlinks work, and a file
+# path stands for its directory. The repo root selects the root manifests only. A path that is missing or
 # outside the repo is dropped. When every path is dropped nothing prints, so the caller falls back and does not
-# take the root entries of this repo for those of another.
+# take the root entries for those of another tree.
 read_index() {
-  local a pre=[] cwdpre
+  local a d rootp pre=[]
   local -a prefixes=()
-  cwdpre=$(git rev-parse --show-prefix 2>/dev/null)
+  rootp=$(cd "$root" && pwd -P) || return 1
   for a in "$@"; do
-    case $a in
-      "$root") a=. ;;
-      "$root"/*) a=${a#"$root"/} ;;
-      /*) continue ;;
-      .) a=$cwdpre ;;
-      *) a=$cwdpre${a#./} ;;
+    [ -f "$a" ] && { case $a in */*) a=${a%/*} ;; *) a=. ;; esac; }
+    d=$(cd "$a" 2>/dev/null && pwd -P) || continue
+    case $d in
+      "$rootp") prefixes+=(.) ;;
+      "$rootp"/*) prefixes+=("${d#"$rootp"/}") ;;
     esac
-    a=${a%/}
-    [ -n "$a" ] || a=.
-    prefixes+=("$a")
   done
   [ $# -eq 0 ] || [ ${#prefixes[@]} -gt 0 ] || return 0
   if [ ${#prefixes[@]} -gt 0 ]; then
@@ -383,7 +321,7 @@ read_index() {
     [.manifests | to_entries[]
      | select(($pre | length) == 0 or (.key | contains("/") | not)
               or (.key as $k | $pre | any(.[]; . as $p | $k | startswith($p + "/"))))
-     | .key as $m | .value.deps[] | {name, version, manifest: $m}]' "$cache/deps.json"
+     | .key as $m | .value.deps[] | {name, version, manifest: $m}]' "$cache/deps.work.$$/index.json"
 }
 
 # start_background: reads the hook input, enters its cwd and starts build detached. All three fds must be
@@ -415,12 +353,10 @@ main() {
     build)
       if [ "${1:-}" = --background ]; then start_background; return 0; fi
       open_repo || return 0
-      lock_acquire 0 || return 0
       build_index
       ;;
     read)
       open_repo || return 0
-      lock_acquire 5 || return 0
       build_index && read_index "$@"
       ;;
   esac

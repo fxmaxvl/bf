@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for deps-index.sh: parsers, incremental build, read, lock, kill switch, background start and
+# Smoke test for deps-index.sh: parsers, incremental build, read, concurrent builds, kill switch, background start and
 # the hooks.json registration. Each case builds a temp git repo.
 #
 # Usage: deps-index-smoke.sh
@@ -272,52 +272,34 @@ EOF
   check "index parses with jq" "$(jq -e '.schema == 1' "$repo/.bf/cache/deps.json" >/dev/null 2>&1 && echo yes)" yes
   check "no temp file remains" "$(ls "$repo/.bf/cache" | grep -c 'deps.json.tmp')" 0
   check "cache .gitignore holds *" "$(cat "$repo/.bf/cache/.gitignore")" '*'
-  check "no lock remains after a build" "$([ -e "$repo/.bf/cache/deps.lock" ] && echo yes || echo no)" no
+  check "no work dir remains after a build" "$(ls -A "$repo/.bf/cache" | grep -c 'deps[.]work')" 0
 
+  # A killed build leaves its work dir. The next build removes it.
   ctx_init
   put package.json <<'EOF'
 {"dependencies":{"a":"1"}}
 EOF
-  mkdir -p "$repo/.bf/cache/deps.lock"
-  date +%s > "$repo/.bf/cache/deps.lock/started"
-  idx build; rc=$?
-  check "held lock: build exits 0" "$rc" 0
-  check "held lock: build skips" "$([ -e "$repo/.bf/cache/deps.json" ] && echo yes || echo no)" no
-  check "held lock: lock dir stays" "$([ -d "$repo/.bf/cache/deps.lock" ] && echo yes || echo no)" yes
+  mkdir -p "$repo/.bf/cache/deps.work.99999999"
+  idx build
+  check "dead build: its work dir is swept" "$([ -e "$repo/.bf/cache/deps.work.99999999" ] && echo yes || echo no)" no
+  check "dead build: the index is built" "$(deps_of package.json)" "false a=1"
 
-  # A build that lost its lock to a steal must neither remove the new holder's lock nor its work files.
+  # Builds at once: each parses in its own work dir and the index stays whole.
+  local pa i
   ctx_init
   put package.json <<'EOF'
 {"dependencies":{"a":"1"}}
 EOF
-  local lk=$repo/.bf/cache/deps.lock pa pb i
   (cd "$repo" && DEPS_INDEX_TEST_DELAY=2 exec bash "$script" build) & pa=$!
-  for i in 1 2 3 4 5 6 7 8 9 10; do [ -s "$lk/owner" ] && break; sleep 0.5; done
-  echo $(($(date +%s) - 120)) > "$lk/started"
-  (cd "$repo" && DEPS_INDEX_TEST_DELAY=5 exec bash "$script" read > "$tmp/steal.out" 2>&1) & pb=$!
-  for i in 1 2 3 4 5 6 7 8 9 10; do [ "$(cat "$lk/owner" 2>/dev/null)" = "$pb" ] && break; sleep 0.5; done
-  check "steal: the second build owns the lock" "$(cat "$lk/owner" 2>/dev/null)" "$pb"
+  out=$(idx read)
+  check "read during a slow build prints its own result" "$out" '[{"name":"a","version":"1","manifest":"package.json"}]'
   wait "$pa"
-  check "steal: the first build leaves the new lock" "$(cat "$lk/owner" 2>/dev/null)" "$pb"
-  wait "$pb"; rc=$?
-  check "steal: the second build finishes" "$rc:$(cat "$tmp/steal.out")" '0:[{"name":"a","version":"1","manifest":"package.json"}]'
-  check "steal: no lock or work dir remains" "$(ls -A "$repo/.bf/cache" | grep -c 'deps[.]\(lock\|work\)')" 0
-
-  # Several callers on one stale lock: only one may take it and parse.
-  ctx_init
-  put package.json <<'EOF2'
-{"dependencies":{"a":"1"}}
-EOF2
-  mkdir -p "$lk"
-  echo $(($(date +%s) - 120)) > "$lk/started"
   for i in 1 2 3 4 5 6 7 8; do
-    (cd "$repo" && DEPS_INDEX_TRACE=1 bash "$script" build 2> "$tmp/par.$i") &
+    (cd "$repo" && bash "$script" build) &
   done
   wait
-  check "stale lock, 8 callers: one parse" "$(cat "$tmp"/par.* | grep -c '^parse ')" 1
-  check "stale lock, 8 callers: index is valid" "$(jq -e '.schema == 1' "$repo/.bf/cache/deps.json" >/dev/null 2>&1 && echo yes)" yes
-  check "stale lock, 8 callers: nothing left over" "$(ls -A "$repo/.bf/cache" | grep -c 'deps[.]\(lock\|work\|json[.]tmp\)')" 0
-  rm -f "$tmp"/par.*
+  check "8 builds at once: index is valid" "$(deps_of package.json)" "false a=1"
+  check "8 builds at once: nothing left over" "$(ls -A "$repo/.bf/cache" | grep -c 'deps[.]\(work\|json[.]tmp\)')" 0
 
   ctx_init
   mkdir -p -m 755 "$repo/.bf/cache"
@@ -382,22 +364,16 @@ EOF
   check "read with a relative path from a subdirectory" "$out" "api,deep,root"
   out=$(cd "$repo/services/api" && bash "$script" read . | jq -r 'map(.name) | sort | join(",")')
   check "read . from a subdirectory: root and that tree" "$out" "api,deep,root"
-
-  ctx_init
-  put package.json <<'EOF'
-{"dependencies":{"a":"1"}}
-EOF
-  mkdir -p "$repo/.bf/cache/deps.lock"
-  date +%s > "$repo/.bf/cache/deps.lock/started"
-  out=$(idx read); rc=$?
-  check "read with a live lock: waits, then prints nothing" "$rc:$out" "0:"
-  check "read with a live lock: lock dir stays" "$([ -d "$repo/.bf/cache/deps.lock" ] && echo yes || echo no)" yes
-
-  rm -rf "$repo/.bf/cache/deps.lock"
-  mkdir -p "$repo/.bf/cache/deps.lock"
-  echo $(($(date +%s) - 120)) > "$repo/.bf/cache/deps.lock/started"
-  out=$(idx read)
-  check "read with a stale lock: removes it and prints entries" "$out" '[{"name":"a","version":"1","manifest":"package.json"}]'
+  out=$(cd "$repo/services/api" && bash "$script" read ../web | jq -r 'map(.name) | sort | join(",")')
+  check "read ../ from a subdirectory: the sibling tree" "$out" "root,web"
+  out=$(cd "$repo/services/api" && bash "$script" read ../..  | jq -r 'map(.name) | sort | join(",")')
+  check "read ../.. to the root prints the root manifests only" "$out" "root"
+  out=$(cd "$repo/services/api" && bash "$script" read ../../..)
+  check "read ../ past the root prints nothing" "$out" ""
+  out=$(idx read services/missing)
+  check "read of a missing path prints nothing" "$out" ""
+  out=$(idx read services/api/package.json | jq -r 'map(.name) | sort | join(",")')
+  check "read of a file path selects its directory" "$out" "api,deep,root"
 
   out=$(cd "$repo" && BF_DEPS_HOOK=off bash "$script" read 2>&1); rc=$?
   check "read with BF_DEPS_HOOK=off prints nothing" "$rc:$out" "0:"
