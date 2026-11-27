@@ -33,8 +33,7 @@ is_manifest() {
   return 1
 }
 
-# Same symlink and owner checks as prose_record_dir_ensure in prose-lib.sh. It leaves out the mode check,
-# because an existing .bf/cache with mode 755 must work.
+# Copies the symlink and owner checks of prose_record_dir_ensure (prose-lib.sh) but not its mode 700 check.
 open_repo() {
   root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
   cache=$root/.bf/cache

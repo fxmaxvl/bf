@@ -312,7 +312,7 @@ The PreToolUse (`Bash`) hook `hooks/remote-state-pre-bash.sh` runs before `git p
 
 ## Dependency index hook
 
-The SessionStart hook `hooks/deps-index.sh` runs on `startup`, `resume` and `clear`. It starts a background build of `.bf/cache/deps.json` and returns at once. The file lists the declared dependencies of each tracked manifest, such as `package.json`, `BUILD.bazel`, `pom.xml`, `pyproject.toml`, `go.mod` and `Cargo.toml`. The L3 step of the reuse lookup runs `hooks/deps-index.sh read <package dir>`. That call rebuilds any stale entry first, so it reads the index and not up to three manifests.
+The SessionStart hook `hooks/deps-index.sh` runs on `startup`, `resume` and `clear`. It starts a background build of `.bf/cache/deps.json` and returns at once. The file lists the declared dependencies of each tracked manifest, such as `package.json`, `BUILD.bazel`, `pom.xml`, `pyproject.toml`, `go.mod` and `Cargo.toml`. The L3 step of the reuse lookup runs `hooks/deps-index.sh read <package dir>`. That call rebuilds any stale entry first. L3 then reads one index file in place of up to three manifests.
 
 The hook writes into the repo of the session. It creates `.bf/cache/` and puts a `.gitignore` in it, so the index stays untracked. Only tracked manifests count. A new manifest counts once it is staged. The Bazel parser keeps external labels only, and the other parsers read the common layouts and skip the rest. To turn the hook and the `read` mode off, set `BF_DEPS_HOOK` to `off` in the `env` block of a settings file.
 

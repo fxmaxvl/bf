@@ -89,6 +89,7 @@ _prose_record_dir_owned() {
   [ "${mode:4:6}" = "------" ] && [ "$owner" = "$(_prose_record_uid)" ]
 }
 
+# deps-index.sh (open_repo) copies the symlink and owner checks of this function. Keep the two in step.
 # prose_record_dir_ensure <dir>: creates the directory when it is missing. Fails unless the result passes
 # the owner and mode check.
 prose_record_dir_ensure() {
