@@ -52,7 +52,7 @@
 # Exit 5: gh could not read the PR state, for example on an auth failure. Nothing is staged or
 #   pushed. Fix gh (gh auth status) and rerun.
 # Exit 6: the commit and the push are done, but the PR step failed. That step is the PR lookup
-#   after the push, gh pr create, or the comment and body edit on an open PR. It also fails when the
+#   after the push, gh pr create, or the read, comment and body edit on an open PR. It also fails when the
 #   PR became MERGED or CLOSED during the push. Do not create a new branch. Fix gh and rerun to open
 #   or update the PR. After a MERGED or CLOSED exit 6, the rerun ends in exit 4: follow that recovery.
 
