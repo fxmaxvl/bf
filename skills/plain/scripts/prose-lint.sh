@@ -55,9 +55,7 @@ long_sentence|long sentence|long sentences'
 # The selftest fixtures run the script as a child process, so the real command line is the test seam.
 selftest() {
   local fails=0 out rc
-  tmp=$(mktemp -d) || { echo "ABORT: mktemp failed" >&2; exit 2; }
-  if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then echo "ABORT: mktemp made no directory" >&2; exit 2; fi
-  tmp=$(cd "$tmp" && pwd -P) || { echo "ABORT: cannot resolve the temp directory" >&2; exit 2; }
+  tmp=$(mktemp -d) && [ -n "$tmp" ] && tmp=$(cd "$tmp" && pwd -P) || { echo "ABORT: cannot create a temp directory" >&2; exit 2; }
   trap 'rm -rf "$tmp"' EXIT
   eq() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1: got [$2], want [$3]"; fails=$((fails+1)); fi; }
   run() { rc=0; out=$(bash "$self" "$@" 2>/dev/null) || rc=$?; }

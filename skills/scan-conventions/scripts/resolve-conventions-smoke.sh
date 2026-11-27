@@ -9,9 +9,7 @@ dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 resolve=$dir/resolve-conventions.sh
 discover=$dir/discover-conventions.sh
 plugin_conv=$(cd "$dir/../../.." && pwd)/conventions
-tmp=$(mktemp -d) || { echo "ABORT: mktemp failed" >&2; exit 2; }
-if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then echo "ABORT: mktemp made no directory" >&2; exit 2; fi
-tmp=$(cd "$tmp" && pwd -P) || { echo "ABORT: cannot resolve the temp directory" >&2; exit 2; }
+tmp=$(mktemp -d) && [ -n "$tmp" ] && tmp=$(cd "$tmp" && pwd -P) || { echo "ABORT: cannot create a temp directory" >&2; exit 2; }
 trap 'rm -rf "$tmp"' EXIT
 
 fails=0

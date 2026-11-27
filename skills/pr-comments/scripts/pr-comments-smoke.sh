@@ -8,9 +8,7 @@ set -uo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 fetch=$here/fetch-pr-comments.sh
 wait=$here/wait-for-review.sh
-tmp=$(mktemp -d) || { echo "ABORT: mktemp failed" >&2; exit 2; }
-if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then echo "ABORT: mktemp made no directory" >&2; exit 2; fi
-tmp=$(cd "$tmp" && pwd -P) || { echo "ABORT: cannot resolve the temp directory" >&2; exit 2; }
+tmp=$(mktemp -d) && [ -n "$tmp" ] && tmp=$(cd "$tmp" && pwd -P) || { echo "ABORT: cannot create a temp directory" >&2; exit 2; }
 trap 'rm -rf "$tmp"' EXIT
 
 # Stub gh: answers only the calls the two scripts make. The PR number echoes the graphql `num`
