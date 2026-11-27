@@ -90,6 +90,7 @@ Build a stepwise implementation plan for the chosen solution. Each step:
 - Test coverage for the step
 - Ordering constraint (what must precede it)
 - Framework constraint: if the step depends on framework or library behaviour, read its source or docs first and state the constraint in one line
+- Reuse: if the step adds a utility, apply the short form in the `reuse` convention via the plugin-main lookup. Name the reused helper or library, or give a one-line reason for writing it by hand
 
 Write the plan to `## Plan`.
 

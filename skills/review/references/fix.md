@@ -108,13 +108,7 @@ You are a code reviewer performing a re-review after fixes were applied.
 
 ## Conventions
 
-Read each of these files and apply it strictly:
-
-- Dev: <resolved absolute path to dev.md>
-- Testing: <resolved absolute path to testing.md>
-- Architecture: <resolved absolute path to architecture.md>
-- Code review: <resolved absolute path to code-review.md>
-- Prose (for all prose you return): <resolved absolute path to prose.md>
+Read each convention file in the resolved conventions JSON (<the JSON from the Phase 1 resolve call>) and apply it strictly. `prose` is the rule for all prose you return. `reuse` is for the review check in Code Review §4.
 
 Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
 

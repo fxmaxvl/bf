@@ -113,13 +113,13 @@ If either step fails, print the git error and stop. The shell cwd can reset betw
 
 ### Resolve conventions
 
-Resolve all five conventions in one call, per the Convention Lookup in `plugin-main.md`:
+Resolve the review-agent conventions in one call, per the Convention Lookup in `plugin-main.md`:
 
 ```bash
-cd "<project_root>" && bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" code-review dev testing architecture prose
+cd "<project_root>" && bash "${CLAUDE_PLUGIN_ROOT}/skills/scan-conventions/scripts/resolve-conventions.sh" code-review dev testing architecture prose reuse
 ```
 
-Read the five absolute paths from the JSON; a `null` is the "Convention file missing" edge case. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
+Read the resolved absolute paths from the JSON; a `null` is the "Convention file missing" edge case. Do **not** read the files — the prompts below pass the paths and each agent reads what it needs itself.
 
 Then list the host repository's own rule files the same way — paths only, never bodies:
 
@@ -271,13 +271,7 @@ You are a code reviewer.
 
 ## Conventions
 
-Read each of these files and apply it strictly:
-
-- Dev: <resolved absolute path to dev.md>
-- Testing: <resolved absolute path to testing.md>
-- Architecture: <resolved absolute path to architecture.md>
-- Code review: <resolved absolute path to code-review.md>
-- Prose (for all prose you return): <resolved absolute path to prose.md>
+Read each convention file in the resolved conventions JSON (<the JSON from the Phase 1 resolve call>) and apply it strictly. `prose` is the rule for all prose you return. `reuse` is for the review check in Code Review §4.
 
 Host repository rules (apply as the Code Review Convention describes): <one path per line from host_rules, or "none">
 
@@ -316,7 +310,7 @@ When flagging missing integration or E2E tests:
 1. The changed files are listed in the `## Scope` block above and the diff is on disk at `diff_file` — read it with the Read tool. Do NOT re-run git or gh to re-derive the scope.
 2. Read the full current content of each file listed in `changed_files` using the Read tool before forming conclusions.
 3. Apply the checks in these sections of the Code Review Convention: <the § numbers and names in focus_categories>. <When focused, add: "Do not check or report on any other category.">
-4. If a concern turns on how other repos in the org do something, or whether a common way exists, add `[org-search]` after its label instead of settling it from this repo alone.
+4. If a concern turns on how other repos in the org do something, or whether a common way exists, add `[org-search]` after its label instead of settling it from this repo alone. Search L4 coverage of a hand-written utility directly, as Code Review §4 sets out.
 5. Produce the report in this exact format — including the Review Metadata block at the end:
 
 # Code Review Report

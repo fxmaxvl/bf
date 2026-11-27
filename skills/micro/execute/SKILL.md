@@ -17,9 +17,11 @@ This gives you `slug`, `build_timestamp`, `artifacts_dir`, and `paths.*`.
 
 Read the task instruction from the `## QA` block of `paths.qa` — `bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/read-block.sh" <paths.qa> --block "## QA"`.
 
-Before writing any code, read the `dev`, `testing` and `git` conventions.
+Before writing any code, read the `dev`, `testing`, `git` and `reuse` conventions.
 
-Resolve all three in one call with `resolve-conventions.sh`, per the Convention Lookup in `plugin-main.md`.
+Resolve all four in one call with `resolve-conventions.sh`, per the Convention Lookup in `plugin-main.md`.
+
+Before you write a utility, apply the short form in the `reuse` convention.
 
 Implement the refactoring:
 

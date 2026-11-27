@@ -263,6 +263,7 @@ The `conventions/` directory contains language- and action-specific guidelines C
 - `typescript.md`: TypeScript/JavaScript specifics
 - `python.md`: Python specifics
 - `verification.md`: evidence rules the decide and discuss oracles run on
+- `reuse.md`: reuse-first lookup order (repo, standard library, declared dependencies, org, community) before writing utility code
 
 **Overriding conventions:** bf supports a 3-level lookup for each convention file. The first match wins and fully replaces the plugin default:
 

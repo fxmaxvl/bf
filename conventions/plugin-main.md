@@ -213,3 +213,4 @@ The available convention names and when to use each:
 | Python work | `python` |
 | Reviewing code | `code-review` |
 | Weighing evidence in decide / discuss | `verification` |
+| Adding a utility or generic capability | `reuse` |
