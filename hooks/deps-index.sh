@@ -323,14 +323,19 @@ build_index() {
 }
 
 # read_index [path ...]: prints the entries of the manifests at the repo root and under each path. A path
-# may be absolute or start with ./, and a trailing slash does not matter.
+# may be absolute or start with ./, and a trailing slash does not matter. A path outside the repo is
+# dropped. When every path is dropped nothing prints, so the caller falls back and does not take the root
+# entries of this repo for those of another.
 read_index() {
   local a pre=[]
   local -a prefixes=()
   for a in "$@"; do
+    [ "$a" = "$root" ] && a=.
     a=${a#"$root"/}; a=${a#./}; a=${a%/}
+    case $a in /*) continue ;; esac
     prefixes+=("$a")
   done
+  [ $# -eq 0 ] || [ ${#prefixes[@]} -gt 0 ] || return 0
   if [ ${#prefixes[@]} -gt 0 ]; then
     pre=$(printf '%s\n' "${prefixes[@]}" | jq -R -s -c 'split("\n")[:-1]') || return 1
   fi

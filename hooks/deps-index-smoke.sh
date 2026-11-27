@@ -350,6 +350,10 @@ EOF
   check "read with a trailing slash" "$out" "api,deep,root"
   out=$(idx read "$repo/services/api" | jq -r 'map(.name) | sort | join(",")')
   check "read with an absolute prefix" "$out" "api,deep,root"
+  out=$(idx read /somewhere/else/repo)
+  check "read with a path outside the repo prints nothing" "$out" ""
+  out=$(idx read /somewhere/else/repo services/web | jq -r 'map(.name) | sort | join(",")')
+  check "read drops the outside path and keeps the other" "$out" "root,web"
   out=$(idx read ./services/api | jq -r 'map(.name) | sort | join(",")')
   check "read with a ./ prefix" "$out" "api,deep,root"
   out=$(idx read services/api services/web | jq -r 'map(.name) | sort | join(",")')
