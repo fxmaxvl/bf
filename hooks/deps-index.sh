@@ -244,6 +244,8 @@ read -r -d '' AWK_GRADLE <<'EOF'
 EOF
 
 # parse_manifest <file>: prints one "name<TAB>version" line per dependency. It returns non-zero on failure.
+# The case arms must cover every name in MANIFEST_NAMES. A name without an arm fails here, so the index shows
+# error true for it, and names_cases in the smoke test checks that no listed name hits the default arm.
 parse_manifest() {
   local f=$1
   case ${f##*/} in
@@ -256,7 +258,7 @@ parse_manifest() {
     MODULE.bazel) awk "$AWK_LIB $AWK_MODULE" "$f" ;;
     pom.xml) awk "$AWK_POM" "$f" ;;
     build.gradle | build.gradle.kts) awk "$AWK_LIB $AWK_GRADLE" "$f" ;;
-    *) return 0 ;;
+    *) return 1 ;;
   esac
 }
 

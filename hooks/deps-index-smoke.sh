@@ -20,6 +20,7 @@ main() {
   e2e_cases
   registration_cases
   names_cases
+  names_parse_cases
 
   [ "$fails" = 0 ]
 }
@@ -425,6 +426,21 @@ names_cases() {
   check "reuse.md L3 manifest list matches the script" \
     "$(grep '^- L3 ' "$conv" | sed -n 's/.*touched package (\([^)]*\)).*/\1/p' | tr -d ' ' | tr ',' '\n' | sort | tr '\n' ' ')" \
     "$(bash "$script" names | sort | tr '\n' ' ')"
+}
+
+names_parse_cases() {
+  local name file
+  ctx_init
+  for name in $(bash "$script" names); do
+    file=${name//\*/}
+    printf '{}\n' > "$repo/$file"
+    git -C "$repo" add "$file"
+  done
+  idx build
+  for name in $(bash "$script" names); do
+    file=${name//\*/}
+    check "names: $file has a parser" "$(jq -r --arg f "$file" '.manifests[$f].error' "$repo/.bf/cache/deps.json")" false
+  done
 }
 
 # hook_command: the deps-index command string from hooks.json with the plugin root filled in.
