@@ -28,13 +28,13 @@ Follow **Sub-skill Invocation** in `plugin-main.md`. Here gather, review and han
 At the start of every phase, print a banner so the user knows where they are. Print as plain text (not in a code block):
 
 ```
-── design | Name ───────────────────────────────
+── bf:design | Name ───────────────────────────────
 ```
 
 The Generate banner is **required** and must include the timing note:
 
 ```
-── design | Generate (may take 1–2 min) ──────────
+── bf:design | Generate (may take 1–2 min) ──────────
 ```
 
 ## Phase Flow
@@ -57,7 +57,7 @@ gather (inline Q&A) → generate (opus agent) → review (inline) → handoff? (
 
 ## Phase 1 — Gather
 
-Print banner: `── design | Gather ───────────────────────────────`
+Print banner: `── bf:design | Gather ───────────────────────────────`
 
 1. Read `${CLAUDE_SKILL_DIR}/gather/SKILL.md` and follow its instructions **inline** in the current conversation. Pass the idea as `$ARGUMENTS`.
 
@@ -97,7 +97,7 @@ Print banner: `── design | Gather ──────────────
 
 ## Phase 2 — Generate
 
-Print banner: `── design | Generate (may take 1–2 min) ──────────`
+Print banner: `── bf:design | Generate (may take 1–2 min) ──────────`
 
 1. **Use the `slug` and `doc_path` already resolved** by `design-paths.sh` in On Invocation
    step 3. The script kebab-cases the idea, strips accents, drops filler words, caps the slug
@@ -137,7 +137,7 @@ Print banner: `── design | Generate (may take 1–2 min) ──────�
 
 ## Phase 3 — Review
 
-Print banner: `── design | Review ───────────────────────────────`
+Print banner: `── bf:design | Review ───────────────────────────────`
 
 Track a revision counter starting at 0. Increment it on each iterate round.
 
@@ -184,7 +184,7 @@ Do NOT delete the temp Q&A file in this phase — it must stay alive for potenti
 
 ## Phase 4 — Optional /bf:feature handoff
 
-Print banner: `── design | Handoff ───────────────────────────────`
+Print banner: `── bf:design | Handoff ───────────────────────────────`
 
 1. **Ask one question** (inline, wait for response):
    ```

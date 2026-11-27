@@ -66,10 +66,10 @@ The discuss utility sub-skill is at `${CLAUDE_PLUGIN_ROOT}/skills/discuss/SKILL.
 At the start of every phase, print a banner to the conversation so the user knows where they are. Use this exact format:
 
 ```
-── feature | Name ───────────────────────────────
+── bf:feature | Name ───────────────────────────────
 ```
 
-For example: `── feature | Plan ───────────────────────────────`
+For example: `── bf:feature | Plan ───────────────────────────────`
 
 Print the banner as plain text (not in a code block). Do this before any other work in the phase.
 
@@ -132,7 +132,7 @@ Quick mode skips **only** brainstorm and review-design. Every other phase — re
 
 ## Phase 0 — Init
 
-Print banner: `── feature | Init ───────────────────────────────`
+Print banner: `── bf:feature | Init ───────────────────────────────`
 
 Use the `init-probe.sh` output from On Invocation (do **not** re-run it).
 
@@ -197,7 +197,7 @@ Use `paths.*` from `state-ops.sh` instead of constructing paths manually.
 
 ## Phase 1 — Brainstorm (full mode only)
 
-Print banner: `── feature | Brainstorm ───────────────────────────────`
+Print banner: `── bf:feature | Brainstorm ───────────────────────────────`
 
 Skipped entirely in quick mode — quick mode uses Phase 1Q (Refine) instead.
 
@@ -241,7 +241,7 @@ After the generate agent completes (it appends the `## Spec` block to `paths.ses
 
 ## Phase 1Q — Refine (quick mode only)
 
-Print banner: `── feature | Refine ───────────────────────────────`
+Print banner: `── bf:feature | Refine ───────────────────────────────`
 
 Skipped entirely in full mode — full mode uses Phase 1 (Brainstorm) instead.
 
@@ -256,7 +256,7 @@ Skipped entirely in full mode — full mode uses Phase 1 (Brainstorm) instead.
 
 ## Phase 2 — Review Design (full mode only)
 
-Print banner: `── feature | Review Design ───────────────────────────────`
+Print banner: `── bf:feature | Review Design ───────────────────────────────`
 
 Skipped entirely in quick mode.
 
@@ -284,7 +284,7 @@ Run up to 3 analyze → fix cycles:
 
 ## Phase 2.5 / 1.5 — Research
 
-Print banner: `── feature | Research ───────────────────────────────`
+Print banner: `── bf:feature | Research ───────────────────────────────`
 
 Runs in both modes. Runs after review-design (full) or after refine (quick) — always before plan.
 
@@ -297,7 +297,7 @@ Runs in both modes. Runs after review-design (full) or after refine (quick) — 
 
 ## Phase 3 — Plan
 
-Print banner: `── feature | Plan ───────────────────────────────`
+Print banner: `── bf:feature | Plan ───────────────────────────────`
 
 1. Dispatch `feature/plan/SKILL.md` as an Agent (model: opus) — it appends `## Plan` and `## Todo` blocks to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
 2. If `skip_plan_gates` (from `state-ops.sh` read) is `true`: print one line, "Skipped the advisory plan gates (skip_plan_gates is on).", and go to step 3. Otherwise, after the plan agent completes, run both gates on the plan in parallel per the **Parallel Fan-Out** convention in `plugin-main.md` — named so they show on the fleet board, dispatched in one message, both awaited before you proceed (phase is still `plan` — both skills auto-detect plan advisory mode):
@@ -316,7 +316,7 @@ Print banner: `── feature | Plan ──────────────�
 
 ## Phase 4 — Execute
 
-Print banner: `── feature | Execute ───────────────────────────────`
+Print banner: `── bf:feature | Execute ───────────────────────────────`
 
 1. Dispatch `feature/do-todo/SKILL.md` as an Agent (model: sonnet) — it loops internally until all items are checked
 2. **Spot-check** before advancing state: compare the files, commits and counts the agent claims with `git diff --stat <main_branch>...HEAD` and `git log --oneline <main_branch>..HEAD`. A mismatch is a claimed file, commit or count that git does not show; extra history on a reused branch is not one. On a mismatch, re-dispatch do-todo for the gap or fix it yourself, then check again. If this was already the 3rd cycle: tell the user "Spot-check still fails after 3 cycles: <mismatches>. Check them manually." and stop.
@@ -328,7 +328,7 @@ Print banner: `── feature | Execute ─────────────�
 
 ## Phase 4.5 — Verify
 
-Print banner: `── feature | Verify ───────────────────────────────`
+Print banner: `── bf:feature | Verify ───────────────────────────────`
 
 1. Dispatch `feature/verify/SKILL.md` as an Agent (model: sonnet)
    - Detects project type, consults conventions, determines test and lint commands
@@ -342,7 +342,7 @@ Print banner: `── feature | Verify ─────────────�
 
 ## Phase 4.75 — Audit Stack
 
-Print banner: `── feature | Audit Stack ───────────────────────────────`
+Print banner: `── bf:feature | Audit Stack ───────────────────────────────`
 
 **Out-of-scope fixes (applies here and in Phase 5).** If a fix needs a file outside `changed_files`, or a path the spec or plan said not to touch, restate that in one line before dispatching the fix agent (see **Restate a wide effect** in `plugin-main.md`). Then append a `## Decisions` entry to `paths.session_log` recording the user's ruling (Block Writing Pattern, accumulate), and name the extra files in the fix prompt. A scope change recorded at the moment it is made is not later flagged by review-impl as an unexplained violation.
 
@@ -399,7 +399,7 @@ Run up to 3 scan → fix cycles, where each scan is a 3-way concurrent fan-out:
 >
 > When `parallel_audit` is `false`, run the original sequential review-impl loop below.
 
-Print banner: `── feature | Review Implementation ───────────────────────────────`
+Print banner: `── bf:feature | Review Implementation ───────────────────────────────`
 
 Run up to 3 analyze → fix cycles:
 
@@ -420,7 +420,7 @@ Run up to 3 analyze → fix cycles:
 
 ## Phase 6 — Finalize
 
-Print banner: `── feature | Finalize ───────────────────────────────`
+Print banner: `── bf:feature | Finalize ───────────────────────────────`
 
 1. **Silent quality gate:** Before touching git, dispatch `feature/verify/SKILL.md` as an Agent (model: sonnet) one final time.
    - This catches any regressions introduced by review-impl fix cycles
@@ -470,7 +470,7 @@ Print banner: `── feature | Finalize ─────────────
 
 ## Phase 7 — Collect TODOs (optional)
 
-Print banner: `── feature | Collect TODOs ───────────────────────────────`
+Print banner: `── bf:feature | Collect TODOs ───────────────────────────────`
 
 1. Dispatch `feature/collect-todos/SKILL.md` as an Agent (model: sonnet)
 2. The skill scans changes introduced by the feature branch for TODO comments, classifies them, and appends a `## Backlog` block to `.bf/sessions/<build_timestamp>-<slug>-session-log.md`
@@ -484,7 +484,7 @@ Print banner: `── feature | Collect TODOs ───────────�
 
 ## Phase 8 — Cleanup
 
-Print banner: `── feature | Cleanup ───────────────────────────────`
+Print banner: `── bf:feature | Cleanup ───────────────────────────────`
 
 ```
 bash "${CLAUDE_PLUGIN_ROOT}/skills/feature/scripts/cleanup.sh"

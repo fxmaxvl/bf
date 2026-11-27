@@ -3,6 +3,7 @@ name: onboard-skill
 description: "Use when the user provides a URL to an external skill and wants to steal and adapt it for the bf plugin. Fetches the source skill, analyzes which parts to port per the user's instructions, identifies bf convention gaps, and hands off a complete design spec to bf:write-skill."
 model: opus
 disable-model-invocation: false
+suggest: false
 argument-hint: "<url> <instructions about what to onboard>"
 allowed-tools: Read, WebFetch, Bash(gh *), Task
 ---

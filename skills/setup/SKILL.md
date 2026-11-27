@@ -3,6 +3,7 @@ name: setup
 description: Use when setting up bf for the first time, when a bf skill reports a missing tool, or when asked to "install bf dependencies" or "what does bf need". Checks every dependency, lists the install commands, and installs the missing ones after one confirmation.
 model: sonnet
 disable-model-invocation: true
+suggest: false
 argument-hint: "[core | status]"
 allowed-tools: Bash(bash *)
 ---

@@ -310,6 +310,30 @@ Limits:
 
 A seventh hook, PreToolUse (`Bash`), runs `hooks/remote-state-pre-bash.sh` before `git push`, `gh pr edit` and `gh pr merge`. It adds a note that tells the model to run `git fetch` and check the PR state first. A push to a merged or closed PR strands its commits. The hook only adds a note, and never blocks or approves the command. `finalize-git.sh` makes this check itself, so its calls get no note. To turn it off, set `BF_REMOTE_HOOK` to `off` in the `env` block of a settings file.
 
+## Skill-suggestion hook
+
+An eighth hook, Stop, runs `hooks/skill-suggest-stop.sh`. After a reply, it shows one line that names the bf skill that fits your likely next step. An example is `Tip: /bf:research fits this. Use it when the user says 'research X', 'prior art'.` The line comes from the skill description. The hook sends no message to the model, so it costs no Claude tokens and never adds a Claude turn. It exits 0 on every path.
+
+The hook stays silent when:
+
+- `BF_SUGGEST_HOOK` is `off`.
+- The turn belongs to a sub-agent, or the Stop hook is already active.
+- The reply holds a bf banner, or a bf skill ran in your last few prompts. The hook reads the session transcript to check. A `/clear` ends the look-back.
+- No skill fits with enough confidence.
+- The hook already showed the same skill in this session.
+
+How it decides:
+
+1. The hook reads the skill descriptions. A skill that sets `suggest: false` in its frontmatter is never named. Nine maintainer skills opt out this way.
+2. It asks the TypeSafe model (see below) whether a skill would help, and which one. The model sees the end of the reply and the start of your last prompt. Its answer must pass a confidence bar.
+3. When TypeSafe is off or fails, the hook uses a keyword check. A skill wins when enough of its quoted trigger phrases occur in the text. A tie with another skill gives no tip.
+
+A TypeSafe call sends text to an outside API, so read the TypeSafe section before you turn boosting on. Without boosting, only the keyword check runs and no text leaves the machine. The limits are constants at the top of the hook file. They cover the confidence bars, the text lengths, the look-back size and the time budget.
+
+Each decision that reached a judgment writes one JSON line to `~/.bf/suggest/log.jsonl`. The fields are `time`, `repo`, `skill`, `confidence`, `source` (`typesafe` or `keyword`), `shown` and `reply_words`. The `skill` field holds the chosen skill, from TypeSafe or from the keyword check, when it is a catalog skill, even if the tip was not shown, and `none` otherwise. The `reply_words` field holds the most frequent words of the reply. The log holds no sentence of the reply or of your prompt. The directory is private to your user, and the file rotates to `log.jsonl.1` at a size limit. Nothing reads the log automatically. It exists so you can see how often the hook is right.
+
+To turn the hook off, set `BF_SUGGEST_HOOK` to `off` in the `env` block of a settings file.
+
 ## Optional: TypeSafe boosting
 
 **bf works fully without this.** You can skip the section and miss nothing. No skill requires it, no
