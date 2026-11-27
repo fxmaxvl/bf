@@ -10,6 +10,8 @@ trap 'exit 0' EXIT
 _prose_hooks_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 _prose_lint_script=$_prose_hooks_dir/../skills/plain/scripts/prose-lint.sh
 
+source "$_prose_hooks_dir/dir-guard.sh"
+
 prose_off() { [ "${BF_PROSE_HOOK:-}" = off ]; }
 
 # Reads the hook input once.
@@ -81,15 +83,9 @@ prose_record_path() {
   printf '%s/%s' "$(_prose_record_dir "${2:-prose}")" "$sid"
 }
 
-# Ls prints the mode in field 1 and the owner uid in field 3 on both BSD and GNU, where stat flags differ.
 # The directory must belong to the user and give no access to group or other, because mkdir -m leaves an
 # existing directory as it is.
-_prose_record_dir_owned() {
-  local dir=$1 mode owner
-  [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
-  read -r mode _ owner _ < <(ls -nd "$dir")
-  [ "${mode:4:6}" = "------" ] && [ "$owner" = "$(_prose_record_uid)" ]
-}
+_prose_record_dir_owned() { dir_guard_check "$1" "$(_prose_record_uid)" private; }
 
 # prose_record_dir_ensure <dir>: creates the directory when it is missing. Fails unless the result passes
 # the owner and mode check.

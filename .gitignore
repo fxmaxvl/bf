@@ -1,4 +1,5 @@
 .bf/sessions/
+.bf/cache/
 .bf/gather/
 .bf/audits/
 .bf/audit/

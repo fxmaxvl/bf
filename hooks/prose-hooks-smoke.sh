@@ -265,7 +265,7 @@ cfg=$hooks/hooks.json
 eq "hooks.json parses" "$(jq -e . "$cfg" >/dev/null 2>&1 && echo yes)" yes
 eq "hooks.json events" "$(jq -r '.hooks | keys | join(",")' "$cfg")" "PostToolUse,PreToolUse,SessionStart,Stop,SubagentStop,UserPromptSubmit"
 eq "hooks.json timeouts" "$(jq -r '[.hooks[][].hooks[] | select(.command | test("hooks/prose-")) | .timeout] | unique | join(",")' "$cfg")" 5
-eq "hooks.json matchers" "$(jq -r '[.hooks.SessionStart[0].matcher, .hooks.PostToolUse[0].matcher, .hooks.PreToolUse[0].matcher, (.hooks.Stop[0] | has("matcher")), (.hooks.SubagentStop[0] | has("matcher"))] | join(",")' "$cfg")" "compact,Write|Edit,Bash,false,false"
+eq "hooks.json matchers" "$(jq -r '[(.hooks.SessionStart[] | select(.matcher == "compact") | .matcher), .hooks.PostToolUse[0].matcher, .hooks.PreToolUse[0].matcher, (.hooks.Stop[0] | has("matcher")), (.hooks.SubagentStop[0] | has("matcher"))] | join(",")' "$cfg")" "compact,Write|Edit,Bash,false,false"
 missing=0
 for s in $(jq -r '.hooks[][].hooks[] | select(.command | test("hooks/prose-")) | .command' "$cfg" | sed 's/.*hooks\/\([a-z-]*\.sh\).*/\1/'); do
   [ -f "$hooks/$s" ] || missing=$((missing+1))

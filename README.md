@@ -308,11 +308,17 @@ Limits:
 
 ## Remote-state hook
 
-A seventh hook, PreToolUse (`Bash`), runs `hooks/remote-state-pre-bash.sh` before `git push`, `gh pr edit` and `gh pr merge`. It adds a note that tells the model to run `git fetch` and check the PR state first. A push to a merged or closed PR strands its commits. The hook only adds a note, and never blocks or approves the command. `finalize-git.sh` makes this check itself, so its calls get no note. To turn it off, set `BF_REMOTE_HOOK` to `off` in the `env` block of a settings file.
+The PreToolUse (`Bash`) hook `hooks/remote-state-pre-bash.sh` runs before `git push`, `gh pr edit` and `gh pr merge`. It adds a note that tells the model to run `git fetch` and check the PR state first. A push to a merged or closed PR strands its commits. The hook only adds a note, and never blocks or approves the command. `finalize-git.sh` makes this check itself, so its calls get no note. To turn it off, set `BF_REMOTE_HOOK` to `off` in the `env` block of a settings file.
+
+## Dependency index hook
+
+The SessionStart hook `hooks/deps-index.sh` runs on `startup`, `resume` and `clear`. It starts a background build of `.bf/cache/deps.json` and returns at once. The file lists the declared dependencies of each tracked manifest, such as `package.json`, `BUILD.bazel`, `pom.xml`, `pyproject.toml`, `go.mod` and `Cargo.toml`. The L3 step of the reuse lookup runs `hooks/deps-index.sh read <package dir>`. That call rebuilds any stale entry first. L3 then reads one index file in place of up to three manifests.
+
+The hook writes into the repo of the session. It creates `.bf/cache/` and puts a `.gitignore` in it, so the index stays untracked. Only tracked manifests count. A new manifest counts once it is staged. The Bazel parser keeps external labels only, and the other parsers read the common layouts and skip the rest. The hook indexes only the repo of the session directory. A different git worktree has its own `.bf/cache/`, so the first `read` there builds the whole index in the foreground. To turn the hook and the `read` mode off, set `BF_DEPS_HOOK` to `off` in the `env` block of a settings file.
 
 ## Skill-suggestion hook
 
-An eighth hook, Stop, runs `hooks/skill-suggest-stop.sh`. After a reply, it shows one line that names the bf skill that fits your likely next step. An example is `Tip: /bf:research fits this. Use it when the user says 'research X', 'prior art'.` The line comes from the skill description. The hook sends no message to the model, so it costs no Claude tokens and never adds a Claude turn. It exits 0 on every path.
+The Stop hook `hooks/skill-suggest-stop.sh` runs after a reply. It shows one line that names the bf skill that fits your likely next step. An example is `Tip: /bf:research fits this. Use it when the user says 'research X', 'prior art'.` The line comes from the skill description. The hook sends no message to the model, so it costs no Claude tokens and never adds a Claude turn. It exits 0 on every path.
 
 The hook stays silent when:
 
