@@ -36,6 +36,7 @@ bf also has a standalone design tool, `/bf:design`, that writes shareable system
 | `/bf:coherence [scope]` | Utility | Checks whether a change left the code it touched coherent, against the breakage kinds in the guidelines | Right after you edit existing code. It is the fast counterpart to `/bf:review` |
 | `/bf:walkthrough [scope]` | Utility | Guided read of a finished change. It tours the hunks that carried a decision, one at a time, and collects your comments | Right after a build, while you still remember why you did it that way |
 | `/bf:arch-audit [scope]` | Utility | Descends a repo layer by layer, one round per build unit, and writes a nested document that describes every layer and its structural problems | You need to understand how an existing system is built, or where its bottlenecks are |
+| `/bf:refactor-scout [scan] [--only crapper\|dryer] [--mutate] [path] \| plan <id> \| check <id>` | Utility | Measures a repo or module with crapper and dryer (mutator with `--mutate`). It groups the candidates by metric and ranks each group by score × git churn. `plan` finds the similar cases, designs options and challenges them, and hands one to `/bf:micro` or `/bf:feature` with a measurable definition of done. `check` re-runs the tool and says PASS or FAIL. It never edits code | You have no task yet and want to know what to refactor first, and how to prove the refactor worked |
 | `/bf:pr-comments [pr]` | Utility | Triages PR review feedback on its merits. For each comment, it fixes the whole class of problem the comment points at, argues back, or defers. It posts replies and resolutions as one approved batch | A PR has review comments from people or bots, and you want them judged rather than obeyed |
 | `/bf:cross-agent [--run <agent>] [--read-only] <skill> [args]` | Utility | Packs a bf skill for another coding agent. The bundle holds the skill's referenced docs and scripts, the resolved conventions, a preamble that maps Claude Code tools to the other harness, and a brief with this conversation's context. `--run codex` starts it and brings the result back | You want Codex or another agent to run a bf skill such as `bug-hunt` or `review`. Claude also picks it up from intent alone, e.g. "have codex review this branch" |
 | `/bf:gh` | Utility | Creates, picks, or verifies a GitHub issue. Verify checks each item of an issue against the code again and hands off the items that are still open | You start work from an issue tracker, or want to check whether an old issue is still real |
@@ -96,6 +97,7 @@ only want to think out loud, use `/bf:discuss` and go straight to `/bf:feature`.
 /bf:arch-audit [scope]     layer-by-layer document of every build unit, plus structural findings
 /bf:visualize <audit-doc>  LikeC4 drill-down (context → container → component), one local HTML file
 /bf:adr-writer <title>     record a decision the audit exposed, citing only tracked files
+/bf:refactor-scout [path]  measure a module with crapper and dryer, ranked by score × churn
 /bf:feature <finding>      act on the finding worth fixing first
 ```
 
