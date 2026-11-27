@@ -7,7 +7,8 @@
 #                                             input JSON on stdin, takes cwd from it and returns at once.
 #        deps-index.sh read [path ...]        build, then print a JSON array of {name, version, manifest}.
 #                                             With paths, print only the manifests at the repo root and
-#                                             under those paths.
+#                                             under those paths. A relative path starts at the cwd. "." at
+#                                             the repo root, or the root path, prints only the root manifests.
 #        deps-index.sh names                  print the manifest file names the index covers.
 # Env:   BF_DEPS_HOOK=off turns every mode off. DEPS_INDEX_TRACE=1 prints "parse <path>" on stderr for each
 #        manifest that is parsed. DEPS_INDEX_TEST_DELAY=<seconds> makes build wait before it writes.
