@@ -165,6 +165,6 @@ Print the workspace path, the lesson and reference counts, any skipped areas, an
 | Survey or lesson agent fails or writes nothing | Re-spawn that one agent once. If it fails again, mark its lessons missing in the course map. Never present a partial course as complete. |
 | Spawn error (terminal or pane resource error) | The agent never started, so the error does not use its retry (see **A pane-limit spawn error is not an agent failure** in `plugin-main.md`). Stop the agents that already reported, then spawn the rest in smaller batches, or do the work inline. |
 | `promote` reports `conflicts` | Stop before Phase 5's remaining files. Name each conflicting page; the workspace already holds a page with that name, so this course must not replace it. |
-| Survey agent or lesson writer still running but silent past the stall check | Follow **Watch for a silent writer** in Phase 4: message it once, then stop it and re-spawn it or do its work inline. |
+| Survey agent or lesson writer still running but silent past the stall check | Follow **Watch for a silent writer** in Phase 4: message it, and stop it only when it neither reports nor answers. Then re-spawn it or do its work inline. |
 | Repo docs contradict the code | Teach what the code does, cite both sides, and add the discrepancy to NOTES.md as a question for the team. |
 | Secrets found in tracked config | Never copy the values into lessons, fact sheets, `NOTES.md` or `RESOURCES.md`. Name the file and the variable only. |
