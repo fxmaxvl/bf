@@ -37,8 +37,11 @@ fi
 
 from=$(git merge-base "$base" HEAD 2>/dev/null) || { echo "skip: false"; exit 0; }
 [[ -z "$(git ls-files --others --exclude-standard -- . ':!.bf/')" ]] || { echo "skip: false"; exit 0; }
-entries=$(git diff --name-status -M "$from" 2>/dev/null) || { echo "skip: false"; exit 0; }
+entries=$(git -c core.quotePath=false diff --name-status -M "$from" 2>/dev/null) || { echo "skip: false"; exit 0; }
 [[ -n "$entries" ]] || { echo "skip: false"; exit 0; }
+# Git still quotes a path with a double quote, a backslash or a control character, and the parser below
+# cannot read it back, so such a change is never skipped.
+grep -q $'\t"' <<<"$entries" && { echo "skip: false"; exit 0; }
 
 python3 - "$from" "$entries" <<'PY'
 import re

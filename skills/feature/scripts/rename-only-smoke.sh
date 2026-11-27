@@ -77,4 +77,12 @@ reset; sed -i.bak 's#"/tmp/out"#"/tmp/out2"#' lit.sh && rm lit.sh.bak && echo 'n
 eq "an untracked file -> false" "$(probe)" "skip: false"
 git checkout -q -- lit.sh && rm untracked.sh
 
+reset; printf 'import x from "./a/mod"\n' >café.js && git add . && git commit -qm cafe && git branch -f base HEAD
+reset; sed -i.bak 's#"./a/mod"#"./b/mod"#' café.js && rm café.js.bak && git commit -qam cafe-path
+eq "path string change in a non-ASCII file name -> true" "$(probe)" "skip: true"
+reset; sed -i.bak 's#"./a/mod"#"./b/mod"#' café.js && rm café.js.bak && echo 'oops' >>café.js && git commit -qam cafe-code
+eq "code change in a non-ASCII file name -> false" "$(probe)" "skip: false"
+reset; git mv old.txt 'we"ird.txt' && git commit -qm quoted
+eq "a path git still quotes -> false" "$(probe)" "skip: false"
+
 [ "$fails" -eq 0 ]
