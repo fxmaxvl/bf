@@ -79,13 +79,27 @@ lock_acquire() {
       started=$now
     fi
     if [ $((now - started)) -gt 60 ]; then
-      rm -rf "$lock"
+      lock_steal "$started"
       continue
     fi
     [ "$waited" -ge "$wait" ] && return 1
     sleep 1
     waited=$((waited + 1))
   done
+}
+
+# lock_steal <stale_started>: removes a stale lock. A check and an rm -rf are two steps, so a second caller could
+# delete the fresh lock of the first stealer. The mv is atomic, so only one caller gets the stale dir. That
+# caller deletes it only when it still holds the stale start time. A caller whose mv fails goes back to the loop.
+lock_steal() {
+  local stale=$cache/deps.lock.stale.$$
+  rm -rf "$stale"
+  [ "$(cat "$lock/started" 2>/dev/null)" = "$1" ] || return 0
+  mv "$lock" "$stale" 2>/dev/null || return 0
+  if [ "$(cat "$stale/started" 2>/dev/null)" != "$1" ] && [ ! -e "$lock" ]; then
+    mv "$stale" "$lock" 2>/dev/null
+  fi
+  rm -rf "$stale"
 }
 
 lock_release() {
@@ -315,6 +329,8 @@ build_index() {
 
   [ -n "${DEPS_INDEX_TEST_DELAY:-}" ] && sleep "$DEPS_INDEX_TEST_DELAY"
   tmp=$cache/deps.json.tmp.$$
+  # A steal can hand the lock to another build while this one runs. Its output is then stale, so discard it.
+  [ "$(cat "$lock/owner" 2>/dev/null)" = "$$" ] || return 1
   jq -n -c --slurpfile old "$work/old.json" --slurpfile cur "$work/cur.json" --slurpfile new "$work/new.jsonl" '
     ($old[0].manifests // {}) as $o
     | {schema: 1,
