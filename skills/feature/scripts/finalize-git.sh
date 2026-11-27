@@ -21,6 +21,9 @@
 # session-untracked.sh owns which untracked files count (nested repos are never staged).
 # Skips the commit step if there are no uncommitted changes.
 # Outputs the PR URL on stdout.
+# With no PR, it opens one from --pr-title and the body. When the branch already has an OPEN PR, it
+# leaves that PR's title and body alone and posts the body as a PR comment. --closes-issue then
+# appends only "Closes #<n>" to the PR body, and only when the body has no closing line for that issue.
 #
 # --commit-only skips the PR check, stages and commits as usual, then exits 0 before the push.
 # --pr-title and --pr-body are optional with it, and no PR URL is printed.
@@ -48,9 +51,9 @@
 # Exit 5: gh could not read the PR state, for example on an auth failure. Nothing is staged or
 #   pushed. Fix gh (gh auth status) and rerun.
 # Exit 6: the commit and the push are done, but the PR step failed. That step is the PR lookup
-#   after the push, gh pr edit or gh pr create. It also fails when the PR became MERGED or CLOSED
-#   during the push. Do not create a new branch. Fix gh and rerun to open or update the PR. After
-#   a MERGED or CLOSED exit 6, the rerun ends in exit 4: follow that recovery.
+#   after the push, gh pr create, or the comment and body edit on an open PR. It also fails when the
+#   PR became MERGED or CLOSED during the push. Do not create a new branch. Fix gh and rerun to open
+#   or update the PR. After a MERGED or CLOSED exit 6, the rerun ends in exit 4: follow that recovery.
 
 set -euo pipefail
 
@@ -230,12 +233,21 @@ pushed_pr_failed() {
     echo "Error: the branch is pushed, but the PR step failed: $1. Check gh (gh auth status), then rerun or open the PR by hand." >&2
     exit 6
 }
-# A PR can be opened or merged while the push runs, so the edit-or-create choice uses a fresh read.
+# A PR can be opened or merged while the push runs, so the comment-or-create choice uses a fresh read.
 PR_INFO=$(pick_pr) || pushed_pr_failed "could not read the PR state"
 read -r PR_STATE PR_URL _ <<<"$PR_INFO" || true
 case "$PR_STATE" in
     OPEN)
-        gh pr edit --title "$PR_TITLE" --body "$BODY" || pushed_pr_failed "gh pr edit failed" ;;
+        # A follow-up run must not erase the PR description, so its summary goes in a comment. Only a
+        # missing closing line goes into the body, because GitHub ignores closing keywords in comments.
+        if [[ -n "$CLOSES_ISSUE" ]]; then
+            OLD_BODY=$(gh pr view "$PR_URL" --json body -q .body) || pushed_pr_failed "could not read the PR body"
+            if ! grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?):? +#${CLOSES_ISSUE}([^0-9]|\$)" <<<"$OLD_BODY"; then
+                gh pr edit "$PR_URL" --body "${OLD_BODY}"$'\n\n'"Closes #${CLOSES_ISSUE}" >/dev/null \
+                    || pushed_pr_failed "gh pr edit failed"
+            fi
+        fi
+        gh pr comment "$PR_URL" --body "$BODY" >/dev/null || pushed_pr_failed "gh pr comment failed" ;;
     "")
         PR_URL=$(gh pr create --title "$PR_TITLE" --body "$BODY") || pushed_pr_failed "gh pr create failed" ;;
     *)
