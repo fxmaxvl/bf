@@ -123,6 +123,15 @@ function section(s) {
   sub(/[ \t]*#.*/, "", s); gsub(/[][ \t]/, "", s)
   return s
 }
+# coord(s, free): prints "group:artifact<TAB>version" when s is a Maven coordinate. The two callers differ on
+# purpose. A Gradle scan reads only dependency lines, so free = 1 accepts two parts and any version text, such
+# as 1.+ or ${v}. A MODULE.bazel scan reads every string in the file, so free = 0 needs three parts and a plain
+# version, or an ordinary string such as a label would match.
+function coord(s, free,   c) {
+  if (free) { if (s !~ /^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+(:[^:]+)?$/) return }
+  else if (s !~ /^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+:[A-Za-z0-9_.+-]+$/) return
+  split(s, c, ":"); print c[1] ":" c[2] "\t" c[3]
+}
 # kvdep(line): a TOML line `name = "1.0"` or `name = { version = "1.0", ... }`.
 function kvdep(line,   k, v, ver, s) {
   if (line !~ /^[ \t]*[A-Za-z0-9_."-]+[ \t]*=/) return
@@ -208,11 +217,7 @@ inb {
   next
 }
 {
-  while (str_next()) {
-    if (str ~ /^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+:[A-Za-z0-9_.+-]+$/) {
-      split(str, c, ":"); print c[1] ":" c[2] "\t" c[3]
-    }
-  }
+  while (str_next()) coord(str, 0)
 }
 EOF
 
@@ -235,11 +240,7 @@ EOF
 read -r -d '' AWK_GRADLE <<'EOF'
 /^[ \t]*[A-Za-z]*([Ii]mplementation|[Aa]pi|[Cc]ompileOnly|[Rr]untimeOnly|[Cc]ompile|[Rr]untime|[Pp]rocessor|kapt|ksp|classpath)[ \t(]/ {
   line = $0
-  while (str_next()) {
-    if (str ~ /^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+(:[^:]+)?$/) {
-      split(str, c, ":"); print c[1] ":" c[2] "\t" c[3]
-    }
-  }
+  while (str_next()) coord(str, 1)
 }
 EOF
 
