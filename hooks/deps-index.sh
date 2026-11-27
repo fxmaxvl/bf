@@ -70,6 +70,8 @@ lock_acquire() {
     fi
     now=$(date +%s)
     started=$(cat "$lock/started" 2>/dev/null)
+    # The owner makes the dir first and writes started after, so a missing started is normally that short gap.
+    # Starting the clock here makes a lock whose owner died in the gap expire too, in place of staying forever.
     if [ -z "$started" ]; then
       [ -d "$lock" ] && printf '%s\n' "$now" > "$lock/started" 2>/dev/null
       started=$now
