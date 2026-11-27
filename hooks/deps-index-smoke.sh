@@ -16,6 +16,7 @@ main() {
   guard_cases
   unit_cases
   integration_cases
+  read_cases
 
   [ "$fails" = 0 ]
 }
@@ -287,6 +288,73 @@ EOF
 EOF
   idx build
   check "existing cache dir with mode 755 works" "$(deps_of package.json)" "false a=1"
+}
+
+read_cases() {
+  local out
+
+  ctx_init
+  put package.json <<'EOF'
+{"dependencies":{"a":"1"}}
+EOF
+  out=$(idx read)
+  check "read on a fresh repo builds and prints entries" "$out" '[{"name":"a","version":"1","manifest":"package.json"}]'
+
+  printf '{"dependencies":{"a":"2"}}\n' > "$repo/package.json"
+  out=$(idx read)
+  check "read after a manifest edit prints the new version" "$out" '[{"name":"a","version":"2","manifest":"package.json"}]'
+
+  ctx_init
+  put package.json <<'EOF'
+{"dependencies":{"root":"1"}}
+EOF
+  put services/api/package.json <<'EOF'
+{"dependencies":{"api":"1"}}
+EOF
+  put services/api/deep/package.json <<'EOF'
+{"dependencies":{"deep":"1"}}
+EOF
+  put services/apiary/package.json <<'EOF'
+{"dependencies":{"apiary":"1"}}
+EOF
+  put services/web/package.json <<'EOF'
+{"dependencies":{"web":"1"}}
+EOF
+  out=$(idx read | jq -r 'map(.name) | sort | join(",")')
+  check "read without a prefix prints every manifest" "$out" "api,apiary,deep,root,web"
+  out=$(idx read services/api | jq -r 'map(.name) | sort | join(",")')
+  check "read with a prefix: root and that tree only" "$out" "api,deep,root"
+  out=$(idx read services/api/ | jq -r 'map(.name) | sort | join(",")')
+  check "read with a trailing slash" "$out" "api,deep,root"
+  out=$(idx read "$repo/services/api" | jq -r 'map(.name) | sort | join(",")')
+  check "read with an absolute prefix" "$out" "api,deep,root"
+  out=$(idx read ./services/api | jq -r 'map(.name) | sort | join(",")')
+  check "read with a ./ prefix" "$out" "api,deep,root"
+  out=$(idx read services/api services/web | jq -r 'map(.name) | sort | join(",")')
+  check "read with two prefixes" "$out" "api,deep,root,web"
+
+  ctx_init
+  put package.json <<'EOF'
+{"dependencies":{"a":"1"}}
+EOF
+  mkdir -p "$repo/.bf/cache/deps.lock"
+  date +%s > "$repo/.bf/cache/deps.lock/started"
+  out=$(idx read); rc=$?
+  check "read with a live lock: waits, then prints nothing" "$rc:$out" "0:"
+  check "read with a live lock: lock dir stays" "$([ -d "$repo/.bf/cache/deps.lock" ] && echo yes || echo no)" yes
+
+  rm -rf "$repo/.bf/cache/deps.lock"
+  mkdir -p "$repo/.bf/cache/deps.lock"
+  echo $(($(date +%s) - 120)) > "$repo/.bf/cache/deps.lock/started"
+  out=$(idx read)
+  check "read with a stale lock: removes it and prints entries" "$out" '[{"name":"a","version":"1","manifest":"package.json"}]'
+
+  out=$(cd "$repo" && BF_DEPS_HOOK=off bash "$script" read 2>&1); rc=$?
+  check "read with BF_DEPS_HOOK=off prints nothing" "$rc:$out" "0:"
+  out=$(cd "$tmp/plain" && bash "$script" read 2>&1); rc=$?
+  check "read outside a repo prints nothing" "$rc:$out" "0:"
+  out=$(cd "$repo" && env PATH=/nonexistent /bin/bash "$script" read 2>&1); rc=$?
+  check "read without jq prints nothing" "$rc:$out" "0:"
 }
 
 # ctx_init: a new empty git repo in $repo.

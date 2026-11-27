@@ -281,6 +281,25 @@ build_index() {
                    + $new | from_entries)}' > "$tmp" && mv "$tmp" "$old" || { rm -f "$tmp"; return 1; }
 }
 
+# read_index [path ...]: prints the entries of the manifests at the repo root and under each path. A path
+# may be absolute or start with ./, and a trailing slash does not matter.
+read_index() {
+  local a pre=[]
+  local -a prefixes=()
+  for a in "$@"; do
+    a=${a#"$root"/}; a=${a#./}; a=${a%/}
+    prefixes+=("$a")
+  done
+  if [ ${#prefixes[@]} -gt 0 ]; then
+    pre=$(printf '%s\n' "${prefixes[@]}" | jq -R -s -c 'split("\n")[:-1]') || return 1
+  fi
+  jq -c --argjson pre "$pre" '
+    [.manifests | to_entries[]
+     | select(($pre | length) == 0 or (.key | contains("/") | not)
+              or (.key as $k | $pre | any(.[]; . as $p | $k | startswith($p + "/"))))
+     | .key as $m | .value.deps[] | {name, version, manifest: $m}]' "$cache/deps.json"
+}
+
 main() {
   case ${1:-} in
     names) printf '%s\n' $MANIFEST_NAMES; return 0 ;;
@@ -296,6 +315,11 @@ main() {
       open_repo || return 0
       lock_acquire 0 || return 0
       build_index
+      ;;
+    read)
+      open_repo || return 0
+      lock_acquire 5 || return 0
+      build_index && read_index "$@"
       ;;
   esac
   return 0
