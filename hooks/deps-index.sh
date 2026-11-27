@@ -16,6 +16,8 @@
 # Limits: only tracked manifests count, so a new manifest is invisible until it is staged. BUILD files keep
 #         external labels only (@repo//...). The awk parsers read the common table shapes and are best
 #         effort. A manifest that fails to parse gets error true and no dependencies.
+#         The hook indexes only the repo of the session cwd. A different worktree has its own toplevel and its
+#         own .bf/cache, so the first read there does a full cold build in the foreground.
 set -uo pipefail
 set -f
 # No dirname here: the no-jq smoke case runs with an empty PATH. A hook that cannot find its guard ends quietly.
