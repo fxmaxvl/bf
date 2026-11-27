@@ -111,6 +111,13 @@ function req(s,   name, rest) {
   sub(/^[ \t]*\[[^]]*\]/, "", rest); gsub(/[ \t]/, "", rest)
   print name "\t" rest
 }
+# str_next(): moves the next quoted string off the front of the global line into the global str. It returns
+# 0 when no string is left.
+function str_next() {
+  if (!match(line, /"[^"]*"|'[^']*'/)) return 0
+  str = substr(line, RSTART + 1, RLENGTH - 2); line = substr(line, RSTART + RLENGTH)
+  return 1
+}
 # kvdep(line): a TOML line `name = "1.0"` or `name = { version = "1.0", ... }`.
 function kvdep(line,   k, v, ver, s) {
   if (line !~ /^[ \t]*[A-Za-z0-9_."-]+[ \t]*=/) return
@@ -150,9 +157,7 @@ sec == "project" || sec == "project.optional-dependencies" || sec == "dependency
     if (line !~ /=[ \t]*\[/) next
     sub(/^[^=]*=[ \t]*\[/, "", line); inlist = 1
   }
-  while (match(line, /"[^"]*"|'[^']*'/)) {
-    s = substr(line, RSTART + 1, RLENGTH - 2); line = substr(line, RSTART + RLENGTH); req(s)
-  }
+  while (str_next()) req(str)
   if (line ~ /\]/) inlist = 0
   next
 }
@@ -180,11 +185,7 @@ read -r -d '' AWK_BUILD <<'EOF'
       line = substr(line, RSTART + RLENGTH); inlist = 1
     } else next
   }
-  while (match(line, /"[^"]*"|'[^']*'/)) {
-    s = substr(line, RSTART + 1, RLENGTH - 2)
-    if (s ~ /^@/) print s "\t"
-    line = substr(line, RSTART + RLENGTH)
-  }
+  while (str_next()) if (str ~ /^@/) print str "\t"
   if (line ~ /\]/) inlist = 0
 }
 EOF
@@ -202,10 +203,9 @@ inb {
   next
 }
 {
-  while (match(line, /"[^"]*"/)) {
-    s = substr(line, RSTART + 1, RLENGTH - 2); line = substr(line, RSTART + RLENGTH)
-    if (s ~ /^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+:[A-Za-z0-9_.+-]+$/) {
-      split(s, c, ":"); print c[1] ":" c[2] "\t" c[3]
+  while (str_next()) {
+    if (str ~ /^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+:[A-Za-z0-9_.+-]+$/) {
+      split(str, c, ":"); print c[1] ":" c[2] "\t" c[3]
     }
   }
 }
@@ -230,10 +230,9 @@ EOF
 read -r -d '' AWK_GRADLE <<'EOF'
 /^[ \t]*[A-Za-z]*([Ii]mplementation|[Aa]pi|[Cc]ompileOnly|[Rr]untimeOnly|[Cc]ompile|[Rr]untime|[Pp]rocessor|kapt|ksp|classpath)[ \t(]/ {
   line = $0
-  while (match(line, /"[^"]*"|'[^']*'/)) {
-    s = substr(line, RSTART + 1, RLENGTH - 2); line = substr(line, RSTART + RLENGTH)
-    if (s ~ /^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+(:[^:]+)?$/) {
-      split(s, c, ":"); print c[1] ":" c[2] "\t" c[3]
+  while (str_next()) {
+    if (str ~ /^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+(:[^:]+)?$/) {
+      split(str, c, ":"); print c[1] ":" c[2] "\t" c[3]
     }
   }
 }
@@ -248,10 +247,10 @@ parse_manifest() {
     pyproject.toml) awk "$AWK_LIB $AWK_PYPROJECT" "$f" ;;
     requirements*.txt) awk "$AWK_LIB $AWK_REQUIREMENTS" "$f" ;;
     go.mod) awk "$AWK_GOMOD" "$f" ;;
-    BUILD | BUILD.bazel) awk "$AWK_BUILD" "$f" ;;
-    MODULE.bazel) awk "$AWK_MODULE" "$f" ;;
+    BUILD | BUILD.bazel) awk "$AWK_LIB $AWK_BUILD" "$f" ;;
+    MODULE.bazel) awk "$AWK_LIB $AWK_MODULE" "$f" ;;
     pom.xml) awk "$AWK_POM" "$f" ;;
-    build.gradle | build.gradle.kts) awk "$AWK_GRADLE" "$f" ;;
+    build.gradle | build.gradle.kts) awk "$AWK_LIB $AWK_GRADLE" "$f" ;;
     *) return 0 ;;
   esac
 }
