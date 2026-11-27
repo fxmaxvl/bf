@@ -235,6 +235,31 @@ EOF
   eq "build.gradle: configurations with and without parens" "$(deps_of build.gradle)" \
     "false com.google.guava:guava=32.1.2-jre,junit:junit=4.13,org.projectlombok:lombok=null,org.slf4j:slf4j-api=2.0.9"
   eq "build.gradle.kts: runtimeOnly" "$(deps_of sub/build.gradle.kts)" "false com.h2database:h2=2.2.224"
+
+  ctx_init
+  put c/Cargo.toml <<'EOF'
+[dependencies]
+python = "0.1"
+EOF
+  put pom.xml <<'EOF'
+<project>
+  <dependencyManagement>
+    <dependencies>
+      <dependency><groupId>g</groupId><artifactId>managed-only</artifactId><version>1</version></dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+    <dependency><groupId>g</groupId><artifactId>used</artifactId><version>2</version></dependency>
+  </dependencies>
+  <build><plugins><plugin>
+    <artifactId>p</artifactId>
+    <dependencies><dependency><groupId>p</groupId><artifactId>plugin-dep</artifactId></dependency></dependencies>
+  </plugin></plugins></build>
+</project>
+EOF
+  idx build
+  eq "Cargo: a dependency named python is kept" "$(deps_of c/Cargo.toml)" "false python=0.1"
+  eq "pom.xml: managed and plugin dependencies are skipped" "$(deps_of pom.xml)" "false g:used=2"
 }
 
 integration_cases() {
@@ -472,26 +497,6 @@ EOF
 M==1.0
 requests==2
 EOF
-  put c/Cargo.toml <<'EOF'
-[dependencies]
-python = "0.1"
-EOF
-  put pom.xml <<'EOF'
-<project>
-  <dependencyManagement>
-    <dependencies>
-      <dependency><groupId>g</groupId><artifactId>managed-only</artifactId><version>1</version></dependency>
-    </dependencies>
-  </dependencyManagement>
-  <dependencies>
-    <dependency><groupId>g</groupId><artifactId>used</artifactId><version>2</version></dependency>
-  </dependencies>
-  <build><plugins><plugin>
-    <artifactId>p</artifactId>
-    <dependencies><dependency><groupId>p</groupId><artifactId>plugin-dep</artifactId></dependency></dependencies>
-  </plugin></plugins></build>
-</project>
-EOF
   idx build
   eq "batch: an open BUILD list ends with its file" "$(deps_of b/BUILD.bazel)" "false "
   eq "batch: the open BUILD list keeps its own deps" "$(deps_of a/BUILD.bazel)" "false @maven//:a=null"
@@ -501,8 +506,6 @@ EOF
   eq "batch: the valid package.json keeps its deps" "$(deps_of good/package.json)" "false a=1"
   eq "batch: a path that starts with - is parsed" "$(deps_of -x/BUILD)" "false @abseil//:strings=null"
   eq "batch: a dependency named M stays a dependency" "$(deps_of requirements.txt)" "false M===1.0,requests===2"
-  eq "Cargo: a dependency named python is kept" "$(deps_of c/Cargo.toml)" "false python=0.1"
-  eq "pom.xml: managed and plugin dependencies are skipped" "$(deps_of pom.xml)" "false g:used=2"
   eq "batch: no stray manifest keys" "$(jq -r '.manifests | keys | map(select(startswith("=") or . == "")) | length' "$repo/.bf/cache/deps.json")" 0
 }
 

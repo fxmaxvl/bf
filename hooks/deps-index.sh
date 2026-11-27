@@ -400,10 +400,11 @@ build_index() {
 }
 
 # read_index <index> [path ...]: prints from the index file the entries of the manifests at the repo root, in
-# the dirs above each path and under each path. So a source dir or file inside a package selects that package. A relative path starts at the cwd. Each path is resolved with cd and pwd -P, so "..", "."
-# and symlinks work, and a file path stands for its directory. The repo root selects the root manifests only.
-# A path that is missing or outside the repo is dropped. When every path is dropped nothing prints, so the
-# caller falls back and does not take the root entries for those of another tree.
+# the dirs above each path and under each path. So a source dir or file inside a package selects that package.
+# A relative path starts at the cwd. Each path is resolved with cd and pwd -P, so "..", "." and symlinks work,
+# and a file path stands for its directory. The repo root selects the root manifests only. A path that is
+# missing or outside the repo is dropped. When every path is dropped nothing prints, so the caller falls back
+# and does not take the root entries for those of another tree.
 read_index() {
   local index=$1 a d rootp pre=[]
   shift
@@ -423,8 +424,8 @@ read_index() {
   fi
   jq -c --argjson pre "$pre" '
     [.manifests | to_entries[]
-     # A manifest counts when it sits at the root, in a dir above a path, or under a path. Index keys never
-     # start with "./", because rel in parse_changed strips it, so the prefix "." selects only the root.
+     # Index keys never start with "./", because rel in parse_changed strips it, so the prefix "." selects
+     # only the root.
      | (.key | split("/") | .[:-1] | join("/")) as $d
      | select(($pre | length) == 0 or $d == ""
               or (.key as $k | $pre | any(.[]; . as $p | ($k | startswith($p + "/")) or ($p | startswith($d + "/")))))
