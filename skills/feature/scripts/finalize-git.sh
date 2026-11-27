@@ -22,8 +22,9 @@
 # Skips the commit step if there are no uncommitted changes.
 # Outputs the PR URL on stdout.
 # With no PR, it opens one from --pr-title and the body. When the branch already has an OPEN PR, it
-# leaves that PR's title and body alone and posts the body as a PR comment. --closes-issue then
-# appends only "Closes #<n>" to the PR body, and only when the body has no closing line for that issue.
+# leaves that PR's title and body alone and posts the body (with the Jira line) as a PR comment,
+# unless the PR body or a comment already holds that text. --closes-issue then appends only
+# "Closes #<n>" to the PR body, and only when the body has no closing line for that issue.
 #
 # --commit-only skips the PR check, stages and commits as usual, then exits 0 before the push.
 # --pr-title and --pr-body are optional with it, and no PR URL is printed.
@@ -92,14 +93,21 @@ for VAR in "${REQUIRED[@]}"; do
     fi
 done
 
-# Build final PR body
+# The number goes into a grep pattern on the open-PR path.
+if [[ -n "$CLOSES_ISSUE" && ! "$CLOSES_ISSUE" =~ ^[0-9]+$ ]]; then
+    echo "Error: --closes-issue takes an issue number, got: $CLOSES_ISSUE" >&2
+    exit 1
+fi
+CLOSES_LINE=""
+[[ -z "$CLOSES_ISSUE" ]] || CLOSES_LINE="Closes #${CLOSES_ISSUE}"
+JIRA_LINE=""
+[[ -z "$JIRA_URL" ]] || JIRA_LINE="Jira: ${JIRA_URL}"
+# GitHub ignores closing keywords in comments, so the closing line goes only into a PR body.
 BODY="$PR_BODY"
-if [[ -n "$CLOSES_ISSUE" ]]; then
-    BODY="${BODY}"$'\n\n'"Closes #${CLOSES_ISSUE}"
-fi
-if [[ -n "$JIRA_URL" ]]; then
-    BODY="${BODY}"$'\n\n'"Jira: ${JIRA_URL}"
-fi
+[[ -z "$CLOSES_LINE" ]] || BODY="${BODY}"$'\n\n'"${CLOSES_LINE}"
+[[ -z "$JIRA_LINE" ]] || BODY="${BODY}"$'\n\n'"${JIRA_LINE}"
+COMMENT="$PR_BODY"
+[[ -z "$JIRA_LINE" ]] || COMMENT="${COMMENT}"$'\n\n'"${JIRA_LINE}"
 
 SESSION_UNTRACKED="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/session-untracked.sh"
 ROOT=$(git rev-parse --show-toplevel)
@@ -238,16 +246,22 @@ PR_INFO=$(pick_pr) || pushed_pr_failed "could not read the PR state"
 read -r PR_STATE PR_URL _ <<<"$PR_INFO" || true
 case "$PR_STATE" in
     OPEN)
-        # A follow-up run must not erase the PR description, so its summary goes in a comment. Only a
-        # missing closing line goes into the body, because GitHub ignores closing keywords in comments.
-        if [[ -n "$CLOSES_ISSUE" ]]; then
-            OLD_BODY=$(gh pr view "$PR_URL" --json body -q .body) || pushed_pr_failed "could not read the PR body"
-            if ! grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?):? +#${CLOSES_ISSUE}([^0-9]|\$)" <<<"$OLD_BODY"; then
-                gh pr edit "$PR_URL" --body "${OLD_BODY}"$'\n\n'"Closes #${CLOSES_ISSUE}" >/dev/null \
+        # A follow-up run must not erase the PR description, so its summary goes in a comment.
+        PR_VIEW=$(gh pr view "$PR_URL" --json body,comments) || pushed_pr_failed "could not read the PR"
+        if [[ -n "$CLOSES_LINE" ]]; then
+            OLD_BODY=$(jq -r '.body // ""' <<<"$PR_VIEW") || pushed_pr_failed "could not read the PR body"
+            if ! grep -qiE "(^|[^[:alnum:]_])(close[sd]?|fix(e[sd])?|resolve[sd]?):? +#${CLOSES_ISSUE}([^0-9]|\$)" <<<"$OLD_BODY"; then
+                gh pr edit "$PR_URL" --body "${OLD_BODY}"$'\n\n'"${CLOSES_LINE}" >/dev/null \
                     || pushed_pr_failed "gh pr edit failed"
             fi
         fi
-        gh pr comment "$PR_URL" --body "$BODY" >/dev/null || pushed_pr_failed "gh pr comment failed" ;;
+        # A resume or a rerun after exit 6 repeats this step, so a summary already on the PR is not posted again.
+        POSTED=$(jq -r --arg c "$COMMENT" --arg b "$BODY" 'def t: sub("\\s+$"; ""); ($c | t) as $c | ($b | t) as $b
+            | any(([.body // ""] + [.comments[].body]) | .[]; t as $x | $x == $c or $x == $b)' <<<"$PR_VIEW") \
+            || pushed_pr_failed "could not read the PR comments"
+        if [[ "$POSTED" != true ]]; then
+            gh pr comment "$PR_URL" --body "$COMMENT" >/dev/null || pushed_pr_failed "gh pr comment failed"
+        fi ;;
     "")
         PR_URL=$(gh pr create --title "$PR_TITLE" --body "$BODY") || pushed_pr_failed "gh pr create failed" ;;
     *)

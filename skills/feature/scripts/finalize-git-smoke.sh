@@ -31,7 +31,9 @@ case "$1 $2" in
   "pr create") [ -z "${GH_FAIL_CREATE:-}" ] || exit 4; echo "https://example.test/pr/1" ;;
   "pr edit") [ -z "${GH_FAIL_EDIT:-}" ] || exit 4 ;;
   "pr comment") [ -z "${GH_FAIL_COMMENT:-}" ] || exit 4 ;;
-  "pr view") printf '%b\n' "${GH_PR_BODY:-}" ;;
+  "pr view") [ -z "${GH_FAIL_VIEW:-}" ] || exit 4
+    jq -n --arg b "$(printf '%b' "${GH_PR_BODY:-}")" --arg c "$(printf '%b' "${GH_PR_COMMENT:-}")" \
+      '{body: $b, comments: (if $c == "" then [] else [{body: $c}] end)}' ;;
   "pr list") [ -z "$state" ] || echo "$state https://example.test/pr/9 ${GH_PR_HEAD:-0123abc} main" ;;
 esac
 STUB
@@ -209,7 +211,7 @@ eq "open PR -> title and body left alone, summary posted as a comment" "$(grep -
 echo oc >> top.txt
 : > "$tmp/gh.log"
 GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN GH_PR_BODY='Long description.' finalize --closes-issue 7
-eq "open PR, --closes-issue missing from the body -> only the closing line appended" "$(grep -c '^pr edit https://example.test/pr/9 --body Long description.$' "$tmp/gh.log" || true) $(grep -c '^Closes #7$' "$tmp/gh.log" || true)" "1 2"
+eq "open PR, --closes-issue missing from the body -> only the closing line appended" "$(grep -c '^pr edit https://example.test/pr/9 --body Long description.$' "$tmp/gh.log" || true) $(grep -c '^Closes #7$' "$tmp/gh.log" || true)" "1 1"
 
 echo od >> top.txt
 : > "$tmp/gh.log"
@@ -224,6 +226,33 @@ eq "open PR, body closes a different issue with the same prefix -> closing line 
 echo of >> top.txt
 rc=0; GH_PR_STATE=OPEN GH_FAIL_EDIT=1 finalize --closes-issue 7 || rc=$?
 eq "failed body edit after push -> exit 6" "$rc" 6
+
+echo og >> top.txt
+: > "$tmp/gh.log"
+rc=0; GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN GH_FAIL_VIEW=1 finalize --closes-issue 7 || rc=$?
+eq "failed PR read after push -> exit 6, no comment" "$rc $(grep -c '^pr comment' "$tmp/gh.log" || true)" "6 0"
+
+echo oh >> top.txt
+: > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN GH_PR_BODY='Unresolved #7 and discloses #7' finalize --closes-issue 7
+eq "open PR, a keyword inside a longer word -> closing line appended" "$(grep -c '^pr edit' "$tmp/gh.log" || true)" "1"
+eq "open PR, --closes-issue -> comment has no closing line" "$(grep -c '^pr comment https://example.test/pr/9 --body b$' "$tmp/gh.log" || true) $(grep -c '^Closes #7$' "$tmp/gh.log" || true)" "1 1"
+
+echo oi >> top.txt
+before=$(head_sha)
+rc=0; finalize --closes-issue '7|' || rc=$?
+eq "non-numeric --closes-issue -> exit 1 before the commit" "$rc $(head_sha)" "1 $before"
+git checkout -q -- top.txt
+
+echo oj >> top.txt
+: > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN GH_PR_COMMENT='b' finalize
+eq "rerun, the summary is already a comment -> not posted again" "$(grep -c '^pr comment' "$tmp/gh.log" || true)" "0"
+
+echo ok >> top.txt
+: > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN GH_PR_BODY='b\n\nCloses #7' finalize --closes-issue 7
+eq "rerun after this summary opened the PR -> no comment, no edit" "$(grep -c '^pr comment' "$tmp/gh.log" || true) $(grep -c '^pr edit' "$tmp/gh.log" || true)" "0 0"
 
 echo fl >> top.txt
 : > "$tmp/lookups"
