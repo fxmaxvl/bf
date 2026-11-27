@@ -18,6 +18,10 @@
 #         effort. A manifest that fails to parse gets error true and no dependencies.
 set -uo pipefail
 set -f
+# No dirname here: the no-jq smoke case runs with an empty PATH. A hook that cannot find its guard ends quietly.
+_here=${BASH_SOURCE[0]%/*}
+[ "$_here" != "${BASH_SOURCE[0]}" ] || _here=.
+source "$_here/dir-guard.sh" 2>/dev/null || exit 0
 
 MANIFEST_NAMES="package.json BUILD.bazel BUILD MODULE.bazel pom.xml build.gradle build.gradle.kts pyproject.toml requirements*.txt go.mod Cargo.toml"
 
@@ -34,13 +38,14 @@ is_manifest() {
   return 1
 }
 
-# Copies the symlink and owner checks of prose_record_dir_ensure (prose-lib.sh) but not its mode 700 check.
+# The guard is shared with the prose hooks (dir-guard.sh). It skips the mode 700 check, which only the prose
+# record dir needs.
 open_repo() {
   root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
   cache=$root/.bf/cache
   lock=$cache/deps.lock
   [ ! -L "$root/.bf" ] && [ ! -L "$cache" ] || return 1
-  mkdir -p "$cache" 2>/dev/null && [ -O "$cache" ] || return 1
+  mkdir -p "$cache" 2>/dev/null && dir_guard_check "$cache" "$(id -u)" || return 1
   [ -e "$cache/.gitignore" ] || printf '*\n' > "$cache/.gitignore"
 }
 
