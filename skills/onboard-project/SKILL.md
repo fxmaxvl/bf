@@ -71,7 +71,7 @@ Give each agent its areas, the relevant `signals` samples (`onb-workflow` also g
 - **Write the fact sheet's header first**, then fill it as you go.
 - **Report back.** The agent's final act is its one-line result to `team-lead`. The orchestrator blocks until every agent has reported.
 
-Watch for a silent survey agent with Phase 4's **Watch for a silent writer** procedure, but with a different progress test, since the header lands in seconds. On each wake, record the byte size of `<facts_dir>/<agent-name>.md` (`wc -c`). An agent whose sheet is missing, or has not grown since the previous wake, is stalled. While any working agent has not reported, start another background `sleep 600`.
+Watch for a silent survey agent with Phase 4's **Watch for a silent writer** procedure. A survey agent that gets a stall message replies at once with the area it is on.
 
 If `tracked_files` < 50, do the survey inline instead. Fanning out over a tiny repo buys nothing.
 
@@ -107,11 +107,11 @@ Split the syllabus into contiguous batches of no more than 4 lessons. Spawn one 
 
 Like the survey agents, each writer's final act is its one-line result to `team-lead`. A writer that gets a stall message replies at once with the page it is on.
 
-**Watch for a silent writer.** A writer that is running but stuck sends no message, so nothing wakes you, and the whole course waits on it. Right after the spawn, start a background `sleep 600`; it wakes you when it exits. On waking, check every writer that has not yet reported:
+**Watch for a silent writer.** This follows **Watch for a silent agent** in `plugin-main.md`: liveness is a report or a reply, never a file. A page staged by an earlier run with the same slug would pass for progress. Right after the spawn, start a background `sleep 600`; it wakes you when it exits. On waking:
 
-- **If it has no file in `<facts_dir>/staging/lessons/` that starts with its batch's first number, it is stalled.** Message it once by name, and start one more background `sleep 300`.
-- **If it is still silent after that, stop it.** Then re-spawn its batch, or write the batch inline. Re-spawning uses the one re-spawn allowed in the edge-case table.
-- **If its first file exists, it is working.** Leave it be. From then on, apply Phase 2's growth test to the total `wc -c` of its batch's staged lessons and the reference pages it owns in `staging/reference/`, and start another background `sleep 600` while any writer has not reported.
+- **Message every writer that has not reported**, once, by name. Ask for its result, or for one line of status if it is still working. Then start a background `sleep 300`.
+- **A writer that answered with a status is alive.** Start one more background `sleep 600` for it and repeat.
+- **A writer that neither reported nor answered is stalled.** Stop it, then re-spawn its batch or write the batch inline. Re-spawning uses the one re-spawn allowed in the edge-case table.
 
 Writers follow `${CLAUDE_PLUGIN_ROOT}/skills/teach/LESSON-FORMAT.md` for lesson and reference design, with these overrides:
 
