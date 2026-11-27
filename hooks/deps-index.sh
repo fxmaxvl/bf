@@ -57,17 +57,12 @@ open_repo() {
 # lock still names this process, or a build that lost its lock would delete the lock of the next holder.
 # The work files live outside the lock dir (deps.work.<pid>), so a steal cannot delete them.
 lock_acquire() {
-  local wait=$1 waited=0 started now d
+  local wait=$1 waited=0 started now
   while :; do
     if mkdir "$lock" 2>/dev/null; then
       date +%s > "$lock/started"
       printf '%s\n' "$$" > "$lock/owner"
       trap lock_release EXIT
-      set +f
-      for d in "$cache"/deps.work.*; do
-        [ -d "$d" ] && ! kill -0 "${d##*.}" 2>/dev/null && rm -rf "$d"
-      done
-      set -f
       return 0
     fi
     now=$(date +%s)
@@ -100,6 +95,17 @@ lock_steal() {
     mv "$stale" "$lock" 2>/dev/null
   fi
   rm -rf "$stale"
+}
+
+# sweep_dead_work_dirs: removes the deps.work.<pid> dirs of killed builds. The caller holds the lock. The glob
+# needs globbing, so it is turned on for the loop only.
+sweep_dead_work_dirs() {
+  local d
+  set +f
+  for d in "$cache"/deps.work.*; do
+    [ -d "$d" ] && ! kill -0 "${d##*.}" 2>/dev/null && rm -rf "$d"
+  done
+  set -f
 }
 
 lock_release() {
@@ -301,6 +307,7 @@ parse_entry() {
 build_index() {
   local work=$cache/deps.work.$$ old=$cache/deps.json p h tmp
   local -a paths=()
+  sweep_dead_work_dirs
   mkdir -p "$work" || return 1
   while IFS= read -r -d '' p; do
     case $p in *$'\n'*) continue ;; esac
