@@ -303,6 +303,22 @@ EOF
   check "steal: the second build finishes" "$rc:$(cat "$tmp/steal.out")" '0:[{"name":"a","version":"1","manifest":"package.json"}]'
   check "steal: no lock or work dir remains" "$(ls -A "$repo/.bf/cache" | grep -c 'deps[.]\(lock\|work\)')" 0
 
+  # Several callers on one stale lock: only one may take it and parse.
+  ctx_init
+  put package.json <<'EOF2'
+{"dependencies":{"a":"1"}}
+EOF2
+  mkdir -p "$lk"
+  echo $(($(date +%s) - 120)) > "$lk/started"
+  for i in 1 2 3 4 5 6 7 8; do
+    (cd "$repo" && DEPS_INDEX_TRACE=1 bash "$script" build 2> "$tmp/par.$i") &
+  done
+  wait
+  check "stale lock, 8 callers: one parse" "$(cat "$tmp"/par.* | grep -c '^parse ')" 1
+  check "stale lock, 8 callers: index is valid" "$(jq -e '.schema == 1' "$repo/.bf/cache/deps.json" >/dev/null 2>&1 && echo yes)" yes
+  check "stale lock, 8 callers: nothing left over" "$(ls -A "$repo/.bf/cache" | grep -c 'deps[.]\(lock\|work\|json[.]tmp\)')" 0
+  rm -f "$tmp"/par.*
+
   ctx_init
   mkdir -p -m 755 "$repo/.bf/cache"
   put package.json <<'EOF'
