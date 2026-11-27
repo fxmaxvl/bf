@@ -6,7 +6,7 @@
 set -euo pipefail
 
 dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-tmp=$(cd "$(mktemp -d)" && pwd -P)
+tmp=$(mktemp -d) && [ -n "$tmp" ] && tmp=$(cd "$tmp" && pwd -P) || { echo "ABORT: cannot create a temp directory" >&2; exit 2; }
 trap 'rm -rf "$tmp"' EXIT
 
 fails=0
@@ -74,5 +74,13 @@ git checkout -q -- lit.sh
 reset; sed -i.bak 's#"/tmp/out"#"/tmp/out2"#' lit.sh && rm lit.sh.bak && echo 'new' >untracked.sh
 eq "an untracked file -> false" "$(probe)" "skip: false"
 git checkout -q -- lit.sh && rm untracked.sh
+
+reset; printf 'import x from "./a/mod"\n' >café.js && git add . && git commit -qm cafe && git branch -f base HEAD
+reset; sed -i.bak 's#"./a/mod"#"./b/mod"#' café.js && rm café.js.bak && git commit -qam cafe-path
+eq "path string change in a non-ASCII file name -> true" "$(probe)" "skip: true"
+reset; sed -i.bak 's#"./a/mod"#"./b/mod"#' café.js && rm café.js.bak && echo 'oops' >>café.js && git commit -qam cafe-code
+eq "code change in a non-ASCII file name -> false" "$(probe)" "skip: false"
+reset; git mv old.txt 'we"ird.txt' && git commit -qm quoted
+eq "a path git still quotes -> false" "$(probe)" "skip: false"
 
 [ "$fails" -eq 0 ]

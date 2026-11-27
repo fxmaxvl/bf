@@ -6,7 +6,7 @@
 set -euo pipefail
 
 script=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/finalize-git.sh
-tmp=$(cd "$(mktemp -d)" && pwd -P)
+tmp=$(mktemp -d) && [ -n "$tmp" ] && tmp=$(cd "$tmp" && pwd -P) || { echo "ABORT: cannot create a temp directory" >&2; exit 2; }
 trap 'rm -rf "$tmp"' EXIT
 
 fails=0
@@ -28,6 +28,10 @@ fi
 case "$1 $2" in
   "pr create") [ -z "${GH_FAIL_CREATE:-}" ] || exit 4; echo "https://example.test/pr/1" ;;
   "pr edit") [ -z "${GH_FAIL_EDIT:-}" ] || exit 4 ;;
+  "pr comment") [ -z "${GH_FAIL_COMMENT:-}" ] || exit 4 ;;
+  "pr view") [ -z "${GH_FAIL_VIEW:-}" ] || exit 4
+    jq -n --arg b "$(printf '%b' "${GH_PR_BODY:-}")" --arg c "$(printf '%b' "${GH_PR_COMMENT:-}")" \
+      '{body: $b, comments: (if $c == "" then [] else [{body: $c}] end)}' ;;
   "pr list") [ -z "$state" ] || echo "$state https://example.test/pr/9 ${GH_PR_HEAD:-0123abc} main" ;;
 esac
 STUB
@@ -194,8 +198,59 @@ eq "failed PR create after push -> exit 6, not 4" "$rc" 6
 eq "failed PR create after push -> remote moved" "$(remote_sha)" "$(head_sha)"
 
 echo fe >> top.txt
-rc=0; GH_PR_STATE=OPEN GH_FAIL_EDIT=1 finalize || rc=$?
-eq "failed PR edit after push -> exit 6" "$rc" 6
+rc=0; GH_PR_STATE=OPEN GH_FAIL_COMMENT=1 finalize || rc=$?
+eq "failed PR comment after push -> exit 6" "$rc" 6
+
+echo ob >> top.txt
+: > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN finalize
+eq "open PR -> title and body left alone, summary posted as a comment" "$(grep -c '^pr edit' "$tmp/gh.log" || true) $(grep -c '^pr comment https://example.test/pr/9 --body b$' "$tmp/gh.log" || true)" "0 1"
+
+echo oc >> top.txt
+: > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN GH_PR_BODY='Long description.' finalize --closes-issue 7
+eq "open PR, --closes-issue missing from the body -> only the closing line appended" "$(grep -c '^pr edit https://example.test/pr/9 --body Long description.$' "$tmp/gh.log" || true) $(grep -c '^Closes #7$' "$tmp/gh.log" || true)" "1 1"
+
+echo od >> top.txt
+: > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN GH_PR_BODY='Long description.\n\nFixes #7' finalize --closes-issue 7
+eq "open PR, body already closes the issue -> body not edited" "$(grep -c '^pr edit' "$tmp/gh.log" || true) $(grep -c '^pr comment' "$tmp/gh.log" || true)" "0 1"
+
+echo oe >> top.txt
+: > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN GH_PR_BODY='Closes #70' finalize --closes-issue 7
+eq "open PR, body closes a different issue with the same prefix -> closing line appended" "$(grep -c '^pr edit' "$tmp/gh.log" || true)" "1"
+
+echo of >> top.txt
+rc=0; GH_PR_STATE=OPEN GH_FAIL_EDIT=1 finalize --closes-issue 7 || rc=$?
+eq "failed body edit after push -> exit 6" "$rc" 6
+
+echo og >> top.txt
+: > "$tmp/gh.log"
+rc=0; GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN GH_FAIL_VIEW=1 finalize --closes-issue 7 || rc=$?
+eq "failed PR read after push -> exit 6, no comment" "$rc $(grep -c '^pr comment' "$tmp/gh.log" || true)" "6 0"
+
+echo oh >> top.txt
+: > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN GH_PR_BODY='Unresolved #7 and discloses #7' finalize --closes-issue 7
+eq "open PR, a keyword inside a longer word -> closing line appended" "$(grep -c '^pr edit' "$tmp/gh.log" || true)" "1"
+eq "open PR, --closes-issue -> comment has no closing line" "$(grep -c '^pr comment https://example.test/pr/9 --body b$' "$tmp/gh.log" || true) $(grep -c '^Closes #7$' "$tmp/gh.log" || true)" "1 1"
+
+echo oi >> top.txt
+before=$(head_sha)
+rc=0; finalize --closes-issue '7|' || rc=$?
+eq "non-numeric --closes-issue -> exit 1 before the commit" "$rc $(head_sha)" "1 $before"
+git checkout -q -- top.txt
+
+echo oj >> top.txt
+: > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN GH_PR_COMMENT='b' finalize
+eq "rerun, the summary is already a comment -> not posted again" "$(grep -c '^pr comment' "$tmp/gh.log" || true)" "0"
+
+echo ok >> top.txt
+: > "$tmp/gh.log"
+GH_LOG="$tmp/gh.log" GH_PR_STATE=OPEN GH_PR_BODY='b\n\nCloses #7' finalize --closes-issue 7
+eq "rerun after this summary opened the PR -> no comment, no edit" "$(grep -c '^pr comment' "$tmp/gh.log" || true) $(grep -c '^pr edit' "$tmp/gh.log" || true)" "0 0"
 
 echo fl >> top.txt
 : > "$tmp/lookups"
@@ -212,7 +267,7 @@ eq "PR merged during the push -> state named" "$(grep -c 'became MERGED' "$tmp/e
 echo race >> top.txt
 : > "$tmp/lookups"; : > "$tmp/gh.log"
 GH_LOG="$tmp/gh.log" GH_LOOKUPS="$tmp/lookups" GH_PR_STATE_AFTER=OPEN finalize
-eq "PR opened during the push -> edited, not created" "$(grep -c '^pr create' "$tmp/gh.log" || true) $(grep -c '^pr edit' "$tmp/gh.log" || true)" "0 1"
+eq "PR opened during the push -> commented, not created" "$(grep -c '^pr create' "$tmp/gh.log" || true) $(grep -c '^pr comment' "$tmp/gh.log" || true)" "0 1"
 
 echo mc >> top.txt
 git checkout -q -b old-pr

@@ -10,7 +10,7 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 skill=$(cd "$here/.." && pwd)
 plugin=$(cd "$here/../../.." && pwd)
 fx=$here/fixtures
-tmp=$(cd "$(mktemp -d)" && pwd -P)
+tmp=$(mktemp -d) && [ -n "$tmp" ] && tmp=$(cd "$tmp" && pwd -P) || { echo "ABORT: cannot create a temp directory" >&2; exit 2; }
 trap 'rm -rf "$tmp"' EXIT
 
 fails=0

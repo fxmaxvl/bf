@@ -6,7 +6,7 @@
 set -euo pipefail
 
 script=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/state-ops.sh
-tmp=$(cd "$(mktemp -d)" && pwd -P)
+tmp=$(mktemp -d) && [ -n "$tmp" ] && tmp=$(cd "$tmp" && pwd -P) || { echo "ABORT: cannot create a temp directory" >&2; exit 2; }
 trap 'rm -rf "$tmp"' EXIT
 
 fails=0
@@ -67,6 +67,10 @@ eq "pending_fixes round-trips through read" "$(pending)" "C1,K2"
 eq "pending_fixes=null clears it" "$(pending)" None
 (cd "$repo" && bash "$script" fix_base=abc123 >/dev/null)
 eq "fix_base round-trips through read" "$( (cd "$repo" && bash "$script") | python3 -c 'import json,sys; print(json.load(sys.stdin)["fix_base"])')" abc123
+(cd "$repo" && bash "$script" fixing=K2 >/dev/null)
+eq "fixing round-trips through read" "$( (cd "$repo" && bash "$script") | python3 -c 'import json,sys; print(json.load(sys.stdin)["fixing"])')" K2
+(cd "$repo" && bash "$script" fixing=null >/dev/null)
+eq "fixing=null clears it" "$( (cd "$repo" && bash "$script") | python3 -c 'import json,sys; print(json.load(sys.stdin)["fixing"])')" None
 
 archive() { (cd "$repo" && bash "$script" --archive); }
 temp=$(cd "$repo" && bash "$script" | python3 -c 'import json,sys; print(json.load(sys.stdin)["paths"]["temp"])')
