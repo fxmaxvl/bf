@@ -11,9 +11,11 @@
 # Output: one JSON object on stdout, exit 0. Errors: {"error":"<code>","detail":"..."}, exit 1.
 #   scan  -> {"applicable": false, "reason": ...} when no selected tool can measure the scope, else
 #            {"applicable": true, "run", "report", "tools", "groups", "notes"}. The report and
-#            candidates.json go to <root>/.bf/refactor-scout/<run>/.
-#   show  -> {"run", "candidate"}
-#   check -> {"run", "id", "verdict": "PASS"|"FAIL"|"UNKNOWN", "before", "after", "details", "notes"}
+#            candidates.json go to <root>/.bf/refactor-scout/<run>/. A file that is untracked or changed
+#            against HEAD counts as active, never stable.
+#   show  -> {"run", "head", "candidate"}
+#   check -> {"run", "id", "verdict": "PASS"|"FAIL"|"UNKNOWN", "done_when", "before", "after", "details",
+#            "touched", "notes"}
 #
 # Time limit: tools stop at SCOUT_BUDGET_S (480) and churn at 45 s. SKILL.md passes timeout 600000 on
 # every scan and check call. Keep the sum under that value.

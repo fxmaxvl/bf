@@ -1,8 +1,14 @@
 """Run crapper, dryer and mutator and parse their output.
 
-measured-gate.sh and refactor-scout's scout.py import this module, so each tool has one runner and one
-parser. The report text each caller builds from the parsed rows stays with that caller.
+measured-gate.sh and refactor-scout's scout.py import this module. Each tool has one runner function that builds
+the command, runs it, reads the exit code and returns parsed rows, and the notes go to a list the caller passes in.
+The report text each caller builds from those rows stays with that caller.
+
+The functions read and write paths relative to the current directory, which must be the repository root. The tools
+write .metrics, target and coverage there, and has_report, parse_mutator_snapshots, mutator_backups_left and
+run_dirs_cleaned look at the same place, so they give wrong results from any other directory.
 """
+import contextlib
 import glob
 import json
 import os
@@ -13,7 +19,11 @@ import subprocess
 
 TOOLS = ["crapper", "dryer", "mutator"]
 TERM_GRACE_S = 5
-# The union of the three tools' languages. Each tool's own set is in TOOL_EXTS.
+CRAP_LIMIT = 10
+DRY_THRESHOLD = "0.82"  # the string is the exact dryer argument
+USE_COVERAGE = "--use-existing-coverage"
+NO_COVERAGE = "--no-coverage"
+# The extensions the gate measures. Each tool's own set is in TOOL_EXTS and is wider.
 SUPPORTED = {".clj", ".cljs", ".cljc", ".java", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".rs", ".py"}
 # From each tool's --help. dryer reads no JavaScript, crapper and mutator do.
 TOOL_EXTS = {
@@ -97,7 +107,7 @@ def find_line(path, name):
 def has_report(path):
     """True when a coverage report for the language of path is on disk (the paths crapper reads)."""
     ext = os.path.splitext(path)[1]
-    if ext in (".clj", ".cljs", ".cljc"):
+    if ext in (".clj", ".cljs", ".cljc", ".cljd", ".bb"):
         return os.path.isdir("target/coverage")
     if ext == ".java":
         return os.path.isfile("target/site/jacoco/jacoco.xml")
@@ -111,7 +121,7 @@ def has_report(path):
 
 
 def coverage_flag(has):
-    return "--use-existing-coverage" if has else "--no-coverage"
+    return USE_COVERAGE if has else NO_COVERAGE
 
 
 def parse_crapper(text):
@@ -154,6 +164,28 @@ def edn_string(value):
     return value.replace('\\"', '"').replace("\\\\", "\\")
 
 
+def survivor_row(form, source):
+    """One (file, line, survived, function) tuple for a snapshot form with survivors, else None."""
+    body = form.group(2)
+    survived = re.search(r":survived (\d+)", body)
+    if not survived or int(survived.group(1)) == 0:
+        return None
+    line = re.search(r":line (\d+)", body)
+    file_ = re.search(r':file "((?:[^"\\]|\\.)*)"', body)
+    name = edn_string(form.group(1)).split("/", 1)[-1]
+    return (edn_string(file_.group(1)) if file_ else source, int(line.group(1)) if line else 1,
+            int(survived.group(1)), name)
+
+
+def snapshot_survivors(text, wanted):
+    source = re.search(r':source "((?:[^"\\]|\\.)*)"', text)
+    source = edn_string(source.group(1)) if source else None
+    if source not in wanted:
+        return []
+    forms = re.finditer(r'\{:id "((?:[^"\\]|\\.)*)"([^{}]*)\}', text)
+    return [row for row in (survivor_row(form, source) for form in forms) if row]
+
+
 def parse_mutator_snapshots(paths):
     """Read the forms of .metrics/mutate/*.edn. The stdout table has no file or line."""
     wanted = set(paths)
@@ -164,25 +196,78 @@ def parse_mutator_snapshots(paths):
                 text = handle.read()
         except OSError:
             continue
-        source = re.search(r':source "((?:[^"\\]|\\.)*)"', text)
-        source = edn_string(source.group(1)) if source else None
-        if source not in wanted:
-            continue
-        for form in re.finditer(r'\{:id "((?:[^"\\]|\\.)*)"([^{}]*)\}', text):
-            body = form.group(2)
-            survived = re.search(r":survived (\d+)", body)
-            if not survived or int(survived.group(1)) == 0:
-                continue
-            line = re.search(r":line (\d+)", body)
-            file_ = re.search(r':file "((?:[^"\\]|\\.)*)"', body)
-            name = edn_string(form.group(1)).split("/", 1)[-1]
-            found.append((edn_string(file_.group(1)) if file_ else source, int(line.group(1)) if line else 1,
-                          int(survived.group(1)), name))
+        found += snapshot_survivors(text, wanted)
     return found
 
 
 def mutator_backups_left():
     return any(files for _, _, files in os.walk("target/mutator-backup"))
+
+
+def crapper_rows(file_, mode, text):
+    """The functions of one crapper report at or over CRAP_LIMIT. Without coverage the score is the complexity."""
+    rows = []
+    for name, cc, cov, crap in parse_crapper(text):
+        score = crap if (mode == USE_COVERAGE and crap is not None) else None
+        value = score if score is not None else cc
+        if value >= CRAP_LIMIT:
+            rows.append({"file": file_, "function": name, "cc": cc, "coverage": cov, "crap": score,
+                         "score": value, "mode": mode})
+    return rows
+
+
+def run_crapper(path, files, mode_for, limit_for, notes):
+    """Run crapper once per file. mode_for(file) gives the coverage flag and limit_for() the seconds left for the
+    next call. Returns the rows at or over CRAP_LIMIT and adds the time-limit and failure notes."""
+    rows = []
+    failure = None
+    for file_ in files:
+        limit = limit_for()
+        mode = mode_for(file_)
+        result = run_tool([path, mode, file_], limit) if limit > 1 else None
+        if result is None:
+            notes.append("crapper hit its time limit, later files were not scored.")
+            break
+        code, stdout, stderr = result
+        if code != 0:
+            failure = failure or "crapper failed on %s: %s" % (file_, first_line(stderr or stdout))
+            continue
+        rows += crapper_rows(file_, mode, stdout)
+    if failure:
+        notes.append(failure)
+    return rows
+
+
+def run_dryer(path, files, limit, notes):
+    """Run dryer over all files at DRY_THRESHOLD. Returns (score, left, right) tuples, empty after a note."""
+    result = run_tool([path, "--threshold", DRY_THRESHOLD] + files, limit) if limit > 1 else None
+    if result is None:
+        notes.append("dryer hit its time limit, no duplicates reported.")
+        return []
+    if result[0] != 0:
+        notes.append("dryer failed: %s" % first_line(result[2] or result[1]))
+        return []
+    return parse_dryer(result[1])
+
+
+def mutator_mode(files):
+    return coverage_flag(all(has_report(f) for f in files))
+
+
+def run_mutator(path, files, mode, limit, notes):
+    """Run mutator. Exit code 2 means it skipped the run, 0 and 3 mean a result. Returns the surviving mutants as
+    (file, line, survived, function) tuples, or None after a note."""
+    result = run_tool([path, mode] + files, limit) if limit > 1 else None
+    if result is None:
+        notes.append("mutator hit the time budget, no mutation result reported.")
+        return None
+    if result[0] == 2:
+        notes.append("mutator skipped: %s" % first_line(result[2] or result[1]))
+        return None
+    if result[0] not in (0, 3):
+        notes.append("mutator failed: %s" % first_line(result[2] or result[1]))
+        return None
+    return parse_mutator_snapshots(files)
 
 
 def existing_run_dirs():
@@ -196,3 +281,13 @@ def remove_created_dirs(existed):
         if existed[name] or not os.path.isdir(name) or (name == "target" and keep_target):
             continue
         shutil.rmtree(name, ignore_errors=True)
+
+
+@contextlib.contextmanager
+def run_dirs_cleaned():
+    """Record the RUN_DIRS on entry and remove the ones the block created on exit, also after an exception."""
+    existed = existing_run_dirs()
+    try:
+        yield
+    finally:
+        remove_created_dirs(existed)

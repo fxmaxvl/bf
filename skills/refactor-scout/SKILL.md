@@ -94,7 +94,7 @@ Every call to `scout.sh scan` and `scout.sh check` passes `timeout: 600000` on t
 bash "${CLAUDE_PLUGIN_ROOT}/skills/refactor-scout/scripts/scout.sh" check <id> < /dev/null
 ```
 
-It re-runs the candidate's tool on the candidate's files and on every file changed since the scan commit, including untracked files. It reuses the coverage mode of the scan, and it logs each result to `<run>/checks.jsonl`. It returns `{run, id, verdict, done_when, before, after, details, touched, notes}`.
+It re-runs the candidate's tool, and each tool gets its own input. crapper gets the candidate's file and every file changed since the scan commit, including untracked files. dryer gets the whole scanned scope and the changed files. mutator gets the candidate's file only. It reuses the coverage mode of the scan, and it logs each result to `<run>/checks.jsonl`. It returns `{run, id, verdict, done_when, before, after, details, touched, notes}`.
 
 Print the run it resolved, the verdict, and before → after. On `FAIL`, list what is left:
 - `dryer`: the `details.remaining` pairs, then the `details.new` pairs.
@@ -112,6 +112,6 @@ Print every note, in particular a tool version change since the scan. On `UNKNOW
 | Shallow clone note | Print it above the candidates: churn is low, and more candidates read as stable than really are. |
 | A tool hit its time limit | Print the note. The candidates from the files measured before the limit are still valid. Suggest a narrower path. |
 | The user asks to apply the refactor here | This skill never edits code. Give the hand-off command from the plan instead, or run plan first. |
-| `plan` for a stable candidate | Say it has not changed in the 6 months before the last commit and ask one question: plan it anyway, or pick an active one. |
+| `plan` for a stable candidate | Say it has not changed in the 6 months before the last commit, and is clean against HEAD, then ask one question: plan it anyway, or pick an active one. |
 | The candidate's file no longer exists at plan time | Say the scan is out of date and suggest a new scan. |
 | Called with a diff, branch or PR | Point to `/bf:review --focus complexity`, which measures a change, not a module. |

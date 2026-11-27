@@ -139,7 +139,9 @@ expect "a span is named by its function" "$(jq -r '.groups.dryer[0].members[0].f
 lacks "--only dryer runs no crapper" "$(calls)" "crapper"
 expect "check fails while the pairs remain" "$(STUB_DRYER_OUT=$T/dry.txt sub check D1 | jq -r .verdict)" "FAIL"
 : > "$T/none.txt"; printf 'from a import a_total\n' > "$P/src/b.py"
-expect "check passes when the pairs are gone" "$(STUB_DRYER_OUT=$T/none.txt sub check D1 | jq -r .after.cluster_pairs)" "0"
+res=$(STUB_DRYER_OUT=$T/none.txt sub check D1)
+expect "check passes when the pairs are gone" "$(jq -r .verdict <<<"$res")" "PASS"
+expect "no pair of the cluster remains" "$(jq -r .after.cluster_pairs <<<"$res")" "0"
 : > "$STUB_LOG"
 printf 'DUPLICATE score=0.90\n  src/b.py:1-2\n  src/util.py:1-2\n' > "$T/copy.txt"
 printf 'def shared_copy(x):\n    return x\n' > "$P/src/b.py"
@@ -159,10 +161,59 @@ out=$(STUB_MUTATOR_EDN=$T/snap.edn STUB_MUTATOR_RC=3 SCOPE=src/hot.py scan --onl
 data=$P/.bf/refactor-scout/$(jq -r .run <<<"$out")/candidates.json
 expect "--mutate runs mutator once" "$(grep -c '^mutator' "$STUB_LOG")" "1"
 expect "surviving mutants become a candidate" "$(jq -r '.groups.mutator[0].survived' "$data")" "2"
+printf '{:source "src/hot.py" :forms [{:id "demo/hot" :file "src/hot.py" :line 1 :survived 0}]}\n' > "$T/snap0.edn"
+expect "check on a mutator candidate fails while mutants survive" "$(STUB_MUTATOR_EDN=$T/snap.edn STUB_MUTATOR_RC=3 sub check M1 | jq -r .verdict)" "FAIL"
+expect "check on a mutator candidate passes when none survive" "$(STUB_MUTATOR_EDN=$T/snap0.edn STUB_MUTATOR_RC=3 sub check M1 | jq -r .verdict)" "PASS"
+res=$(STUB_MUTATOR_RC=2 sub check M1)
+expect "a skipped mutator run gives UNKNOWN" "$(jq -r .verdict <<<"$res")" "UNKNOWN"
+has "the skip reason is a note" "$res" "mutator skipped"
+rm "$P/src/hot.py"
+res=$(sub check M1)
+expect "a candidate file that is gone gives UNKNOWN" "$(jq -r .verdict <<<"$res")" "UNKNOWN"
+has "the reason says the file is gone" "$res" "the file is gone"
+
+reset; install_tool crapper
+expect "show before any scan is no_runs" "$(sub show C1 | jq -r .error)" "no_runs"
+expect "show of a missing run is unknown_run" "$(sub show nope/C1 | jq -r .error)" "unknown_run"
+expect "an unknown scan flag is bad_args" "$(scan --bogus | jq -r .error)" "bad_args"
+expect "show without an id is bad_args" "$(sub show | jq -r .error)" "bad_args"
+expect "check with two ids is bad_args" "$(sub check C1 C2 | jq -r .error)" "bad_args"
+expect "a scope outside the repository is outside_repo" "$(SCOPE=$T scan | jq -r .error)" "outside_repo"
+mkdir -p "$T/plain"
+expect "a directory outside git is not_a_git_repo" "$(cd "$T/plain" && HOME="$T/home" "${BASH:-bash}" "$scout" scan < /dev/null | jq -r .error)" "not_a_git_repo"
+rm -rf "$P/.git"; git -C "$P" init -q
+expect "a repository without a commit is no_commits" "$(scan | jq -r .error)" "no_commits"
+
+reset; install_tool crapper
+crap_out hot.py "hot 12"
+scan --only crapper > /dev/null
+rm -rf "$T/home/.bf/tools/crapper"
+expect "check without the tool is tool_missing" "$(sub check C1 | jq -r .error)" "tool_missing"
+
+reset; install_tool crapper
+crap_out hot.py "hot 12"
+git clone -q --depth 1 "file://$P" "$T/shallow"
+has "a shallow clone gives a note" "$(P=$T/shallow scan --only crapper)" "The clone is shallow"
+rm -rf "$T/shallow"
+
+reset; install_tool crapper
+printf 'def fresh(x):\n    return x\n' > "$P/src/fresh.py"; echo "# edit" >> "$P/src/cold.py"
+crap_out fresh.py "fresh 14"; crap_out cold.py "cold 15"
+out=$(scan --only crapper)
+run=$(jq -r .run <<<"$out"); data=$P/.bf/refactor-scout/$run/candidates.json
+expect "an untracked file is active, not stable" "$(jq -r '.groups.crapper[] | select(.function == "fresh") | .stable' "$data")" "false"
+expect "a file changed against HEAD is active, not stable" "$(jq -r '.groups.crapper[] | select(.function == "cold") | .stable' "$data")" "false"
+has "the report says so" "$(cat "$P/.bf/refactor-scout/$run/report.md")" "untracked or changed against HEAD"
 
 reset; install_tool crapper
 out=$(SCOUT_BUDGET_S=2 STUB_CRAPPER_SLEEP=20 scan --only crapper)
 has "a tool past the budget gives a note" "$out" "crapper hit its time limit"
+
+unit=$(python3 -I "$dir/scout-unit.py" 2>&1); unit_rc=$?
+while IFS= read -r line; do
+  case "$line" in PASS*) ok "${line#PASS }" ;; FAIL*) bad "${line#FAIL }" ;; esac
+done <<<"$unit"
+[ "$unit_rc" -eq 0 ] && ok "scout-unit.py exits 0" || bad "scout-unit.py exits 0"
 
 grep -q 'BUDGET_S = int(os.environ.get("SCOUT_BUDGET_S", "480"))' "$dir/scout.py" && ok "the default budget is 480 s" || bad "the default budget is 480 s"
 grep -q 'timeout: 600000' "$dir/../SKILL.md" && ok "SKILL.md passes timeout 600000" || bad "SKILL.md passes timeout 600000"

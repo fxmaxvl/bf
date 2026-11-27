@@ -62,15 +62,13 @@ import sys
 import time
 
 sys.path.insert(0, os.environ["MEASURED_TOOLS_DIR"])
-from measured_tools import (TOOLS, SUPPORTED, check_tools, coverage_flag, existing_run_dirs, find_line,  # noqa: E402
-                            first_line, has_report, mutator_backups_left, parse_crapper, parse_dryer,
-                            parse_mutator_snapshots, remove_created_dirs, run_tool)
+from measured_tools import (TOOLS, SUPPORTED, check_tools, coverage_flag, find_line, has_report,  # noqa: E402
+                            mutator_backups_left, mutator_mode, run_crapper, run_dirs_cleaned, run_dryer,
+                            run_mutator, USE_COVERAGE)
 
 TOTAL_BUDGET_S = int(os.environ.get("MEASURED_GATE_BUDGET_S", "540"))  # the override is test-only
 CRAPPER_BUDGET_S = 90
 DRYER_BUDGET_S = 90
-CRAP_LIMIT = 10
-DRY_THRESHOLD = "0.82"
 MAX_FINDINGS = 10
 SETUP_HINT = "Run /bf:setup to add them."
 BACKUP_HEADING = "#### Measured / Backup copies left — mutator"
@@ -99,7 +97,6 @@ def main():
         return
 
     deadline = started + TOTAL_BUDGET_S
-    existed = existing_run_dirs()
     notes = []
     groups = []
     ran = []
@@ -107,56 +104,33 @@ def main():
     def remaining(cap_deadline):
         return min(cap_deadline, deadline) - time.time()
 
-    if "crapper" in ready:
-        ran.append("crapper")
-        cap = time.time() + CRAPPER_BUDGET_S
-        rows = []
-        failure = None
-        for path in paths:
-            limit = remaining(cap)
-            if limit <= 1:
-                notes.append("crapper hit its time limit, later files were not scored.")
-                break
-            covered = has_report(path)
-            result = run_tool([ready["crapper"], coverage_flag(covered), path], limit)
-            if result is None:
-                notes.append("crapper hit its time limit, later files were not scored.")
-                break
-            code, stdout, stderr = result
-            if code != 0:
-                failure = failure or "crapper failed on %s: %s" % (path, first_line(stderr or stdout))
-                continue
-            for name, cc, cov, crap in parse_crapper(stdout):
-                score = crap if (covered and crap is not None) else None
-                if (score is not None and score >= CRAP_LIMIT) or (score is None and cc >= CRAP_LIMIT):
-                    rows.append((score if score is not None else cc, path, name, cc, cov, score, covered))
-        if failure:
-            notes.append(failure)
-        if rows:
-            rows.sort(key=lambda r: -r[0])
-            if len(rows) > MAX_FINDINGS:
-                notes.append("crapper reported %d findings, showing the worst %d." % (len(rows), MAX_FINDINGS))
-            lines = ["#### Measured / High CRAP score — crapper"]
-            for _, path, name, cc, cov, score, covered in rows[:MAX_FINDINGS]:
-                where = "`%s:%d`" % (path, find_line(path, name))
-                if score is not None:
-                    detail = "scores CRAP %s (CC %d, coverage %s%%)" % (("%.1f" % score), cc, ("%.1f" % (cov or 0.0)))
-                else:
-                    detail = "scores CC %d, %s" % (cc, "no coverage data for this function" if covered else "no coverage report")
-                lines.append("- %s: `%s` %s. **Suggestion:** split the function or cover its branches with tests."
-                             % (where, name, detail))
-            groups.append(lines)
+    with run_dirs_cleaned():
+        if "crapper" in ready:
+            ran.append("crapper")
+            cap = time.time() + CRAPPER_BUDGET_S
+            rows = run_crapper(ready["crapper"], paths, lambda p: coverage_flag(has_report(p)),
+                               lambda: remaining(cap), notes)
+            if rows:
+                rows.sort(key=lambda r: -r["score"])
+                if len(rows) > MAX_FINDINGS:
+                    notes.append("crapper reported %d findings, showing the worst %d." % (len(rows), MAX_FINDINGS))
+                lines = ["#### Measured / High CRAP score — crapper"]
+                for row in rows[:MAX_FINDINGS]:
+                    covered = row["mode"] == USE_COVERAGE
+                    where = "`%s:%d`" % (row["file"], find_line(row["file"], row["function"]))
+                    if row["crap"] is not None:
+                        detail = "scores CRAP %s (CC %d, coverage %s%%)" % (
+                            "%.1f" % row["crap"], row["cc"], "%.1f" % (row["coverage"] or 0.0))
+                    else:
+                        detail = "scores CC %d, %s" % (
+                            row["cc"], "no coverage data for this function" if covered else "no coverage report")
+                    lines.append("- %s: `%s` %s. **Suggestion:** split the function or cover its branches with tests."
+                                 % (where, row["function"], detail))
+                groups.append(lines)
 
-    if "dryer" in ready:
-        ran.append("dryer")
-        limit = remaining(time.time() + DRYER_BUDGET_S)
-        result = run_tool([ready["dryer"], "--threshold", DRY_THRESHOLD] + paths, limit) if limit > 1 else None
-        if result is None:
-            notes.append("dryer hit its time limit, no duplicates reported.")
-        elif result[0] != 0:
-            notes.append("dryer failed: %s" % first_line(result[2] or result[1]))
-        else:
-            pairs = parse_dryer(result[1])
+        if "dryer" in ready:
+            ran.append("dryer")
+            pairs = run_dryer(ready["dryer"], paths, remaining(time.time() + DRYER_BUDGET_S), notes)
             if len(pairs) > MAX_FINDINGS:
                 notes.append("dryer reported %d pairs, showing the closest %d." % (len(pairs), MAX_FINDINGS))
             if pairs:
@@ -166,19 +140,9 @@ def main():
                                  "if the two must change together." % (left + right + (score,)))
                 groups.append(lines)
 
-    if "mutator" in ready:
-        ran.append("mutator")
-        limit = remaining(deadline)
-        mutator_flag = coverage_flag(all(has_report(p) for p in paths))
-        result = run_tool([ready["mutator"], mutator_flag] + paths, limit) if limit > 1 else None
-        if result is None:
-            notes.append("mutator hit the time budget, no mutation result reported.")
-        elif result[0] == 2:
-            notes.append("mutator skipped: %s" % first_line(result[2] or result[1]))
-        elif result[0] not in (0, 3):
-            notes.append("mutator failed: %s" % first_line(result[2] or result[1]))
-        else:
-            survivors = parse_mutator_snapshots(paths)
+        if "mutator" in ready:
+            ran.append("mutator")
+            survivors = run_mutator(ready["mutator"], paths, mutator_mode(paths), remaining(deadline), notes)
             if survivors:
                 lines = ["#### Measured / Surviving mutants — mutator"]
                 for file_, line, count, name in survivors[:MAX_FINDINGS]:
@@ -188,7 +152,6 @@ def main():
                     notes.append("mutator reported %d functions with survivors, showing %d." % (len(survivors), MAX_FINDINGS))
                 groups.append(lines)
 
-    remove_created_dirs(existed)
     if mutator_backups_left():
         groups.append([BACKUP_HEADING,
                        "- `target/mutator-backup`: mutator left copies of source files there. "
