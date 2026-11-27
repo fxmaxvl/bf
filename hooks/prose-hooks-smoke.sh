@@ -6,7 +6,9 @@
 set -euo pipefail
 
 hooks=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-tmp=$(cd "$(mktemp -d)" && pwd -P)
+tmp=$(mktemp -d) || { echo "ABORT: mktemp failed" >&2; exit 2; }
+if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then echo "ABORT: mktemp made no directory" >&2; exit 2; fi
+tmp=$(cd "$tmp" && pwd -P) || { echo "ABORT: cannot resolve the temp directory" >&2; exit 2; }
 trap 'rm -rf "$tmp"' EXIT
 
 fails=0
