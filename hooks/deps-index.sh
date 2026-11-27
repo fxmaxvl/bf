@@ -10,8 +10,9 @@
 #                                             under those paths. A relative path starts at the cwd. "." at
 #                                             the repo root, or the root path, prints only the root manifests.
 #        deps-index.sh names                  print the manifest file names the index covers.
-# Env:   BF_DEPS_HOOK=off turns build and read off. names still prints. DEPS_INDEX_TRACE=1 prints
-#        "parse <path>" on stderr for each manifest that is parsed. DEPS_INDEX_TEST_DELAY=<seconds> makes
+#        deps-index.sh parse-files <type> <file ...>   internal. build runs it through xargs on a batch.
+# Env:   BF_DEPS_HOOK=off turns build and read off. names still prints. BF_DEPS_TRACE=1 prints
+#        "parse <path>" on stderr for each manifest that is parsed. BF_DEPS_TEST_DELAY=<seconds> makes
 #        build wait before it writes.
 # Output: build prints nothing. read prints nothing when it fails, when jq is missing, when the directory is
 #         not a git repo, or when every path is missing or outside the repo.
@@ -41,6 +42,7 @@ root=
 cache=
 work=
 index=
+mtype=
 
 is_manifest() {
   local pat
@@ -79,13 +81,17 @@ cleanup() {
 }
 
 parse_package_json() {
-  jq -r '[.dependencies, .devDependencies, .peerDependencies, .optionalDependencies]
-         | map(select(type == "object")) | .[] | to_entries[] | "\(.key)\t\(.value | tostring)"' "$1"
+  jq -r '"\u0001\(input_filename)",
+         ([.dependencies, .devDependencies, .peerDependencies, .optionalDependencies]
+          | map(select(type == "object")) | .[] | to_entries[] | "\(.key)\t\(.value | tostring)")' "$@"
 }
 
 # The awk parsers print "name<TAB>version" lines and leave the version empty when it is unknown. BSD awk
-# on macOS has no gensub and no IGNORECASE, so they use POSIX awk only.
+# on macOS has no gensub and no IGNORECASE, so they use POSIX awk only. One awk run reads every changed file of
+# a type, so each parser resets its state on the first line of a file (FNR == 1) and calls newfile, which
+# prints a marker line with the file name. A Cargo dependency is flushed before the marker of the next file.
 read -r -d '' AWK_LIB <<'EOF'
+function newfile() { print "\001" FILENAME }
 # req(s): a PEP 508 style requirement such as "uvicorn[standard]==0.30; python_version>'3'".
 function req(s,   name, rest) {
   sub(/;.*/, "", s); sub(/\\$/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s)
@@ -132,6 +138,7 @@ EOF
 
 read -r -d '' AWK_CARGO <<'EOF'
 function flush() { if (subdep != "") print subdep "\t" subver; subdep = ""; subver = "" }
+FNR == 1 { flush(); intbl = 0; sec = ""; newfile() }
 /^[ \t]*#/ { next }
 /^[ \t]*\[/ {
   flush(); intbl = 0
@@ -146,6 +153,7 @@ END { flush() }
 EOF
 
 read -r -d '' AWK_PYPROJECT <<'EOF'
+FNR == 1 { sec = ""; inlist = 0; newfile() }
 /^[ \t]*#/ { next }
 /^[ \t]*\[/ { sec = section($0); inlist = 0; next }
 sec == "project" || sec == "project.optional-dependencies" || sec == "dependency-groups" {
@@ -163,11 +171,13 @@ sec ~ /^tool\.poetry\.(dev-)?dependencies$|^tool\.poetry\.group\.[^.]+\.dependen
 EOF
 
 read -r -d '' AWK_REQUIREMENTS <<'EOF'
+FNR == 1 { newfile() }
 /^[ \t]*(#|-)/ { next }
 { sub(/[ \t]+#.*/, ""); req($0) }
 EOF
 
 read -r -d '' AWK_GOMOD <<'EOF'
+FNR == 1 { inreq = 0; newfile() }
 /^[ \t]*\/\// { next }
 /^[ \t]*require[ \t]*\(/ { inreq = 1; next }
 inreq && /^[ \t]*\)/ { inreq = 0; next }
@@ -176,6 +186,7 @@ inreq { sub(/\/\/.*/, ""); if (NF >= 2) print $1 "\t" $2; next }
 EOF
 
 read -r -d '' AWK_BUILD <<'EOF'
+FNR == 1 { inlist = 0; newfile() }
 {
   line = $0; sub(/#.*/, "", line)
   if (!inlist) {
@@ -193,6 +204,7 @@ function val(buf, key,   s) {
   if (!match(buf, "(^|[^A-Za-z_])" key "[ \t]*=[ \t]*\"[^\"]*\"")) return ""
   s = substr(buf, RSTART, RLENGTH); sub(/^[^"]*"/, "", s); sub(/"$/, "", s); return s
 }
+FNR == 1 { buf = ""; inb = 0; newfile() }
 { line = $0; sub(/#.*/, "", line) }
 /bazel_dep[ \t]*\(/ { buf = ""; inb = 1 }
 inb {
@@ -206,6 +218,7 @@ inb {
 EOF
 
 read -r -d '' AWK_POM <<'EOF'
+FNR == 1 { indep = 0; inex = 0; newfile() }
 function tag(line, n,   s) {
   if (!match(line, "<" n ">[^<]*</" n ">")) return ""
   s = substr(line, RSTART, RLENGTH); sub(/^<[^>]*>/, "", s); sub(/<.*/, "", s); return s
@@ -222,40 +235,68 @@ indep && !inex {
 EOF
 
 read -r -d '' AWK_GRADLE <<'EOF'
+FNR == 1 { newfile() }
 /^[ \t]*[A-Za-z]*([Ii]mplementation|[Aa]pi|[Cc]ompileOnly|[Rr]untimeOnly|[Cc]ompile|[Rr]untime|[Pp]rocessor|kapt|ksp|classpath)[ \t(]/ {
   line = $0
   while (str_next()) coord(str, 1)
 }
 EOF
 
-# parse_manifest <file>: prints one "name<TAB>version" line per dependency. It returns non-zero on failure.
-# The case arms must cover every name in MANIFEST_NAMES. A name without an arm fails here, so the index shows
-# error true for it, and names_parse_cases in the smoke test checks that no listed name hits the default arm.
-parse_manifest() {
-  local f=$1
-  case ${f##*/} in
-    package.json) parse_package_json "$f" ;;
-    Cargo.toml) awk "$AWK_LIB $AWK_CARGO" "$f" ;;
-    pyproject.toml) awk "$AWK_LIB $AWK_PYPROJECT" "$f" ;;
-    requirements*.txt) awk "$AWK_LIB $AWK_REQUIREMENTS" "$f" ;;
-    go.mod) awk "$AWK_GOMOD" "$f" ;;
-    BUILD | BUILD.bazel) awk "$AWK_LIB $AWK_BUILD" "$f" ;;
-    MODULE.bazel) awk "$AWK_LIB $AWK_MODULE" "$f" ;;
-    pom.xml) awk "$AWK_POM" "$f" ;;
-    build.gradle | build.gradle.kts) awk "$AWK_LIB $AWK_GRADLE" "$f" ;;
+# manifest_type <name>: sets mtype to the parser key of a manifest file name. It prints nothing, so the build
+# loop needs no subshell per file. It returns non-zero for a name with no parser. The case arms must cover every name in MANIFEST_NAMES. A name without an arm gets error true in the
+# index, and names_parse_cases in the smoke test checks that no listed name hits the default arm.
+manifest_type() {
+  case $1 in
+    package.json) mtype=package ;;
+    Cargo.toml) mtype=cargo ;;
+    pyproject.toml) mtype=pyproject ;;
+    requirements*.txt) mtype=requirements ;;
+    go.mod) mtype=gomod ;;
+    BUILD | BUILD.bazel) mtype=build ;;
+    MODULE.bazel) mtype=module ;;
+    pom.xml) mtype=pom ;;
+    build.gradle | build.gradle.kts) mtype=gradle ;;
     *) return 1 ;;
   esac
 }
 
-# parse_entry <path> <hash>: prints the index entry of one manifest as a {key, value} object on one line.
-parse_entry() {
-  local p=$1 h=$2 out err=false
-  [ -n "${DEPS_INDEX_TRACE:-}" ] && echo "parse $p" >&2
-  out=$(parse_manifest "$root/$p" 2>/dev/null) || { err=true; out=; }
-  printf '%s' "$out" | jq -R -s -c --arg p "$p" --arg h "$h" --argjson e "$err" '
-    {key: $p, value: {hash: $h, error: $e,
-      deps: (split("\n") | map(select(length > 0) | split("\t")
-             | {name: .[0], version: (if (.[1] // "") == "" then null else .[1] end)}) | unique)}}'
+# parse_files <type> <file ...>: runs the parser of the type on the files and prints a marker line (\001 and the
+# file name) per file, then its "name<TAB>version" lines. It returns non-zero when the parser fails on any file.
+parse_files() {
+  local t=$1 prog
+  shift
+  case $t in
+    package) parse_package_json "$@"; return ;;
+    cargo) prog=$AWK_CARGO ;;
+    pyproject) prog=$AWK_PYPROJECT ;;
+    requirements) prog=$AWK_REQUIREMENTS ;;
+    gomod) prog=$AWK_GOMOD ;;
+    build) prog=$AWK_BUILD ;;
+    module) prog=$AWK_MODULE ;;
+    pom) prog=$AWK_POM ;;
+    gradle) prog=$AWK_GRADLE ;;
+    *) return 1 ;;
+  esac
+  awk "$AWK_LIB $prog" "$@"
+}
+
+# parse_type <type>: parses the files listed in $work/list.<type> and prints their marker and dependency lines.
+# A process start costs about 7 ms on macOS, so xargs runs one parser over many files. When that run fails,
+# for example on one invalid package.json, each file runs alone, and a file that still fails gets an
+# "\002<path>" error line in place of its dependencies.
+parse_type() {
+  local t=$1 f list=$work/list.$t
+  if (cd "$root" && xargs -0 bash "$_here/${BASH_SOURCE[0]##*/}" parse-files "$t" < "$list") > "$work/out" 2>/dev/null; then
+    cat "$work/out"
+    return 0
+  fi
+  while IFS= read -r -d '' f; do
+    if (cd "$root" && parse_files "$t" "$f") > "$work/one" 2>/dev/null; then
+      cat "$work/one"
+    else
+      printf '\002%s\n' "$f"
+    fi
+  done < "$list"
 }
 
 # build_index: parses only the manifests whose content hash changed. It keeps its result in $index
@@ -286,18 +327,40 @@ build_index() {
   jq -n -r --slurpfile old "$work/old.json" --slurpfile cur "$work/cur.json" '
     ($old[0].manifests // {}) as $o
     | $cur[0] | to_entries[] | select(($o[.key].hash // "") != .value) | "\(.key)\t\(.value)"' > "$work/changed.tsv" || return 1
-  : > "$work/new.jsonl"
+  # Rows: "M<TAB>path<TAB>hash<TAB>error" per changed manifest, then the parser output of each type. A marker
+  # line starts the dependencies of a file, and an error line marks a file the parser could not read.
+  local t types=
   while IFS=$'\t' read -r p h; do
-    parse_entry "$p" "$h" >> "$work/new.jsonl"
-  done < "$work/changed.tsv"
+    [ -n "${BF_DEPS_TRACE:-}" ] && echo "parse $p" >&2
+    if manifest_type "${p##*/}"; then
+      t=$mtype
+      printf 'M\t%s\t%s\tfalse\n' "$p" "$h"
+      # ./ keeps awk from reading a path that starts with - as an option.
+      printf './%s\0' "$p" >> "$work/list.$t"
+      case " $types " in *" $t "*) ;; *) types="$types $t" ;; esac
+    else
+      printf 'M\t%s\t%s\ttrue\n' "$p" "$h"
+    fi
+  done < "$work/changed.tsv" > "$work/rows.tsv"
+  for t in $types; do parse_type "$t"; done >> "$work/rows.tsv"
+  jq -R -s -c '
+    def rel: ltrimstr("./");
+    reduce (split("\n")[] | select(length > 0)) as $l ({cur: null, m: {}};
+      if ($l | startswith("\u0001")) then .cur = ($l[1:] | rel)
+      elif ($l | startswith("\u0002")) then .m[$l[1:] | rel] |= (.error = true | .deps = []) | .cur = null
+      elif ($l | startswith("M\t")) then ($l | split("\t")) as $r | .m[$r[1]] = {hash: $r[2], error: ($r[3] == "true"), deps: []}
+      elif .cur == null then .
+      else ($l | split("\t")) as $r
+        | .m[.cur].deps += [{name: $r[0], version: (if ($r[1] // "") == "" then null else $r[1] end)}] end)
+    | .m | map_values(.deps |= unique)' "$work/rows.tsv" > "$work/new.json" || return 1
 
-  [ -n "${DEPS_INDEX_TEST_DELAY:-}" ] && sleep "$DEPS_INDEX_TEST_DELAY"
+  [ -n "${BF_DEPS_TEST_DELAY:-}" ] && sleep "$BF_DEPS_TEST_DELAY"
   tmp=$cache/deps.json.tmp.$$
-  jq -n -c --slurpfile old "$work/old.json" --slurpfile cur "$work/cur.json" --slurpfile new "$work/new.jsonl" '
+  jq -n -c --slurpfile old "$work/old.json" --slurpfile cur "$work/cur.json" --slurpfile new "$work/new.json" '
     ($old[0].manifests // {}) as $o
     | {schema: 1,
        manifests: (($cur[0] | to_entries | map(select($o[.key].hash == .value) | {key: .key, value: $o[.key]}))
-                   + $new | from_entries)}' > "$index" || return 1
+                   + ($new[0] | to_entries) | from_entries)}' > "$index" || return 1
   cp "$index" "$tmp" && mv "$tmp" "$old" || { rm -f "$tmp"; return 1; }
 }
 
@@ -348,6 +411,7 @@ start_background() {
 main() {
   case ${1:-} in
     names) printf '%s\n' $MANIFEST_NAMES; return 0 ;;
+    parse-files) shift; parse_files "$@"; return ;;
     build | read) ;;
     *) echo "usage: deps-index.sh build [--background] | read [path ...] | names" >&2; return 2 ;;
   esac

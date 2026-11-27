@@ -21,6 +21,7 @@ main() {
   registration_cases
   names_cases
   names_parse_cases
+  batch_cases
 
   [ "$fails" = 0 ]
 }
@@ -244,11 +245,11 @@ integration_cases() {
 {"dependencies":{"a":"1"}}
 EOF
   idx build
-  t=$(DEPS_INDEX_TRACE=1 idx build 2>&1)
+  t=$(BF_DEPS_TRACE=1 idx build 2>&1)
   check "incremental: unchanged manifest is not parsed again" "$t" ""
 
   printf '{"dependencies":{"a":"2"}}\n' > "$repo/package.json"
-  t=$(DEPS_INDEX_TRACE=1 idx build 2>&1)
+  t=$(BF_DEPS_TRACE=1 idx build 2>&1)
   check "incremental: changed manifest is parsed again" "$t" "parse package.json"
   check "incremental: changed manifest has the new version" "$(deps_of package.json)" "false a=2"
 
@@ -290,7 +291,7 @@ EOF
   put package.json <<'EOF'
 {"dependencies":{"a":"1"}}
 EOF
-  (cd "$repo" && DEPS_INDEX_TEST_DELAY=2 exec bash "$script" build) & pa=$!
+  (cd "$repo" && BF_DEPS_TEST_DELAY=2 exec bash "$script" build) & pa=$!
   out=$(idx read)
   check "read during a slow build prints its own result" "$out" '[{"name":"a","version":"1","manifest":"package.json"}]'
   wait "$pa"
@@ -393,7 +394,7 @@ e2e_cases() {
 EOF
   start=$(date +%s)
   out=$(printf '{"hook_event_name":"SessionStart","source":"startup","cwd":"%s"}' "$repo" \
-    | DEPS_INDEX_TEST_DELAY=3 bash -c "$cmd"); rc=$?
+    | BF_DEPS_TEST_DELAY=3 bash -c "$cmd"); rc=$?
   elapsed=$(($(date +%s) - start))
   check "hook command: exit and stdout" "$rc:$out" "0:"
   check "hook command returns within 1 second while the build is slow" "$([ "$elapsed" -le 1 ] && echo yes || echo "no ($elapsed s)")" yes
@@ -432,6 +433,45 @@ names_cases() {
     "$(bash "$script" names | sort | tr '\n' ' ')"
 }
 
+# One parser run reads every changed file of a type, so state must not leak from one file into the next, and
+# one bad file must not cost the other files their entries.
+batch_cases() {
+  ctx_init
+  put a/BUILD.bazel <<'EOF'
+java_library(name = "a", deps = [
+    "@maven//:a",
+EOF
+  put b/BUILD.bazel <<'EOF'
+java_library(name = "b")
+x = ["@maven//:not_a_dep"]
+EOF
+  put a/Cargo.toml <<'EOF'
+[dependencies.serde]
+version = "1.0"
+EOF
+  put b/Cargo.toml <<'EOF'
+[package]
+name = "b"
+EOF
+  put good/package.json <<'EOF'
+{"dependencies":{"a":"1"}}
+EOF
+  put bad/package.json <<'EOF'
+{not json
+EOF
+  put -x/BUILD <<'EOF'
+cc_library(name = "x", deps = ["@abseil//:strings"])
+EOF
+  idx build
+  check "batch: an open BUILD list ends with its file" "$(deps_of b/BUILD.bazel)" "false "
+  check "batch: the open BUILD list keeps its own deps" "$(deps_of a/BUILD.bazel)" "false @maven//:a=null"
+  check "batch: a Cargo dependency is flushed into its own file" "$(deps_of a/Cargo.toml)" "false serde=1.0"
+  check "batch: the next Cargo file gets none of it" "$(deps_of b/Cargo.toml)" "false "
+  check "batch: an invalid package.json is marked" "$(deps_of bad/package.json)" "true "
+  check "batch: the valid package.json keeps its deps" "$(deps_of good/package.json)" "false a=1"
+  check "batch: a path that starts with - is parsed" "$(deps_of -x/BUILD)" "false @abseil//:strings=null"
+}
+
 names_parse_cases() {
   local name file
   ctx_init
@@ -466,9 +506,9 @@ ctx_init() {
 
 # put <path>: writes stdin to the path in $repo and stages it.
 put() {
-  mkdir -p "$repo/$(dirname "$1")"
+  case $1 in */*) mkdir -p "$repo/${1%/*}" ;; esac
   cat > "$repo/$1"
-  git -C "$repo" add "$1"
+  git -C "$repo" add -- "$1"
 }
 
 idx() { (cd "$repo" && bash "$script" "$@"); }
