@@ -3,6 +3,7 @@ name: autopilot
 description: "General autonomous wrapper — runs the core bf workflows (feature, quick, micro, review, design) without user input. Oracle (decide/consilium) resolves every decision. Usage: /bf:autopilot [skill] <args> (e.g. /bf:autopilot quick fix login bug)"
 model: opus
 disable-model-invocation: false
+suggest: false
 argument-hint: "[skill-name] <idea or args>"
 allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(git add *), Bash(git commit *), Bash(git status *), Bash(git diff *), Bash(git log *), Bash(git fetch *), Bash(git checkout *), Bash(git merge-base *), Bash(git rev-parse *), Bash(git config *), Bash(git ls-files *), Bash(git stash *), Bash(git branch *), Bash(git show *), Bash(git tag *), Bash(git reset *), Bash(gh *), Bash(bash *), mcp__*__jira__*
 ---

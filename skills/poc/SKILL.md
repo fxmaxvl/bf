@@ -36,7 +36,7 @@ Print banner (plain text):
 
 ## Phase 1 — Interview & Brainstorm
 
-Banner: `── poc | Interview ─────────────────────────────`
+Banner: `── bf:poc | Interview ─────────────────────────────`
 
 Ask **one question per turn**. Where an answer has a sensible default, offer it as the recommended option. Skip any item the idea or an earlier answer already settles. Work from the tightest constraint outward:
 
@@ -86,7 +86,7 @@ The **Shortcuts** section must always contain "No automated tests. Only a smoke 
 
 ## Phase 2 — Brief Check
 
-Banner: `── poc | Brief check ───────────────────────────`
+Banner: `── bf:poc | Brief check ───────────────────────────`
 
 Spawn one agent, `name: poc-brief-check`, `model: sonnet`. Pass it `brief_path` only, not the contents. Instruct it to read the brief and check that the sections agree:
 
@@ -101,7 +101,7 @@ On ISSUES, fix the ones the brief already answers. For any issue that needs a de
 
 ## Phase 3 — Build
 
-Banner: `── poc | Build ─────────────────────────────────`
+Banner: `── bf:poc | Build ─────────────────────────────────`
 
 1. Resolve `dev.md` via Convention Lookup, plus the language convention (`typescript` or `python`) when it matches the stack. Apply them, but at POC scale: favour the smallest code that proves the hypothesis, and skip anything that serves only production.
 2. Build only the core flow, using the real, mocked, and hard-coded split exactly as the brief records it. Keep all files inside `poc_dir`.
@@ -110,13 +110,13 @@ Banner: `── poc | Build ─────────────────�
 
 ## Phase 4 — Smoke Run
 
-Banner: `── poc | Smoke ─────────────────────────────────`
+Banner: `── bf:poc | Smoke ─────────────────────────────────`
 
 Run the core flow end to end once and observe the proof from the brief. Write the exact commands under **How to run**. If the run fails, fix it and retry, up to 3 attempts in total. If it still fails, record the failure and its last error under **Open questions**, tell the user, and continue to the sync check anyway.
 
 ## Phase 5 — Sync Check
 
-Banner: `── poc | Sync check ────────────────────────────`
+Banner: `── bf:poc | Sync check ────────────────────────────`
 
 Spawn one agent, `name: poc-sync-check`, `model: sonnet`. Pass it `poc_dir` and `brief_path`. Instruct it to read both and report drift between them:
 

@@ -85,6 +85,9 @@ emit_id() { # audit_id check severity path line detail axes_csv
       axes:($a|split(",")|map(select(length>0)))}' >>"$TMP"
 }
 
+# shellcheck source=../../../hooks/skill-frontmatter-lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/../../../hooks/skill-frontmatter-lib.sh"
+
 README="$ROOT/README.md"
 N_SKILLS=0; N_SCRIPTS=0
 
@@ -94,7 +97,7 @@ while IFS= read -r skill; do
   rel="skills/$skill/SKILL.md"
   f="$ROOT/$rel"
 
-  fm=$(awk 'NR==1 && $0=="---"{inf=1;next} inf && $0=="---"{exit} inf{print}' "$f")
+  fm=$(skill_frontmatter "$f")
   for field in name description model allowed-tools; do
     printf '%s\n' "$fm" | grep -q "^$field:" && continue
     # name/description/model gate discovery and dispatch; allowed-tools is drift

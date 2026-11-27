@@ -3,6 +3,7 @@ name: self-audit
 description: Use when asked to audit the plugin, check the skills for convention drift or token waste, or find what needs fixing in bf itself. Sweeps every skill, script, and convention for drift, stale references, and token waste, then files the findings as GitHub issues for /bf:self-heal to fix.
 model: opus
 disable-model-invocation: false
+suggest: false
 argument-hint: "[optional: scope like 'skills/review', or '--static-only' to skip the judgment pass]"
 allowed-tools: Read, Write, Grep, Glob, Agent, Bash(git *), Bash(gh *), Bash(bash *)
 ---

@@ -3,6 +3,7 @@ name: kit
 description: Use when the user wants to build a standalone Claude Code plugin — a "kit" — for one purpose or domain (a course, a role, a recurring kind of work), e.g. "build me a kit for my CTO course", "make a plugin with skills for analysing startup strategies". Interviews for the kit's context, ingests reference material, agrees the skill roster, drafts the chosen skills, and leaves a git-initialised plugin outside bf that grows itself with its own write-skill, adopt-skill, and update-context.
 model: opus
 disable-model-invocation: false
+suggest: false
 argument-hint: "[what the kit is for, e.g. 'CTO course: strategy analysis, plans, decks']"
 allowed-tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Bash
 ---

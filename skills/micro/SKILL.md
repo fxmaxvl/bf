@@ -32,7 +32,7 @@ Sub-skill SKILL.md files are bundled with the plugin. Prepend `${CLAUDE_PLUGIN_R
 At the start of every phase, print a banner:
 
 ```
-── micro | Name ───────────────────────────────
+── bf:micro | Name ───────────────────────────────
 ```
 
 Print as plain text (not in a code block).
@@ -61,7 +61,7 @@ If not found: start from Phase 0.
 
 ## Phase 0 — Init
 
-Print banner: `── micro | Init ───────────────────────────────`
+Print banner: `── bf:micro | Init ───────────────────────────────`
 
 1. **Detect GitHub issue**: Check if `$ARGUMENTS` contains `GH-ISSUE:<number>`. If yes: extract the number, set `github_issue.enabled=true`, use `gh-<number>-<short-description>` as slug.
 2. **Detect Jira ticket**: Check if `$ARGUMENTS` contains a Jira ticket URL. If yes: extract the ticket key, invoke the `jira` skill to verify MCP tools are available (stop if not), transition to "In Progress", use `<ticket-key>-<short-description>` as slug.
@@ -95,7 +95,7 @@ Print banner: `── micro | Init ───────────────
 
 ## Phase 1 — Clarify
 
-Print banner: `── micro | Clarify ───────────────────────────────`
+Print banner: `── bf:micro | Clarify ───────────────────────────────`
 
 **Missing targets.** When the instruction targets the same file in several repos, check it exists in each `## Target Repos` checkout. If it is missing in some, list those repos and ask one question: create the file there, skip those repos, or handle them separately in another run. On skip or separate, remove those checkouts (with a `<source>`: `worktree remove` and `branch -D` as in Phase 7; else `rm -rf <checkout>`) and drop their lines from `## Target Repos`. Ask any ambiguity question below only after this one is answered.
 
@@ -111,7 +111,7 @@ Proceed to Phase 2.
 
 ## Phase 2 — Execute
 
-Print banner: `── micro | Execute ───────────────────────────────`
+Print banner: `── bf:micro | Execute ───────────────────────────────`
 
 Dispatch `micro/execute/SKILL.md` as an Agent (model: sonnet). If `## Target Repos` is non-empty, paste its lines into the prompt.
 
@@ -124,7 +124,7 @@ Proceed immediately to Phase 3 (no approval gate).
 
 ## Phase 3 — Verify
 
-Print banner: `── micro | Verify ───────────────────────────────`
+Print banner: `── bf:micro | Verify ───────────────────────────────`
 
 Dispatch `feature/verify/SKILL.md` as an Agent (model: sonnet), with the **Target-repo prompt** when it applies (as for every gate and fix agent in Phases 4–6).
 - Runs tests and lint, auto-fixes where possible.
@@ -134,7 +134,7 @@ When tests and lint are green: proceed immediately to Phase 4. **Do not update `
 
 ## Phase 4 — Complexity Guard
 
-Print banner: `── micro | Complexity Guard ───────────────────────────────`
+Print banner: `── bf:micro | Complexity Guard ───────────────────────────────`
 
 **Non-code change check.** Both this phase and Phase 5 spawn opus agents to reason about
 new code. When the task produced none, they cost two round-trips and find nothing.
@@ -176,7 +176,7 @@ Otherwise, run up to 3 scan → fix cycles:
 
 ## Phase 5 — Review Implementation
 
-Print banner: `── micro | Review Implementation ───────────────────────────────`
+Print banner: `── bf:micro | Review Implementation ───────────────────────────────`
 
 Run up to 3 analyze → fix cycles:
 
@@ -196,7 +196,7 @@ Run up to 3 analyze → fix cycles:
 
 ## Phase 6 — Finalize
 
-Print banner: `── micro | Finalize ───────────────────────────────`
+Print banner: `── bf:micro | Finalize ───────────────────────────────`
 
 1. **Silent quality gate**: dispatch `feature/verify/SKILL.md` as an Agent (model: sonnet).
    - Catches regressions introduced by review-impl fix cycles.
@@ -245,7 +245,7 @@ Print banner: `── micro | Finalize ─────────────�
 
 ## Phase 7 — Cleanup
 
-Print banner: `── micro | Cleanup ───────────────────────────────`
+Print banner: `── bf:micro | Cleanup ───────────────────────────────`
 
 When state `commit_only` is `true` and `## Target Repos` is non-empty, nothing was pushed. The checkouts hold the only copy of the commits. Skip the removal below. Keep every checkout, branch and the scratch dir, and tell the user each checkout path and branch. Then run `cleanup.sh`.
 

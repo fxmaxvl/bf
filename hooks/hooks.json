@@ -1,5 +1,5 @@
 {
-  "description": "Prose enforcement: lint the text bf writes for hard markers (em dash, semicolon, contraction). Set BF_PROSE_HOOK=off to turn the prose hooks off. remote-state-pre-bash.sh reminds the model to check the PR state before git push, gh pr edit or gh pr merge. Set BF_REMOTE_HOOK=off to turn it off. deps-index.sh builds the dependency index in .bf/cache/deps.json at session start. Set BF_DEPS_HOOK=off to turn it off.",
+  "description": "Prose enforcement: lint the text bf writes for hard markers (em dash, semicolon, contraction). Set BF_PROSE_HOOK=off to turn the prose hooks off. remote-state-pre-bash.sh reminds the model to check the PR state before git push, gh pr edit or gh pr merge. Set BF_REMOTE_HOOK=off to turn it off. skill-suggest-stop.sh shows a one-line tip that names a fitting bf skill. Set BF_SUGGEST_HOOK=off to turn it off. deps-index.sh builds the dependency index in .bf/cache/deps.json at session start. Set BF_DEPS_HOOK=off to turn it off.",
   "hooks": {
     "SessionStart": [
       {
@@ -29,6 +29,9 @@
     "Stop": [
       {
         "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prose-stop.sh\"", "timeout": 5}]
+      },
+      {
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/skill-suggest-stop.sh\"", "timeout": 8}]
       }
     ],
     "UserPromptSubmit": [
