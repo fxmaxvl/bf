@@ -118,6 +118,11 @@ function str_next() {
   str = substr(line, RSTART + 1, RLENGTH - 2); line = substr(line, RSTART + RLENGTH)
   return 1
 }
+# section(s): the name of a TOML table header line, as in "[tool.poetry.dependencies] # x" -> "tool.poetry.dependencies".
+function section(s) {
+  sub(/[ \t]*#.*/, "", s); gsub(/[][ \t]/, "", s)
+  return s
+}
 # kvdep(line): a TOML line `name = "1.0"` or `name = { version = "1.0", ... }`.
 function kvdep(line,   k, v, ver, s) {
   if (line !~ /^[ \t]*[A-Za-z0-9_."-]+[ \t]*=/) return
@@ -137,7 +142,7 @@ function flush() { if (subdep != "") print subdep "\t" subver; subdep = ""; subv
 /^[ \t]*#/ { next }
 /^[ \t]*\[/ {
   flush(); intbl = 0
-  sec = $0; sub(/[ \t]*#.*/, "", sec); gsub(/[][ \t]/, "", sec)
+  sec = section($0)
   if (sec ~ /(^|\.)(dev-|build-)?dependencies$/) intbl = 1
   else if (sec ~ /(^|\.)(dev-|build-)?dependencies\.[^.]+$/) { subdep = sec; sub(/.*\./, "", subdep) }
   next
@@ -149,7 +154,7 @@ EOF
 
 read -r -d '' AWK_PYPROJECT <<'EOF'
 /^[ \t]*#/ { next }
-/^[ \t]*\[/ { sec = $0; sub(/[ \t]*#.*/, "", sec); gsub(/[][ \t]/, "", sec); inlist = 0; next }
+/^[ \t]*\[/ { sec = section($0); inlist = 0; next }
 sec == "project" || sec == "project.optional-dependencies" || sec == "dependency-groups" {
   line = $0
   if (!inlist) {
