@@ -338,17 +338,25 @@ build_index() {
                    + $new | from_entries)}' > "$tmp" && mv "$tmp" "$old" || { rm -f "$tmp"; return 1; }
 }
 
-# read_index [path ...]: prints the entries of the manifests at the repo root and under each path. A path
-# may be absolute or start with ./, and a trailing slash does not matter. A path outside the repo is
-# dropped. When every path is dropped nothing prints, so the caller falls back and does not take the root
-# entries of this repo for those of another.
+# read_index [path ...]: prints the entries of the manifests at the repo root and under each path. An absolute
+# path is taken as it is. A relative path is taken from the caller's cwd, so "read b" from a/ means a/b. A
+# trailing slash does not matter. The repo root, or "." from the root, selects the root manifests only. A path
+# outside the repo is dropped. When every path is dropped nothing prints, so the caller falls back and does not
+# take the root entries of this repo for those of another.
 read_index() {
-  local a pre=[]
+  local a pre=[] cwdpre
   local -a prefixes=()
+  cwdpre=$(git rev-parse --show-prefix 2>/dev/null)
   for a in "$@"; do
-    [ "$a" = "$root" ] && a=.
-    a=${a#"$root"/}; a=${a#./}; a=${a%/}
-    case $a in /*) continue ;; esac
+    case $a in
+      "$root") a=. ;;
+      "$root"/*) a=${a#"$root"/} ;;
+      /*) continue ;;
+      .) a=$cwdpre ;;
+      *) a=$cwdpre${a#./} ;;
+    esac
+    a=${a%/}
+    [ -n "$a" ] || a=.
     prefixes+=("$a")
   done
   [ $# -eq 0 ] || [ ${#prefixes[@]} -gt 0 ] || return 0

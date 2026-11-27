@@ -374,6 +374,14 @@ EOF
   check "read with a ./ prefix" "$out" "api,deep,root"
   out=$(idx read services/api services/web | jq -r 'map(.name) | sort | join(",")')
   check "read with two prefixes" "$out" "api,deep,root,web"
+  out=$(idx read . | jq -r 'map(.name) | sort | join(",")')
+  check "read . from the root prints the root manifests only" "$out" "root"
+  out=$(idx read "$repo" | jq -r 'map(.name) | sort | join(",")')
+  check "read of the repo root path prints the root manifests only" "$out" "root"
+  out=$(cd "$repo/services" && bash "$script" read api | jq -r 'map(.name) | sort | join(",")')
+  check "read with a relative path from a subdirectory" "$out" "api,deep,root"
+  out=$(cd "$repo/services/api" && bash "$script" read . | jq -r 'map(.name) | sort | join(",")')
+  check "read . from a subdirectory: root and that tree" "$out" "api,deep,root"
 
   ctx_init
   put package.json <<'EOF'
