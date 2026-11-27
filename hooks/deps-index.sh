@@ -300,6 +300,21 @@ read_index() {
      | .key as $m | .value.deps[] | {name, version, manifest: $m}]' "$cache/deps.json"
 }
 
+# start_background: reads the hook input, enters its cwd and starts build detached. All three fds must be
+# redirected, or the hook waits for the child. macOS has no setsid. The cd and the start stay on separate
+# lines, because "cd && cmd &" backgrounds a subshell that keeps the hook stdout open.
+start_background() {
+  local self cwd
+  self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+  cwd=$(jq -r '.cwd // empty' 2>/dev/null) || return 0
+  if [ -n "$cwd" ]; then
+    cd "$cwd" 2>/dev/null || return 0
+  fi
+  nohup bash "$self" build </dev/null >/dev/null 2>&1 &
+  disown 2>/dev/null
+  return 0
+}
+
 main() {
   case ${1:-} in
     names) printf '%s\n' $MANIFEST_NAMES; return 0 ;;
@@ -312,6 +327,7 @@ main() {
   shift
   case $mode in
     build)
+      if [ "${1:-}" = --background ]; then start_background; return 0; fi
       open_repo || return 0
       lock_acquire 0 || return 0
       build_index

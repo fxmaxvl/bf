@@ -17,6 +17,8 @@ main() {
   unit_cases
   integration_cases
   read_cases
+  e2e_cases
+  registration_cases
 
   [ "$fails" = 0 ]
 }
@@ -355,6 +357,54 @@ EOF
   check "read outside a repo prints nothing" "$rc:$out" "0:"
   out=$(cd "$repo" && env PATH=/nonexistent /bin/bash "$script" read 2>&1); rc=$?
   check "read without jq prints nothing" "$rc:$out" "0:"
+}
+
+e2e_cases() {
+  local cmd out start elapsed i
+
+  cmd=$(hook_command)
+  ctx_init
+  put package.json <<'EOF'
+{"dependencies":{"a":"1"}}
+EOF
+  start=$(date +%s)
+  out=$(printf '{"hook_event_name":"SessionStart","source":"startup","cwd":"%s"}' "$repo" \
+    | DEPS_INDEX_TEST_DELAY=3 bash -c "$cmd"); rc=$?
+  elapsed=$(($(date +%s) - start))
+  check "hook command: exit and stdout" "$rc:$out" "0:"
+  check "hook command returns within 1 second while the build is slow" "$([ "$elapsed" -le 1 ] && echo yes || echo "no ($elapsed s)")" yes
+  for i in $(seq 1 20); do [ -f "$repo/.bf/cache/deps.json" ] && break; sleep 0.5; done
+  check "hook command: the index appears afterwards" "$(deps_of package.json)" "false a=1"
+
+  ctx_init
+  put package.json <<'EOF'
+{"dependencies":{"a":"1"}}
+EOF
+  out=$(printf '{"cwd":"%s"}' "$repo" | BF_DEPS_HOOK=off bash -c "$cmd"); rc=$?
+  sleep 1
+  check "BF_DEPS_HOOK=off: hook returns and writes nothing" "$rc:$out:$([ -e "$repo/.bf/cache" ] && echo yes || echo no)" "0::no"
+
+  out=$(cd "$repo" && printf 'not json' | bash -c "$cmd"); rc=$?
+  sleep 1
+  check "input that is not JSON: exit 0 and nothing written" "$rc:$out:$([ -e "$repo/.bf/cache" ] && echo yes || echo no)" "0::no"
+}
+
+registration_cases() {
+  local cfg=$(dirname "$script")/hooks.json
+  check "hooks.json: one startup|resume|clear group runs deps-index.sh with timeout 5" \
+    "$(jq -r '[.hooks.SessionStart[] | select(.matcher == "startup|resume|clear") | .hooks[]
+               | select(.command | test("hooks/deps-index[.]sh\" build --background")) | .timeout] | join(",")' "$cfg")" 5
+  check "hooks.json: the compact prose group stays registered" \
+    "$(jq -r '[.hooks.SessionStart[] | select(.matcher == "compact") | .hooks[].command
+               | select(test("hooks/prose-session-start[.]sh"))] | length' "$cfg")" 1
+  check "the registered script exists" "$([ -f "$script" ] && echo yes || echo no)" yes
+}
+
+# hook_command: the deps-index command string from hooks.json with the plugin root filled in.
+hook_command() {
+  local cfg=$(dirname "$script")/hooks.json
+  jq -r '.hooks.SessionStart[] | select(.matcher == "startup|resume|clear") | .hooks[0].command' "$cfg" \
+    | sed "s|\${CLAUDE_PLUGIN_ROOT}|$(dirname "$(dirname "$script")")|"
 }
 
 # ctx_init: a new empty git repo in $repo.
