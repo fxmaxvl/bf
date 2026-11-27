@@ -19,6 +19,7 @@ main() {
   read_cases
   e2e_cases
   registration_cases
+  names_cases
 
   [ "$fails" = 0 ]
 }
@@ -398,6 +399,14 @@ registration_cases() {
     "$(jq -r '[.hooks.SessionStart[] | select(.matcher == "compact") | .hooks[].command
                | select(test("hooks/prose-session-start[.]sh"))] | length' "$cfg")" 1
   check "the registered script exists" "$([ -f "$script" ] && echo yes || echo no)" yes
+}
+
+names_cases() {
+  local conv
+  conv=$(dirname "$(dirname "$script")")/conventions/reuse.md
+  check "reuse.md L3 manifest list matches the script" \
+    "$(grep '^- L3 ' "$conv" | sed -n 's/.*touched package (\([^)]*\)).*/\1/p' | tr -d ' ' | tr ',' '\n' | sort | tr '\n' ' ')" \
+    "$(bash "$script" names | sort | tr '\n' ' ')"
 }
 
 # hook_command: the deps-index command string from hooks.json with the plugin root filled in.
