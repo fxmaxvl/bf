@@ -244,6 +244,15 @@ t_list_cases_non_ascii_dir() {
   eq cases-with-tag-non-ascii-dir "$(rg cases_with_tag HEAD cafe)" "café-case"
 }
 
+t_list_cases_quote_dir() {
+  make_ctx
+  put 'evals/say-"hi"/case.yaml' 'name: say-hi\ntags: [q]\n'
+  put 'evals/back\\slash/case.yaml' 'name: back\ntags: [q]\n'
+  g add -A && g commit -qm quote
+  eq list-cases-quote-head "$(rg list_cases HEAD | tr '\n' ' ')" 'alpha-case back\\slash beta-case say-"hi" '
+  eq list-cases-quote-wt "$(rg list_cases WT | tr '\n' ' ')" 'alpha-case back\\slash beta-case say-"hi" '
+}
+
 t_cases_with_tag() {
   make_ctx
   put evals/alpha-two/case.yaml 'name: alpha-two\ntags: [alpha, extra]\n'
