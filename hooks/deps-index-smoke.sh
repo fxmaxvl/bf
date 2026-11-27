@@ -284,6 +284,24 @@ EOF
   check "held lock: build skips" "$([ -e "$repo/.bf/cache/deps.json" ] && echo yes || echo no)" no
   check "held lock: lock dir stays" "$([ -d "$repo/.bf/cache/deps.lock" ] && echo yes || echo no)" yes
 
+  # A build that lost its lock to a steal must neither remove the new holder's lock nor its work files.
+  ctx_init
+  put package.json <<'EOF'
+{"dependencies":{"a":"1"}}
+EOF
+  local lk=$repo/.bf/cache/deps.lock pa pb i
+  (cd "$repo" && DEPS_INDEX_TEST_DELAY=2 exec bash "$script" build) & pa=$!
+  for i in 1 2 3 4 5 6 7 8 9 10; do [ -s "$lk/owner" ] && break; sleep 0.5; done
+  echo $(($(date +%s) - 120)) > "$lk/started"
+  (cd "$repo" && DEPS_INDEX_TEST_DELAY=5 exec bash "$script" read > "$tmp/steal.out" 2>&1) & pb=$!
+  for i in 1 2 3 4 5 6 7 8 9 10; do [ "$(cat "$lk/owner" 2>/dev/null)" = "$pb" ] && break; sleep 0.5; done
+  check "steal: the second build owns the lock" "$(cat "$lk/owner" 2>/dev/null)" "$pb"
+  wait "$pa"
+  check "steal: the first build leaves the new lock" "$(cat "$lk/owner" 2>/dev/null)" "$pb"
+  wait "$pb"; rc=$?
+  check "steal: the second build finishes" "$rc:$(cat "$tmp/steal.out")" '0:[{"name":"a","version":"1","manifest":"package.json"}]'
+  check "steal: no lock or work dir remains" "$(ls -A "$repo/.bf/cache" | grep -c 'deps[.]\(lock\|work\)')" 0
+
   ctx_init
   mkdir -p -m 755 "$repo/.bf/cache"
   put package.json <<'EOF'

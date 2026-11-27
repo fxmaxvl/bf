@@ -24,6 +24,7 @@ MANIFEST_NAMES="package.json BUILD.bazel BUILD MODULE.bazel pom.xml build.gradle
 root=
 cache=
 lock=
+touched=0
 
 is_manifest() {
   local pat
@@ -43,15 +44,23 @@ open_repo() {
   [ -e "$cache/.gitignore" ] || printf '*\n' > "$cache/.gitignore"
 }
 
-# lock_acquire <wait_seconds>: mkdir is atomic and flock(1) is missing on macOS. A lock older than 60 seconds
-# belongs to a killed build. The EXIT trap is set only after mkdir succeeds, or a skipped caller would delete
-# the lock of the live build.
+# lock_acquire <wait_seconds>: mkdir is atomic and flock(1) is missing on macOS. The lock holds the owner PID
+# and a start time. A lock older than 60 seconds belongs to a killed build, and a live build refreshes the
+# time (lock_touch). The EXIT trap is set only after mkdir succeeds, and it removes the lock only while the
+# lock still names this process, or a build that lost its lock would delete the lock of the next holder.
+# The work files live outside the lock dir (deps.work.<pid>), so a steal cannot delete them.
 lock_acquire() {
-  local wait=$1 waited=0 started now
+  local wait=$1 waited=0 started now d
   while :; do
     if mkdir "$lock" 2>/dev/null; then
       date +%s > "$lock/started"
-      trap 'rm -rf "$lock"' EXIT
+      printf '%s\n' "$$" > "$lock/owner"
+      trap lock_release EXIT
+      set +f
+      for d in "$cache"/deps.work.*; do
+        [ -d "$d" ] && ! kill -0 "${d##*.}" 2>/dev/null && rm -rf "$d"
+      done
+      set -f
       return 0
     fi
     now=$(date +%s)
@@ -68,6 +77,21 @@ lock_acquire() {
     sleep 1
     waited=$((waited + 1))
   done
+}
+
+lock_release() {
+  [ "$(cat "$lock/owner" 2>/dev/null)" = "$$" ] && rm -rf "$lock"
+  rm -rf "$cache/deps.work.$$"
+  rm -f "$cache/deps.json.tmp.$$"
+}
+
+# lock_touch: refreshes the start time at most every 10 seconds. A build on a large repo passes 60 seconds,
+# and without it a second caller would steal the lock of a live build.
+lock_touch() {
+  [ $((SECONDS - touched)) -ge 10 ] || return 0
+  touched=$SECONDS
+  date +%s > "$lock/started" 2>/dev/null
+  return 0
 }
 
 parse_package_json() {
@@ -245,12 +269,13 @@ parse_entry() {
 
 # build_index: the caller holds the lock. It parses only the manifests whose content hash changed.
 build_index() {
-  local work=$lock/work old=$cache/deps.json p h tmp
+  local work=$cache/deps.work.$$ old=$cache/deps.json p h tmp
   local -a paths=()
   mkdir -p "$work" || return 1
   while IFS= read -r -d '' p; do
     case $p in *$'\n'*) continue ;; esac
     is_manifest "${p##*/}" && [ -f "$root/$p" ] && paths+=("$p")
+    lock_touch
   done < <(git -C "$root" ls-files -z)
 
   : > "$work/cur.tsv"
@@ -269,6 +294,7 @@ build_index() {
   : > "$work/new.jsonl"
   while IFS=$'\t' read -r p h; do
     parse_entry "$p" "$h" >> "$work/new.jsonl"
+    lock_touch
   done < "$work/changed.tsv"
 
   [ -n "${DEPS_INDEX_TEST_DELAY:-}" ] && sleep "$DEPS_INDEX_TEST_DELAY"
