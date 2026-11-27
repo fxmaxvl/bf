@@ -14,7 +14,8 @@
 #        "parse <path>" on stderr for each manifest that is parsed. DEPS_INDEX_TEST_DELAY=<seconds> makes
 #        build wait before it writes.
 # Output: build prints nothing. read prints nothing when it fails, when jq is missing, when the directory is
-#         not a git repo, or when a live build holds the lock for more than 5 seconds.
+#         not a git repo, when a live build holds the lock for more than 5 seconds, or when every path is
+#         outside the repo.
 # Limits: only tracked manifests count, so a new manifest is invisible until it is staged. BUILD files keep
 #         external labels only (@repo//...). The awk parsers read the common table shapes and are best
 #         effort. A manifest that fails to parse gets error true and no dependencies.
