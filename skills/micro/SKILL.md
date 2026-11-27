@@ -232,7 +232,7 @@ Print banner: `── bf:micro | Finalize ────────────�
      [--closes-issue <github_issue.number>]   # only if github_issue.enabled \
      [--jira-url <jira.ticket_url>]           # only if jira.enabled
    ```
-   The script stages tracked edits, every untracked file made since the session started (anything not in `paths.untracked_baseline`), the `--add` files and `.bf/conventions/`. It commits if there are changes, pushes, creates the PR, and outputs the PR URL.
+   The script stages tracked edits, every untracked file made since the session started (anything not in `paths.untracked_baseline`), the `--add` files and `.bf/conventions/`. It commits if there are changes, pushes, creates the PR, and outputs the PR URL. When the branch already has an open PR, it keeps that PR's title and description, posts the body as a PR comment (once), and adds only a missing closing line for `--closes-issue` to the description.
    On exit 1, 3, 4, 5 or 6, read the header of `finalize-git.sh`, which owns each exit's meaning and recovery. Show the stderr, follow that recovery, then rerun. Under `/bf:autopilot`, rerun after exit 3 with `--leave-untracked`.
 6. If `jira.enabled` and state `commit_only` is not `true`:
    - Invoke the `jira` skill: `transition-to(jira.ticket_key, "To Review")`
