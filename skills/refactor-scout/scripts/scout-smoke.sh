@@ -218,5 +218,16 @@ done <<<"$unit"
 grep -q 'BUDGET_S = int(os.environ.get("SCOUT_BUDGET_S", "480"))' "$dir/scout.py" && ok "the default budget is 480 s" || bad "the default budget is 480 s"
 grep -q 'timeout: 600000' "$dir/../SKILL.md" && ok "SKILL.md passes timeout 600000" || bad "SKILL.md passes timeout 600000"
 
+budget_s=$(sed -n 's/^BUDGET_S = int(os.environ.get("SCOUT_BUDGET_S", "\([0-9]*\)")).*/\1/p' "$dir/scout.py")
+churn_s=$(sed -n 's/^CHURN_S = \([0-9]*\).*/\1/p' "$dir/scout.py")
+grace_s=$(sed -n 's/^TERM_GRACE_S = \([0-9]*\).*/\1/p' "$dir/../../feature/scripts/measured_tools.py")
+timeout_s=$(sed -n 's/.*timeout: \([0-9]*\)000.*/\1/p' "$dir/../SKILL.md" | head -1)
+if [ -n "$budget_s" ] && [ -n "$churn_s" ] && [ -n "$grace_s" ] && [ -n "$timeout_s" ] \
+  && [ $((budget_s + churn_s + grace_s)) -lt "$timeout_s" ]; then
+  ok "SCOUT_BUDGET_S + CHURN_S + TERM_GRACE_S ($budget_s + $churn_s + $grace_s) is under the ${timeout_s} s timeout"
+else
+  bad "SCOUT_BUDGET_S + CHURN_S + TERM_GRACE_S ($budget_s + $churn_s + $grace_s) is under the ${timeout_s} s timeout"
+fi
+
 echo "---- $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

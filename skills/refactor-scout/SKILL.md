@@ -29,7 +29,7 @@ Pick the mode from the first word of the argument:
 
 A candidate id is `C3`, `D1` or `M2`, or `<run>/<id>` for a run other than the latest one.
 
-Every call to `scout.sh scan` and `scout.sh check` passes `timeout: 600000` on the Bash call. The script stops its tools at 480 s and churn after another 45 s (`SCOUT_BUDGET_S` and `CHURN_S` in `scout.py`), so keep the two in step.
+Every call to `scout.sh scan` and `scout.sh check` passes `timeout: 600000` on the Bash call. The script stops its tools at 480 s. File churn and function churn then share one 45 s limit (`SCOUT_BUDGET_S` and `CHURN_S` in `scout.py`). A tool past its limit gets 5 s of TERM grace on top, and `scout-smoke.sh` checks that the sum stays under 600 s.
 
 ## Scan
 

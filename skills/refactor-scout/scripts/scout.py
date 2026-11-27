@@ -14,7 +14,7 @@ from measured_tools import (CRAP_LIMIT, DRY_THRESHOLD, TOOL_EXTS, check_tools, c
 BUDGET_S = int(os.environ.get("SCOUT_BUDGET_S", "480"))  # the override is test-only
 CRAPPER_FILE_S = 60
 DRYER_S = 120
-CHURN_S = 45
+CHURN_S = 45  # one deadline for file churn and function churn together
 CHURN_DAYS = 182
 FUNCTION_CHURN_TOP = 15
 FUNCTION_CHURN_S = 10
@@ -152,17 +152,10 @@ def score_crapper(path, files, mode_for, deadline, notes):
 
 def dryer_pairs(path, files, deadline, notes):
     pairs = []
-    for score, left, right in run_dryer(path, files, min(DRYER_S, deadline - time.time()), notes):
-        sides = [{"file": f, "function": span_name(f, int(a)), "start": int(a), "end": int(b)} for f, a, b in (left, right)]
-        pairs.append({"a": sides[0], "b": sides[1], "score": float(score)})
+    for row in run_dryer(path, files, lambda: min(DRYER_S, deadline - time.time()), notes):
+        sides = [dict(span, function=span_name(span["file"], span["start"])) for span in (row["a"], row["b"])]
+        pairs.append({"a": sides[0], "b": sides[1], "score": row["score"]})
     return pairs
-
-
-def mutator_rows(path, files, mode, deadline, notes):
-    survivors = run_mutator(path, files, mode, deadline - time.time(), notes)
-    if survivors is None:
-        return None
-    return [{"file": f, "line": line, "survived": n, "function": name} for f, line, n, name in survivors]
 
 
 def pair_key(pair):
@@ -315,13 +308,12 @@ def run_tools(ready, runnable, files, deadline, notes):
         if "mutator" in runnable:
             measured = tool_files("mutator", files)
             mode = mutator_mode(measured)
-            survivors = mutator_rows(ready["mutator"], measured, mode, deadline, notes)
-            results["mutator"] = [dict(s, score=s["survived"], mode=mode) for s in survivors or []]
+            survivors = run_mutator(ready["mutator"], measured, mode, lambda: deadline - time.time(), notes)
+            results["mutator"] = [dict(s, mode=mode) for s in survivors or []]
     return results
 
 
-def rank_groups(results, churn, since, uncommitted, notes):
-    churn_deadline = time.time() + CHURN_S
+def rank_groups(results, churn, since, uncommitted, churn_deadline, notes):
     groups = {}
     if "crapper" in results:
         add_function_churn(results["crapper"], churn, since, churn_deadline, uncommitted)
@@ -379,14 +371,15 @@ def scan(argv):
     results = run_tools(ready, runnable, files, started + BUDGET_S, notes)
 
     since, until = churn_since()
-    churn = file_churn(scope, since, time.time() + CHURN_S, notes)
+    churn_deadline = time.time() + CHURN_S
+    churn = file_churn(scope, since, churn_deadline, notes)
     uncommitted = changed_files("HEAD") & set(files)
     for f in uncommitted:
         churn[f] += 1
     if uncommitted:
         notes.append("%d files in scope are untracked or changed against HEAD. They count as active, not stable."
                      % len(uncommitted))
-    groups = rank_groups(results, churn, since, uncommitted, notes)
+    groups = rank_groups(results, churn, since, uncommitted, churn_deadline, notes)
     data = {"run": None, "created": time.strftime("%Y-%m-%d %H:%M"), "head": head.strip(), "scope": scope,
             "churn_window": [since, until], "files": files, "tools": status, "notes": notes, "seconds": round(time.time() - started),
             "crap_over": sorted(key(r["file"], r["function"]) for r in results.get("crapper", [])),
@@ -566,7 +559,8 @@ def check_dryer(path, data, cand, touched, notes):
 def check_mutator(path, data, cand, touched, notes):
     if not os.path.isfile(cand["file"]):
         return "UNKNOWN", {}, {"reason": "the file is gone"}
-    survivors = mutator_rows(path, [cand["file"]], cand["mode"], time.time() + BUDGET_S, notes)
+    deadline = time.time() + BUDGET_S
+    survivors = run_mutator(path, [cand["file"]], cand["mode"], lambda: deadline - time.time(), notes)
     if survivors is None:
         return "UNKNOWN", {}, {"reason": "mutator gave no result"}
     count = sum(s["survived"] for s in survivors if s["function"] == cand["function"])

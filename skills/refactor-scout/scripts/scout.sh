@@ -17,8 +17,9 @@
 #   check -> {"run", "id", "verdict": "PASS"|"FAIL"|"UNKNOWN", "done_when", "before", "after", "details",
 #            "touched", "notes"}
 #
-# Time limit: tools stop at SCOUT_BUDGET_S (480) and churn at 45 s. SKILL.md passes timeout 600000 on
-# every scan and check call. Keep the sum under that value.
+# Time limit: tools stop at SCOUT_BUDGET_S (480) and churn stops 45 s (CHURN_S) after the tools, file churn and
+# function churn together. A tool past its limit also gets 5 s of TERM grace. SKILL.md passes timeout 600000 on
+# every scan and check call. scout-smoke.sh checks that the three add up to less than that value.
 #
 # Side effect: the tools write .metrics, target and coverage at the repository root. Each run removes the
 # ones it created, as measured-gate.sh does.

@@ -130,24 +130,30 @@ def main():
 
         if "dryer" in ready:
             ran.append("dryer")
-            pairs = run_dryer(ready["dryer"], paths, remaining(time.time() + DRYER_BUDGET_S), notes)
+            cap = time.time() + DRYER_BUDGET_S
+            pairs = run_dryer(ready["dryer"], paths, lambda: remaining(cap), notes)
             if len(pairs) > MAX_FINDINGS:
                 notes.append("dryer reported %d pairs, showing the closest %d." % (len(pairs), MAX_FINDINGS))
             if pairs:
                 lines = ["#### Measured / Duplicate structure — dryer"]
-                for score, left, right in pairs[:MAX_FINDINGS]:
-                    lines.append("- `%s:%s-%s`: matches `%s:%s-%s` at score %s. **Suggestion:** extract the shared shape "
-                                 "if the two must change together." % (left + right + (score,)))
+                for pair in pairs[:MAX_FINDINGS]:
+                    left, right = pair["a"], pair["b"]
+                    lines.append("- `%s:%d-%d`: matches `%s:%d-%d` at score %s. **Suggestion:** extract the shared shape "
+                                 "if the two must change together."
+                                 % (left["file"], left["start"], left["end"], right["file"], right["start"],
+                                    right["end"], pair["score_text"]))
                 groups.append(lines)
 
         if "mutator" in ready:
             ran.append("mutator")
-            survivors = run_mutator(ready["mutator"], paths, mutator_mode(paths), remaining(deadline), notes)
+            survivors = run_mutator(ready["mutator"], paths, mutator_mode(paths), lambda: remaining(deadline), notes)
             if survivors:
                 lines = ["#### Measured / Surviving mutants — mutator"]
-                for file_, line, count, name in survivors[:MAX_FINDINGS]:
+                for row in survivors[:MAX_FINDINGS]:
+                    count = row["survived"]
                     lines.append("- `%s:%d`: %d %s in `%s`. **Suggestion:** add a test that fails for the mutated behavior."
-                                 % (file_, line, count, "mutant survives" if count == 1 else "mutants survive", name))
+                                 % (row["file"], row["line"], count, "mutant survives" if count == 1 else "mutants survive",
+                                    row["function"]))
                 if len(survivors) > MAX_FINDINGS:
                     notes.append("mutator reported %d functions with survivors, showing %d." % (len(survivors), MAX_FINDINGS))
                 groups.append(lines)

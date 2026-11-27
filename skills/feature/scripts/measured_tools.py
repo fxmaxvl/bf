@@ -23,7 +23,8 @@ CRAP_LIMIT = 10
 DRY_THRESHOLD = "0.82"  # the string is the exact dryer argument
 USE_COVERAGE = "--use-existing-coverage"
 NO_COVERAGE = "--no-coverage"
-# The extensions the gate measures. Each tool's own set is in TOOL_EXTS and is wider.
+# The extensions the gate filters on. dryer reads none of the JavaScript ones, mutator reads exactly these, and
+# crapper also reads .bb, .mts and .cts. TOOL_EXTS has each tool's own set.
 SUPPORTED = {".clj", ".cljs", ".cljc", ".java", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".rs", ".py"}
 # From each tool's --help. dryer reads no JavaScript, crapper and mutator do.
 TOOL_EXTS = {
@@ -238,8 +239,19 @@ def run_crapper(path, files, mode_for, limit_for, notes):
     return rows
 
 
-def run_dryer(path, files, limit, notes):
-    """Run dryer over all files at DRY_THRESHOLD. Returns (score, left, right) tuples, empty after a note."""
+def dryer_rows(text):
+    """One row per pair: score, score_text (the score as dryer printed it) and the spans a and b."""
+    rows = []
+    for score, left, right in parse_dryer(text):
+        sides = [{"file": f, "start": int(a), "end": int(b)} for f, a, b in (left, right)]
+        rows.append({"score": float(score), "score_text": score, "a": sides[0], "b": sides[1]})
+    return rows
+
+
+def run_dryer(path, files, limit_for, notes):
+    """Run dryer over all files at DRY_THRESHOLD. limit_for() gives the seconds left. Returns the pair rows,
+    empty after a note."""
+    limit = limit_for()
     result = run_tool([path, "--threshold", DRY_THRESHOLD] + files, limit) if limit > 1 else None
     if result is None:
         notes.append("dryer hit its time limit, no duplicates reported.")
@@ -247,16 +259,23 @@ def run_dryer(path, files, limit, notes):
     if result[0] != 0:
         notes.append("dryer failed: %s" % first_line(result[2] or result[1]))
         return []
-    return parse_dryer(result[1])
+    return dryer_rows(result[1])
 
 
 def mutator_mode(files):
     return coverage_flag(all(has_report(f) for f in files))
 
 
-def run_mutator(path, files, mode, limit, notes):
-    """Run mutator. Exit code 2 means it skipped the run, 0 and 3 mean a result. Returns the surviving mutants as
-    (file, line, survived, function) tuples, or None after a note."""
+def mutator_rows(snapshots):
+    """One row per function with survivors, from the (file, line, survived, function) snapshot tuples."""
+    return [{"file": f, "line": line, "survived": n, "function": name, "score": n} for f, line, n, name in snapshots]
+
+
+def run_mutator(path, files, mode, limit_for, notes):
+    """Run mutator. limit_for() gives the seconds left. Exit code 2 means it skipped the run, 0 and 3 mean a result.
+    Returns one row per function with survivors, or None after a note, so a caller can tell a skipped run from a
+    clean one."""
+    limit = limit_for()
     result = run_tool([path, mode] + files, limit) if limit > 1 else None
     if result is None:
         notes.append("mutator hit the time budget, no mutation result reported.")
@@ -267,7 +286,7 @@ def run_mutator(path, files, mode, limit, notes):
     if result[0] not in (0, 3):
         notes.append("mutator failed: %s" % first_line(result[2] or result[1]))
         return None
-    return parse_mutator_snapshots(files)
+    return mutator_rows(parse_mutator_snapshots(files))
 
 
 def existing_run_dirs():
