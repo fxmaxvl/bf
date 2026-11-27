@@ -302,13 +302,16 @@ cases_fallback() {
   run "$(input '{"last_assistant_message":"We could try alpha one, then alpha two."}')"
   eq "a malformed answer never runs the fallback" "$out" ""
 
-  local ask_timeout t0 t1
-  ask_timeout=$(sed -n 's/^SUGGEST_ASK_TIMEOUT=//p' "$hook")
+  # The bound is one second under the hooks.json limit, so a loaded machine still ends in time.
+  local ask_timeout limit bound t0 t1
+  ask_timeout=$(unit 'printf %s "$SUGGEST_ASK_TIMEOUT"')
+  limit=$(jq -r '[.hooks.Stop[].hooks[] | select(.command | test("hooks/skill-suggest-stop[.]sh\"$")) | .timeout][0]' "$hooks/hooks.json")
+  bound=$((limit - 1))
   stub 3 "" "$ask_timeout"
   t0=$(perl -MTime::HiRes=time -e 'printf "%.3f\n", time')
   run "$(input '{"session_id":"slow","last_assistant_message":"We could try alpha one, then alpha two."}')"
   t1=$(perl -MTime::HiRes=time -e 'printf "%.3f\n", time')
-  eq "a slow TypeSafe call ends with the fallback tip in under 7 seconds" "$(awk -v a="$t0" -v b="$t1" 'BEGIN { exit !(b - a < 7) }' && tip_text "$out")" "Tip: /bf:alpha fits this. Use it when the user wants alpha work."
+  eq "a slow TypeSafe call ends with the fallback tip in under $bound seconds" "$(awk -v a="$t0" -v b="$t1" -v m="$bound" 'BEGIN { exit !(b - a < m) }' && tip_text "$out")" "Tip: /bf:alpha fits this. Use it when the user wants alpha work."
 }
 
 cases_unavailable() {
